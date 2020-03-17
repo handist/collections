@@ -11,11 +11,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import apgas.Configuration;
+import static apgas.Constructs.*;
 import apgas.GlobalRuntime;
 import apgas.impl.Config;
 import apgas.impl.Launcher;
 import mpi.MPI;
 import mpi.MPIException;
+import handist.util.dist.TeamedPlaceGroup;
 
 /**
  * The {@link ApgasMPILauncher} class implements a launcher using MPI.
@@ -241,6 +243,7 @@ final public class ApgasMPILauncher implements Launcher {
 
     if (commRank == 0) {
 
+	TeamedPlaceGroup.worldSetup();
       try {
         final Method mainMethod = Class.forName(restArgs[0]).getMethod("main",
             String[].class);
@@ -256,6 +259,8 @@ final public class ApgasMPILauncher implements Launcher {
       }
     } else {
       slave();
+    System.err.println("[ApgasMPILauncher] rank = " + commRank + ", here" + here()); 
+	TeamedPlaceGroup.worldSetup();      
     }
 
     MPI.Finalize();
