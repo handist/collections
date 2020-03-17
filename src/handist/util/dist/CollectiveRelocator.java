@@ -49,7 +49,7 @@ public class CollectiveRelocator {
             current += rcvSize[i];
         }
         byte[] recvbuf = new byte[current];
-        placeGroup.comm.Alltoallv(byteArray, 0, sendSize, sendOffset, MPI.BYTE, recvbuf, 0, rcvSize, rcvOffset, MPI.BYTE);
+        placeGroup.Alltoallv(byteArray, 0, sendSize, sendOffset, MPI.BYTE, recvbuf, 0, rcvSize, rcvOffset, MPI.BYTE);
         return recvbuf;
     }
 
