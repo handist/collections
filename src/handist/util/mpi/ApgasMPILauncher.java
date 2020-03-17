@@ -1,5 +1,7 @@
 package handist.util.mpi;
 
+import static apgas.Constructs.*;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -7,17 +9,15 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.List;
 
 import apgas.Configuration;
-import static apgas.Constructs.*;
 import apgas.GlobalRuntime;
 import apgas.impl.Config;
 import apgas.impl.Launcher;
+import handist.util.dist.TeamedPlaceGroup;
 import mpi.MPI;
 import mpi.MPIException;
-import handist.util.dist.TeamedPlaceGroup;
 
 /**
  * The {@link ApgasMPILauncher} class implements a launcher using MPI.
@@ -209,62 +209,49 @@ final public class ApgasMPILauncher implements Launcher {
    */
   // }
 
-  public static void main(String[] args) throws Exception {
-	ArrayList<String> bag = new ArrayList<>();
-	String[] mpiArgs = new String[0];
-	String[] restArgs = new String[0];
-	for(int i = 0; i<args.length; i++) {
-		if(args[i].equals("-body")) {
-			mpiArgs = bag.toArray(mpiArgs);
-			bag.clear();
-		} else {
-			bag.add(args[i]);
-		}
-	}
-	restArgs = bag.toArray(restArgs);
-	System.err.println("mpiArgs:"+ java.util.Arrays.toString(mpiArgs));
-	System.err.println("restArgs:"+java.util.Arrays.toString(restArgs));
+    public static void main(String[] args) throws Exception {
 
-    if (mpiArgs.length==0 || restArgs.length==0) {
-        // TODO refine error message after preparing launch script.
-        System.err.println("[ApgasMPILauncher] Error Main Class Required.");
+        if (args.length < 1) {
+            // TODO refine error message after preparing launch script.
+            System.err.println("[ApgasMPILauncher] Error Main Class Required.");
+            System.exit(0);
+        }
+
+        MPI.Init(args);
+        commRank = MPI.COMM_WORLD.Rank();
+        commSize = MPI.COMM_WORLD.Size();
+
+        System.err.println("[ApgasMPILauncher] rank = " + commRank);
+
+        System.setProperty(Configuration.APGAS_PLACES, Integer.toString(commSize));
+        System.setProperty(Config.APGAS_LAUNCHER, "handist.util.mpi.ApgasMPILauncher");
+        String[] restArgs = new String[args.length-1];
+        System.arraycopy(args, 1, restArgs, 0, args.length-1);
+
+        if (commRank == 0) {
+
+            TeamedPlaceGroup.worldSetup();
+            try {
+                final Method mainMethod = Class.forName(restArgs[0]).getMethod("main",
+                        String[].class);
+                final Object[] mainArgs = new Object[1];
+                mainArgs[0] = restArgs;
+                mainMethod.invoke(null, mainArgs);
+                MPI.Finalize();
+                System.exit(0);
+            } catch (final Exception e) {
+                e.printStackTrace();
+                MPI.Finalize();
+                System.exit(0);
+            }
+        } else {
+            slave();
+            System.err.println("[ApgasMPILauncher] rank = " + commRank + ", here" + here());
+            TeamedPlaceGroup.worldSetup();
+        }
+
         MPI.Finalize();
         System.exit(0);
-      }
-
-    MPI.Init(mpiArgs);
-    commRank = MPI.COMM_WORLD.Rank();
-    commSize = MPI.COMM_WORLD.Size();
-
-    System.err.println("[ApgasMPILauncher] rank = " + commRank);
-
-    System.setProperty(Configuration.APGAS_PLACES, Integer.toString(commSize));
-    System.setProperty(Config.APGAS_LAUNCHER, "handist.util.mpi.ApgasMPILauncher");
-
-    if (commRank == 0) {
-
-	TeamedPlaceGroup.worldSetup();
-      try {
-        final Method mainMethod = Class.forName(restArgs[0]).getMethod("main",
-            String[].class);
-        final Object[] mainArgs = new Object[1];
-        mainArgs[0] = restArgs;
-        mainMethod.invoke(null, mainArgs);
-        MPI.Finalize();
-        System.exit(0);
-      } catch (final Exception e) {
-        e.printStackTrace();
-        MPI.Finalize();
-        System.exit(0);
-      }
-    } else {
-      slave();
-    System.err.println("[ApgasMPILauncher] rank = " + commRank + ", here" + here()); 
-	TeamedPlaceGroup.worldSetup();      
     }
-
-    MPI.Finalize();
-    System.exit(0);
-  }
 
 }
