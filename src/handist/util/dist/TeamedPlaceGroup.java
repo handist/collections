@@ -15,8 +15,10 @@ import java.util.List;
 import apgas.Place;
 import apgas.SerializableJob;
 import apgas.util.GlobalID;
+import mpi.Datatype;
 import mpi.Intracomm;
 import mpi.MPI;
+import mpi.MPIException;
 
 // TODO split, merge with ResilientPlaceGroup, ..
 public class TeamedPlaceGroup implements Serializable {
@@ -160,7 +162,17 @@ public class TeamedPlaceGroup implements Serializable {
         });
     }
 
-
+    public void Alltoallv(Object byteArray, int soffset, int[] sendSize, int[] sendOffset, Datatype stype,
+            Object recvbuf, int roffset, int[] rcvSize, int[] rcvOffset, Datatype rtype) throws MPIException {
+        if(false) {
+            this.comm.Alltoallv(byteArray, soffset, sendSize, sendOffset, stype, recvbuf,  roffset,  rcvSize,  rcvOffset, rtype);
+        } else {
+            for(int rank=0; rank<rcvSize.length; rank++) {
+                this.comm.Gatherv(byteArray, soffset + sendOffset[rank], sendSize[rank], stype,
+                        recvbuf, roffset, rcvSize, rcvOffset, rtype, rank);
+            }
+        }
+    }
 
     public static void main(String[] args) {
         TeamedPlaceGroup t = getWorld();

@@ -180,7 +180,7 @@ abstract class LoadBalancer {
                 rused += rcounts[i];
             }
             byte[] recvbuf = new byte[rused];
-            pg.comm.Alltoallv(sendbuf, 0, scounts, sdispls, MPI.BYTE, recvbuf, 0, rcounts, rdispls, MPI.BYTE);
+            pg.Alltoallv(sendbuf, 0, scounts, sdispls, MPI.BYTE, recvbuf, 0, rcounts, rdispls, MPI.BYTE);
 
             for (int i=0; i<np; i++) {
                 if(rcounts[i] == 0) continue;
