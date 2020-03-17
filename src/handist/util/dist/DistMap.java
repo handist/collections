@@ -4,6 +4,7 @@ import static apgas.Constructs.*;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.ObjectStreamException;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
@@ -18,44 +19,56 @@ import java.util.function.Function;
 
 import apgas.Constructs;
 import apgas.Place;
+import apgas.util.GlobalID;
 
 /**
  * A Map data structure spread over the multiple places.
  */
-public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
+public class DistMap<T,U> extends AbstractDistCollection {
 //TODO implements Relocatable
 
+    // TODO not public
+    public HashMap<T,U> data;
+
+    public Object writeReplace() throws ObjectStreamException {
+	final TeamedPlaceGroup pg1 = placeGroup;
+	final GlobalID id1 = id;
+        return new AbstractDistCollection.LazyObjectReference<DistMap<T,U>>(pg1, id1, ()-> {
+            return new DistMap<T,U>(pg1, id1);
+        });
+    }
     /**
      * Construct a DistMap.
      */
     public DistMap() {
         this(TeamedPlaceGroup.world);
     }
-
-    @Override
-    public Map<T,U> getInitData() {
-    	return new HashMap<>();
-    }
-
     /**
      * Construct a DistMap with the given argument.
      *
      * @param placeGroup PlaceGroup.
      */
     public DistMap(TeamedPlaceGroup pg) {
-        super(pg, new HashMap<T,U>());
+        super(pg);
+        this.data = new HashMap<>();
     }
+
+    public DistMap(TeamedPlaceGroup pg, GlobalID id) {
+        super(pg, id);
+        this.data = new HashMap<>();
+    }
+
 
     public static interface Generator<K,V> extends BiConsumer<Place, DistMap<K,V>>, Serializable {
     }
 
     public static <K,V> DistMap<K,V> make(TeamedPlaceGroup pg, Generator<K, V> gen) {
-    	Place from = here();
-    	DistMap<K,V> dmap = new DistMap<K,V>(pg);
-    	pg.broadcastFlat(()->{
-    		gen.accept(here(), dmap);
-    	});
-    	return dmap;
+        Place from = here();
+        DistMap<K,V> dmap = new DistMap<K,V>(pg);
+        pg.broadcastFlat(()->{
+            gen.accept(here(), dmap);
+        });
+        return dmap;
     }
 
 
@@ -105,14 +118,14 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
     }
 
     private U putForMove(T key, U value) {
-    	if (data.containsKey(key)) {
-    		throw new RuntimeException("DistMap cannot override existing entry: " + key);
-    	}
-    	return data.put(key, value);
+        if (data.containsKey(key)) {
+            throw new RuntimeException("DistMap cannot override existing entry: " + key);
+        }
+        return data.put(key, value);
     }
 
     public boolean delete(T key) {
-    	U result = data.remove(key);
+        U result = data.remove(key);
         return (result!=null);
     }
 
@@ -131,7 +144,7 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
      * @param op the operation.
      */
     public void forEach(BiConsumer<T,U> op) {
-        data.forEach(op);
+	if(!data.isEmpty()) data.forEach(op);
     }
 
     /**
@@ -141,8 +154,9 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
      * @return a DistMap which consists of the results of the operation.
      */
     public <S> DistMap<T,S> map(Function<U,S> op) {
-    	// TODO
-    	/*
+        throw new Error("not supported yet");
+        // TODO
+        /*
         return new DistMap<T,S>(placeGroup, team, () -> {
             val dst = new HashMap<T,S>();
             for (entry in entries()) {
@@ -152,7 +166,6 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
             }
             return dst;
         });*/
-    	return null;
     }
 
     /**
@@ -163,7 +176,7 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
      * @return the result of the reduction.
      */
     public U reduce(BiFunction<U,U,U> op, U unit) {
-    	return reduce(op, op, unit);
+        return reduce(op, op, unit);
     }
 
     /**
@@ -175,9 +188,9 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
      * @return the result of the reduction.
      */
     public <S> S reduce(BiFunction<S,U,S> lop, BiFunction<S,S,S> gop, S unit) {
-    	// TODO
-    	throw new Error("Not implemented yet.");
-    	/*
+        // TODO
+        throw new Error("Not implemented yet.");
+        /*
         val reducer = new Reducible[S]() {
             public def zero() = unit;
             public operator this(a: S, b: S) = gop(a, b);
@@ -198,7 +211,7 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
      * @return the result of the reduction.
      */
     public <S> S reduceLocal(BiFunction<S,U,S> Fop, S unit) {
-    	// TODO may be build-in method for Map
+        // TODO may be build-in method for Map
         S accum = unit;
         for (Map.Entry<T, U> entry: data.entrySet()) {
             accum = Fop.apply(accum, entry.getValue());
@@ -242,12 +255,12 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
      * @param mm MoveManagerLocal
      */
     public void moveAtSync(T key, Place pl, MoveManagerLocal mm) {
-    	if (pl.equals(Constructs.here())) return;
-    	final DistMap<T,U> toBranch = this;
+        if (pl.equals(Constructs.here())) return;
+        final DistMap<T,U> toBranch = this;
         Serializer serialize = (ObjectOutputStream s) -> {
-        	U value = this.remove(key);
-        	s.writeObject(key);
-        	s.writeObject(value);
+            U value = this.remove(key);
+            s.writeObject(key);
+            s.writeObject(value);
         };
         DeSerializer deserialize = (ObjectInputStream ds) -> {
             T k = (T)ds.readObject();
@@ -261,21 +274,21 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
         if (pl.equals(Constructs.here())) return;
         final DistMap<T,U> collection = this;
         Serializer serialize = (ObjectOutputStream s) -> {
-        	int size = keys.size();
-        	s.writeInt(size);
-        	for (T key: keys) {
-        		U value = collection.remove(key);
-        		s.writeObject(key);
-        		s.writeObject(value);
-        	}
+            int size = keys.size();
+            s.writeInt(size);
+            for (T key: keys) {
+                U value = collection.remove(key);
+                s.writeObject(key);
+                s.writeObject(value);
+            }
         };
         DeSerializer deserialize = (ObjectInputStream ds) -> {
-        	int size = ds.readInt();
-        	for (int i =1; i<= size; i++) {
-        		T key = (T)ds.readObject();
-        		U value = (U)ds.readObject();
-        		collection.putForMove(key, value);
-        	}
+            int size = ds.readInt();
+            for (int i =1; i<= size; i++) {
+                T key = (T)ds.readObject();
+                U value = (U)ds.readObject();
+                collection.putForMove(key, value);
+            }
         };
         mm.request(pl, serialize, deserialize);
     }
@@ -284,28 +297,28 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
         DistMap<T,U> collection = this;
         HashMap<Place, List<T>> keysToMove = new HashMap<>();
         collection.forEach((T key, U value) -> {
-        	Place destination = rule.apply(key);
-        	if (!keysToMove.containsKey(destination)) {
-        		keysToMove.put(destination, new ArrayList<T>());
-        	}
-        	keysToMove.get(destination).add(key);
+            Place destination = rule.apply(key);
+            if (!keysToMove.containsKey(destination)) {
+                keysToMove.put(destination, new ArrayList<T>());
+            }
+            keysToMove.get(destination).add(key);
         });
         for (Map.Entry<Place, List<T>> entry: keysToMove.entrySet()) {
-        	moveAtSync(entry.getValue(), entry.getKey(), mm);
+            moveAtSync(entry.getValue(), entry.getKey(), mm);
         }
     }
 
     public void moveAtSync(Distribution<T> dist, MoveManagerLocal mm) {
-    	Function<T,Place> rule = (T key) -> { return dist.place(key);};
-    	moveAtSync(rule, mm);
+        Function<T,Place> rule = (T key) -> { return dist.place(key);};
+        moveAtSync(rule, mm);
     }
 
     public void relocate(Function<T,Place> rule, MoveManagerLocal mm) throws Exception {
-    	for (T key: data.keySet()) {
-    		Place place = rule.apply(key);
-    		moveAtSync(key, place, mm);
-    	}
-    	mm.sync();
+        for (T key: data.keySet()) {
+            Place place = rule.apply(key);
+            moveAtSync(key, place, mm);
+        }
+        mm.sync();
     }
 
     public void relocate(Function<T,Place> rule) throws Exception {
@@ -319,27 +332,27 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
         if(debugPrint()) System.out.println(here() + " balance.check1");
         clear();
         if(debugPrint()) {
-        	System.out.println(here() + " balance.check2");
-        	System.out.println(here() + " balance.ArrayList.size() : " + data.size());
+            System.out.println(here() + " balance.check2");
+            System.out.println(here() + " balance.ArrayList.size() : " + data.size());
         }
         long time = - System.nanoTime();
         time += System.nanoTime();
         if(debugPrint()) {
 //        	System.out.println(here() + " count : " + (count) + " ms");
 //        	System.out.println(here() + " put : " + (total/(1000000)) + " ms");
-        	System.out.println(here() + " for : " + (time/(1000000)) + " ms");
-        	System.out.println(here() + " data.size() : " + size());
-        	System.out.println(here() + " balance.check3");
+            System.out.println(here() + " for : " + (time/(1000000)) + " ms");
+            System.out.println(here() + " data.size() : " + size());
+            System.out.println(here() + " balance.check3");
         }
 
     }
 
     public void balance() {
         finish(()->{
-        	for(Place p: super.placeGroup.places) {
-        		asyncAt(p, () -> {
-        			this.teamedBalance();
-        		});
+            for(Place p: super.placeGroup.places()) {
+                asyncAt(p, () -> {
+                    this.teamedBalance();
+                });
             }
         });
     }
@@ -361,8 +374,8 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
     }*/
 
     public String toString() {
-    	StringWriter out0 = new StringWriter();
-    	PrintWriter out = new PrintWriter(out0);
+        StringWriter out0 = new StringWriter();
+        PrintWriter out = new PrintWriter(out0);
         out.println("at "+ here());
         for(Map.Entry<T,U> e : data.entrySet()) {
             out.println("key : "+e.getKey() + ", value : " + e.getValue());
@@ -372,7 +385,7 @@ public class DistMap<T,U> extends AbstractDistCollection<Map<T, U>> {
     }
 
     void printLocalData(){
-    	System.out.println(this);
+        System.out.println(this);
     }
 
 }
