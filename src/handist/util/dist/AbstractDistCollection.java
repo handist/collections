@@ -39,7 +39,7 @@ public abstract class AbstractDistCollection implements Serializable {
     //    return new LaObjectReference(id, ()->{ new AbstractDistCollection<>());
 
 
-    final TeamedPlaceGroup placeGroup; // may be packed into T? or globalID??
+    public final TeamedPlaceGroup placeGroup; // may be packed into T? or globalID??
     final GlobalID id;
     //@TransientInitExpr(getLocalData())
 

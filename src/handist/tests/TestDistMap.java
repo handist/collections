@@ -82,9 +82,9 @@ public class TestDistMap implements Serializable {
 //		val d = Math.abs(h) % NPLACES;
 //		return d as Int;
 //	    })) {
-//	    Console.OUT.println("VALIDATE 1-1: SUCCESS");
+//	    System.out.println("VALIDATE 1-1: SUCCESS");
 //	} else {
-//	    Console.OUT.println("VALIDATE 1-1: FAIL");
+//	    System.out.println("VALIDATE 1-1: FAIL");
 //	}
 //
       // Move all entries to the next place
@@ -119,24 +119,24 @@ public class TestDistMap implements Serializable {
 //		val d = (Math.abs(h) + 1) % NPLACES;
 //		return d as Int;
 //	    })) {
-//	    Console.OUT.println("VALIDATE 2-1: SUCCESS");
+//	    System.out.println("VALIDATE 2-1: SUCCESS");
 //	} else {
-//	    Console.OUT.println("VALIDATE 2-1: FAIL");
+//	    System.out.println("VALIDATE 2-1: FAIL");
 //	}
 //
 //      // Move all entries to the next to next place
-//      Console.OUT.println("");
-//      Console.OUT.println("### MoveAtSync // Move all entries to the next to next place");
+//      System.out.println("");
+//      System.out.println("### MoveAtSync // Move all entries to the next to next place");
 //      Place.places().broadcastFlat(() => {
 //	    val mm = new MoveManagerLocal(placeGroup, team);
 //	    val destination = Place.places().next(here);
 //	    distMap.each((key: String, value: String) => {
-//		Console.OUT.println("" + here + " moves key: " + key + " to " + destination.id);
+//		System.out.println("" + here + " moves key: " + key + " to " + destination.id);
 //		distMap.moveAtSync(key, destination, mm);
 //	    });
 //          mm.sync();
 //	    distMap.each((key: String, value: String) => {
-//		Console.OUT.println("" + here + " moves key: " + key + " to " + destination.id);
+//		System.out.println("" + here + " moves key: " + key + " to " + destination.id);
 //		distMap.moveAtSync(key, destination, mm);
 //	    });
 //          mm.sync();
@@ -150,9 +150,9 @@ public class TestDistMap implements Serializable {
 //		val d = (Math.abs(h) + 3) % NPLACES;
 //		return d as Int;
 //	    })) {
-//	    Console.OUT.println("VALIDATE 3-1: SUCCESS");
+//	    System.out.println("VALIDATE 3-1: SUCCESS");
 //	} else {
-//	    Console.OUT.println("VALIDATE 3-1: FAIL");
+//	    System.out.println("VALIDATE 3-1: FAIL");
 //	}
 //
       // Move all entries to place 0
@@ -180,9 +180,9 @@ public class TestDistMap implements Serializable {
 //	    gather.validateLocationAndValue((key: String, pid: Int) => {
 //		return 0n;
 //	    })) {
-//	    Console.OUT.println("VALIDATE 4-1: SUCCESS");
+//	    System.out.println("VALIDATE 4-1: SUCCESS");
 //	} else {
-//	    Console.OUT.println("VALIDATE 4-1: FAIL");
+//	    System.out.println("VALIDATE 4-1: FAIL");
 //	}
 //
   }
