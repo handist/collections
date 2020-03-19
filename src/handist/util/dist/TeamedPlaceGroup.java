@@ -173,6 +173,9 @@ public class TeamedPlaceGroup implements Serializable {
             }
         }
     }
+    public void barrier() throws Exception {
+        this.comm.Barrier();
+    }
 
     public static void main(String[] args) {
         TeamedPlaceGroup t = getWorld();
@@ -182,5 +185,7 @@ public class TeamedPlaceGroup implements Serializable {
             });
         });
     }
+
+
 }
 

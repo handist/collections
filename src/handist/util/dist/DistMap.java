@@ -31,8 +31,8 @@ public class DistMap<T,U> extends AbstractDistCollection {
     public HashMap<T,U> data;
 
     public Object writeReplace() throws ObjectStreamException {
-	final TeamedPlaceGroup pg1 = placeGroup;
-	final GlobalID id1 = id;
+    final TeamedPlaceGroup pg1 = placeGroup;
+    final GlobalID id1 = id;
         return new AbstractDistCollection.LazyObjectReference<DistMap<T,U>>(pg1, id1, ()-> {
             return new DistMap<T,U>(pg1, id1);
         });
@@ -61,14 +61,14 @@ public class DistMap<T,U> extends AbstractDistCollection {
 
     public static interface Generator<K,V> extends BiConsumer<Place, DistMap<K,V>>, Serializable {
     }
-
-    public static <K,V> DistMap<K,V> make(TeamedPlaceGroup pg, Generator<K, V> gen) {
-        Place from = here();
-        DistMap<K,V> dmap = new DistMap<K,V>(pg);
-        pg.broadcastFlat(()->{
-            gen.accept(here(), dmap);
+    // TODO
+    public void setupBranches(Generator<T,U> gen) {
+        final DistMap<T,U> handle = this;
+        finish(()->{
+            placeGroup.broadcastFlat(()->{
+                gen.accept(here(), handle);
+            });
         });
-        return dmap;
     }
 
 
@@ -144,7 +144,7 @@ public class DistMap<T,U> extends AbstractDistCollection {
      * @param op the operation.
      */
     public void forEach(BiConsumer<T,U> op) {
-	if(!data.isEmpty()) data.forEach(op);
+    if(!data.isEmpty()) data.forEach(op);
     }
 
     /**

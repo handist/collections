@@ -8,7 +8,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
-
 public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
 
     private Object[] a;
@@ -21,7 +20,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
         return a;
     }
 
-    public static <T> Chunk make(Collection<T> c, LongRange range) {
+    public static <T> Chunk<T> make(Collection<T> c, LongRange range) {
         Chunk<T> a = new Chunk<T>(range);
         a.addAll(c);
         return a;

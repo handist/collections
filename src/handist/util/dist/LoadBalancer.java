@@ -293,7 +293,7 @@ class Main {
                 map(num * here.id + i) = i.toString();
             }
             val end = System.nanoTime();
-            Console.OUT.println(here + " initialize " + ((end - begin) * 1e-6) + " ms");
+            System.out.println(here + " initialize " + ((end - begin) * 1e-6) + " ms");
         }
 
         def balance(): void {
@@ -307,7 +307,7 @@ class Main {
                 map(e.getKey()) = e.getValue();
             }
             val end = System.nanoTime();
-            Console.OUT.println(here + " balance " + ((end - begin) * 1e-6) + " ms");
+            System.out.println(here + " balance " + ((end - begin) * 1e-6) + " ms");
         }
     }
 }
