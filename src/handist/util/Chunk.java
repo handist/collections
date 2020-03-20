@@ -48,20 +48,20 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
 
     @Override
     public Chunk<T> clone() {
-//        Object[] aClone = a.clone();
+        // Object[] aClone = a.clone();
         Object[] aClone = new Object[a.length];
 
-//// FIXME: 2018/09/19 Need deep copy?
-//        for (int i = 0; i < a.length; i++) {
-//            try {
-//                aClone[i] = ((Cloneable) a[i]).clone();
-//            } catch (CloneNotSupportedException e) {
-//                e.printStackTrace();
-//            }
-//        }
+        //// FIXME: 2018/09/19 Need deep copy?
+        // for (int i = 0; i < a.length; i++) {
+        // try {
+        // aClone[i] = ((Cloneable) a[i]).clone();
+        // } catch (CloneNotSupportedException e) {
+        // e.printStackTrace();
+        // }
+        // }
 
-	Arrays.fill(aClone, a[0]);
-	System.arraycopy(a, 0, aClone, 0, a.length);
+        Arrays.fill(aClone, a[0]);
+        System.arraycopy(a, 0, aClone, 0, a.length);
 
         return new Chunk<T>(this.range, aClone);
     }
@@ -73,22 +73,21 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
 
     @Override
     public Chunk<T> toChunk(LongRange newRange) {
-	Object[] newRail = toArray(newRange);
-	if (newRail == a) {
-	    return this;
-	}
+        Object[] newRail = toArray(newRange);
+        if (newRail == a) {
+            return this;
+        }
         return new Chunk<>(newRange, newRail);
     }
-
 
     @Override
     public RangedList<T> subList(long begin, long end) {
         long from = Math.max(begin, range.begin);
         long to = Math.min(end, range.end);
-	if (from > to) {
-	    throw new ArrayIndexOutOfBoundsException();
-	}
-	if (begin == range.begin && end == range.end) {
+        if (from > to) {
+            throw new ArrayIndexOutOfBoundsException();
+        }
+        if (begin == range.begin && end == range.end) {
             return this;
         }
         return new RangedListView<T>(this, new LongRange(begin, end));
@@ -96,12 +95,12 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
 
     @Override
     public T first() {
-	return get(range.begin);
+        return get(range.begin);
     }
 
     @Override
     public T last() {
-	return get(range.end - 1);
+        return get(range.end - 1);
     }
 
     @Override
@@ -112,11 +111,12 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
 
     @Override
     public T set(long i0, T v) {
-	int i = (int) (i0 - range.begin);
-	//	System.out.println("set (" + i0 + ", " + v + ") range.begin=" + range.begin + ", i = " + i);
-	T prev = (T) a[i];
-	a[i] = v;
-	return prev;
+        int i = (int) (i0 - range.begin);
+        // System.out.println("set (" + i0 + ", " + v + ") range.begin=" + range.begin +
+        // ", i = " + i);
+        T prev = (T) a[i];
+        a[i] = v;
+        return prev;
     }
 
     @Override
@@ -141,51 +141,50 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
 
     @Override
     public Object[] toArray(LongRange newRange) {
-	long from = Math.max(range.begin, newRange.begin);
-	long to = Math.min(range.end, newRange.end);
-	if (from > to) {
+        long from = Math.max(range.begin, newRange.begin);
+        long to = Math.min(range.end, newRange.end);
+        if (from > to) {
             throw new ArrayIndexOutOfBoundsException(); // Need boundary check
-	}
-	if (from == range.begin && to == range.end) {
-	    return a;
-	}
-	if (from == to) {
-	    return new Object[0];
-	}
+        }
+        if (from == range.begin && to == range.end) {
+            return a;
+        }
+        if (from == to) {
+            return new Object[0];
+        }
         long newSize = (int) (newRange.end - newRange.begin);
-	if (newSize > Config.maxChunkSize) {
-	    throw new IllegalArgumentException();
-	}
-	Object[] newRail = new Object[(int) newSize];
+        if (newSize > Config.maxChunkSize) {
+            throw new IllegalArgumentException();
+        }
+        Object[] newRail = new Object[(int) newSize];
         Arrays.fill(newRail, a[0]);
-        System.arraycopy(a, (int) (newRange.begin - range.begin), newRail, 0, (int)newSize);
+        System.arraycopy(a, (int) (newRange.begin - range.begin), newRail, 0, (int) newSize);
         return newRail;
     }
 
-
-    //    Constructor
+    // Constructor
 
     public Chunk(LongRange range) {
-	long size = range.end - range.begin;
-	if (size > Config.maxChunkSize) {
-	    throw new IllegalArgumentException();
-	}
+        long size = range.end - range.begin;
+        if (size > Config.maxChunkSize) {
+            throw new IllegalArgumentException();
+        }
         a = new Object[(int) size];
         this.range = range;
     }
 
     public Chunk(LongRange range, T v) {
-	long size = range.end - range.begin;
-	if (size > Config.maxChunkSize) {
-	    throw new IllegalArgumentException();
-	}
-	a = new Object[(int) size];
+        long size = range.end - range.begin;
+        if (size > Config.maxChunkSize) {
+            throw new IllegalArgumentException();
+        }
+        a = new Object[(int) size];
         Arrays.fill(a, v);
         this.range = range;
     }
 
     public Chunk() {
-//        a = new Object[];
+        // a = new Object[];
         this.range = new LongRange(0, 1);
     }
 
@@ -194,9 +193,8 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
         this.range = range;
     }
 
-
-    //    iterator
-    private static class It<T> implements Iterator {
+    // iterator
+    private static class It<T> implements Iterator<T> {
         private int i; // offset inside the chunk
         private Chunk<T> chunk;
 
@@ -233,35 +231,35 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
     }
 
     @Override
-    public void each(Consumer action) {
-        each(this.range, action);
+    public void forEach(Consumer<? super T> action) {
+        forEach(this.range, action);
     }
 
     @Override
-    public void each(LongRange range, Consumer action) {
+    public void forEach(LongRange range, final Consumer<? super T> action) {
         long from = Math.max(range.begin, this.range.begin);
         long to = Math.min(range.end, this.range.end);
-	if (from > to) {
+        if (from > to) {
             throw new ArrayIndexOutOfBoundsException(); // Need boundary check.
-	}
-//        IntStream.range(begin, end).forEach();
+        }
+        // IntStream.range(begin, end).forEach();
         for (long i = from; i < to; i++) {
             action.accept(get(i));
         }
     }
 
-    public <U> void each(BiConsumer<T, Receiver<U>> action, Receiver<U> receiver) {
-        each(this.range, action, receiver);
+    public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
+        forEach(this.range, action, receiver);
     }
 
-    public <U> void each(LongRange range, BiConsumer<T, Receiver<U>> action,
-                         Receiver<U> receiver) {
+    public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+            Consumer<? super U> receiver) {
         long from = Math.max(range.begin, this.range.begin);
         long to = Math.min(range.end, this.range.end);
-	if (from > to) {
+        if (from > to) {
             throw new ArrayIndexOutOfBoundsException(); // Need boundary check.
-	}
-//        IntStream.range(begin, end).forEach();
+        }
+        // IntStream.range(begin, end).forEach();
         for (long i = from; i < to; i++) {
             action.accept(get(i), receiver);
         }
@@ -292,12 +290,15 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
         long i = 5;
         Chunk<Integer> c = new Chunk<>(new LongRange(10 * i, 11 * i));
         System.out.println("prepare: " + c);
-        IntStream.range(0, (int)i)
-                .forEach(j -> {
-			int v = (int) (10* i + j);
-			System.out.println("set@" + v);
-			c.set(10 * i + j, v);
-                });
+        IntStream.range(0, (int) i).forEach(j -> {
+            int v = (int) (10 * i + j);
+            System.out.println("set@" + v);
+            c.set(10 * i + j, v);
+        });
         System.out.println("Chunk :" + c);
     }
+
+
+
+
 }

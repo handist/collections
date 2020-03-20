@@ -25,7 +25,6 @@ public class DistManager<T> {
     public static final byte MOVE_OLD = 2;
     public static final byte MOVE_NONE = 0;
 
-
     public boolean distHasKey(T key) {
         return dist.containsKey(key);
     }
@@ -50,14 +49,16 @@ public class DistManager<T> {
     void reject(String method, int reason, T key) throws ParameterErrorException {
         String msg = "[" + here() + "] Error when calling " + method + " " + key + " on code " + reason;
         System.err.println(msg);
-        if (reason > 0) throw new ParameterErrorException(reason, msg);
+        if (reason > 0)
+            throw new ParameterErrorException(reason, msg);
         throw new ParameterErrorException(reason, msg);
     }
 
     void systemError(String method, int reason, T key) throws SystemError {
         String msg = "[" + here() + "] System Error when calling " + method + " " + key + " on code " + reason;
         System.err.println(msg);
-        if (reason > 0) throw new SystemError(reason, msg);
+        if (reason > 0)
+            throw new SystemError(reason, msg);
         throw new SystemError(reason, msg);
     }
 
@@ -96,7 +97,7 @@ public class DistManager<T> {
         if (distHasKey(key)) {
             if (distIsLocal(key)) {
                 if (diffHasKey(key)) {
-//  				System.out.println("[" + here.id + "] remove key " + key);
+                    // System.out.println("[" + here.id + "] remove key " + key);
                     if (diffOfKeyIs(key, DIST_ADDED)) {
                         diff.remove(key);
                         dist.remove(key);
@@ -122,7 +123,7 @@ public class DistManager<T> {
 
     public byte moveOut(T key, Place dest) {
         if (distHasKey(key)) {
-//  		System.out.println(">>> distHasKey");
+            // System.out.println(">>> distHasKey");
             if (distIsLocal(key)) {
                 if (diffHasKey(key)) {
                     if (diffOfKeyIs(key, DIST_ADDED)) {
@@ -146,26 +147,26 @@ public class DistManager<T> {
             }
         } else {
             // !distHasKey(key)
-//  		System.out.println(">>> !distHasKey");
+            // System.out.println(">>> !distHasKey");
             if (diffHasKey(key)) {
-//  			System.out.println(">>> diffHasKey");
+                // System.out.println(">>> diffHasKey");
                 if (diffOfKeyIs(key, DIST_REMOVED)) {
                     reject("moveOut", 802, key);
                 } else {
                     systemError("moveOut", 803, key);
                 }
             } else {
-//  			System.out.println(">>> !diffHasKey");
+                // System.out.println(">>> !diffHasKey");
                 reject("moveOut", 801, key);
             }
         }
-//  	System.out.println(">>> MOVE_NONE");
+        // System.out.println(">>> MOVE_NONE");
         return MOVE_NONE;
     }
 
-
     public void moveInNew(T key) throws Exception {
-//        System.out.println(">>> moveInNew " + key + " distHasKey: " + distHasKey(key) + " diffHasKey: " + diffHasKey(key));
+        // System.out.println(">>> moveInNew " + key + " distHasKey: " + distHasKey(key)
+        // + " diffHasKey: " + diffHasKey(key));
 
         if (distHasKey(key)) {
             if (distIsLocal(key)) {
@@ -179,7 +180,7 @@ public class DistManager<T> {
                 if (diffHasKey(key)) {
                     systemError("moveInNew", 404, key);
                 } else {
-//  				System.out.println(">>> AAA");
+                    // System.out.println(">>> AAA");
                     diff.put(key, DIST_ADDED);
                     dist.put(key, here());
                 }
@@ -189,7 +190,7 @@ public class DistManager<T> {
             if (diffHasKey(key)) {
                 systemError("moveInNew", 401, key);
             } else {
-//  			System.out.println(">>> BBB");
+                // System.out.println(">>> BBB");
                 diff.put(key, DIST_ADDED);
                 dist.put(key, here());
             }
@@ -216,7 +217,8 @@ public class DistManager<T> {
     }
 
     void applyDiff(T key, int operation, Place from) throws Exception {
-//        System.out.println("[" + here.id + "] applyDiff " + key + " op: " + operation + " from: " + from.id);
+        // System.out.println("[" + here.id + "] applyDiff " + key + " op: " + operation
+        // + " from: " + from.id);
         if (importedDiffKeys.contains(key) || diff.containsKey(key)) {
             reject("applyDiff with duplicate key ", operation, key);
         } else {
@@ -231,23 +233,23 @@ public class DistManager<T> {
     }
 
     void setup(Collection<T> keys) {
-        assert(keys.isEmpty());
+        assert (keys.isEmpty());
         try {
-            for (T k: keys) {
+            for (T k : keys) {
                 add(k);
             }
         } catch (Exception e) {
-            throw new RuntimeException("[DistManager] Duplicate key in "+ keys);
+            throw new RuntimeException("[DistManager] Duplicate key in " + keys);
         }
     }
 
     void updateDist(TeamedPlaceGroup pg) {
-        Serializer serProcess = (ObjectOutputStream ser)-> {
+        Serializer serProcess = (ObjectOutputStream ser) -> {
             ser.writeObject(diff);
         };
-        DeSerializerUsingPlace desProcess = (ObjectInputStream des, Place from)-> {
-            Map<T,Integer> importedDiff = (Map<T,Integer>)des.readObject();
-            for(Map.Entry<T, Integer> entry: importedDiff.entrySet()) {
+        DeSerializerUsingPlace desProcess = (ObjectInputStream des, Place from) -> {
+            Map<T, Integer> importedDiff = (Map<T, Integer>) des.readObject();
+            for (Map.Entry<T, Integer> entry : importedDiff.entrySet()) {
                 T k = entry.getKey();
                 Integer v = entry.getValue();
                 applyDiff(k, v, from);
@@ -268,17 +270,18 @@ public class DistManager<T> {
         public int reason;
 
         SystemError(int reason, String msg) {
-        super(msg);
-        this.reason = reason;
-    }
+            super(msg);
+            this.reason = reason;
+        }
     }
 
     static class ParameterErrorException extends RuntimeException {
         public int reason;
+
         ParameterErrorException(int reason, String msg) {
-        super(msg);
-        this.reason = reason;
-    }
+            super(msg);
+            this.reason = reason;
+        }
     }
 
 }

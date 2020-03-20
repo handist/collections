@@ -26,24 +26,23 @@ public class CollectiveRelocator {
         mm.clear();
     }
 
-    /* TODO　int->long??
-            * 本当は、、int, long 版なども欲しいところだったような
+    /*
+     * TODO int->long?? 本当は、、int, long 版なども欲しいところだったような
      */
-    static byte[] executeRelocation(TeamedPlaceGroup placeGroup,
-            byte[] byteArray, int[] sendOffset, int[] sendSize,
+    static byte[] executeRelocation(TeamedPlaceGroup placeGroup, byte[] byteArray, int[] sendOffset, int[] sendSize,
             int[] rcvOffset, int[] rcvSize) throws MPIException {
         placeGroup.comm.Alltoall(sendSize, 0, 1, MPI.INT, rcvSize, 0, 1, MPI.INT);
         {
             StringBuffer buf = new StringBuffer();
-            buf.append(Constructs.here()+"::");
-            for(int j=0;j<rcvSize.length;j++) {
-                buf.append(":"+rcvSize[j]);
+            buf.append(Constructs.here() + "::");
+            for (int j = 0; j < rcvSize.length; j++) {
+                buf.append(":" + rcvSize[j]);
             }
             System.out.println(buf.toString());
         }
 
         int current = 0;
-        for(int i = 0; i<rcvSize.length; i++) {
+        for (int i = 0; i < rcvSize.length; i++) {
             rcvOffset[i] = current;
             current += rcvSize[i];
         }
@@ -52,17 +51,14 @@ public class CollectiveRelocator {
         return recvbuf;
     }
 
-
-    public static void allgatherSer(TeamedPlaceGroup pg,
-            Serializer ser,
-            DeSerializerUsingPlace deser) {
+    public static void allgatherSer(TeamedPlaceGroup pg, Serializer ser, DeSerializerUsingPlace deser) {
         int numPlaces = pg.size();
         ByteArrayOutputStream out0 = new ByteArrayOutputStream();
         try {
             ObjectOutputStream out = new ObjectOutputStream(out0);
             ser.accept(out);
             out.close();
-        } catch(IOException exp) {
+        } catch (IOException exp) {
             throw new Error("This should not occur!.");
         }
         byte[] buf = out0.toByteArray();
@@ -79,8 +75,8 @@ public class CollectiveRelocator {
         }
 
         int total = 0;
-        for (int i=0; i<recvCounts.length; i++) {
-            recvDispls[i]= total;
+        for (int i = 0; i < recvCounts.length; i++) {
+            recvDispls[i] = total;
             total += recvCounts[i];
         }
         byte[] rbuf = new byte[total];
@@ -91,10 +87,10 @@ public class CollectiveRelocator {
             throw new Error("[CollectiveRelocator] MPIException");
         }
 
-        for (int i=0; i<recvCounts.length; i++) {
-            if(Constructs.here().equals(pg.get(i))) continue;
-            ByteArrayInputStream in0 =
-                    new ByteArrayInputStream(rbuf, recvDispls[i], recvCounts[i]);
+        for (int i = 0; i < recvCounts.length; i++) {
+            if (Constructs.here().equals(pg.get(i)))
+                continue;
+            ByteArrayInputStream in0 = new ByteArrayInputStream(rbuf, recvDispls[i], recvCounts[i]);
             try {
                 ObjectInputStream in = new ObjectInputStream(in0);
                 try {
@@ -109,16 +105,14 @@ public class CollectiveRelocator {
         }
     }
 
-    public static void gatherSer(TeamedPlaceGroup pg, Place root,
-            Serializer ser,
-            DeSerializerUsingPlace deser) {
+    public static void gatherSer(TeamedPlaceGroup pg, Place root, Serializer ser, DeSerializerUsingPlace deser) {
         int numPlaces = pg.size();
         ByteArrayOutputStream out0 = new ByteArrayOutputStream();
         try {
             ObjectOutputStream out = new ObjectOutputStream(out0);
             ser.accept(out);
             out.close();
-        } catch(IOException exp) {
+        } catch (IOException exp) {
             throw new Error("This should not occur!.");
         }
         byte[] buf = out0.toByteArray();
@@ -135,11 +129,11 @@ public class CollectiveRelocator {
         }
 
         int total = 0;
-        for (int i=0; i<recvCounts.length; i++) {
-            recvDispls[i]= total;
+        for (int i = 0; i < recvCounts.length; i++) {
+            recvDispls[i] = total;
             total += recvCounts[i];
         }
-        byte[] rbuf = Constructs.here().equals(root)? new byte[total]: null;
+        byte[] rbuf = Constructs.here().equals(root) ? new byte[total] : null;
         try {
             pg.comm.Gatherv(buf, 0, size, MPI.BYTE, rbuf, 0, recvCounts, recvDispls, MPI.BYTE, pg.rank(root));
         } catch (MPIException e) {
@@ -147,18 +141,19 @@ public class CollectiveRelocator {
             throw new Error("[CollectiveRelocator] MPIException");
         }
 
-        if(!Constructs.here().equals(root)) return;
-        for (int i=0; i<recvCounts.length; i++) {
-            if(Constructs.here().equals(pg.get(i))) continue;
-            ByteArrayInputStream in0 =
-                    new ByteArrayInputStream(rbuf, recvDispls[i], recvCounts[i]);
+        if (!Constructs.here().equals(root))
+            return;
+        for (int i = 0; i < recvCounts.length; i++) {
+            if (Constructs.here().equals(pg.get(i)))
+                continue;
+            ByteArrayInputStream in0 = new ByteArrayInputStream(rbuf, recvDispls[i], recvCounts[i]);
             try {
                 ObjectInputStream in = new ObjectInputStream(in0);
                 try {
                     deser.accept(in, pg.get(i));
                 } catch (Exception e) {
                     e.printStackTrace();
-                    throw new Error("[CollectiveRelocator] DeSerialize error handled.");
+                    throw new Error("[CollectiveRelocator] DeSerialize error raised.");
                 }
             } catch (IOException e) {
                 throw new RuntimeException("This should not occur.");
@@ -166,13 +161,10 @@ public class CollectiveRelocator {
         }
     }
 
-
-    public static void bcastSer(TeamedPlaceGroup pg, Place root,
-            Consumer<ObjectOutputStream> ser,
-            Consumer<ObjectInputStream> des) throws MPIException {
-        try {
-            int[] tmpBuf = new int[1];
-            if(Constructs.here().equals(root)) {
+    public static void bcastSer(TeamedPlaceGroup pg, Place root, Serializer ser, DeSerializer des) throws MPIException {
+        int[] tmpBuf = new int[1];
+        if (Constructs.here().equals(root)) {
+            try {
                 ByteArrayOutputStream out0 = new ByteArrayOutputStream();
                 ObjectOutputStream out = new ObjectOutputStream(out0);
                 ser.accept(out);
@@ -180,16 +172,21 @@ public class CollectiveRelocator {
                 tmpBuf[0] = out0.size();
                 pg.comm.Bcast(tmpBuf, 0, 1, MPI.INT, pg.rank(root));
                 pg.comm.Bcast(out0.toByteArray(), 0, out0.size(), MPI.BYTE, pg.rank(root));
-            } else {
-                pg.comm.Bcast(tmpBuf, 0, 1, MPI.INT, pg.rank(root));
-                byte[] buf = new byte[tmpBuf[0]];
-                pg.comm.Bcast(buf, 0, buf.length, MPI.BYTE, pg.rank(root));
-                des.accept(new ObjectInputStream(new ByteArrayInputStream(buf)));
+            } catch (IOException e) {
+                e.printStackTrace();
+                throw new Error("[CollectiveRelocator] Serialize error raised.");
             }
-        } catch (IOException e) {
-            throw new Error("This should not occur!");
+        } else {
+            pg.comm.Bcast(tmpBuf, 0, 1, MPI.INT, pg.rank(root));
+            byte[] buf = new byte[tmpBuf[0]];
+            pg.comm.Bcast(buf, 0, buf.length, MPI.BYTE, pg.rank(root));
+            try {
+                des.accept(new ObjectInputStream(new ByteArrayInputStream(buf)));
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new Error("[CollectiveRelocator] DeSerialize error raised.");
+            }
         }
-
     }
 }
 

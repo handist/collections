@@ -8,7 +8,9 @@ import apgas.util.GlobalID;
 
 public abstract class AbstractDistCollection implements Serializable {
 
-    static class LazyObjectReference<T> implements Serializable {
+    public static class LazyObjectReference<T> implements Serializable {
+  
+        private static final long serialVersionUID = -5737446834905219177L;
         protected final TeamedPlaceGroup pg0;
         protected final GlobalID id0;
         protected SerializableCallable<T> init;

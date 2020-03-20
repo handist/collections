@@ -52,17 +52,17 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
     @Override
     public Chunk<T> toChunk(LongRange newRange) {
-	return base.toChunk(newRange);
+        return base.toChunk(newRange);
     }
 
     @Override
     public Object[] toArray() {
-	return base.toArray(range);
+        return base.toArray(range);
     }
 
     @Override
     public Object[] toArray(LongRange newRange) {
-	return base.toArray(newRange);
+        return base.toArray(newRange);
     }
 
     @Override
@@ -72,7 +72,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
     @Override
     public T set(long index, T v) {
-	return base.set(index, v);
+        return base.set(index, v);
     }
 
     @Override
@@ -93,21 +93,21 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
     private static class It<T> implements Iterator {
         private long i;
         private RangedListView<T> rangedListView;
-	private LongRange range;
+        private LongRange range;
 
         public It(RangedListView<T> rangedListView) {
-	    this.rangedListView = rangedListView;
-	    this.range = rangedListView.getRange();
-	    this.i = range.begin - 1;
+            this.rangedListView = rangedListView;
+            this.range = rangedListView.getRange();
+            this.i = range.begin - 1;
         }
 
-	public It(RangedListView<T> rangedListView, long i0) {
-	    this.rangedListView = rangedListView;
-	    this.range = rangedListView.getRange();
-	    this.i = i0 - 1;
-	}
+        public It(RangedListView<T> rangedListView, long i0) {
+            this.rangedListView = rangedListView;
+            this.range = rangedListView.getRange();
+            this.i = i0 - 1;
+        }
 
-	@Override
+        @Override
         public boolean hasNext() {
             return i + 1 < range.end;
         }
@@ -126,62 +126,61 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
     @Override
     public Iterator<T> iteratorFrom(long i) {
-	return new It<T>(this, i);
+        return new It<T>(this, i);
     }
-
 
     @Override
     public RangedList<T> subList(long begin, long end) {
         long from = Math.max(begin, range.begin);
         long to = Math.min(end, range.end);
-	if (from > to) {
-	    throw new ArrayIndexOutOfBoundsException();
-	}
-	if (begin == range.begin && end == range.end) {
-	    return this;
-	}
+        if (from > to) {
+            throw new ArrayIndexOutOfBoundsException();
+        }
+        if (begin == range.begin && end == range.end) {
+            return this;
+        }
         return new RangedListView<T>(base, new LongRange(from, to));
     }
 
     @Override
     public T first() {
-	return base.get(range.begin);
+        return base.get(range.begin);
     }
 
     @Override
     public T last() {
-	return base.get(range.end - 1);
+        return base.get(range.end - 1);
     }
 
     @Override
-    public void each(Consumer action) {
-	base.each(range, action);
+    public void forEach(Consumer<? super T> action) {
+        base.forEach(range, action);
     }
 
     @Override
-    public void each(LongRange range, Consumer action) {
-	if (range.begin == this.range.begin &&
-	    range.end == this.range.end) {
-	    base.each(range, action);
-	} else {
-	    long from = Math.max(range.begin, this.range.begin);
-	    long to = Math.min(range.end, this.range.end);
-	    if (from > to) {
-		throw new ArrayIndexOutOfBoundsException();
-	    }
-	    LongRange range2 = new LongRange(from, to);
-	    base.each(range2, action);
-	}
+    public void forEach(LongRange range, Consumer<? super T> action) {
+        if (range.begin == this.range.begin && range.end == this.range.end) {
+            base.forEach(range, action);
+        } else {
+            long from = Math.max(range.begin, this.range.begin);
+            long to = Math.min(range.end, this.range.end);
+            if (from > to) {
+                throw new ArrayIndexOutOfBoundsException();
+            }
+            LongRange range2 = new LongRange(from, to);
+            base.forEach(range2, action);
+        }
     }
 
-    public <U> void each(BiConsumer<T, Receiver<U>> action, Receiver<U> receiver) {
+    public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
         // Consumer<T> c = action;
-        each(this.range, t -> action.accept((T) t, receiver));
+        forEach(this.range, t -> action.accept((T) t, receiver));
     }
 
-    public <U> void each(LongRange range, BiConsumer<T, Receiver<U>> action, Receiver<U> receiver) {
+    public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+            Consumer<? super U> receiver) {
         // Consumer<T> c = action;
-        each(this.range, t -> action.accept((T) t, receiver));
+        forEach(this.range, t -> action.accept((T) t, receiver));
     }
 
     @Override
@@ -202,7 +201,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         if (sz < size()) {
             sb.append("...(omitted " + (size() - sz) + " elements)");
         }
-	//        sb.append("@" + range.begin + ".." + last() + "]");
+        // sb.append("@" + range.begin + ".." + last() + "]");
         return sb.toString();
     }
 
@@ -211,7 +210,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         Chunk<Integer> c = new Chunk<>(new LongRange(10 * i, 11 * i));
         System.out.println("prepare:" + c);
         for (long j = 0; j < i; j++) {
-	    int v = (int) (10 * i + j);
+            int v = (int) (10 * i + j);
             System.out.println("set@" + v);
             c.set(10 * i + j, v);
         }
