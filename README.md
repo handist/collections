@@ -9,8 +9,8 @@
 * src
   * handist
     * util: sequential/multi-thread 
-    * dist: distributed collections
-  * samples
+      * dist: distributed collections
+    * tests: test routines
 
 * Gradle or some build systems are used to setup APGAS Library or something
 

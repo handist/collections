@@ -1,9 +1,11 @@
 package handist.util;
 
 import java.util.AbstractCollection;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.BiConsumer;
@@ -20,7 +22,7 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Collection<
         chunks = new TreeMap<>(Comparator.comparingLong(r -> r.begin));
     }
 
-    public ChunkedList(TreeMap chunks) {
+    public ChunkedList(TreeMap<LongRange, RangedList<T>> chunks) {
         this.chunks = chunks;
     }
 
@@ -38,29 +40,29 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Collection<
 
     public boolean containsIndex(long i) {
         LongRange r = new LongRange(i);
-	Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
-	if (entry == null || !entry.getKey().contains(i)) {
-	    return false;
-	}
+	    Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
+	    if (entry == null || !entry.getKey().contains(i)) {
+	        return false;
+	    }
         return true;
     }
 
     public T get(long i) {
-	LongRange r = new LongRange(i);
-	Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
-	if (entry == null || !entry.getKey().contains(i)) {
-	    throw new IndexOutOfBoundsException("ChunkedList: index " + i + " is out of range of " + chunks);
-	}
+	    LongRange r = new LongRange(i);
+	    Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
+	    if (entry == null || !entry.getKey().contains(i)) {
+	        throw new IndexOutOfBoundsException("ChunkedList: index " + i + " is out of range of " + chunks);
+	    }
         RangedList<T> chunk = entry.getValue();
         return chunk.get(i);
     }
 
     public T set(long i, T value) {
-	LongRange r = new LongRange(i);
-	Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
-	if (entry == null || !entry.getKey().contains(i)) {
-	    throw new IndexOutOfBoundsException("ChunkedList: index " + i + " is out of range of " + chunks);
-	}
+	    LongRange r = new LongRange(i);
+    	Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
+    	if (entry == null || !entry.getKey().contains(i)) {
+	        throw new IndexOutOfBoundsException("ChunkedList: index " + i + " is out of range of " + chunks);
+    	}
         RangedList<T> chunk = entry.getValue();
         return chunk.set(i, value);
     }
@@ -130,9 +132,9 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Collection<
      */
     @Override
     protected Object clone() {
-        TreeMap<LongRange, RangedList> newChunks = new TreeMap<>();
-        for (RangedList c : chunks.values()) {
-            newChunks.put(c.getRange(), ((Chunk) c).clone());
+        TreeMap<LongRange, RangedList<T>> newChunks = new TreeMap<>();
+        for (RangedList<T> c : chunks.values()) {
+            newChunks.put(c.getRange(), ((Chunk<T>) c).clone());
         }
         return new ChunkedList<T>(newChunks);
     }
@@ -160,54 +162,64 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Collection<
 	return chunks.size();
     }
 
-    public void each(Consumer<T> action) {
-        for (RangedList c : chunks.values()) {
-            c.each(action);
+    public void forEach(Consumer<? super T> action) {
+        for (RangedList<T> c : chunks.values()) {
+            c.forEach(action);
         }
     }
 
-    public <U> void each(BiConsumer<T, Receiver<U>> action, Receiver<U> receiver) {
-        for (RangedList c : chunks.values()) {
-            c.each(t -> action.accept((T) t, receiver));
+    public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
+        for (RangedList<T> c : chunks.values()) {
+            c.forEach(t -> action.accept((T) t, receiver));
         }
     }
 
-    public void eachChunk(Consumer<RangedList<T>> action) {
-        for (RangedList c : chunks.values()) {
-            action.accept(c);
+    public void forEachChunk(Consumer<RangedList<T>> op) {
+        for (RangedList<T> c : chunks.values()) {
+            op.accept(c);
         }
     }
 
-    public Map<LongRange, RangedList<T>> filterChunk(Predicate<RangedList<T>> filter) {
+    /*
+    public Map<LongRange, RangedList<T>> filterChunk0(Predicate<RangedList<? super T>> filter) {
         TreeMap<LongRange, RangedList<T>> map = new TreeMap<>();
-        for (RangedList c : chunks.values()) {
+        for (RangedList<T> c : chunks.values()) {
             if (filter.test(c)) {
                 map.put(c.getRange(), c);
             }
         }
         return map;
+    }*/
+    public List<RangedList<T>> filterChunk(Predicate<RangedList<? super T>> filter) {
+        List<RangedList<T>> result = new ArrayList<>();
+        for (RangedList<T> c : chunks.values()) {
+            if (filter.test(c)) {
+                result.add(c);
+            }
+        }
+        return result;
     }
 
-    public ChunkedList<T>[] separate(int n) {
+    public List<ChunkedList<T>> separate(int n) {
         long totalNum = size();
         long rem = totalNum % n;
         long quo = totalNum / n;
-        ChunkedList<T>[] result = new ChunkedList[n];
-	RangedList<T> c = chunks.firstEntry().getValue();
+        List<ChunkedList<T>> result = new ArrayList<ChunkedList<T>>(n);
+	    RangedList<T> c = chunks.firstEntry().getValue();
         long used = 0;
 
         for (int i = 0; i < n; i++) {
             ChunkedList<T> r = new ChunkedList<>();
-            result[i] = r;
+            result.add(r);
             long rest = quo + ((i < rem) ? 1 : 0);
             while (rest > 0) {
-		LongRange range = c.getRange();
+		        LongRange range = c.getRange();
                 if (c.size() - used <= rest) {
                     long from = range.begin + used;
                     r.addChunk(c.subList(from, range.end));
                     rest -= c.size() - used;
                     used = 0;
-		    c = chunks.higherEntry(range).getValue();
+		            c = chunks.higherEntry(range).getValue();
                 } else {
                     long from = range.begin + used;
                     long to = from + rest;
@@ -221,9 +233,9 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Collection<
         return result;
     }
 
-    private static class It<S> implements Iterator {
+    private static class It<S> implements Iterator<S> {
         public TreeMap<LongRange, RangedList<S>> chunks;
-	private LongRange range;
+	    private LongRange range;
         private Iterator<S> cIter;
 
         public It(TreeMap<LongRange, RangedList<S>> chunks) {
@@ -346,7 +358,7 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Collection<
 
 	System.out.println("Test2");
 	StringBuilder sb2 = new StringBuilder();
-	cl5.each(value -> sb2.append(value + ","));
+	cl5.forEach(value -> sb2.append(value + ","));
 	System.out.println(sb2.toString());
 
 	// Test3: Iterate using iterator()
