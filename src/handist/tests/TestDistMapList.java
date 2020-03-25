@@ -12,7 +12,7 @@ import handist.util.dist.DistMapList;
 import handist.util.dist.MoveManagerLocal;
 import handist.util.dist.TeamedPlaceGroup;
 
-public class TestDistMapList implements Serializable {
+public class TestDistMapList  {
     TeamedPlaceGroup placeGroup;
     long numData = 200;
     long numKey = 20;
@@ -40,9 +40,10 @@ public class TestDistMapList implements Serializable {
     }
 
     public void run() {
+	final TeamedPlaceGroup pg = placeGroup;	
 	finish(()->{
 		placeGroup.broadcastFlat(() -> {
-			System.out.println("hello:" + here() + ", " + placeGroup);
+			System.out.println("hello:" + here() + ", " + pg);
 		    });
 	    });	
 
@@ -71,7 +72,6 @@ public class TestDistMapList implements Serializable {
 
         // Distribute all entries
 	final DistMapList<String,String> distMapList2 = this.distMapList;
-	final TeamedPlaceGroup pg = placeGroup;
 	final long NPLACES2 = this.NPLACES;
         System.out.println("");
         System.out.println("### MoveAtSync // Distribute all entries");
