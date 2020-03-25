@@ -10,7 +10,7 @@ import handist.util.dist.DistMap;
 import handist.util.dist.MoveManagerLocal;
 import handist.util.dist.TeamedPlaceGroup;
 
-public class TestDistMap implements Serializable {
+public class TestDistMap {
     TeamedPlaceGroup placeGroup;
     // long numData = 10;
     long numData = 200;
@@ -26,7 +26,9 @@ public class TestDistMap implements Serializable {
 
     public static void main(String[] args) {
         TeamedPlaceGroup world = TeamedPlaceGroup.getWorld();
-        new TestDistMap(world).run();
+	finish(()->{
+		new TestDistMap(world).run();
+	    });
     }
 
     public String genRandStr(String header) {
@@ -36,19 +38,21 @@ public class TestDistMap implements Serializable {
 
     public void run() {
         // Create initial data at Place 0
+	final TeamedPlaceGroup pg = this.placeGroup;
+	final DistMap<String,String> distMap2 = this.distMap;
 	finish(()->{
-		placeGroup.broadcastFlat(() -> {
-			System.out.println("hello:" + here() + ", " + placeGroup);
+		pg.broadcastFlat(() -> {
+			System.out.println("hello:" + here() + ", " + pg);
 		    });
 	    });
 	
         System.out.println("### Create initial data at Place 0");
 
         for (int i=0; i<numData; i++) {
-            distMap.put(genRandStr("k"), genRandStr("v"));
+            distMap2.put(genRandStr("k"), genRandStr("v"));
         }
 
-	//  	val gather = new GatherDistMap[String, String](placeGroup, distMap);
+	//  	val gather = new GatherDistMap[String, String](pg, distMap2);
 	//  	gather.gather();
 	//  	gather.print();
 	//  	gather.setCurrentAsInit();
@@ -56,15 +60,15 @@ public class TestDistMap implements Serializable {
         // Distribute all entries
         System.out.println("");
         System.out.println("### MoveAtSync // Distribute all entries");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
-		    distMap.forEach((String key, String value) -> {
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
+		    distMap2.forEach((String key, String value) -> {
 			    int h = key.hashCode();
-			    int d = Math.abs(h) % placeGroup.size();
+			    int d = Math.abs(h) % pg.size();
 			    System.out.println("" + here() + " moves key: " + key + " to " + d);
-			    //distMap.moveAtSync(key, placeGroup.places().get(d), mm);
-			    distMap.moveAtSync(key, placeGroup.get(d), mm); // Place with  rank `d`, not the Place with id==d
+			    //distMap2.moveAtSync(key, pg.places().get(d), mm);
+			    distMap2.moveAtSync(key, pg.get(d), mm); // Place with  rank `d`, not the Place with id==d
 			});
 		    mm.sync();
 		} catch (Exception e) {
@@ -93,16 +97,16 @@ public class TestDistMap implements Serializable {
 	System.out.println("");
 	System.out.println("### MoveAtSync // Move all entries to the next place");
 
-	placeGroup.broadcastFlat(() -> {
+	pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    //val destination = Place.places().next(here);
-		    int rank = placeGroup.rank(here());
-		    Place destination = placeGroup.get(rank + 1 == placeGroup.size() ? 0 : rank);
+		    int rank = pg.rank(here());
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
 		    
-		    distMap.forEach((String key, String value) -> {
+		    distMap2.forEach((String key, String value) -> {
 			    System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-			    distMap.moveAtSync(key, destination, mm);
+			    distMap2.moveAtSync(key, destination, mm);
 			});
 		    
 		    mm.sync();
@@ -132,21 +136,21 @@ public class TestDistMap implements Serializable {
 	System.out.println("");
 	System.out.println("### MoveAtSync // Move all entries to the next to next place");
 
-	placeGroup.broadcastFlat(() -> {
+	pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    //val destination = Place.places().next(here);
-		    int rank = placeGroup.rank(here());
-		    Place destination = placeGroup.get(rank + 1 == placeGroup.size() ? 0 : rank);
+		    int rank = pg.rank(here());
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
 		    
-		    distMap.forEach((String key, String value) -> {
+		    distMap2.forEach((String key, String value) -> {
 			    System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-			    distMap.moveAtSync(key, destination, mm);
+			    distMap2.moveAtSync(key, destination, mm);
 			});
 		    mm.sync();
-		    distMap.forEach((String key, String value) -> {
+		    distMap2.forEach((String key, String value) -> {
 			    System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-			    distMap.moveAtSync(key, destination, mm);
+			    distMap2.moveAtSync(key, destination, mm);
 			});
 		    mm.sync();
 		} catch (Exception e) {
@@ -174,13 +178,13 @@ public class TestDistMap implements Serializable {
 	// Move all entries to place 0
 	System.out.println("");
 	System.out.println("### MoveAtSync // Move all entries to place 0");
-	placeGroup.broadcastFlat(() -> {
+	pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
-		    Place destination = placeGroup.get(0);
-		    distMap.forEach((String key, String value) -> {
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
+		    Place destination = pg.get(0);
+		    distMap2.forEach((String key, String value) -> {
 			    System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-			    distMap.moveAtSync(key, destination, mm);
+			    distMap2.moveAtSync(key, destination, mm);
 			});
 		    mm.sync();
 		} catch (Exception e) {
