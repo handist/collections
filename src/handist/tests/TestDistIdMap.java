@@ -281,7 +281,7 @@ public class TestDistIdMap implements Serializable {
 			});
 		    mm.sync();
 		} catch (Exception e) {
-		    System.err.println("Error on "+here());
+		    System.err.println("Error on " + here());
 		    e.printStackTrace();
 		    throw e;
 		}
