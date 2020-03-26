@@ -6,8 +6,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.LongConsumer;
 import java.util.stream.LongStream;
+import java.io.Serializable;
 
-public class LongRange implements Comparable<LongRange>, Iterable<Long> {
+public class LongRange implements Comparable<LongRange>, Iterable<Long>, Serializable {
     public final long begin; // INCLUSIVE
     public final long end; // EXCLUSIVE
 
@@ -99,7 +100,7 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long> {
         throw new ClassCastException();
     }
 
-    @Override
+    /*    @Override
     public boolean equals(Object o) {
         if (o instanceof LongRange) {
             LongRange r = ((LongRange) o);
@@ -113,18 +114,18 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long> {
             return this.begin <= i && i < this.end;
         }
         return false;
-    }
+	}*/
 
     @Override
     public String toString() {
-        return "" + this.begin + ".." + (this.end - 1);
+        return "[" + this.begin + "," + this.end + ")";
     }
 
     public static void main(String[] args) {
         Map<LongRange, String> m = new TreeMap<>();
-        m.put(new LongRange(0, 3), "(0,3]");
-        m.put(new LongRange(5, 10), "(5,10]");
-        m.put(new LongRange(3, 5), "(3,5]");
+        m.put(new LongRange(0, 3), "[0,3)");
+        m.put(new LongRange(5, 10), "[5,10)");
+        m.put(new LongRange(3, 5), "[3,5)");
 
         System.out.println(m.containsKey(new LongRange(1, 1)));
         System.out.println(m.get(new LongRange(1, 1)));
@@ -140,6 +141,17 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long> {
         // System.out.println(m.get(new LongRange(0,3)));
         //
         // System.out.println(m.get(5));
+    }
+    @Override
+    public boolean equals(Object o) {
+	if(!(o instanceof LongRange)) return false;
+	LongRange range2 = (LongRange)o;
+	return this.begin==range2.begin && this.end==range2.end;
+    }
+
+    @Override
+    public int hashCode() {
+	return (int)((begin << 4) + (begin>>16) + end);
     }
 
     class It implements Iterator<Long> {

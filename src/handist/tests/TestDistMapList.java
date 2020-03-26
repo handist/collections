@@ -12,7 +12,7 @@ import handist.util.dist.DistMapList;
 import handist.util.dist.MoveManagerLocal;
 import handist.util.dist.TeamedPlaceGroup;
 
-public class TestDistMapList implements Serializable {
+public class TestDistMapList  {
     TeamedPlaceGroup placeGroup;
     long numData = 200;
     long numKey = 20;
@@ -32,6 +32,7 @@ public class TestDistMapList implements Serializable {
     public static void main(String[] args) {
         TeamedPlaceGroup world = TeamedPlaceGroup.getWorld();
         new TestDistMapList(world).run();
+	System.out.println("----finish");
     }
 
     public String genRandStr(String header) {
@@ -40,6 +41,12 @@ public class TestDistMapList implements Serializable {
     }
 
     public void run() {
+	final TeamedPlaceGroup pg = placeGroup;	
+	finish(()->{
+		placeGroup.broadcastFlat(() -> {
+			System.out.println("hello:" + here() + ", " + pg);
+		    });
+	    });	
 
         // Create initial data at Place 0
         System.out.println("### Create initial data at Place 0");
@@ -58,22 +65,26 @@ public class TestDistMapList implements Serializable {
 	    e.printStackTrace();
 	}
 
+
 	//	val gather = new GatherDistMapList[String, String](placeGroup, distMapList);
 	//	gather.gather();
 	//	gather.print();
 	//	gather.setCurrentAsInit();
 
         // Distribute all entries
+	final DistMapList<String,String> distMapList2 = this.distMapList;
+	final long NPLACES2 = this.NPLACES;
         System.out.println("");
         System.out.println("### MoveAtSync // Distribute all entries");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
-		    distMapList.forEach1((String key, String value) -> {
+		    System.out.println("broadcast Flat test0:" +here());		    
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
+		    distMapList2.forEach1((String key, String value) -> {
 			    int h = key.hashCode();
-			    int d = (int)(Math.abs(h) % NPLACES);
+			    int d = (int)(Math.abs(h) % NPLACES2);
 			    System.out.println("" + here() + " moves key: " + key + " to " + d);
-			    distMapList.moveAtSync(key, placeGroup.get(d), mm);
+			    distMapList2.moveAtSync(key, pg.get(d), mm);
 			});
 		    mm.sync();
 		} catch (Exception e) {
@@ -88,7 +99,7 @@ public class TestDistMapList implements Serializable {
 	//	if (gather.validate() &&
 	//	    gather.validateLocationOfKeyValue((key: String, value: String, pid: Int) => {
 	//		val h = key.hashCode() as Long;
-	//		val d = Math.abs(h) % NPLACES;
+	//		val d = Math.abs(h) % NPLACES2;
 	//		return d as Int;
 	//	    })) {
 	//	    System.out.println("VALIDATE: SUCCESS");
@@ -101,15 +112,15 @@ public class TestDistMapList implements Serializable {
         // Move all entries to the next place
         System.out.println("");
         System.out.println("### MoveAtSync // Move all entries to the next place");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
-		    int rank = placeGroup.rank(here());
-		    Place destination = placeGroup.get(rank + 1 == placeGroup.size() ? 0 : rank);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
+		    int rank = pg.rank(here());
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
 
-		    distMapList.forEach1((String key, String value) -> {
+		    distMapList2.forEach1((String key, String value) -> {
 			    System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-			    distMapList.moveAtSync(key, destination, mm);
+			    distMapList2.moveAtSync(key, destination, mm);
 			});
 		
 		    mm.sync();
@@ -125,7 +136,7 @@ public class TestDistMapList implements Serializable {
 	//	if (gather.validate() &&
 	//	    gather.validateLocationOfKeyValue((key: String, value: String, pid: Int) => {
 	//		val h = key.hashCode() as Long;
-	//		val d = (Math.abs(h) + 1) % NPLACES;
+	//		val d = (Math.abs(h) + 1) % NPLACES2;
 	//		return d as Int;
 	//	    })) {
 	//	    System.out.println("VALIDATE: SUCCESS");
@@ -141,7 +152,7 @@ public class TestDistMapList implements Serializable {
 	try {
 	    long j = numData % numKey;
 	    for (long i = 0; i < numData; i++) {
-		distMapList.put1(keyList.get((int)j), genRandStr("x"));
+		distMapList2.put1(keyList.get((int)j), genRandStr("x"));
 		j = (j + 1) % numKey;
 	    }
 	} catch (Exception e) {
@@ -156,15 +167,15 @@ public class TestDistMapList implements Serializable {
         // Move entries on even number place to the next odd number place
         System.out.println("");
         System.out.println("### MoveAtSync // Move entries on even number place to the next odd number place");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
-		    int rank = placeGroup.rank(here());
-		    Place destination = placeGroup.get(rank + 1 == placeGroup.size() ? 0 : rank);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
+		    int rank = pg.rank(here());
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
 		    if (here().id % 2 == 0) {
-			distMapList.forEach1((String key, String value) -> {
+			distMapList2.forEach1((String key, String value) -> {
 				System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-				distMapList.moveAtSync(key, destination, mm);
+				distMapList2.moveAtSync(key, destination, mm);
 			    });
 		    }
 		    mm.sync();
@@ -181,10 +192,10 @@ public class TestDistMapList implements Serializable {
 	//	    gather.validateLocationOfKeyValue((key: String, value: String, pid: Int) => {
 	//		if (value.startsWith("v")) {
 	//		    val h = key.hashCode() as Long;
-	//		    val prev = (Math.abs(h) + 1) % NPLACES;
+	//		    val prev = (Math.abs(h) + 1) % NPLACES2;
 	//		    if (prev % 2 == 0) {
 	////		        System.out.println("v even " + prev);
-	//		        return ((prev + 1) % NPLACES) as Int;
+	//		        return ((prev + 1) % NPLACES2) as Int;
 	//		    } else {
 	////		        System.out.println("v odd " + prev);
 	//		        return prev as Int;
@@ -193,7 +204,7 @@ public class TestDistMapList implements Serializable {
 	//		    // value.startsWith("x")
 	//		    if (pid as Long % 2  == 0) {
 	////		        System.out.println("x even " + pid);
-	//		        val d = (pid as Long + 1) % NPLACES;
+	//		        val d = (pid as Long + 1) % NPLACES2;
 	//			return d as Int;
 	//		    } else {
 	////		        System.out.println("x odd " + pid);
@@ -212,13 +223,13 @@ public class TestDistMapList implements Serializable {
         // Move all entries to place 0
         System.out.println("");
         System.out.println("### MoveAtSync // Move all entries to place 0");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
-		    Place destination = placeGroup.get(0);
-		    distMapList.forEach1((String key, String value) -> {
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
+		    Place destination = pg.get(0);
+		    distMapList2.forEach1((String key, String value) -> {
 			System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-			distMapList.moveAtSync(key, destination, mm);
+			distMapList2.moveAtSync(key, destination, mm);
 		    });
 		mm.sync();
 		} catch (Exception e) {

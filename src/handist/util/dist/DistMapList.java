@@ -80,7 +80,9 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
             list = new ArrayList<U>();
             data.put(key, list);
         }
-        return list.addAll(values);
+	//TODO we should check values!=null before transportation
+	if(values!=null) list.addAll(values);
+        return false;
     }
 
     /**
@@ -120,11 +122,13 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
         final DistMapList<T, U> toBranch = this; // using plh@AbstractCol
         Serializer serialize = (ObjectOutputStream s) -> {
             List<U> value = this.removeForMove(key);
-            s.writeObject(key);
-            s.writeObject(value);
+	    //TODO we should check values!=null before transportation	    
+	    s.writeObject(key);
+	    s.writeObject(value);
         };
         DeSerializer deserialize = (ObjectInputStream ds) -> {
             T k = (T)ds.readObject();
+	    //TODO we should check values!=null before transportation	    
             List<U> v = (List<U>)ds.readObject();
             toBranch.putForMove(k, v);
         };

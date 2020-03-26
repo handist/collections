@@ -66,12 +66,14 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
     public DistCol(final TeamedPlaceGroup placeGroup) {
         super(placeGroup);
         this.ldist = new DistManager.Range();
+	this.data = new ChunkedList<T>();
         locality = initialLocality(placeGroup.size);
     }
 
     public DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id) {
         super(placeGroup, id);
         this.ldist = new DistManager.Range();
+	this.data = new ChunkedList<T>();	
         locality = initialLocality(placeGroup.size);
     }
 

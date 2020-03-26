@@ -4,8 +4,9 @@ import java.util.AbstractCollection;
 import java.util.Iterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.io.*;
 
-public class RangedListView<T> extends AbstractCollection<T> implements RangedList<T> {
+public class RangedListView<T> extends AbstractCollection<T> implements RangedList<T>, Serializable {
 
     private RangedList<T> base;
     protected LongRange range;
@@ -186,6 +187,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+	if(range==null) return "RangedListView in Underconstruction.";
         sb.append("[" + range + "]");
         int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
         long c = 0;
@@ -204,6 +206,19 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         // sb.append("@" + range.begin + ".." + last() + "]");
         return sb.toString();
     }
+
+    // TODO this implement generates redundant RangedListView at receiver node.
+    private void writeObject(ObjectOutputStream out) throws IOException {
+	Chunk<T> chunk = this.toChunk(range);
+	out.writeObject(chunk);
+    }
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+	Chunk<T> chunk = (Chunk<T>)in.readObject();
+	this.base=chunk;
+	this.range=chunk.getRange();
+	//System.out.println("readChunk: " + this);
+    }
+    
 
     public static void main(String[] args) {
         long i = 10;

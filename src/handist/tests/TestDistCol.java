@@ -16,21 +16,21 @@ import handist.util.dist.MoveManagerLocal;
 import handist.util.dist.TeamedPlaceGroup;
 
 
-public class TestDistCol implements Serializable {
+public class TestDistCol {
     TeamedPlaceGroup placeGroup;
-    long NPLACES;
-    long rangeSize = 10;
-    long rangeSkip = 5;
-    long numChunk = 50;
+    long NPLACES0;
+    long rangeSize0 = 10;
+    long rangeSkip0 = 5;
+    long numChunk0 = 50;
 
-    DistCol<String> distCol;
-    DistBag<List<String> > distBag;
+    DistCol<String> distCol0;
+    DistBag<List<String> > distBag0;
 
     public TestDistCol(TeamedPlaceGroup placeGroup) {
         this.placeGroup = placeGroup;
-	NPLACES = placeGroup.size();
-	distCol = new DistCol<String>(placeGroup);
-	distBag = new DistBag<List<String> >(placeGroup);
+	NPLACES0 = placeGroup.size();
+	distCol0 = new DistCol<String>(placeGroup);
+	distBag0 = new DistBag<List<String> >(placeGroup);
     }
 
     public static void main(String[] args) {
@@ -39,7 +39,15 @@ public class TestDistCol implements Serializable {
     }
 
     public void run() {
-
+	TeamedPlaceGroup pg = this.placeGroup;
+	long NPLACES =  NPLACES0;
+	long rangeSize = rangeSize0;
+	long rangeSkip = rangeSkip0;
+	long numChunk = numChunk0;
+	
+	DistCol<String> distCol=distCol0;
+	DistBag<List<String> > distBag=distBag0;
+	
         // Create initial data at Place 0
         System.out.println("### Create initial data at Place 0");
 
@@ -61,7 +69,7 @@ public class TestDistCol implements Serializable {
 	    e.printStackTrace();
 	}
 
-	//	val gather = new GatherDistCol[String](placeGroup, distCol);
+	//	val gather = new GatherDistCol[String](pg, distCol);
 	//	gather.gather();
 	//	gather.print();
 	//	gather.setCurrentAsInit();
@@ -71,18 +79,18 @@ public class TestDistCol implements Serializable {
         // Distribute all entries
         System.out.println("");
         System.out.println("### MoveAtSync // Distribute all entries");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    distCol.forEachChunk((RangedList<String> c) -> {
 			    LongRange r = c.getRange();
 			    String s = c.get(r.begin);
 			    long d = (Long.parseLong(s.split("/")[0])) % NPLACES;
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + "] to " + d);
+			    System.out.println("[" + r.begin + ".." + r.end + ") to " + d);
 			    try {
-				distCol.moveAtSync(cs, placeGroup.get((int)d), mm);
+				distCol.moveAtSync(cs, pg.get((int)d), mm);
 			    } catch (Exception e) {
 				System.err.println("Error on " + here());
 				e.printStackTrace();
@@ -112,7 +120,7 @@ public class TestDistCol implements Serializable {
 
         System.out.println("");
         System.out.println("### Update dist // Distribute all entries");
-	placeGroup.broadcastFlat(() -> {
+	pg.broadcastFlat(() -> {
 		try {
 		    distCol.updateDist();
 		} catch (Exception e) {
@@ -135,16 +143,18 @@ public class TestDistCol implements Serializable {
         // Move all entries to the next place
         System.out.println("");
         System.out.println("### MoveAtSync // Move all entries to the next place");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
+		//		System.out.println("Line 147:"+distCol.ldist.toString() +"@"+here());
+
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
-		    int rank = placeGroup.rank(here());
-		    Place destination = placeGroup.get(rank + 1 == placeGroup.size() ? 0 : rank);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
+		    int rank = pg.rank(here());
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
 		    distCol.forEachChunk((RangedList<String> c) -> {
 			    LongRange r = c.getRange();
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + "] to " + destination.id);
+			    System.out.println("[" + r.begin + ".." + r.end + ") to " + destination.id);
 			    try {
 				distCol.moveAtSync(cs, destination, mm);
 			    } catch (Exception e) {
@@ -176,9 +186,12 @@ public class TestDistCol implements Serializable {
 
         System.out.println("");
         System.out.println("### Update dist // Move all entries to the next place");
-	placeGroup.broadcastFlat(() -> {
+	pg.broadcastFlat(() -> {
 		try {
+		    // System.out.println("BeforeUpdateDist: "+distCol.ldist.toString() +"@"+here());		    
 		    distCol.updateDist();
+		    // System.out.println("AfterUpdateDist: "+distCol.ldist.toString() +"@"+here());
+		    
 		} catch (Exception e) {
 		    System.err.println("Error on " + here());
 		    e.printStackTrace();
@@ -199,16 +212,16 @@ public class TestDistCol implements Serializable {
         // Move all entries to the next to next place
         System.out.println("");
         System.out.println("### MoveAtSync // Move all entries to the next to next place");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
-		    int rank = placeGroup.rank(here());
-		    Place destination = placeGroup.get(rank + 1 == placeGroup.size() ? 0 : rank);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
+		    int rank = pg.rank(here());
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
 		    distCol.forEachChunk((RangedList<String> c) -> {
 			    LongRange r = c.getRange();
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + "] to " + destination.id);
+			    System.out.println("[" + r.begin + ".." + r.end + ") to " + destination.id);
 			    try {
 				distCol.moveAtSync(cs, destination, mm);
 			    } catch (Exception e) {
@@ -222,7 +235,7 @@ public class TestDistCol implements Serializable {
 			    LongRange r = c.getRange();
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + "] to " + destination.id);
+			    System.out.println("[" + r.begin + ".." + r.end + ") to " + destination.id);
 			    try {
 				distCol.moveAtSync(cs, destination, mm);
 			    } catch (Exception e) {
@@ -254,7 +267,7 @@ public class TestDistCol implements Serializable {
 
         System.out.println("");
         System.out.println("### Update dist // Move all entries to the next to next place");
-	placeGroup.broadcastFlat(() -> {
+	pg.broadcastFlat(() -> {
 		try {
 		    distCol.updateDist();
 		} catch (Exception e) {
@@ -277,17 +290,17 @@ public class TestDistCol implements Serializable {
         // Move all entries to the NPLACES times next place
         System.out.println("");
         System.out.println("### MoveAtSync // Move all entries to the NPLACES times next place");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
-		    int rank = placeGroup.rank(here());
-		    Place destination = placeGroup.get(rank + 1 == placeGroup.size() ? 0 : rank);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
+		    int rank = pg.rank(here());
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
 		    for (long i = 0; i < NPLACES; i++) {
 			distCol.forEachChunk((RangedList<String> c) -> {
 				LongRange r = c.getRange();
 				ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 				cs.add(c);
-				System.out.println("[" + r.begin + ".." + r.end + "] to " + destination.id);
+				System.out.println("[" + r.begin + ".." + r.end + ") to " + destination.id);
 				try {
 				    distCol.moveAtSync(cs, destination, mm);
 				} catch (Exception e) {
@@ -320,7 +333,7 @@ public class TestDistCol implements Serializable {
 
         System.out.println("");
         System.out.println("### Update dist // Move all entries to the NPLACES times next place");
-	placeGroup.broadcastFlat(() -> {
+	pg.broadcastFlat(() -> {
 		try {
 		    distCol.updateDist();
 		} catch (Exception e) {
@@ -343,16 +356,16 @@ public class TestDistCol implements Serializable {
         // Move all entries to place 0
         System.out.println("");
         System.out.println("### MoveAtSync // Move all entries to place 0");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
-		    int rank = placeGroup.rank(here());
-		    Place destination = placeGroup.get(0);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
+		    int rank = pg.rank(here());
+		    Place destination = pg.get(0);
 		    distCol.forEachChunk((RangedList<String> c) -> {
 			    LongRange r = c.getRange();
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + "] to " + destination.id);
+			    System.out.println("[" + r.begin + ".." + r.end + ") to " + destination.id);
 			    try {
 				distCol.moveAtSync(cs, destination, mm);
 			    } catch (Exception e) {
@@ -382,7 +395,7 @@ public class TestDistCol implements Serializable {
 
         System.out.println("");
         System.out.println("### Update dist // Move all entries to place 0");
-	placeGroup.broadcastFlat(() -> {
+	pg.broadcastFlat(() -> {
 		try {
 		    distCol.updateDist();
 		} catch (Exception e) {
@@ -421,18 +434,18 @@ public class TestDistCol implements Serializable {
 	// Distribute all entries with additional key/value
         System.out.println("");
         System.out.println("### Distribute all entries with additional key/value");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    distCol.forEachChunk((RangedList<String> c) -> {
 			    LongRange r = c.getRange();
 			    String s = c.get(r.begin);
 			    long d = (Long.parseLong(s.split("/")[0])) % NPLACES;
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + "] to " + d);
+			    System.out.println("[" + r.begin + ".." + r.end + ") to " + d);
 			    try {
-				distCol.moveAtSync(cs, placeGroup.get((int)d), mm);
+				distCol.moveAtSync(cs, pg.get((int)d), mm);
 			    } catch (Exception e) {
 				System.err.println("Error on " + here());
 				e.printStackTrace();
@@ -450,7 +463,7 @@ public class TestDistCol implements Serializable {
 	// Then remove additional key/value
         System.out.println("");
         System.out.println("### Then remove additional key/value");
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
 		    ArrayList<RangedList<String> > chunkList = new ArrayList<RangedList<String> >();
 		    distCol.forEachChunk((RangedList<String> c) -> {
@@ -484,7 +497,7 @@ public class TestDistCol implements Serializable {
 
         System.out.println("");
         System.out.println("### Update dist // Distribute all entries again and remove additional data");
-	placeGroup.broadcastFlat(() -> {
+	pg.broadcastFlat(() -> {
 		try {
 		    distCol.updateDist();
 		} catch (Exception e) {
@@ -514,13 +527,13 @@ public class TestDistCol implements Serializable {
 
         System.out.println("");
         System.out.println("### Split range into large pieces splitSizeLarge: " + splitSizeLarge);
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    LongRange range = new LongRange(0, splitSizeLarge);
 		    long dest = 0;
 		    while (range.begin < AllRange.end) {
-			distCol.moveAtSync(range, placeGroup.get((int)dest), mm);
+			distCol.moveAtSync(range, pg.get((int)dest), mm);
 			range = new LongRange(range.begin + splitSizeLarge, range.end + splitSizeLarge);
 			dest = (dest + 1) % NPLACES;
 		    }
@@ -548,7 +561,7 @@ public class TestDistCol implements Serializable {
 
         System.out.println("");
         System.out.println("### Update dist // Split range into large pieces");
-	placeGroup.broadcastFlat(() -> {
+	pg.broadcastFlat(() -> {
 		try {
 		    distCol.updateDist();
 		} catch (Exception e) {
@@ -572,13 +585,13 @@ public class TestDistCol implements Serializable {
 
         System.out.println("");
         System.out.println("### Split range into small pieces splitSizeSmall: " + splitSizeSmall);
-        placeGroup.broadcastFlat(() -> {
+        pg.broadcastFlat(() -> {
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    LongRange range = new LongRange(0, splitSizeSmall);
 		    long dest = 0;
 		    while (range.begin < AllRange.end) {
-			distCol.moveAtSync(range, placeGroup.get((int)dest), mm);
+			distCol.moveAtSync(range, pg.get((int)dest), mm);
 			range = new LongRange(range.begin + splitSizeSmall, range.end + splitSizeSmall);
 			dest = (dest + 1) % NPLACES;
 		    }
@@ -605,7 +618,7 @@ public class TestDistCol implements Serializable {
 
         System.out.println("");
         System.out.println("### Update dist // Split range into small pieces");
-	placeGroup.broadcastFlat(() -> {
+	pg.broadcastFlat(() -> {
 		try {
 		    distCol.updateDist();
 		} catch (Exception e) {
