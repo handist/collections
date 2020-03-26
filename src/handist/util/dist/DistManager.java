@@ -45,6 +45,10 @@ public class DistManager<T> {
         dist.clear();
         diff.clear();
     }
+    @Override
+    public String toString() {
+	return "[DistManager] + dist: " + dist + ",  diff: " + diff + ", imported: " + importedDiffKeys + "-----";
+    }
 
     void reject(String method, int reason, T key) throws ParameterErrorException {
         String msg = "[" + here() + "] Error when calling " + method + " " + key + " on code " + reason;

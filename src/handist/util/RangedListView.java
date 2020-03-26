@@ -187,6 +187,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+	if(range==null) return "RangedListView in Underconstruction.";
         sb.append("[" + range + "]");
         int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
         long c = 0;
@@ -212,10 +213,10 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 	out.writeObject(chunk);
     }
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-	System.out.println("readChunk: " + this);
 	Chunk<T> chunk = (Chunk<T>)in.readObject();
 	this.base=chunk;
 	this.range=chunk.getRange();
+	//System.out.println("readChunk: " + this);
     }
     
 
