@@ -32,6 +32,7 @@ public class TestDistMapList  {
     public static void main(String[] args) {
         TeamedPlaceGroup world = TeamedPlaceGroup.getWorld();
         new TestDistMapList(world).run();
+	System.out.println("----finish");
     }
 
     public String genRandStr(String header) {

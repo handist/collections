@@ -11,6 +11,7 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -270,7 +271,7 @@ public class DistMap<T,U> extends AbstractDistCollection {
         mm.request(pl, serialize, deserialize);
     }
 
-    public void moveAtSync(List<T> keys, Place pl, MoveManagerLocal mm) {
+    public void moveAtSync(Collection<T> keys, Place pl, MoveManagerLocal mm) {
         if (pl.equals(Constructs.here())) return;
         final DistMap<T,U> collection = this;
         Serializer serialize = (ObjectOutputStream s) -> {

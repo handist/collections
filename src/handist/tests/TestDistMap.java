@@ -26,9 +26,9 @@ public class TestDistMap {
 
     public static void main(String[] args) {
         TeamedPlaceGroup world = TeamedPlaceGroup.getWorld();
-	finish(()->{
-		new TestDistMap(world).run();
-	    });
+	new TestDistMap(world).run();
+	System.out.println("----finish");
+
     }
 
     public String genRandStr(String header) {

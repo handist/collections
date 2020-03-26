@@ -209,8 +209,12 @@ public class DistIdMap<T> extends DistMap<Long, T>
             op.accept(data.get(id));
         });
     }
-
-    public void moveAtSync(long key, Place dest, MoveManagerLocal mm) {
+    @Override
+    public void moveAtSync(Long key, Place dest, MoveManagerLocal mm) {
+	moveAtSync(key.longValue(), dest, mm);
+    }
+    
+    public void moveAtSync(final long key, Place dest, MoveManagerLocal mm) {
         if (dest.equals(here())) return;
 
         final DistIdMap<T> toBranch = this;
@@ -232,7 +236,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
         };
         mm.request(dest, serialize, deserialize);
     }
-
+    @Override
     public void moveAtSync(Collection<Long> keys, Place dest, MoveManagerLocal mm) {
         if (dest.equals(here())) return;
         final DistIdMap<T> collection = this;
@@ -306,7 +310,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
         };
         mm.request(dest, serialize, deserialize);
     }
-
+    @Override
     public void moveAtSync(Function<Long, Place> rule, MoveManagerLocal mm) {
         final DistIdMap<T> collection = this;
         HashMap<Place, ArrayList<Long>> keysToMove = new HashMap<>();
@@ -321,7 +325,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
             moveAtSync(keysToMove.get(p), p, mm);
         }
     }
-
+    @Override
     public void moveAtSync(Distribution<Long> dist, MoveManagerLocal mm) {
         Function<Long,Place> rule = (Long key) -> { return dist.place(key);};
         moveAtSync(rule, mm);
@@ -382,6 +386,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
             this.second = second;
         }
     }
+    //TODO different naming convention of balance methods with DistMap
     public void balance(MoveManagerLocal mm) throws Exception {
         int pgSize = placeGroup.size();
         ArrayList<IFPair> listPlaceLocality = new ArrayList<>();
