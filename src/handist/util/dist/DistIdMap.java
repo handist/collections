@@ -26,30 +26,8 @@ public class DistIdMap<T> extends DistMap<Long, T>
 {
 
     private static int _debug_level = 0;
-
-    // TODO @TransientInitExpr(getLocalLDist())
     transient DistManager.Index ldist;
-    /*
-    private final def getLocalLDist(): DistManager.Index {
-        val local = getLocalInternal();
-        if (local == null) {
-            return new DistManager.Index();
-        } else {
-            return local.ldist;
-        }
-    }*/
-
     transient float[] locality;
-    /* TODO
-    @TransientInitExpr(getLocalLocality())
-        private final def getLocalLocality(): Rail[Float] {
-        val local = getLocalInternal();
-        if (local == null) {
-            return new Rail[Float]();
-        } else {
-            return local.locality;
-        }
-    }*/
 
     public Map<Long, Place> getDist() { return ldist.dist; }
     Map<Long, Integer> getDiff() { return ldist.diff; }
@@ -348,22 +326,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
         ldist.updateDist(placeGroup);
     }
 
-    /**
-     * Update the distribution information of the entries.
-     */
-/*
-    public def updateDist(logger: Logger): void {
-        logger.beginDistAll();
-        updateDist();
-        logger.endDistAll();
-    }
-
-*/
-    /*    def create(placeGroup: PlaceGroup, team: Team, init: ()=>Map[Long,T]){
-        // return new DistIdMap[T](placeGroup, init) as AbstractDistCollection[Map[Long,T]];
-        return null as AbstractDistCollection[Map[Long,T]];
-    }
-
+    /*
     public def versioningIdMap(srcName : String){
         // return new BranchingManager[DistIdMap[T], Map[Long,T]](srcName, this);
         return null as BranchingManager[DistIdMap[T], Map[Long, T]];
@@ -372,20 +335,15 @@ public class DistIdMap<T> extends DistMap<Long, T>
     /* Ensure calling updateDist() before balance()
      * balance() should be called in all places
      */
-    static class IFPair {
-        int first; float second;
-        public IFPair(int first, float second) {
-            this.first = first;
-            this.second = second;
+    public void checkDistInfo(long[] result) {
+        for (Map.Entry<Long, Place> entry : ldist.dist.entrySet()) {
+            // val k = entry.getKey();
+            Place v = entry.getValue();
+            result[placeGroup.rank(v)] += 1;
         }
     }
-    static class ILPair {
-        int first; long second;
-        public ILPair(int first, long second) {
-            this.first = first;
-            this.second = second;
-        }
-    }
+
+/*
     //TODO different naming convention of balance methods with DistMap
     public void balance(MoveManagerLocal mm) throws Exception {
         int pgSize = placeGroup.size();
@@ -397,11 +355,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
         for (int i = 0; i<locality.length; i++) {
             localitySum += locality[i];
         }
-        for (Map.Entry<Long, Place> entry: ldist.dist.entrySet()) {
-            //val k = entry.getKey();
-            Place v = entry.getValue();
-            localDataSize[placeGroup.rank(v)] += 1; // TODO use rank instead of place.id order
-        }
+ 
 
         for (int i=0; i< pgSize; i++) {
             globalDataSize += localDataSize[i];
@@ -516,13 +470,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
         // Move Data
         for (int i=0; i<pgSize; i++) {
             if (placeGroup.get(i).equals(here())) {
-                for (ILPair pair: moveList.get(i)) {
-                    if (_debug_level > 5) {
-                        System.out.println("MOVE src: " + i + " dest: " + pair.first + " size: " + pair.second);
-                    }
-                    if(pair.second > Integer.MAX_VALUE) throw new Error("One place cannot receive so much elements: "+pair.second);
-                    moveAtSyncCount((int)pair.second, placeGroup.get(pair.first), mm);
-                }
+
             }
         }
 
@@ -531,15 +479,6 @@ public class DistIdMap<T> extends DistMap<Long, T>
     public void balance(float[] newLocality, MoveManagerLocal mm) throws Exception {
         System.arraycopy(newLocality, 0, locality, 0, placeGroup().size);
         balance(mm);
-    }
-
-    /*
-    static class DistIdMapLocal[V](ldist: DistManager.Index, locality: Rail[Float]) {V haszero} extends Local[Map[Long, V]] {
-
-        def this(placeGroup: PlaceGroup, team: Team, data: Map[Long, V], ldist: DistManager.Index, locality: Rail[Float]) {
-            super(placeGroup, team, data);
-            property(ldist, locality);
-        }
     }
 */
 }

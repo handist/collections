@@ -11,8 +11,11 @@ import java.util.Collection;
 import java.util.ListIterator;
 import java.util.function.BiConsumer;
 
+import apgas.Constructs;
 import apgas.Place;
 import apgas.util.GlobalID;
+import mpi.MPI;
+import mpi.MPIException;
 
 /**
  * A class for handling objects at multiple places.
@@ -25,8 +28,17 @@ import apgas.util.GlobalID;
  *   The method flattens the number of elements of the all places.
  */
 public class DistBag<T> extends AbstractDistCollection /* implements Container[T], ReceiverHolder[T] */{
-
+    private static int _debug_level = 5;
     transient public ArrayList<T> data;
+
+    /**
+     * Return the number of local elements.
+     *
+     * @return the number of local elements.
+     */
+    public int size() {
+        return data.size();
+    }
 
     public Object writeReplace() throws ObjectStreamException {
         final TeamedPlaceGroup pg1 = placeGroup;
@@ -35,6 +47,7 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
             return new DistBag<T>(pg1, id1);
         });
     }
+
 
 /*
     @TransientInitExpr(getReceiversInternal())
@@ -111,7 +124,15 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
      * Remove a element at the local storage.
      */
     public T remove() {
-        return data.remove(data.size()-1);
+        return data.remove(data.size() - 1);
+    }
+
+    public Collection<T> removeN(int count) {
+        ArrayList<T> result = new ArrayList<>(count);
+        while (count-- > 0) {
+            result.add(this.remove());
+        }
+        return result;
     }
 
     /**
@@ -152,14 +173,6 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
         return data.containsAll(container);
     }
 
-    /**
-     * Return the number of local elements.
-     *
-     * @return the number of local elements.
-     */
-    public int size() {
-        return data.size();
-    }
 
     /**
      * Return a Container that has the same values of DistBag's local storage.
@@ -208,16 +221,51 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
         }
     }
 
-    public void balance() {
-        // new LoadBalancer[T](data, placeGroup, team).execute();
-        throw new UnsupportedOperationException();
-    }
+
+
     /*
     public def integrate(src : List[T]) {
         // addAll(src);
         throw new UnsupportedOperationException();
     }*/
 
+    public void checkDistInfo(long[] result) {
+        TeamedPlaceGroup pg = this.placeGroup;
+        long localSize = size(); // int->long
+        long[] sendbuf = new long[]{ localSize };
+        // team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
+        try {
+            pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
+        } catch (MPIException e) {
+            e.printStackTrace();
+            throw new Error("[DistMap] network error in balance()");
+        }
+    }
+
+    public void moveAtSyncCount(final int count, Place pl, MoveManagerLocal mm) {
+        if (pl.equals(Constructs.here()))
+            return;
+        final DistBag<T> collection = this;
+        Serializer serialize = (ObjectOutputStream s) -> {
+            s.writeObject(this.removeN(count));
+        };
+        DeSerializer deserialize = (ObjectInputStream ds) -> {
+            Collection<T> imported = (Collection<T>) ds.readObject();
+            collection.addAll(imported);
+        };
+        mm.request(pl, serialize, deserialize);
+    }
+
+    protected void moveAtSyncCount(final ArrayList<ILPair> moveList, final MoveManagerLocal mm) throws Exception {
+        for (ILPair pair : moveList) {
+            if (_debug_level > 5) {
+                System.out.println("MOVE src: " + here() + " dest: " + pair.first + " size: " + pair.second);
+            }
+            if (pair.second > Integer.MAX_VALUE)
+                throw new Error("One place cannot receive so much elements: " + pair.second);
+            moveAtSyncCount((int) pair.second, placeGroup.get(pair.first), mm);
+        }
+    }
     /*
     public def versioning(srcName : String){
         return new BranchingManager[DistBag[T], List[T]](srcName, this);

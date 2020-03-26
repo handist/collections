@@ -173,8 +173,13 @@ public class TeamedPlaceGroup implements Serializable {
             }
         }
     }
-    public void barrier() throws Exception {
-        this.comm.Barrier();
+    public void barrier()  {
+        try {
+            this.comm.Barrier();
+        } catch (MPIException e) {
+            e.printStackTrace();
+            throw new Error("[TeamedPlaceGroup] MPI Exception raised.");
+        }
     }
 
     public static void main(String[] args) {

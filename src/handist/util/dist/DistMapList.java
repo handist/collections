@@ -80,8 +80,9 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
             list = new ArrayList<U>();
             data.put(key, list);
         }
-	//TODO we should check values!=null before transportation
-	if(values!=null) list.addAll(values);
+        // TODO we should check values!=null before transportation
+        if (values != null)
+            list.addAll(values);
         return false;
     }
 
@@ -117,19 +118,21 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
     }
 
     public void moveAtSync(T key, Place pl, MoveManagerLocal mm) {
-        if(pl.equals(here())) return;
-        if(!containsKey(key)) throw new RuntimeException("DistMapList cannot move uncontained entry: "+key);
+        if (pl.equals(here()))
+            return;
+        if (!containsKey(key))
+            throw new RuntimeException("DistMapList cannot move uncontained entry: " + key);
         final DistMapList<T, U> toBranch = this; // using plh@AbstractCol
         Serializer serialize = (ObjectOutputStream s) -> {
             List<U> value = this.removeForMove(key);
-	    //TODO we should check values!=null before transportation	    
-	    s.writeObject(key);
-	    s.writeObject(value);
+            // TODO we should check values!=null before transportation
+            s.writeObject(key);
+            s.writeObject(value);
         };
         DeSerializer deserialize = (ObjectInputStream ds) -> {
-            T k = (T)ds.readObject();
-	    //TODO we should check values!=null before transportation	    
-            List<U> v = (List<U>)ds.readObject();
+            T k = (T) ds.readObject();
+            // TODO we should check values!=null before transportation
+            List<U> v = (List<U>) ds.readObject();
             toBranch.putForMove(k, v);
         };
         mm.request(pl, serialize, deserialize);
@@ -190,14 +193,17 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
         }
         return accum;
     }
-
+    
     def create(placeGroup: PlaceGroup, team: Team, init: ()=>Map[T, List[U]]){
         // return new DistMapList[T,U](placeGroup, init) as AbstractDistCollection[Map[T,List[U]]];
         return null as AbstractDistCollection[Map[T, List[U]]];
     }
-
+    
     public def versioningMapList(srcName : String){
         // return new BranchingManager[DistMapList[T,U], Map[T,List[U]]](srcName, this);
         return null as BranchingManager[DistMapList[T,U], Map[T,List[U]]];
     }*/
+    //TODO
+    //In the cunnrent implementation of balance(), 
+    // DistIdMap treat the number of key as the load of the PE, not using the number of elements in the value lists. 
 }

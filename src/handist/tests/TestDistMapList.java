@@ -5,7 +5,6 @@ import static apgas.Constructs.*;
 import java.lang.Math;
 import java.util.Random;
 import java.util.ArrayList;
-import java.io.Serializable;
 
 import apgas.Place;
 import handist.util.dist.DistMapList;
