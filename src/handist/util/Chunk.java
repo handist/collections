@@ -7,8 +7,9 @@ import java.util.Iterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import java.io.*;
 
-public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
+public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Serializable {
 
     private Object[] a;
 
@@ -126,6 +127,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
 
     @Override
     public long longSize() {
+	if(range==null) throw new Error("hxcdskcs");
         return range.end - range.begin;
     }
 
@@ -174,6 +176,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
     }
 
     public Chunk(LongRange range, T v) {
+	if(range==null) throw new Error("heheheheh");
         long size = range.end - range.begin;
         if (size > Config.maxChunkSize) {
             throw new IllegalArgumentException();
@@ -186,9 +189,11 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
     public Chunk() {
         // a = new Object[];
         this.range = new LongRange(0, 1);
+	a = new Object[1];
     }
 
     public Chunk(LongRange range, Object[] a) {
+	if(range==null) throw new Error("heheheheh2");
         this.a = a;
         this.range = range;
     }
@@ -267,6 +272,9 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
 
     @Override
     public String toString() {
+	if(range==null) {
+	    return "[Chunk] in Construction";
+	}
         StringBuilder sb = new StringBuilder();
         sb.append("[" + range + "]");
         int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
@@ -297,8 +305,14 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T> {
         });
         System.out.println("Chunk :" + c);
     }
-
-
-
-
+    private void writeObject(ObjectOutputStream out) throws IOException {
+	// System.out.println("writeChunk:"+this);
+	out.writeObject(range);
+	out.writeObject(a);
+    }
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+	this.range = (LongRange)in.readObject();
+	this.a = (Object[])in.readObject();
+	//System.out.println("readChunk:"+this);
+    }
 }

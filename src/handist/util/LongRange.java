@@ -6,8 +6,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.LongConsumer;
 import java.util.stream.LongStream;
+import java.io.Serializable;
 
-public class LongRange implements Comparable<LongRange>, Iterable<Long> {
+public class LongRange implements Comparable<LongRange>, Iterable<Long>, Serializable {
     public final long begin; // INCLUSIVE
     public final long end; // EXCLUSIVE
 

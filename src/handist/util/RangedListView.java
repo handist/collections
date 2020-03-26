@@ -4,8 +4,9 @@ import java.util.AbstractCollection;
 import java.util.Iterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.io.*;
 
-public class RangedListView<T> extends AbstractCollection<T> implements RangedList<T> {
+public class RangedListView<T> extends AbstractCollection<T> implements RangedList<T>, Serializable {
 
     private RangedList<T> base;
     protected LongRange range;
@@ -204,6 +205,19 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         // sb.append("@" + range.begin + ".." + last() + "]");
         return sb.toString();
     }
+
+    // TODO this implement generates redundant RangedListView at receiver node.
+    private void writeObject(ObjectOutputStream out) throws IOException {
+	Chunk<T> chunk = this.toChunk(range);
+	out.writeObject(chunk);
+    }
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+	System.out.println("readChunk: " + this);
+	Chunk<T> chunk = (Chunk<T>)in.readObject();
+	this.base=chunk;
+	this.range=chunk.getRange();
+    }
+    
 
     public static void main(String[] args) {
         long i = 10;
