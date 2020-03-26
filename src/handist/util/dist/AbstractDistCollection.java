@@ -4,11 +4,10 @@ import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Map;
 
 import apgas.SerializableCallable;
 import apgas.util.GlobalID;
-import static apgas.Constructs.*;
+
 
 public abstract class AbstractDistCollection implements Serializable {
     private static int _debug_level = 5;

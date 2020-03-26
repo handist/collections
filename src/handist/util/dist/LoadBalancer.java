@@ -20,7 +20,7 @@ import apgas.Place;
 import mpi.MPI;
 import mpi.MPIException;
 
-
+//TODO not used now.
 // for internal use
 // this is a class for the load balancing
 abstract class LoadBalancer {
