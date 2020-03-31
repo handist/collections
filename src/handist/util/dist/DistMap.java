@@ -244,6 +244,7 @@ public class DistMap<T, U> extends AbstractDistCollection {
      * @param pl  the destination place.
      * @param mm  MoveManagerLocal
      */
+    @SuppressWarnings("unchecked")
     public void moveAtSync(T key, Place pl, MoveManagerLocal mm) {
         if (pl.equals(Constructs.here()))
             return;
@@ -253,7 +254,7 @@ public class DistMap<T, U> extends AbstractDistCollection {
             s.writeObject(key);
             s.writeObject(value);
         };
-        DeSerializer deserialize = (ObjectInputStream ds) -> {
+        DeSerializer deserialize = (ObjectInputStream ds) ->  {
             T k = (T) ds.readObject();
             U v = (U) ds.readObject();
             toBranch.putForMove(k, v);
@@ -261,6 +262,7 @@ public class DistMap<T, U> extends AbstractDistCollection {
         mm.request(pl, serialize, deserialize);
     }
 
+    @SuppressWarnings("unchecked")
     public void moveAtSync(Collection<T> keys, Place pl, MoveManagerLocal mm) {
         if (pl.equals(Constructs.here()))
             return;

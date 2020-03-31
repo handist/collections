@@ -191,8 +191,10 @@ public class DistIdMap<T> extends DistMap<Long, T>
 	moveAtSync(key.longValue(), dest, mm);
     }
     
+    @SuppressWarnings("unchecked")
     public void moveAtSync(final long key, Place dest, MoveManagerLocal mm) {
-        if (dest.equals(here())) return;
+        if (dest.equals(here()))
+            return;
 
         final DistIdMap<T> toBranch = this;
         Serializer serialize = (ObjectOutputStream s) -> {
@@ -205,7 +207,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
         DeSerializer deserialize = (ObjectInputStream ds) -> {
             long k = ds.readLong();
             byte mType = ds.readByte();
-            T v = (T)ds.readObject();
+            T v = (T) ds.readObject();
             if (_debug_level > 5) {
                 System.err.println("[" + here() + "] putForMove key: " + k + " keyType: " + mType + " value: " + v);
             }
@@ -213,7 +215,9 @@ public class DistIdMap<T> extends DistMap<Long, T>
         };
         mm.request(dest, serialize, deserialize);
     }
-    @Override
+    
+    @Override 
+    @SuppressWarnings("unchecked")
     public void moveAtSync(Collection<Long> keys, Place dest, MoveManagerLocal mm) {
         if (dest.equals(here())) return;
         final DistIdMap<T> collection = this;
@@ -240,6 +244,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
         mm.request(dest, serialize, deserialize);
     }
 
+    @SuppressWarnings("unchecked")
     public void moveAtSyncCount(int count, Place dest, MoveManagerLocal mm) {
         if (dest.equals(here())) return;
         final DistIdMap<T> collection = this;

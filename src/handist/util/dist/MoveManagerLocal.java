@@ -81,6 +81,7 @@ public final class MoveManagerLocal {
         return out.toByteArray();
     }
 
+    @SuppressWarnings("unchecked")
     public void executeDeserialization(Map<Place, byte[]> map) throws Exception {
         for(Place p: placeGroup.places()) {
         if(p.equals(here())) continue;
@@ -94,24 +95,28 @@ public final class MoveManagerLocal {
         }
     }
 
-    public void executeSerialization(TeamedPlaceGroup placeGroup2, ByteArrayOutputStream out, int[] offsets, int[] sizes) throws IOException {
-        for(int i = 0; i<placeGroup2.size(); i++) {
+    public void executeSerialization(TeamedPlaceGroup placeGroup2, ByteArrayOutputStream out, int[] offsets,
+            int[] sizes) throws IOException {
+        for (int i = 0; i < placeGroup2.size(); i++) {
             Place place = placeGroup2.get(i);
             // TODO is this correct??
-            if(place.equals(here())) continue;
-            offsets[i]=out.size();
+            if (place.equals(here()))
+                continue;
+            offsets[i] = out.size();
             // TODO should reopen ByteArray...
-            System.out.println("execSeri: " +here()+ "->"+ place + ":start:"+ out.size());
+            System.out.println("execSeri: " + here() + "->" + place + ":start:" + out.size());
             ObjectOutputStream s = new ObjectOutputStream(out);
             s.writeObject(builders.get(place));
-            for (Serializer serializer: serializeListMap.get(place)) {
+            for (Serializer serializer : serializeListMap.get(place)) {
                 serializer.accept(s);
             }
             s.close();
-            System.out.println("execSeri: " +here()+ "->"+ place + ":finish:"+ out.size());
+            System.out.println("execSeri: " + here() + "->" + place + ":finish:" + out.size());
             sizes[i] = out.size() - offsets[i];
         }
     }
+    
+    @SuppressWarnings("unchecked")
     public void executeDeserialization(byte[] buf, int[] rcvOffset, int[] rcvSize) throws Exception {
         int current = 0;
         for(Place p: placeGroup.places()) {

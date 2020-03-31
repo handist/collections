@@ -246,7 +246,8 @@ public class DistManager<T> {
             throw new RuntimeException("[DistManager] Duplicate key in " + keys);
         }
     }
-
+    
+    @SuppressWarnings("unchecked")
     void updateDist(TeamedPlaceGroup pg) {
         Serializer serProcess = (ObjectOutputStream ser) -> {
             ser.writeObject(diff);
@@ -271,6 +272,10 @@ public class DistManager<T> {
     }
 
     static class SystemError extends Error {
+        /**
+         *
+         */
+        private static final long serialVersionUID = 4466816572543219426L;
         public int reason;
 
         SystemError(int reason, String msg) {
@@ -280,6 +285,10 @@ public class DistManager<T> {
     }
 
     static class ParameterErrorException extends RuntimeException {
+        /**
+         *
+         */
+        private static final long serialVersionUID = -9038636040813564069L;
         public int reason;
 
         ParameterErrorException(int reason, String msg) {

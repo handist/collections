@@ -24,6 +24,10 @@ import mpi.MPIException;
 public class TeamedPlaceGroup implements Serializable {
     // TODO
     private static final class ObjectReference implements Serializable {
+        /**
+         *
+         */
+        private static final long serialVersionUID = -1948016251753684732L;
         private final GlobalID id;
 
         private ObjectReference(GlobalID id) {

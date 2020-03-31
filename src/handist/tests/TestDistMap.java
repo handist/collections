@@ -3,7 +3,6 @@ package handist.tests;
 import static apgas.Constructs.*;
 
 import java.util.Random;
-import java.io.Serializable;
 
 import apgas.Place;
 import handist.util.dist.DistMap;

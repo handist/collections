@@ -217,7 +217,8 @@ abstract class LoadBalancer {
             out.writeObject(one);
         }
 
-        @Override
+        @Override 
+        @SuppressWarnings("unchecked")
         void importOne(ObjectInputStream in) throws ClassNotFoundException, IOException {
             body.add((T)in.readObject());
         }
@@ -247,7 +248,8 @@ abstract class LoadBalancer {
             out.writeObject(v);
         }
 
-        @Override
+        @Override 
+        @SuppressWarnings("unchecked")
         void importOne(ObjectInputStream obj) throws ClassNotFoundException, IOException {
             K key = (K) obj.readObject();
             V v = (V) obj.readObject();

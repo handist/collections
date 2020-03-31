@@ -4,7 +4,6 @@ import static apgas.Constructs.*;
 
 import java.util.List;
 import java.util.ArrayList;
-import java.io.Serializable;
 
 import apgas.Place;
 import handist.util.LongRange;
@@ -359,7 +358,7 @@ public class TestDistCol {
         pg.broadcastFlat(() -> {
 		try {
 		    MoveManagerLocal mm = new MoveManagerLocal(pg);
-		    int rank = pg.rank(here());
+		    //int rank = pg.rank(here());
 		    Place destination = pg.get(0);
 		    distCol.forEachChunk((RangedList<String> c) -> {
 			    LongRange r = c.getRange();

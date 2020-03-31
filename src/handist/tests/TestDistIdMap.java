@@ -4,7 +4,6 @@ import static apgas.Constructs.*;
 
 import java.util.Random;
 import java.util.ArrayList;
-import java.io.Serializable;
 
 import apgas.Place;
 import handist.util.dist.DistIdMap;
@@ -354,7 +353,7 @@ public class TestDistIdMap  {
         pg.broadcastFlat(() -> {
 		ArrayList<Long> keyList = new ArrayList<Long>();
 		try {
-		    MoveManagerLocal mm = new MoveManagerLocal(pg);
+		    //MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    distIdMap2.forEach((Long key, String value) -> {
 			    if (key >= numData2) {
 				System.out.println("[" + here() + "] try to remove " + key);

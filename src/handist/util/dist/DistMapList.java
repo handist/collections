@@ -103,6 +103,7 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
      * @param pl the destination place.
      * @param mm MoveManagerLocal
      */
+    @SuppressWarnings("unchecked")
     public void putAtSync(T key, U value, Place pl, MoveManagerLocal mm) {
         DistMapList<T,U> toBranch = this; // using plh@AbstractCol
         Serializer serialize = (ObjectOutputStream s) -> {
@@ -117,6 +118,7 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
         mm.request(pl, serialize, deserialize);
     }
 
+    @SuppressWarnings("unchecked")
     public void moveAtSync(T key, Place pl, MoveManagerLocal mm) {
         if (pl.equals(here()))
             return;

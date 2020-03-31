@@ -78,6 +78,7 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T> {
      * @param unpack a function which unpacks the received data and inserts the
      *               unpacked data to each proxy.
      */
+    @SuppressWarnings("unchecked")
     public <U> void broadcast(Function<T, U> pack, BiConsumer<T, U> unpack) {
         Serializer serProcess = (ObjectOutputStream ser) -> {
             for (T elem : data) {
@@ -143,7 +144,7 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T> {
     }
 
     @Override
-    public <T> T[] toArray(T[] a) {
+    public <S> S[] toArray(S[] a) {
         throw new UnsupportedOperationException("[CachableArray] No modification of members is allowed.");
     }
 
