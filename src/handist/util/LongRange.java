@@ -1,7 +1,8 @@
 package handist.util;
 
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.LongConsumer;
@@ -9,6 +10,10 @@ import java.util.stream.LongStream;
 import java.io.Serializable;
 
 public class LongRange implements Comparable<LongRange>, Iterable<Long>, Serializable {
+    /**
+     *
+     */
+    private static final long serialVersionUID = 6430187870603427655L;
     public final long begin; // INCLUSIVE
     public final long end; // EXCLUSIVE
 
@@ -40,8 +45,8 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
         return (begin <= index) && (index < end);
     }
 
-    public boolean contains(Long index) {
-        return contains(index.longValue());
+    public boolean contains(LongRange range) {
+        return (this.begin <= range.begin) && (range.end <= this.end);
     }
 
     public boolean isOverlapped(LongRange range) {
@@ -100,21 +105,6 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
         throw new ClassCastException();
     }
 
-    /*    @Override
-    public boolean equals(Object o) {
-        if (o instanceof LongRange) {
-            LongRange r = ((LongRange) o);
-            if (r.begin <= this.begin && this.end <= r.end) {
-                return true;
-            } else {
-                return false;
-            }
-        } else if (o instanceof Long) {
-            Long i = ((Long) o);
-            return this.begin <= i && i < this.end;
-        }
-        return false;
-	}*/
 
     @Override
     public String toString() {
@@ -176,4 +166,62 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
     public Iterator<Long> iterator() {
         return new It();
     }
+
+
+    public List<LongRange> split(int n) {
+        ArrayList<LongRange> result = new ArrayList<>();
+        long rem = size() % n;
+        long quo = size() / n;
+        long c = this.begin;
+
+        for (int i = 0; i < n; i++) {
+            long given = quo + ((i < rem) ? 1 : 0);
+            result.add(new LongRange(c, c+given));
+            c += given;
+        }
+        return result;
+    }
+
+    public static List<List<LongRange>> splitList(int n, List<LongRange> list) {
+        long totalNum = 0;
+        for (LongRange item : list) {
+            totalNum += item.size();
+        }
+        long rem = totalNum % n;
+        long quo = totalNum / n;
+        List<List<LongRange>> result = new ArrayList<>(n);
+        Iterator<LongRange> iter = list.iterator();
+        LongRange c = iter.next();
+        long used = 0;
+
+        for (int i = 0; i < n; i++) {
+            List<LongRange> r = new ArrayList<>();
+            result.add(r);
+            long rest = quo + ((i < rem) ? 1 : 0);
+            while (rest > 0) {
+                if (c.size() - used <= rest) {
+                    long from = c.begin + used;
+                    r.add(new LongRange(from, c.end));
+                    rest -= c.size() - used;
+                    used = 0;
+                    if (!iter.hasNext())
+                        throw new Error("Should not happen!");
+		            c = iter.next();
+                } else {
+                    long from = c.begin + used;
+                    long to = from + rest;
+                    r.add(new LongRange(from, to));
+                    used += rest;
+                    rest = 0;
+                }
+
+            }
+        }
+        return result;
+    }
+
+
+
+
+
 }

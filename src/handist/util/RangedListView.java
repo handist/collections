@@ -4,7 +4,10 @@ import java.util.AbstractCollection;
 import java.util.Iterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.io.*;
+import handist.util.function.LTConsumer;
+
 
 public class RangedListView<T> extends AbstractCollection<T> implements RangedList<T>, Serializable {
 
@@ -91,7 +94,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         return range.end - 1 <= range.begin;
     }
 
-    private static class It<T> implements Iterator {
+    private static class It<T> implements Iterator<T> {
         private long i;
         private RangedListView<T> rangedListView;
         private LongRange range;
@@ -154,34 +157,26 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
     }
 
     @Override
-    public void forEach(Consumer<? super T> action) {
+    public void forEach(LongRange range, Consumer<? super T> action) {
+        rangeCheck(range);
         base.forEach(range, action);
     }
 
     @Override
-    public void forEach(LongRange range, Consumer<? super T> action) {
-        if (range.begin == this.range.begin && range.end == this.range.end) {
-            base.forEach(range, action);
-        } else {
-            long from = Math.max(range.begin, this.range.begin);
-            long to = Math.min(range.end, this.range.end);
-            if (from > to) {
-                throw new ArrayIndexOutOfBoundsException();
-            }
-            LongRange range2 = new LongRange(from, to);
-            base.forEach(range2, action);
-        }
+    public void forEach(LongRange range, LTConsumer<? super T> action) {
+        rangeCheck(range);        
+        base.forEach(range, action);
     }
-
-    public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
-        // Consumer<T> c = action;
-        forEach(this.range, t -> action.accept((T) t, receiver));
-    }
-
+    @Override
     public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
             Consumer<? super U> receiver) {
-        // Consumer<T> c = action;
-        forEach(this.range, t -> action.accept((T) t, receiver));
+        rangeCheck(range);
+        base.forEach(range, action, receiver);
+    }
+
+    public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
+        rangeCheck(from.getRange());
+        base.setupFrom(from, func);
     }
 
     @Override
@@ -209,16 +204,17 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
     // TODO this implement generates redundant RangedListView at receiver node.
     private void writeObject(ObjectOutputStream out) throws IOException {
-	Chunk<T> chunk = this.toChunk(range);
-	out.writeObject(chunk);
+        Chunk<T> chunk = this.toChunk(range);
+        out.writeObject(chunk);
     }
+
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-	Chunk<T> chunk = (Chunk<T>)in.readObject();
-	this.base=chunk;
-	this.range=chunk.getRange();
-	//System.out.println("readChunk: " + this);
+        @SuppressWarnings("unchecked")
+        Chunk<T> chunk = (Chunk<T>) in.readObject();
+        this.base = chunk;
+        this.range = chunk.getRange();
+        // System.out.println("readChunk: " + this);
     }
-    
 
     public static void main(String[] args) {
         long i = 10;
@@ -239,5 +235,8 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         System.out.println("RangedListView: " + r3);
         System.out.println("RangedListView: " + r4);
     }
+
+
+
 
 }

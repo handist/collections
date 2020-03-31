@@ -8,12 +8,14 @@ import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.ListIterator;
+import java.util.Iterator;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import apgas.Constructs;
 import apgas.Place;
 import apgas.util.GlobalID;
+import handist.util.Bag;
 import mpi.MPI;
 import mpi.MPIException;
 
@@ -29,7 +31,7 @@ import mpi.MPIException;
  */
 public class DistBag<T> extends AbstractDistCollection /* implements Container[T], ReceiverHolder[T] */{
     private static int _debug_level = 5;
-    transient public ArrayList<T> data;
+    transient public Bag<T> data;
 
     /**
      * Return the number of local elements.
@@ -48,20 +50,6 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
         });
     }
 
-
-/*
-    @TransientInitExpr(getReceiversInternal())
-    transient val receivers: Rail[DistBagReceiver[T]];
-
-    private final def getReceiversInternal(): Rail[DistBagReceiver[T]] {
-        val local = getLocal[DistBagLocal[T]]();
-        if (local == null) {
-            return null;
-        }
-        return local.receivers;
-    }
-*/
-
     /**
      * Create a new DistBag.
      * Place.places() is used as the PlaceGroup.
@@ -78,15 +66,11 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
      */
     public DistBag(TeamedPlaceGroup placeGroup) {
         super(placeGroup);
-        this.data = new ArrayList<T>();
-        //TODO
-        // receiver?
+        this.data = new Bag<T>();
     }
     protected DistBag(TeamedPlaceGroup placeGroup, GlobalID id) {
         super(placeGroup, id);
-        this.data = new ArrayList<T>();
-        //TODO
-        // receiver?
+        this.data = new Bag<T>();
     }
 
     public static interface Generator<V> extends BiConsumer<Place, DistBag<V>>, Serializable {
@@ -124,15 +108,11 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
      * Remove a element at the local storage.
      */
     public T remove() {
-        return data.remove(data.size() - 1);
+        return data.remove();
     }
 
     public Collection<T> removeN(int count) {
-        ArrayList<T> result = new ArrayList<>(count);
-        while (count-- > 0) {
-            result.add(this.remove());
-        }
-        return result;
+        return data.removeN(count);
     }
 
     /**
@@ -189,24 +169,21 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
      *
      * @return the iterator.
      */
-    public ListIterator<T> iterator() {
-        return this.data.listIterator();
+    public Iterator<T> iterator() {
+        return this.data.iterator();
     }
-/*
-    public def getReceiver(): Receiver[T] {
-        val id = Runtime.workerId();
-        if (receivers(id) == null) {
-            receivers(id) = new DistBagReceiver[T](this);
-        }
-        return receivers(id);
+
+    public Consumer<T> getReceiver() {
+        return data.getReceiver();
     }
-*/
+
 
     /**
      * gather all place-local elements to the root Place.
      *
      * @param root the place where the result of reduction is stored.
      */
+    @SuppressWarnings("unchecked")
     public void gather(Place root) {
         Serializer serProcess = (ObjectOutputStream ser) -> {
             ser.writeObject(this.data);
@@ -241,7 +218,7 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
             throw new Error("[DistMap] network error in balance()");
         }
     }
-
+    @SuppressWarnings("unchecked")
     public void moveAtSyncCount(final int count, Place pl, MoveManagerLocal mm) {
         if (pl.equals(Constructs.here()))
             return;
@@ -271,36 +248,5 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
         return new BranchingManager[DistBag[T], List[T]](srcName, this);
     }
     */
-/*
-    static class DistBagLocal[T] extends Local[List[T]] {
 
-        def this(placeGroup: PlaceGroup, team: Team, data: List[T]) {
-            super(placeGroup, team, data);
-        }
-
-        val receivers: Rail[DistBagReceiver[T]] = new Rail[DistBagReceiver[T]](Runtime.MAX_THREADS as Long);
-    }
-*/
-/*
-    static class DistBagReceiver[T] implements Receiver[T] {
-
-        val distBag: DistBag[T];
-        val buffer: List[T] = new ArrayList[T]();
-
-        def this(distBag: DistBag[T]) {
-            this.distBag = distBag;
-        }
-
-        public def receive(value: T): void {
-            buffer.add(value);
-        }
-
-        public def close(): void {
-            distBag.lock();
-            distBag.data.addAll(buffer);
-            buffer.clear();
-            distBag.unlock();
-        }
-    }
-    */
 }
