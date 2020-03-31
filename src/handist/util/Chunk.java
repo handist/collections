@@ -6,8 +6,11 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.IntStream;
+
 import java.io.*;
+import handist.util.function.LTConsumer;
 
 public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Serializable {
 
@@ -105,6 +108,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public T get(long i0) {
         int i = (int) (i0 - range.begin);
         return (T) a[i];
@@ -115,6 +119,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         int i = (int) (i0 - range.begin);
         // System.out.println("set (" + i0 + ", " + v + ") range.begin=" + range.begin +
         // ", i = " + i);
+        @SuppressWarnings("unchecked")
         T prev = (T) a[i];
         a[i] = v;
         return prev;
@@ -127,7 +132,8 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     @Override
     public long longSize() {
-	if(range==null) throw new Error("hxcdskcs");
+        if (range == null)
+            throw new Error("hxcdskcs");
         return range.end - range.begin;
     }
 
@@ -176,7 +182,6 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     }
 
     public Chunk(LongRange range, T v) {
-	if(range==null) throw new Error("heheheheh");
         long size = range.end - range.begin;
         if (size > Config.maxChunkSize) {
             throw new IllegalArgumentException();
@@ -189,13 +194,25 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     public Chunk() {
         // a = new Object[];
         this.range = new LongRange(0, 1);
-	a = new Object[1];
+        a = new Object[1];
     }
 
     public Chunk(LongRange range, Object[] a) {
-	if(range==null) throw new Error("heheheheh2");
+        if (range == null)
+            throw new Error("This should not happen!");
         this.a = a;
         this.range = range;
+    }
+
+    public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
+        rangeCheck(from.getRange());
+        if (range.size() > Integer.MAX_VALUE)
+            throw new RuntimeException("[Chunk] number of elements cannot exceed Integer.MAX_VALUE.");
+        LTConsumer<S> consumer = (long index, S s) -> {
+            T r = func.apply(s);
+            a[(int) (index - range.begin)] = r;
+        };
+        from.forEach(range, consumer);
     }
 
     // iterator
@@ -219,6 +236,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public T next() {
             return (T) chunk.a[++i];
         }
@@ -235,37 +253,31 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         return new It<T>(this, i);
     }
 
-    @Override
-    public void forEach(Consumer<? super T> action) {
-        forEach(this.range, action);
-    }
 
     @Override
     public void forEach(LongRange range, final Consumer<? super T> action) {
-        long from = Math.max(range.begin, this.range.begin);
-        long to = Math.min(range.end, this.range.end);
-        if (from > to) {
-            throw new ArrayIndexOutOfBoundsException(); // Need boundary check.
-        }
-        // IntStream.range(begin, end).forEach();
+        rangeCheck(range);
+        long from = range.begin;
+        long to = range.end;
+
         for (long i = from; i < to; i++) {
             action.accept(get(i));
         }
     }
 
-    public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
-        forEach(this.range, action, receiver);
+    public void forEach(LongRange range, final LTConsumer<? super T> action) {
+        rangeCheck(range);
+        // IntStream.range(begin, end).forEach();
+        for (long i = range.begin; i < range.end; i++) {
+            action.accept(i, get(i));
+        }
     }
 
     public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
             Consumer<? super U> receiver) {
-        long from = Math.max(range.begin, this.range.begin);
-        long to = Math.min(range.end, this.range.end);
-        if (from > to) {
-            throw new ArrayIndexOutOfBoundsException(); // Need boundary check.
-        }
+        rangeCheck(range);
         // IntStream.range(begin, end).forEach();
-        for (long i = from; i < to; i++) {
+        for (long i = range.begin; i < range.end; i++) {
             action.accept(get(i), receiver);
         }
     }
@@ -305,14 +317,16 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         });
         System.out.println("Chunk :" + c);
     }
+
     private void writeObject(ObjectOutputStream out) throws IOException {
-	// System.out.println("writeChunk:"+this);
-	out.writeObject(range);
-	out.writeObject(a);
+        // System.out.println("writeChunk:"+this);
+        out.writeObject(range);
+        out.writeObject(a);
     }
+
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-	this.range = (LongRange)in.readObject();
-	this.a = (Object[])in.readObject();
-	//System.out.println("readChunk:"+this);
+        this.range = (LongRange) in.readObject();
+        this.a = (Object[]) in.readObject();
+        // System.out.println("readChunk:"+this);
     }
 }
