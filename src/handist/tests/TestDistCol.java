@@ -83,11 +83,11 @@ public class TestDistCol {
 		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    distCol.forEachChunk((RangedList<String> c) -> {
 			    LongRange r = c.getRange();
-			    String s = c.get(r.begin);
+			    String s = c.get(r.from);
 			    long d = (Long.parseLong(s.split("/")[0])) % NPLACES;
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + ") to " + d);
+			    System.out.println("[" + r.from + ".." + r.to + ") to " + d);
 			    try {
 				distCol.moveAtSync(cs, pg.get((int)d), mm);
 			    } catch (Exception e) {
@@ -153,7 +153,7 @@ public class TestDistCol {
 			    LongRange r = c.getRange();
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + ") to " + destination.id);
+			    System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
 			    try {
 				distCol.moveAtSync(cs, destination, mm);
 			    } catch (Exception e) {
@@ -220,7 +220,7 @@ public class TestDistCol {
 			    LongRange r = c.getRange();
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + ") to " + destination.id);
+			    System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
 			    try {
 				distCol.moveAtSync(cs, destination, mm);
 			    } catch (Exception e) {
@@ -234,7 +234,7 @@ public class TestDistCol {
 			    LongRange r = c.getRange();
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + ") to " + destination.id);
+			    System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
 			    try {
 				distCol.moveAtSync(cs, destination, mm);
 			    } catch (Exception e) {
@@ -299,7 +299,7 @@ public class TestDistCol {
 				LongRange r = c.getRange();
 				ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 				cs.add(c);
-				System.out.println("[" + r.begin + ".." + r.end + ") to " + destination.id);
+				System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
 				try {
 				    distCol.moveAtSync(cs, destination, mm);
 				} catch (Exception e) {
@@ -364,7 +364,7 @@ public class TestDistCol {
 			    LongRange r = c.getRange();
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + ") to " + destination.id);
+			    System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
 			    try {
 				distCol.moveAtSync(cs, destination, mm);
 			    } catch (Exception e) {
@@ -438,11 +438,11 @@ public class TestDistCol {
 		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    distCol.forEachChunk((RangedList<String> c) -> {
 			    LongRange r = c.getRange();
-			    String s = c.get(r.begin);
+			    String s = c.get(r.from);
 			    long d = (Long.parseLong(s.split("/")[0])) % NPLACES;
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
 			    cs.add(c);
-			    System.out.println("[" + r.begin + ".." + r.end + ") to " + d);
+			    System.out.println("[" + r.from + ".." + r.to + ") to " + d);
 			    try {
 				distCol.moveAtSync(cs, pg.get((int)d), mm);
 			    } catch (Exception e) {
@@ -467,7 +467,7 @@ public class TestDistCol {
 		    ArrayList<RangedList<String> > chunkList = new ArrayList<RangedList<String> >();
 		    distCol.forEachChunk((RangedList<String> c) -> {
 			    LongRange r = c.getRange();
-			    if (r.begin / (rangeSize + rangeSkip) >= numChunk) {
+			    if (r.from / (rangeSize + rangeSkip) >= numChunk) {
 				chunkList.add(c);
 			    }
 			});	    
@@ -531,9 +531,9 @@ public class TestDistCol {
 		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    LongRange range = new LongRange(0, splitSizeLarge);
 		    long dest = 0;
-		    while (range.begin < AllRange.end) {
+		    while (range.from < AllRange.to) {
 			distCol.moveAtSync(range, pg.get((int)dest), mm);
-			range = new LongRange(range.begin + splitSizeLarge, range.end + splitSizeLarge);
+			range = new LongRange(range.from + splitSizeLarge, range.to + splitSizeLarge);
 			dest = (dest + 1) % NPLACES;
 		    }
 		    mm.sync();
@@ -589,9 +589,9 @@ public class TestDistCol {
 		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    LongRange range = new LongRange(0, splitSizeSmall);
 		    long dest = 0;
-		    while (range.begin < AllRange.end) {
+		    while (range.from < AllRange.to) {
 			distCol.moveAtSync(range, pg.get((int)dest), mm);
-			range = new LongRange(range.begin + splitSizeSmall, range.end + splitSizeSmall);
+			range = new LongRange(range.from + splitSizeSmall, range.to + splitSizeSmall);
 			dest = (dest + 1) % NPLACES;
 		    }
 		    mm.sync();

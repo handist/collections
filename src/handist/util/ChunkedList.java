@@ -25,7 +25,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
     private long size = 0;
 
     public ChunkedList() {
-        chunks = new TreeMap<>(Comparator.comparingLong(r -> r.begin));
+        chunks = new TreeMap<>(Comparator.comparingLong(r -> r.from));
     }
 
     public ChunkedList(TreeMap<LongRange, RangedList<T>> chunks) {
@@ -376,13 +376,13 @@ public class ChunkedList<T> extends AbstractCollection<T> {
             while (rest > 0) {
 		        LongRange range = c.getRange();
                 if (c.size() - used <= rest) {
-                    long from = range.begin + used;
-                    r.addChunk(c.subList(from, range.end));
+                    long from = range.from + used;
+                    r.addChunk(c.subList(from, range.to));
                     rest -= c.size() - used;
                     used = 0;
 		            c = chunks.higherEntry(range).getValue();
                 } else {
-                    long from = range.begin + used;
+                    long from = range.from + used;
                     long to = from + rest;
                     r.addChunk(c.subList(from, to));
                     used += rest;

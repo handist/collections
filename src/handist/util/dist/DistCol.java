@@ -242,49 +242,49 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
         final ArrayList<ChunkExtractRight<T>> chunksToExtractRight = new ArrayList<>();
         data.forEachChunk((RangedList<T> c) -> {
             final LongRange cRange = c.getRange();
-            if (cRange.begin <= range.begin) {
-                if (cRange.end <= range.begin) { //cRange.max < range.min) {
+            if (cRange.from <= range.from) {
+                if (cRange.to <= range.from) { //cRange.max < range.min) {
                     // skip
                 } else {
                     // range.min <= cRange.max
-                    if (cRange.begin == range.begin) {
-                        if (cRange.end <= range.end) {
+                    if (cRange.from == range.from) {
+                        if (cRange.to <= range.to) {
                             // add cRange.min..cRange.max
                             chunksToMove.add(c);
                         } else {
                             // range.max < cRange.max
                             // split at range.max/range.max+1
                             // add cRange.min..range.max
-                            chunksToExtractLeft.add(new ChunkExtractLeft<T>(c, range.end/*max + 1*/));
+                            chunksToExtractLeft.add(new ChunkExtractLeft<T>(c, range.to/*max + 1*/));
                         }
                     } else {
                         // cRange.min < range.min
-                        if (range.end < cRange.end) {
+                        if (range.to < cRange.to) {
                             // split at range.min-1/range.min
                             // split at range.max/range.max+1
                             // add range.min..range.max
-                            chunksToExtractMiddle.add(new ChunkExtractMiddle<T>(c, range.begin, range.end/*max + 1*/));
+                            chunksToExtractMiddle.add(new ChunkExtractMiddle<T>(c, range.from, range.to/*max + 1*/));
                         } else {
                             // split at range.min-1/range.min
                             // cRange.max =< range.max
                             // add range.min..cRange.max
-                            chunksToExtractRight.add(new ChunkExtractRight<T>(c, range.begin));
+                            chunksToExtractRight.add(new ChunkExtractRight<T>(c, range.from));
                         }
                     }
                 }
             } else {
                 // range.min < cRange.min
-                if (range.end <= cRange.begin) { //range.max < cRange.min) {
+                if (range.to <= cRange.from) { //range.max < cRange.min) {
                     // skip
                 } else {
                     // cRange.min <= range.max
-                    if (cRange.end <= range.end) {
+                    if (cRange.to <= range.to) {
                         // add cRange.min..cRange.max
                         chunksToMove.add(c);
                     } else {
                         // split at range.max/range.max+1
                         // add cRange.min..range.max
-                        chunksToExtractLeft.add(new ChunkExtractLeft<T>(c, range.end/*max + 1*/));
+                        chunksToExtractLeft.add(new ChunkExtractLeft<T>(c, range.to/*max + 1*/));
                     }
                 }
             }
@@ -330,7 +330,7 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 
         moveAtSync(chunksToMove, dest, mm);
     }
-
+    @SuppressWarnings("unchecked")
     public void moveAtSync(final List<RangedList<T>> cs, final Place dest, final MoveManagerLocal mm) throws Exception {
         if (_debug_level > 5) {
             System.out.print("[" + here().id + "] moveAtSync List[RangedList[T]]: ");
@@ -384,14 +384,14 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
         final ArrayList<LongRange> localKeys = new ArrayList<>();
         localKeys.addAll(ranges());
         localKeys.sort((LongRange range1, LongRange range2) -> {
-            long len1 = range1.end - range1.begin;
-            long len2 = range2.end - range2.begin;
+            long len1 = range1.to - range1.from;
+            long len2 = range2.to - range2.from;
             return (int) (len1 - len2);
         });
         if (_debug_level > 5) {
             System.out.print("[" + here() + "] ");
             for (int i = 0; i < localKeys.size(); i++) {
-                System.out.print("" + localKeys.get(i).begin + ".." + localKeys.get(i).end + ", ");
+                System.out.print("" + localKeys.get(i).from + ".." + localKeys.get(i).to + ", ");
             }
             System.out.println();
         }
@@ -406,10 +406,10 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
             long sizeToSend = count;
             while (sizeToSend > 0) {
                 final LongRange lk = localKeys.remove(0);
-                final long len = lk.end - lk.begin;
+                final long len = lk.to - lk.from;
                 if (len > sizeToSend) {
-                    moveAtSync(new LongRange(lk.begin, lk.begin + sizeToSend), dest, mm);
-                    localKeys.add(0, new LongRange(lk.begin + sizeToSend, lk.end));
+                    moveAtSync(new LongRange(lk.from, lk.from + sizeToSend), dest, mm);
+                    localKeys.add(0, new LongRange(lk.from + sizeToSend, lk.to));
                     break;
                 } else {
                     moveAtSync(lk, dest, mm);

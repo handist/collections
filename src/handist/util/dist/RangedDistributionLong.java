@@ -26,18 +26,18 @@ public class RangedDistributionLong implements RangedDistribution<LongRange> {
 		Map<LongRange,Place> listPlaceRange = new HashMap<>();
 		for (LongRange mappedRange: dist.keySet()) {
 		    Place mappedPlace = dist.get(mappedRange);
-		    if (mappedRange.begin <= range.begin) {
-	        	if (range.begin < mappedRange.end) { //if (range.min <= mappedRange.max) {
-			    	if (range.end <= mappedRange.end) {
+		    if (mappedRange.from <= range.from) {
+	        	if (range.from < mappedRange.to) { //if (range.min <= mappedRange.max) {
+			    	if (range.to <= mappedRange.to) {
 			        	listPlaceRange.put(range, mappedPlace);
 		    		} else {
-						listPlaceRange.put(new LongRange(range.begin, mappedRange.end), mappedPlace);
+						listPlaceRange.put(new LongRange(range.from, mappedRange.to), mappedPlace);
 		    		}
 				}
 		    } else {
-				if (mappedRange.begin < range.end) { //if (mappedRange.min <= range.max) {
-				    if (range.end <= mappedRange.end) {
-		       			listPlaceRange.put(new LongRange(mappedRange.begin, range.end), mappedPlace);
+				if (mappedRange.from < range.to) { //if (mappedRange.min <= range.max) {
+				    if (range.to <= mappedRange.to) {
+		       			listPlaceRange.put(new LongRange(mappedRange.from, range.to), mappedPlace);
 		    		} else {
 				        listPlaceRange.put(mappedRange, mappedPlace);
 		    		}

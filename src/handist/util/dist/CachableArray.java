@@ -1,16 +1,21 @@
 package handist.util.dist;
 
+import static apgas.Constructs.*;
+
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import apgas.Place;
 import apgas.util.PlaceLocalObject;
 import mpi.MPIException;
-
-import static apgas.Constructs.*;
 
 /**
  * A class for handling objects using the Master-Proxy mechanism. The master
@@ -31,7 +36,7 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T> {
     /**
      * Create a new CacheableArray using the given list. data must not be shared
      * with others.
-     * 
+     *
      * @param data
      * @param placeGroup
      * @param master

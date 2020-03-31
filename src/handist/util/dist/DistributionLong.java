@@ -23,7 +23,7 @@ public class DistributionLong implements Distribution<Long> {
             for (Map.Entry<LongRange, Place> entry: rangedHashMap.entrySet()) {
                 LongRange range = entry.getKey();
                 Place place = entry.getValue();
-                for (Long i=range.begin; i<range.end; i++) {
+                for (Long i=range.from; i<range.to; i++) {
                     newHashMap.put(i, place);
                 }
             }

@@ -30,7 +30,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
     @Override
     public boolean contains(Object o) {
-        for (long i = range.begin; i < range.end; i++) {
+        for (long i = range.from; i < range.to; i++) {
             T elem = base.get(i);
             if (o == null ? elem == null : o.equals(elem)) {
                 return true;
@@ -86,12 +86,12 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
     @Override
     public long longSize() {
-        return range.end - range.begin;
+        return range.to - range.from;
     }
 
     @Override
     public boolean isEmpty() {
-        return range.end - 1 <= range.begin;
+        return range.to - 1 <= range.from;
     }
 
     private static class It<T> implements Iterator<T> {
@@ -102,7 +102,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         public It(RangedListView<T> rangedListView) {
             this.rangedListView = rangedListView;
             this.range = rangedListView.getRange();
-            this.i = range.begin - 1;
+            this.i = range.from - 1;
         }
 
         public It(RangedListView<T> rangedListView, long i0) {
@@ -113,7 +113,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
         @Override
         public boolean hasNext() {
-            return i + 1 < range.end;
+            return i + 1 < range.to;
         }
 
         @Override
@@ -135,12 +135,12 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
     @Override
     public RangedList<T> subList(long begin, long end) {
-        long from = Math.max(begin, range.begin);
-        long to = Math.min(end, range.end);
+        long from = Math.max(begin, range.from);
+        long to = Math.min(end, range.to);
         if (from > to) {
             throw new ArrayIndexOutOfBoundsException();
         }
-        if (begin == range.begin && end == range.end) {
+        if (begin == range.from && end == range.to) {
             return this;
         }
         return new RangedListView<T>(base, new LongRange(from, to));
@@ -148,12 +148,12 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
     @Override
     public T first() {
-        return base.get(range.begin);
+        return base.get(range.from);
     }
 
     @Override
     public T last() {
-        return base.get(range.end - 1);
+        return base.get(range.to - 1);
     }
 
     @Override
@@ -186,7 +186,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         sb.append("[" + range + "]");
         int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
         long c = 0;
-        for (long i = range.begin; i < range.end; i++) {
+        for (long i = range.from; i < range.to; i++) {
             if (c++ > 0) {
                 sb.append(",");
             }

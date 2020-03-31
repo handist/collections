@@ -24,16 +24,16 @@ public interface RangedList<T> extends Collection<T> {
 
     default public List<RangedList<T>> splitRange(long splitPoint) {
         LongRange range = getRange();
-        RangedList<T> rangedList1 = new RangedListView<T>(this, new LongRange(range.begin, splitPoint));
-        RangedList<T> rangedList2 = new RangedListView<T>(this, new LongRange(splitPoint, range.end));
+        RangedList<T> rangedList1 = new RangedListView<T>(this, new LongRange(range.from, splitPoint));
+        RangedList<T> rangedList2 = new RangedListView<T>(this, new LongRange(splitPoint, range.to));
         return Arrays.asList(rangedList1, rangedList2);
     }
 
     default public List<RangedList<T>> splitRange(long splitPoint1, long splitPoint2) {
         LongRange range = getRange();
-        RangedList<T> rangedList1 = new RangedListView<T>(this, new LongRange(range.begin, splitPoint1));
+        RangedList<T> rangedList1 = new RangedListView<T>(this, new LongRange(range.from, splitPoint1));
         RangedList<T> rangedList2 = new RangedListView<T>(this, new LongRange(splitPoint1, splitPoint2));
-        RangedList<T> rangedList3 = new RangedListView<T>(this, new LongRange(splitPoint2, range.end));
+        RangedList<T> rangedList3 = new RangedListView<T>(this, new LongRange(splitPoint2, range.to));
         return Arrays.asList(rangedList1, rangedList2, rangedList3);
     }
     default public void rangeCheck(LongRange target) {
@@ -61,7 +61,7 @@ public interface RangedList<T> extends Collection<T> {
     // those of ChunkedList
 
     default public <U> RangedList<U> map(LongRange range, Function<? super T, ? extends U> func) {
-        return this.subList(range.begin, range.end).map(func);
+        return this.subList(range.from, range.to).map(func);
     }
 
     default public <U> RangedList<U> map(Function<? super T, ? extends U> func) {
@@ -80,7 +80,7 @@ public interface RangedList<T> extends Collection<T> {
     Object[] toArray(LongRange newRange);
 
     default public RangedList<T> subList(LongRange range) {
-        return subList(range.begin, range.end);
+        return subList(range.from, range.to);
     };
     public RangedList<T> subList(long begin, long end);
     public Iterator<T> iteratorFrom(long i);

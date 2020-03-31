@@ -86,12 +86,12 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     @Override
     public RangedList<T> subList(long begin, long end) {
-        long from = Math.max(begin, range.begin);
-        long to = Math.min(end, range.end);
+        long from = Math.max(begin, range.from);
+        long to = Math.min(end, range.to);
         if (from > to) {
             throw new ArrayIndexOutOfBoundsException();
         }
-        if (begin == range.begin && end == range.end) {
+        if (begin == range.from && end == range.to) {
             return this;
         }
         return new RangedListView<T>(this, new LongRange(begin, end));
@@ -99,24 +99,24 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     @Override
     public T first() {
-        return get(range.begin);
+        return get(range.from);
     }
 
     @Override
     public T last() {
-        return get(range.end - 1);
+        return get(range.to - 1);
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public T get(long i0) {
-        int i = (int) (i0 - range.begin);
+        int i = (int) (i0 - range.from);
         return (T) a[i];
     }
 
     @Override
     public T set(long i0, T v) {
-        int i = (int) (i0 - range.begin);
+        int i = (int) (i0 - range.from);
         // System.out.println("set (" + i0 + ", " + v + ") range.begin=" + range.begin +
         // ", i = " + i);
         @SuppressWarnings("unchecked")
@@ -134,7 +134,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     public long longSize() {
         if (range == null)
             throw new Error("hxcdskcs");
-        return range.end - range.begin;
+        return range.to - range.from;
     }
 
     @Override
@@ -149,31 +149,31 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     @Override
     public Object[] toArray(LongRange newRange) {
-        long from = Math.max(range.begin, newRange.begin);
-        long to = Math.min(range.end, newRange.end);
+        long from = Math.max(range.from, newRange.from);
+        long to = Math.min(range.to, newRange.to);
         if (from > to) {
             throw new ArrayIndexOutOfBoundsException(); // Need boundary check
         }
-        if (from == range.begin && to == range.end) {
+        if (from == range.from && to == range.to) {
             return a;
         }
         if (from == to) {
             return new Object[0];
         }
-        long newSize = (int) (newRange.end - newRange.begin);
+        long newSize = (int) (newRange.to - newRange.from);
         if (newSize > Config.maxChunkSize) {
             throw new IllegalArgumentException();
         }
         Object[] newRail = new Object[(int) newSize];
         Arrays.fill(newRail, a[0]);
-        System.arraycopy(a, (int) (newRange.begin - range.begin), newRail, 0, (int) newSize);
+        System.arraycopy(a, (int) (newRange.from - range.from), newRail, 0, (int) newSize);
         return newRail;
     }
 
     // Constructor
 
     public Chunk(LongRange range) {
-        long size = range.end - range.begin;
+        long size = range.to - range.from;
         if (size > Config.maxChunkSize) {
             throw new IllegalArgumentException();
         }
@@ -182,7 +182,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     }
 
     public Chunk(LongRange range, T v) {
-        long size = range.end - range.begin;
+        long size = range.to - range.from;
         if (size > Config.maxChunkSize) {
             throw new IllegalArgumentException();
         }
@@ -210,7 +210,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
             throw new RuntimeException("[Chunk] number of elements cannot exceed Integer.MAX_VALUE.");
         LTConsumer<S> consumer = (long index, S s) -> {
             T r = func.apply(s);
-            a[(int) (index - range.begin)] = r;
+            a[(int) (index - range.from)] = r;
         };
         from.forEach(range, consumer);
     }
@@ -227,7 +227,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
         public It(Chunk<T> chunk, long i0) {
             this.chunk = chunk;
-            this.i = (int) (i0 - chunk.range.begin - 1);
+            this.i = (int) (i0 - chunk.range.from - 1);
         }
 
         @Override
@@ -257,8 +257,8 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     @Override
     public void forEach(LongRange range, final Consumer<? super T> action) {
         rangeCheck(range);
-        long from = range.begin;
-        long to = range.end;
+        long from = range.from;
+        long to = range.to;
 
         for (long i = from; i < to; i++) {
             action.accept(get(i));
@@ -268,7 +268,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     public void forEach(LongRange range, final LTConsumer<? super T> action) {
         rangeCheck(range);
         // IntStream.range(begin, end).forEach();
-        for (long i = range.begin; i < range.end; i++) {
+        for (long i = range.from; i < range.to; i++) {
             action.accept(i, get(i));
         }
     }
@@ -277,7 +277,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
             Consumer<? super U> receiver) {
         rangeCheck(range);
         // IntStream.range(begin, end).forEach();
-        for (long i = range.begin; i < range.end; i++) {
+        for (long i = range.from; i < range.to; i++) {
             action.accept(get(i), receiver);
         }
     }
@@ -291,7 +291,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         sb.append("[" + range + "]");
         int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
         long c = 0;
-        for (long i = range.begin; i < range.end; i++) {
+        for (long i = range.from; i < range.to; i++) {
             if (c++ > 0) {
                 sb.append(",");
             }
