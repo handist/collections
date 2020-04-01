@@ -147,16 +147,6 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
     }
 
     @Override
-    public T first() {
-        return base.get(range.from);
-    }
-
-    @Override
-    public T last() {
-        return base.get(range.to - 1);
-    }
-
-    @Override
     public void forEach(LongRange range, Consumer<? super T> action) {
         rangeCheck(range);
         base.forEach(range, action);

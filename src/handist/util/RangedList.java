@@ -1,7 +1,6 @@
 package handist.util;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -10,17 +9,20 @@ import java.util.function.Function;
 
 import handist.util.function.LTConsumer;
 
-public interface RangedList<T> extends Collection<T> {
+public interface RangedList<T> extends Iterable<T> {
 
     LongRange getRange();
 
     T get(long index);
     T set(long index, T value);
 
-    T first();
-    T last();
-
     long longSize();
+
+    default public boolean isEmpty() {
+        return getRange().size() == 0;
+    };
+
+    abstract boolean contains(Object o);
 
     default public List<RangedList<T>> splitRange(long splitPoint) {
         LongRange range = getRange();
@@ -42,9 +44,25 @@ public interface RangedList<T> extends Collection<T> {
                 "[Chunk] range missmatch:" + this.getRange() + " must includes " + target);
         }
     }
-    abstract public void forEach(LongRange range, Consumer<? super T> action);
-    abstract public void forEach(LongRange range, LTConsumer<? super T> action);
-    abstract public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver);
+
+    default public void forEach(LongRange range, Consumer<? super T> action) {
+        for (long i = range.from; i < range.to; i++) {
+            action.accept(get(i));
+        }   
+    }
+
+    default public void forEach(LongRange range, LTConsumer<? super T> action) {
+        for (long i = range.from; i < range.to; i++) {
+            action.accept(i, get(i));
+        }   
+    }
+
+    default public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+            Consumer<? super U> receiver) {
+        for (long i = range.from; i < range.to; i++) {
+            action.accept(get(i), receiver);
+        }   
+    }
 
     default public void forEach(Consumer<? super T> action) {
         forEach(getRange(), action);
