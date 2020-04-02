@@ -159,7 +159,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
     public void addChunk(RangedList<T> c) {
         checkOverlap(c.getRange());
         chunks.put(c.getRange(), c);
-        size += c.size();
+        size += c.longSize();
     }
 
     public RangedList<T> removeChunk(RangedList<T> c) {
@@ -375,10 +375,10 @@ public class ChunkedList<T> extends AbstractCollection<T> {
             long rest = quo + ((i < rem) ? 1 : 0);
             while (rest > 0) {
 		        LongRange range = c.getRange();
-                if (c.size() - used <= rest) {
+                if (c.longSize() - used <= rest) {
                     long from = range.from + used;
                     r.addChunk(c.subList(from, range.to));
-                    rest -= c.size() - used;
+                    rest -= c.longSize() - used;
                     used = 0;
 		            c = chunks.higherEntry(range).getValue();
                 } else {

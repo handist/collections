@@ -4,6 +4,8 @@ import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -12,7 +14,7 @@ import java.util.stream.IntStream;
 import java.io.*;
 import handist.util.function.LTConsumer;
 
-public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Serializable {
+public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Serializable, List<T> {
 
     private Object[] a;
 
@@ -95,16 +97,6 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
             return this;
         }
         return new RangedListView<T>(this, new LongRange(begin, end));
-    }
-
-    @Override
-    public T first() {
-        return get(range.from);
-    }
-
-    @Override
-    public T last() {
-        return get(range.to - 1);
     }
 
     @Override
@@ -216,7 +208,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     }
 
     // iterator
-    private static class It<T> implements Iterator<T> {
+    private static class It<T> implements ListIterator<T> {
         private int i; // offset inside the chunk
         private Chunk<T> chunk;
 
@@ -226,6 +218,9 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         }
 
         public It(Chunk<T> chunk, long i0) {
+            if (!chunk.range.contains(i0)) {
+                throw new ArrayIndexOutOfBoundsException();  
+            }
             this.chunk = chunk;
             this.i = (int) (i0 - chunk.range.from - 1);
         }
@@ -241,6 +236,43 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
             return (T) chunk.a[++i];
         }
 
+        @Override
+        public boolean hasPrevious() {
+            return i > 0;
+        }
+
+        @Override @SuppressWarnings("unchecked")
+        public T previous() {
+            return (T) chunk.a[--i];
+        }
+
+        @Override
+        public int nextIndex() {
+            // TODO index may become long..
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int previousIndex() {
+            // TODO index may become long..
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void set(T e) {
+            chunk.a[i] = e;
+        }
+
+        @Override
+        public void add(T e) {
+            throw new UnsupportedOperationException();
+        }
+
     }
 
     @Override
@@ -252,7 +284,6 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     public Iterator<T> iteratorFrom(long i) {
         return new It<T>(this, i);
     }
-
 
     @Override
     public void forEach(LongRange range, final Consumer<? super T> action) {
@@ -284,9 +315,9 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     @Override
     public String toString() {
-	if(range==null) {
-	    return "[Chunk] in Construction";
-	}
+        if (range == null) {
+            return "[Chunk] in Construction";
+        }
         StringBuilder sb = new StringBuilder();
         sb.append("[" + range + "]");
         int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
@@ -328,5 +359,56 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         this.range = (LongRange) in.readObject();
         this.a = (Object[]) in.readObject();
         // System.out.println("readChunk:"+this);
+    }
+
+    // TODO ...
+    @Override
+    public boolean addAll(int index, Collection<? extends T> c) {
+        throw new UnsupportedOperationException("[Chunk] does not support resize operation.");
+    }
+
+    @Override
+    public T get(int index) {
+        return get((long) index);
+    }
+
+    @Override
+    public T set(int index, T element) {
+        return set((long) index, element);
+    }
+
+    @Override
+    public void add(int index, T element) {
+        throw new UnsupportedOperationException("[Chunk] does not support resize operation.");
+    }
+
+    @Override
+    public T remove(int index) {
+        throw new UnsupportedOperationException("[Chunk] does not support resize operation.");
+    }
+
+    @Override
+    public int indexOf(Object o) {
+        throw new UnsupportedOperationException("[Chunk] only support long index.");
+    }
+
+    @Override
+    public int lastIndexOf(Object o) {
+        throw new UnsupportedOperationException("[Chunk] does not support resize operation.");
+    }
+
+    @Override
+    public ListIterator<T> listIterator() {
+        return new It<T>(this);
+    }
+
+    @Override
+    public ListIterator<T> listIterator(int index) {
+        return new It<T>(this, (long)index);
+    }
+
+    @Override
+    public List<T> subList(int fromIndex, int toIndex) {
+        throw new UnsupportedOperationException("[Chunk] does not support copy operation.");
     }
 }
