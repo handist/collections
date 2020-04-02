@@ -182,13 +182,13 @@ public class ChunkedList<T> extends AbstractCollection<T> {
         }
     }
 
-    public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
+    public <U> void forEach(BiConsumer<? super T, Consumer<U>> action, Consumer<U> receiver) {
         for (RangedList<T> c : chunks.values()) {
             c.forEach(t -> action.accept((T) t, receiver));
         }
     }
 
-    public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, final Collection<U> toStore) {
+    public <U> void forEach(BiConsumer<? super T, Consumer<U>> action, final Collection<? super U> toStore) {
         forEach(action, new Consumer<U>() {
             @Override
             public void accept(U u) {
@@ -248,14 +248,14 @@ public class ChunkedList<T> extends AbstractCollection<T> {
         return new FutureN<T, ChunkedList<T>>(futures, this);
     }
 
-    public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<? super U>> action,
+    public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<U>> action,
             final MultiReceiver<U> toStore) {
         List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
            sub.forEach(action,toStore.getReceiver());
        });
         waitNfutures(futures);        
     }
-    public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<? super U>> action,
+    public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<U>> action,
             final MultiReceiver<U> toStore) {
         List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
            sub.forEach(action,toStore.getReceiver());
