@@ -101,8 +101,7 @@ public class TestDistMap {
 		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    //val destination = Place.places().next(here);
 		    int rank = pg.rank(here());
-		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
-		    
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
 		    distMap2.forEach((String key, String value) -> {
 			    System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
 			    distMap2.moveAtSync(key, destination, mm);
@@ -140,7 +139,7 @@ public class TestDistMap {
 		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    //val destination = Place.places().next(here);
 		    int rank = pg.rank(here());
-		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
 		    
 		    distMap2.forEach((String key, String value) -> {
 			    System.out.println("" + here() + " moves key: " + key + " to " + destination.id);

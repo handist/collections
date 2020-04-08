@@ -148,7 +148,7 @@ public class TestDistCol {
 		try {
 		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    int rank = pg.rank(here());
-		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
 		    distCol.forEachChunk((RangedList<String> c) -> {
 			    LongRange r = c.getRange();
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
@@ -215,7 +215,7 @@ public class TestDistCol {
 		try {
 		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    int rank = pg.rank(here());
-		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
 		    distCol.forEachChunk((RangedList<String> c) -> {
 			    LongRange r = c.getRange();
 			    ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
@@ -293,7 +293,7 @@ public class TestDistCol {
 		try {
 		    MoveManagerLocal mm = new MoveManagerLocal(pg);
 		    int rank = pg.rank(here());
-		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank);
+		    Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
 		    for (long i = 0; i < NPLACES; i++) {
 			distCol.forEachChunk((RangedList<String> c) -> {
 				LongRange r = c.getRange();
