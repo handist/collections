@@ -375,11 +375,12 @@ public class ChunkedList<T> extends AbstractCollection<T> {
             long rest = quo + ((i < rem) ? 1 : 0);
             while (rest > 0) {
 		        LongRange range = c.getRange();
-                if (c.longSize() - used <= rest) {
+                if (c.longSize() - used < rest) { // not enough
                     long from = range.from + used;
                     r.addChunk(c.subList(from, range.to));
                     rest -= c.longSize() - used;
                     used = 0;
+                    // TODO should use iterator??
 		            c = chunks.higherEntry(range).getValue();
                 } else {
                     long from = range.from + used;

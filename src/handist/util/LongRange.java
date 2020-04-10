@@ -79,13 +79,12 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
         // return LongStream.rangeClosed(this.min, this.max);
     }
 
-    public int compareTo(LongRange o) {
-        if (o == null) {
+    public int compareTo(LongRange r) {
+        if (r == null) {
             throw new NullPointerException();
         }
 
         // if (o instanceof LongRange) {
-        LongRange r = ((LongRange) o);
         if (r.from <= this.from && this.to <= r.to) {
             return 0;
         } else if (this.to <= r.from) {
@@ -132,11 +131,13 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
         //
         // System.out.println(m.get(5));
     }
+
     @Override
     public boolean equals(Object o) {
-	if(!(o instanceof LongRange)) return false;
-	LongRange range2 = (LongRange)o;
-	return this.from==range2.from && this.to==range2.to;
+        if (!(o instanceof LongRange))
+            return false;
+        LongRange range2 = (LongRange) o;
+        return this.from == range2.from && this.to == range2.to;
     }
 
     @Override
