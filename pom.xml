@@ -36,16 +36,7 @@
 	    <systemPath>${env.APGAS_HOME}/apgas.jar</systemPath>
 	</dependency>
 
-<!-- 	<dependency> -->
-<!--       <groupId>com.hazelcast</groupId> -->
-<!--       <artifactId>hazelcast</artifactId> -->
-<!--       <version>3.7.1</version> -->
-<!--     </dependency> -->
-<!--     <dependency> -->
-<!--       <groupId>com.esotericsoftware</groupId> -->
-<!--       <artifactId>kryo</artifactId> -->
-<!--       <version>3.0.3</version> -->
-<!--     </dependency> -->
+ 	
 
     <dependency>
       <groupId>mpi</groupId>
@@ -55,6 +46,21 @@
 <!--      <systemPath>${project.basedir}/src/main/resources/mpi.jar</systemPath> -->
 	    <systemPath>${env.APGAS_HOME}/mpi.jar</systemPath>
     </dependency>
+    
+    <!-- Libraries hazelcast and kryo are required by apgas at runtime -->
+    <dependency>
+      <groupId>com.hazelcast</groupId>
+      <artifactId>hazelcast</artifactId>
+      <version>3.7.1</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.esotericsoftware</groupId>
+      <artifactId>kryo</artifactId>
+      <version>3.0.3</version>
+      <scope>runtime</scope>
+    </dependency>
+    
   </dependencies>
 
   <build>
@@ -84,6 +90,9 @@
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>2.22.1</version>
+          <configuration>
+            <argLine>-Dapgas.places=2</argLine>
+          </configuration>
         </plugin>
         <plugin>
           <artifactId>maven-jar-plugin</artifactId>
