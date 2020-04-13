@@ -1,1 +1,0 @@
-こちらに test routines をおいてください。

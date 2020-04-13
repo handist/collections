@@ -6,11 +6,19 @@
 
 # directory structure
 
-* src
-  * handist
-    * util: sequential/multi-thread 
-      * dist: distributed collections
-    * tests: test routines
+* **src/main/java**: main source files of the library
+  * **handist.distcolls**: sequential/multi-threaded classes 
+  * **handist.distcolls.dist**:  distributed collections
+
+* **src/test/java**: test routines
+
+# build instructions
+
+This project relies on several libraries:
+* [APGAS for Java](https://github.com/x10-lang/apgas/tree/master/apgas) 
+* [mpiJava v1.2.7](https://sourceforge.net/projects/mpijava/) to make native MPI calls from Java
+
+
 
 * Gradle or some build systems are used to setup APGAS Library or something
 
@@ -27,4 +35,3 @@
   * developped by Patrick
 
 * X10 version [cassia](https://gittk.cs.kobe-u.ac.jp/x10kobeu/cassia)@gittk, [cassiaX10lib](https://github.com/handist/cassiaX10lib)@github
-
