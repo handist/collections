@@ -24,7 +24,7 @@ The Maven builder of this project expects two Java archives (JAR) to be present 
 
 For instance:
 
----
+~~~
 $ ls /home/user/apgaslibs
 -rw-r--r-- 1 user group 7844811  3月 11 11:46 apgas.jar
 -rw-r--r-- 1 user group 7195593 10月 25  2018 hazelcast.jar
@@ -35,12 +35,34 @@ $ ls /home/user/apgaslibs
 -rw-r--r-- 1 user group   41755 10月 25  2018 objenesis.jar
 -rw-r--r-- 1 user group   74282 10月 25  2018 reflectasm.jar
 $ export APGAS_HOME=/home/user/apgaslibs
----
+~~~
 
 The standard Maven targets apply: *clean compile test package*. To compile the project, run the command `mvn compile` 
----
+
+~~~
 $ mvn compile
----
+[INFO] Scanning for projects...
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[INFO] Building distcolls 0.0.1-SNAPSHOT
+[INFO] ------------------------------------------------------------------------
+[INFO]
+[INFO] --- maven-resources-plugin:3.0.2:resources (default-resources) @ distcolls ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Copying 2 resources
+[INFO]
+[INFO] --- maven-compiler-plugin:3.8.0:compile (default-compile) @ distcolls ---
+[INFO] Changes detected - recompiling the module!
+[INFO] Compiling 31 source files to /home/user/handistCollections/target/classes
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 7.098 s
+[INFO] Finished at: 2020-04-13T13:48:16+09:00
+[INFO] Final Memory: 24M/1540M
+[INFO] ------------------------------------------------------------------------
+
+~~~
 
 # branch maintenance
 
