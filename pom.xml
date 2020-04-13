@@ -32,7 +32,8 @@
 	    <artifactId>apgas</artifactId>
 	    <version>2.0.0-SNAPSHOT</version>
 	    <scope>system</scope>
-	    <systemPath>${project.basedir}/src/main/resources/apgas.jar</systemPath>
+<!--	    <systemPath>${project.basedir}/src/main/resources/apgas.jar</systemPath> -->
+	    <systemPath>${env.APGAS_HOME}/apgas.jar</systemPath>
 	</dependency>
 
 <!-- 	<dependency> -->
@@ -51,7 +52,8 @@
       <artifactId>mpiJava</artifactId>
       <version>1.2.7</version>
       <scope>system</scope>
-      <systemPath>${project.basedir}/src/main/resources/mpi.jar</systemPath>
+<!--      <systemPath>${project.basedir}/src/main/resources/mpi.jar</systemPath> -->
+	    <systemPath>${env.APGAS_HOME}/mpi.jar</systemPath>
     </dependency>
   </dependencies>
 
