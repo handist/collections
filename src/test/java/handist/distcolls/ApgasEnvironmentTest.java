@@ -14,6 +14,7 @@ public class ApgasEnvironmentTest {
 
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
+		System.setProperty("apgas.places", "2");
 		GlobalRuntime.getRuntime(); // Initializes the APGAS runtime
 	}
 
@@ -27,11 +28,12 @@ public class ApgasEnvironmentTest {
 		assertTrue("This test should be run with multiple hosts", numberOfPlaces > 1);
 	}
 
-	@Test(expected=java.lang.Exception.class)
+	@Test()
 	public void testRemoteFail() {
 		finish(()-> {
+			final int rootId = here().id;
 			asyncAt(place(1), () -> {
-				fail("Testing if a Junit fail on a remote place makes the test fail");
+				assertEquals(rootId, here().id); // Expect failure
 			});
 		});
 	}
