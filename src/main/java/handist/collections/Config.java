@@ -1,4 +1,4 @@
-package handist.util;
+package handist.collections;
 
 public interface Config {
     int maxNumElementsToString = 10; // 10 is default
