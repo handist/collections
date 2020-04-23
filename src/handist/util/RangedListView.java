@@ -89,11 +89,6 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         return range.to - range.from;
     }
 
-    @Override
-    public boolean isEmpty() {
-        return range.to - 1 <= range.from;
-    }
-
     private static class It<T> implements Iterator<T> {
         private long i;
         private RangedListView<T> rangedListView;
