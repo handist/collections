@@ -130,11 +130,6 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     }
 
     @Override
-    public boolean isEmpty() {
-        return a.length == 0;
-    }
-
-    @Override
     public Object[] toArray() {
         return a;
     }

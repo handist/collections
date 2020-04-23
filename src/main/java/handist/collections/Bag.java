@@ -234,4 +234,19 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
             }
         };
     }
+
+    /**
+     * Convert the bag into a list and clear the bag.
+     * @return
+     */
+    public List<T> convertToList() {
+        // TODO: prepare more smart implementation
+        ArrayList<T> result = new ArrayList<>(this.size());
+        for (List<T> c : bags) {
+            result.addAll(c);
+        }
+        bags.clear();
+        return result;
+    }
+
 }

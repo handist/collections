@@ -200,10 +200,8 @@ public class ChunkedList<T> extends AbstractCollection<T> {
     private List<Future<?>> forEachParallelBody(ExecutorService pool, int nthreads, Consumer<ChunkedList<T>> run) {
         List<ChunkedList<T>> separated = this.separate(nthreads);
         List<Future<?>> futures = new ArrayList<Future<?>>();
-        for (int i = 0; i < nthreads; i++) {
-            final int i0 = i;
+        for (ChunkedList<T> sub: separated) {
             futures.add(pool.submit(() -> {
-                ChunkedList<T> sub = separated.get(i0);
                 run.accept(sub);
             }));
         }
