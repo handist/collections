@@ -1,4 +1,9 @@
-# handist collections library
+# handist collections library 
+
+| Branch | Status |
+| --- | --- |
+| develop | [![pipeline status](https://gittk.cs.kobe-u.ac.jp/x10kobeu/handistCollections/badges/develop/pipeline.svg)](https://gittk.cs.kobe-u.ac.jp/x10kobeu/handistCollections/-/commits/develop) [![coverage report](https://gittk.cs.kobe-u.ac.jp/x10kobeu/handistCollections/badges/develop/coverage.svg)](https://gittk.cs.kobe-u.ac.jp/x10kobeu/handistCollections/-/commits/develop) |
+| master | [![pipeline status](https://gittk.cs.kobe-u.ac.jp/x10kobeu/handistCollections/badges/master/pipeline.svg)](https://gittk.cs.kobe-u.ac.jp/x10kobeu/handistCollections/-/commits/master) [![coverage report](https://gittk.cs.kobe-u.ac.jp/x10kobeu/handistCollections/badges/master/coverage.svg)](https://gittk.cs.kobe-u.ac.jp/x10kobeu/handistCollections/-/commits/master) |
 
 * cassia Distributed Collections @X10 -> handist Collections library @ Java
 
