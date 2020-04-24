@@ -1,0 +1,23 @@
+image: maven:latest
+
+variables:
+  MAVEN_CLI_OPTS: "--batch-mode"
+
+cache:
+  paths:
+    - target/
+
+project_compile:
+  stage: build
+  script:
+    - mvn $MAVEN_CLI_OPTS compile
+
+junit_tests:
+  stage: test
+  script:
+    - mvn $MAVEN_CLI_OPTS test
+  artifacts:
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+    expire_in: 1 week
