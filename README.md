@@ -23,20 +23,10 @@ The configuration of the project is defined at the root of the project directory
 ## Dependencies
 
 This project relies on several libraries:
-* [APGAS for Java](https://github.com/x10-lang/apgas/tree/master/apgas) 
-* [mpiJava v1.2.7](https://sourceforge.net/projects/mpijava/) to make native MPI calls from Java
+* A portion of [APGAS for Java](https://github.com/x10-lang/apgas/tree/master/apgas) which is present in repository [github.com/handist/apgas](https://github.com/handist/apgas/)
+* Either library [mpiJava v1.2.7](https://sourceforge.net/projects/mpijava/) or [MPJ Exress](http://mpj-express.org/) library to make native MPI calls from Java. 
 
-These two libraries can have slight variations depending on the platform on which they need to run. Therefore, they should be compiled independantly prior to compiling this project. The Maven builder of this project expects the two Java archives (JAR) of these projects to be present under a certain directory on your system indicated by the environment variable ${APGAS_HOME}. You should therefore define the environment variable `APGAS_HOME` to reflect this location. For instance on a linux system: 
-
-~~~
-$ ls /home/user/apgaslibs
--rw-r--r-- 1 user group 7844811  3月 11 11:46 apgas.jar
--rw-r--r-- 1 user group   27154  3月 11 11:55 mpi.jar
-$ export APGAS_HOME=/home/user/apgaslibs
-~~~
-Note: As an alternative to mpiJava, it may also be possible to use the MPJ project as it uses the same classes and method signatures to allow MPI calls from a Java program.
-
-Other dependencies (`hazelcast`, `kryo`, and their respective dependencies) will be automatically downloaded by maven.
+At the moment, the MPJ Express library is included in the dependencies to compile the project. The source code is downloaded automatically from [handist/mpj](github.com/handist.mpj). Other dependencies (`hazelcast`, `kryo`, and their respective dependencies) will be automatically downloaded by maven.
 
 ## Compiling, testing, and JAR creation
 
