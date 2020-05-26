@@ -64,13 +64,12 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
     }
 
     public synchronized T remove() {
-        Iterator<List<T>> iter = bags.iterator();
         while (true) {
-            if (!iter.hasNext())
+            if (bags.isEmpty())
                 return null;
-            List<T> bag = iter.next();
+            List<T> bag = bags.getLast();
             if (bag.isEmpty()) {
-                iter.remove();
+                bags.removeLast();
             } else {
                 return bag.remove(bag.size() - 1);
             }
@@ -78,25 +77,18 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
     }
     
     public synchronized List<T> removeN(int count) {
-        ArrayList<T> result = new ArrayList<>(count);
-        Iterator<List<T>> iter = bags.iterator();
-        while(true) {
-            if(!iter.hasNext()) return null;
-            List<T> bag = iter.next();
-            if(bag.isEmpty()) {
-                iter.remove();
-            } else {
-                if (bag.size() < count) {
-                    result.addAll(bag);
-                    iter.remove();
-                } else {
-                    while (count > 0) {
-                        result.add(bag.remove(bag.size() - 1));
-                        count--;
-                    }
-                }
-            }
-        }
+        ArrayList<T> result = new ArrayList<T>(count);
+        while(count > 0) {
+        	if(bags.isEmpty())	return null;
+        	List<T> bag = bags.getLast();
+        	if(bag.isEmpty()) {
+        		bags.removeLast();
+        		continue;
+        	}
+        	result.add(bag.remove(bag.size() - 1)); 
+        	count--;
+        }        
+        return result;
     }
 
 
