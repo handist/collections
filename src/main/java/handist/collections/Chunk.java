@@ -40,7 +40,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     @Override
     public boolean contains(Object v) {
         for (Object e : a) {
-            if (v == null ? e == null : e.equals(v)) {
+        	if (v == null ? e == null : v.equals(e)) {
                 return true;
             }
         }
@@ -83,6 +83,9 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         if (newRail == a) {
             return this;
         }
+        if (newRail.length == 0) {
+        	throw new ArrayIndexOutOfBoundsException();
+        }
         return new Chunk<>(newRange, newRail);
     }
 
@@ -93,10 +96,13 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         if (from > to) {
             throw new ArrayIndexOutOfBoundsException();
         }
+        if(from == to) {
+        	throw new ArrayIndexOutOfBoundsException();
+        }
         if (begin == range.from && end == range.to) {
             return this;
         }
-        return new RangedListView<T>(this, new LongRange(begin, end));
+        return new RangedListView<T>(this, new LongRange(from, to));
     }
 
     @Override

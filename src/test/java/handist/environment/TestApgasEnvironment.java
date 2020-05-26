@@ -1,4 +1,4 @@
-package handist.collections;
+package handist.environment;
 
 import static org.junit.Assert.*;
 
@@ -15,7 +15,7 @@ import static apgas.Constructs.*;
  * Test class that checks how the Junit various asserts behave with the APGAS
  * remote activities and illustrates how to handle them. 
  */
-public class ApgasEnvironmentTest {
+public class TestApgasEnvironment {
 
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
