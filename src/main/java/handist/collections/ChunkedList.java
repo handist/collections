@@ -359,6 +359,16 @@ public class ChunkedList<T> extends AbstractCollection<T> {
         return result;
     }
 
+    /**
+     * Seperates the contents of the ChunkedList in <em>n</em> parts. 
+     * This can be used to apply a forEach method in parallel using 'n' threads
+     * for instance. The method returns <em>n</em> lists, each containing a
+     * {@link ChunkedList} of <em>T</em>s.
+     * 
+     * @param n the number of parts in which to split the ChunkedList
+     * @return <em>n</em> {@link ChunkedList}s containing the same number of 
+     * 	elements 
+     */
     public List<ChunkedList<T>> separate(int n) {
         long totalNum = size();
         long rem = totalNum % n;

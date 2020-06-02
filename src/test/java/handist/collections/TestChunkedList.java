@@ -237,7 +237,6 @@ public class TestChunkedList {
 	
 	
 	@Test
-	@Ignore
 	public void testSeparate() {
 		List<ChunkedList<Element>> cLists = chunkedList.separate(2);
 		assertSame(cLists.size(), 2);
@@ -250,16 +249,17 @@ public class TestChunkedList {
 		
 		cLists.clear();
 		cLists = chunkedList.separate(4);
-		assertSame(cLists.size(), 4);
+		assertSame(4, cLists.size());
 		
-		assertSame(cLists.get(0).size(), 2);
-		assertSame(cLists.get(1).size(), 2);
-		assertSame(cLists.get(2).size(), 1);
-		assertSame(cLists.get(3).size(), 1);
+		assertSame(2, cLists.get(0).size());
+		assertSame(2, cLists.get(1).size());
+		assertSame(1, cLists.get(2).size());
+		assertSame(1, cLists.get(3).size());
 		
 		assertEquals(cLists.get(0).get(0), elems[0]);
 		assertEquals(cLists.get(1).get(2), elems[2]);
-		assertEquals(cLists.get(2).get(4), elems[4]); //TODO error here
+		// Manually inserted null value
+		assertEquals(cLists.get(2).get(4), null);
 		assertEquals(cLists.get(3).get(5), elems[5]);
 		
 		cLists = chunkedList.separate((10));
@@ -268,6 +268,40 @@ public class TestChunkedList {
 		assertSame(cLists.get(9).size(), 0);
 	}
 	
+	@Test(expected = UnsupportedOperationException.class)
+	public void testToArray() {
+		chunkedList.toArray();
+	}
+	
+	@Test(expected = UnsupportedOperationException.class)
+	public void testToArrayWithParameters() {
+		chunkedList.toArray(new Object[2]);
+	}
+	
+	@Test(expected = UnsupportedOperationException.class)
+	public void testRetainAll() {
+		chunkedList.retainAll(null);
+	}
+
+	@Test(expected = UnsupportedOperationException.class)
+	public void testRemoveAll() {
+		chunkedList.removeAll(null);
+	}
+	
+	@Test(expected = UnsupportedOperationException.class)
+	public void testRemove() {
+		chunkedList.remove(null);
+	}
+	
+	@Test(expected = UnsupportedOperationException.class)
+	public void testAddAll() {
+		chunkedList.addAll(null);
+	}
+	
+	@Test(expected = UnsupportedOperationException.class)
+	public void testAdd() {
+		chunkedList.add(null);
+	}
 	
 	@Test
 	public void testSet() {

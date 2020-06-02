@@ -189,11 +189,10 @@ public class TestChunk {
 	}
 	
 	
-	@Test(expected = ArrayIndexOutOfBoundsException.class)
-	public void testSubListError() {
-		RangedList<Element> subList = chunk.subList((long)5, (long)10);
+	@Test(expected = IllegalArgumentException.class)
+	public void testSubListIllegalArguments() {
+		chunk.subList(10l, 5l);
 	}
-	
 	
 	@Test
 	public void testForEach() {

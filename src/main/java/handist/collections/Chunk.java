@@ -91,14 +91,12 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     @Override
     public RangedList<T> subList(long begin, long end) {
-        long from = Math.max(begin, range.from);
+    	if(begin > end) {
+        	throw new IllegalArgumentException("Cannot obtain a sublist from " +
+        			begin + " to " + end);
+        }
+    	long from = Math.max(begin, range.from);
         long to = Math.min(end, range.to);
-        if (from > to) {
-            throw new ArrayIndexOutOfBoundsException();
-        }
-        if(from == to) {
-        	throw new ArrayIndexOutOfBoundsException();
-        }
         if (begin == range.from && end == range.to) {
             return this;
         }

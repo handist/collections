@@ -100,6 +100,23 @@ public interface RangedList<T> extends Iterable<T> {
     default public RangedList<T> subList(LongRange range) {
         return subList(range.from, range.to);
     };
+    /**
+     * Provides a RangedList of the elements contained in this object from index
+     * <em>begin</em> to index <em>end</em>. 
+     * <p>
+     * If the provided range exceeds the indices contained in this instance
+     * (i.e. if <em>begin</em> is lower than the lowest index contained in this 
+     * instance, or if <em>end</em> is higher than the highest index contained in
+     * this instance) the method will return the elements it contains that fit
+     * within the provided range.
+     * 
+     * @param begin starting index of the desired sub-list
+     * @param end last index of the desired sub-list (exlusive)
+     * @return a ranged list of the elements contained in this 
+     * 	{@link RangedList} that fit in the provided range. 
+     * @throws IllegalArgumentException if <em>begin</em> is superior to 
+     * <em>end</em>.
+     */
     public RangedList<T> subList(long begin, long end);
     public Iterator<T> iteratorFrom(long i);
 
