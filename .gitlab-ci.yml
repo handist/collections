@@ -1,7 +1,12 @@
 image: maven:latest
 
+stages:
+  - build
+  - test
+  - integration
+
 variables:
-  MAVEN_CLI_OPTS: "--batch-mode"
+  MAVEN_CLI_OPTS: "--batch-mode -Pmpijava"
 
 cache:
   paths:
@@ -15,6 +20,7 @@ project_compile:
 junit_tests:
   stage: test
   script:
+    - source /home/gitlab-runner/.profile
     - mvn $MAVEN_CLI_OPTS test
   artifacts:
     when: always
@@ -23,4 +29,20 @@ junit_tests:
         - target/surefire-reports/TEST-*.xml
     paths:
         - target/surefire-reports/TEST-*.xml
+    expire_in: 1 week
+
+integration_tests:
+  stage: integration
+  script:
+    - source /home/gitlab-runner/.profile
+    - mvn $MAVEN_CLI_OPTS verify
+    - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - target/failsafe-reports/TEST-*.xml
+    paths:
+      - target/failsafe-reports/TEST-*.xml
+      - target/site/*
     expire_in: 1 week
