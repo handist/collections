@@ -2,27 +2,44 @@ package handist.collections;
 
 import static org.junit.Assert.*;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import handist.collections.Bag;
 
-public class TestBag {
+public class TestBag implements Serializable {
 
-	private class Element{
+	public class Element implements Serializable {
 		public int n;
 		public Element(int n) {
 			this.n = n;
 		}
 		public void increase(int i) {
 			n += i;
+		}
+		@Override
+		public String toString() {
+			return Integer.toString(n);
 		}
 	}
 	
@@ -221,7 +238,23 @@ public class TestBag {
 	
 	@Test
 	public void testForEachConst() {
+		ExecutorService exec = Executors.newFixedThreadPool(4);
+		int[] originalValues = new int[ELEMENTS_COUNT];
+		for(int i = 0; i < originalValues.length; i++) {
+			originalValues[i] = elems[i].n;
+		}
 		
+		bag.forEach(exec, e -> e.increase(2));
+		for(int i = 0; i < ELEMENTS_COUNT; i++) {
+			assertSame(bag.remove().n, originalValues[ELEMENTS_COUNT - 1 - i] + 2);
+		}	
+	}
+	
+	
+	@Test(expected = RuntimeException.class)
+	public void testForEachConstError() {
+		ExecutorService exec = Executors.newFixedThreadPool(4);
+		includeNullBag.forEach(exec, e -> e.increase(2));
 	}
 	
 	
@@ -231,6 +264,36 @@ public class TestBag {
 		for(int i = 0; i < ELEMENTS_COUNT; i++) {
 			assertEquals(list.get(i), elems[i]);
 		}
+	}
+	
+	
+	@Test
+	public void testToString() {
+		assertEquals(bag.toString(), "[Bag][0, 1, 2]:[3, 4]:[5]:end of Bag");
+	}
+	
+	
+	@Test
+	public void testWriteObject() throws IOException, ClassNotFoundException {
+		ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+		ObjectOutputStream objectOut = new ObjectOutputStream(byteOut);
+		objectOut.writeObject(bag);
+		
+		byte[] buf = byteOut.toByteArray();
+		
+		ByteArrayInputStream byteIn = new ByteArrayInputStream(buf);
+		ObjectInputStream objectIn = new ObjectInputStream(byteIn);
+		Bag<Element> readBag = (Bag<Element>)objectIn.readObject();
+		
+		for(int i = 0; i < ELEMENTS_COUNT; i++) {
+			assertSame(readBag.remove().n, bag.remove().n);
+		}
+		
+		byteOut.close();
+		objectOut.close();
+		byteIn.close();
+		objectIn.close();
+		
 	}
 	
 	
