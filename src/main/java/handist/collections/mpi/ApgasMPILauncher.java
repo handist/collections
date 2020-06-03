@@ -20,13 +20,36 @@ import handist.collections.dist.TeamedPlaceGroup;
 import mpi.MPI;
 import mpi.MPIException;
 
-/**
- * The {@link ApgasMPILauncher} class implements a launcher using MPI.
- */
-final public class ApgasMPILauncher implements Launcher {
 
+/**
+ * The {@link ApgasMPILauncher} class implements a launcher for the apgas runtime using MPI and setup TeamedPlaceGroup.
+ * Programs should be run in the following way:
+ * <p>
+ * <em>mpirun -np <nb hosts> -host <, seperated list of hosts> java -cp <: seperated list of jar> apgas.collections.mpi.ApgasMPILauncher {-verbose} { params for MPI.init() -body} <class with main to be launched on place 0> <arguments for said class></em>
+ * <p>
+ * For instance, to launch the HelloWorld example with message "Hello" on 4 servers, a solution would be:
+ * <p>
+ * <ul>
+ * <li><em>mpirun -np 4 -host piccolo04,piccolo05,piccolo06,piccolo07 java 
+ * -cp /home/userA/apgaslibs/*:handist.jar:YourClassDir -Djava.library.path=/home/userA/MPJ/lib 
+ * handist.collections.mpi.ApgasMPILauncher handist.collections.examples.HelloMPICluster msg</em></li>
+ * <li><em>mpirun -np 4 -host piccolo04,piccolo05,piccolo06,piccolo07 java -cp ...  -Djava.library.path=... handist.collections.mpi.ApgasMPILauncher -verbose 0 0 native others -body handist.collections.examples.HelloMPICluster msg</em></li>
+ * </ul>
+ *
+ *
+ * @author Toshiyuki (original MPILauncher), Tomio Kamada (TeamedPlaceGroup setup)
+ */
+
+final public class ApgasMPILauncher implements Launcher {
+  /** Identifier of this place */
   static int commRank;
+  /** Number of places in the system */    
   static int commSize;
+
+  /**
+   * Set in the main method according to the value set by {@link Configuration#APGAS_VERBOSE_LAUNCHER}
+   */
+  static boolean verboseLauncher;
 
   /**
    * Constructs a new {@link ApgasMPILauncher} instance.
@@ -37,12 +60,9 @@ final public class ApgasMPILauncher implements Launcher {
   /**
    * Launches one process with the given command line at the specified host.
    *
-   * @param command
-   *          command line
-   * @param host
-   *          host
-   * @param verbose
-   *          dumps the executed commands to stderr
+   * @param command command line
+   * @param host host
+   * @param verbose dumps the executed commands to stderr
    * @return the process object
    * @throws Exception
    *           if launching fails
@@ -63,16 +83,11 @@ final public class ApgasMPILauncher implements Launcher {
    * host of the list is skipped. If the list is incomplete, the last host is
    * repeated.
    *
-   * @param n
-   *          number of processes to launch
-   * @param command
-   *          command line
-   * @param hosts
-   *          host list (not null, not empty, but possibly incomplete)
-   * @param verbose
-   *          dumps the executed commands to stderr
-   * @throws Exception
-   *           if launching fails
+   * @param n number of processes to launch
+   * @param command command line
+   * @param hosts host list (not null, not empty, but possibly incomplete)
+   * @param verbose dumps the executed commands to stderr
+   * @throws Exception if launching fails
    */
   @Override
   public void launch(int n, List<String> command, List<String> hosts,
@@ -85,8 +100,7 @@ final public class ApgasMPILauncher implements Launcher {
       System.exit(-1);
     }
 
-    final byte[] baCommand = serializeToByteArray(
-        command.toArray(new String[command.size()]));
+    final byte[] baCommand = serializeToByteArray(command.toArray(new String[command.size()]));
     final int[] msglen = new int[1];
     msglen[0] = baCommand.length;
     // MPI.COMM_WORLD.Bcast(msglen, 1, MPI.INT, 0);
@@ -108,8 +122,10 @@ final public class ApgasMPILauncher implements Launcher {
       final String term = command[i];
       if (term.startsWith("-D")) {
         final String[] kv = term.substring(2).split("=", 2);
-        System.err.println("[" + commRank + "] setProperty \"" + kv[0]
+        if(verboseLauncher) {
+	    System.err.println("[" + commRank + "] setProperty \"" + kv[0]
             + "\" = \"" + kv[1] + "\"");
+	}
         System.setProperty(kv[0], kv[1]);
       }
     }
@@ -172,100 +188,64 @@ final public class ApgasMPILauncher implements Launcher {
     return ois.readObject();
   }
 
-  // public static void main(String[] args) throws Exception {
-  /*
-   * int[] testArray = stringToIntArray(args[1]); String testStr =
-   * intArrayToString(testArray); System.out.println(testStr);
-   */
-
-  /*
-   * MPI.Init(args); commRank = MPI.COMM_WORLD.getRank(); commSize =
-   * MPI.COMM_WORLD.getSize();
-   *
-   * String msg = "cram date dirt dish"; int[] msglen = new int[1]; int[]
-   * msgBuf; if (commRank == 0) { msgBuf = stringToIntArray(msg); msglen[0] =
-   * msgBuf.length; MPI.COMM_WORLD.bcast(msglen, 1, MPI.INT, 0);
-   * MPI.COMM_WORLD.bcast(msgBuf, msglen[0], MPI.INT, 0); } else {
-   * MPI.COMM_WORLD.bcast(msglen, 1, MPI.INT, 0); msgBuf = new int[msglen[0]];
-   * MPI.COMM_WORLD.bcast(msgBuf, msglen[0], MPI.INT, 0); }
-   *
-   * for (int i = 0; i < commSize; i++) { MPI.COMM_WORLD.barrier(); if (i ==
-   * commRank) { System.out.println("[" + commRank + "] \"" +
-   * intArrayToString(msgBuf) + "\""); } }
-   *
-   * MPI.Finalize();
-   */
-
-  /*
-   * MPI.Init(args); commRank = MPI.COMM_WORLD.getRank(); commSize =
-   * MPI.COMM_WORLD.getSize();
-   *
-   * String[] srcstr = new String[]{"bike", "cake", "camp", "chip", "dash",
-   * "mesh", "mouth", "sky"}; if (commRank == 0) { byte[] barray =
-   * serializeToByteArray(srcstr); String[] dststr = (String[])
-   * deserializeFromByteArray(barray); for (int i = 0; i < dststr.length; i++) {
-   * System.out.println(srcstr[i] + " -> " + dststr[i]); } } else { }
-   *
-   * MPI.Finalize();
-   */
-  // }
-
   public static void main(String[] args) throws Exception {
-    ArrayList<String> bag = new ArrayList<>();
+
+    verboseLauncher = Boolean.parseBoolean(System.getProperty(Configuration.APGAS_VERBOSE_LAUNCHER, "false"));
     String[] mpiArgs = new String[0];
-    String[] restArgs = new String[0];
+    ArrayList<String> bag = new ArrayList<>();
     for(int i = 0; i<args.length; i++) {
-        if(args[i].equals("-body")) {
+	if(mpiArgs.length==0 && args[i].equals("-verbose")) {
+	    verboseLauncher = true;
+	} else if(args[i].equals("-body")) {
             mpiArgs = bag.toArray(mpiArgs);
             bag.clear();
         } else {
             bag.add(args[i]);
         }
     }
-    restArgs = bag.toArray(restArgs);
-    System.err.println("headArgs:"+ java.util.Arrays.toString(mpiArgs));
-    System.err.println("restArgs:"+java.util.Arrays.toString(restArgs));
-
-    if (mpiArgs.length==0 || restArgs.length==0) {
+    ArrayList<String> rest = bag;
+    if (rest.size()==0) {
         // TODO refine error message after preparing launch script.
         System.err.println("[ApgasMPILauncher] Error Main Class Required.");
         MPI.Finalize();
         System.exit(0);
-      }
-
-    MPI.Init(mpiArgs);
+    }
+    if(mpiArgs.length<3) {
+	mpiArgs = new String[] { "0", "0", "native" };
+	if(verboseLauncher) {
+	    System.err.println("[ApgasMPILauncher] use default parameters { \"0\", \"0\", \"native\" } to call MPI.Init()");
+	}
+    }
+    MPI.Init(mpiArgs);	
+    
     commRank = MPI.COMM_WORLD.Rank();
     commSize = MPI.COMM_WORLD.Size();
 
-    System.err.println("[ApgasMPILauncher] rank = " + commRank);
+    if(verboseLauncher) 
+      System.err.println("[ApgasMPILauncher] rank = " + commRank);
 
     System.setProperty(Configuration.APGAS_PLACES, Integer.toString(commSize));
-    System.setProperty(Config.APGAS_LAUNCHER, "handist.util.mpi.ApgasMPILauncher");
+    System.setProperty(Config.APGAS_LAUNCHER, "handist.collections.mpi.ApgasMPILauncher");
 
     if (commRank == 0) {
-
-    TeamedPlaceGroup.worldSetup();
+      TeamedPlaceGroup.worldSetup();
       try {
-        final Method mainMethod = Class.forName(restArgs[0]).getMethod("main",
+	final Method mainMethod = Class.forName(rest.remove(0)).getMethod("main",
             String[].class);
-        final Object[] mainArgs = new Object[1];
-        mainArgs[0] = restArgs;
-        mainMethod.invoke(null, mainArgs);
-        MPI.Finalize();
-        System.exit(0);
+	String[] targetArgs = new String[rest.size()];
+	rest.toArray(targetArgs);
+	mainMethod.invoke(null, new Object[] { targetArgs });
       } catch (final Exception e) {
         e.printStackTrace();
-        MPI.Finalize();
-        System.exit(0);
       }
     } else {
       slave();
-    System.err.println("[ApgasMPILauncher] rank = " + commRank + ", here" + here());
-    TeamedPlaceGroup.worldSetup();
+      if(verboseLauncher) 
+	System.err.println("[ApgasMPILauncher] rank = " + commRank + ", here" + here());
+      TeamedPlaceGroup.worldSetup();
     }
-
+    TeamedPlaceGroup.readyToClose(commRank==0);
     MPI.Finalize();
     System.exit(0);
   }
-
 }
