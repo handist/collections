@@ -182,11 +182,11 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         this.range = range;
     }
 
-    public Chunk() {
-        // a = new Object[];
-        this.range = new LongRange(0, 1);
-        a = new Object[1];
-    }
+//    public Chunk() {
+//        // a = new Object[];
+//        this.range = new LongRange(0, 1);
+//        a = new Object[1];
+//    }
 
     public Chunk(LongRange range, Object[] a) {
         if (range == null)
