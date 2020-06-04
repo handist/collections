@@ -183,6 +183,7 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         return sb.toString();
     }
 
+    /*
     public static void main(String[] args) {
         long i = 5;
         Chunk<Integer> c = new Chunk<>(new LongRange(10 * i, 11 * i));
@@ -194,7 +195,8 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         });
         System.out.println("Chunk :" + c);
     }
-
+*/
+    
     private void writeObject(ObjectOutputStream out) throws IOException {
         // System.out.println("writeChunk:"+this);
         out.writeInt(size());
