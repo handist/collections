@@ -11,6 +11,7 @@ import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 import apgas.Place;
 import apgas.SerializableJob;
@@ -23,6 +24,7 @@ import mpi.MPIException;
 // TODO split, merge with ResilientPlaceGroup, ..
 public class TeamedPlaceGroup implements Serializable {
     // TODO
+    public static boolean debugF = false;
     private static final class ObjectReference implements Serializable {
         /**
          *
@@ -44,10 +46,12 @@ public class TeamedPlaceGroup implements Serializable {
     int[] place2rank;
     int size;
     int myrank;
+
     // TODO
     Intracomm comm = MPI.COMM_WORLD;
 
     static TeamedPlaceGroup world;
+    static volatile CountDownLatch readyToCloseWorld;
     public static TeamedPlaceGroup getWorld() { return world; }
 
     protected TeamedPlaceGroup(GlobalID id, int myrank, int size,  int[] rank2place) { // for whole_world
@@ -86,11 +90,11 @@ public class TeamedPlaceGroup implements Serializable {
         int size = MPI.COMM_WORLD.Size();
         int[] rank2place = new int[size];
         Place here = here();
-        System.out.println("world setup: rank=" + myrank + ", place" + here + "::"+ here.id);
+        if(debugF) System.out.println("world setup: rank=" + myrank + ", place" + here + "::"+ here.id);
         rank2place[myrank]= here.id;
         MPI.COMM_WORLD.Allgather(rank2place, myrank, 1, MPI.INT, rank2place, 0, 1, MPI.INT);
         for(int i = 0; i<rank2place.length;i++) {
-            System.out.println("ws: " + i +":"+rank2place[i] +"@"+myrank);
+            if(debugF) System.out.println("ws: " + i +":"+rank2place[i] +"@"+myrank);
         }
         GlobalID id;
         if(myrank==0) { // TODO or here()
@@ -105,6 +109,7 @@ public class TeamedPlaceGroup implements Serializable {
                 buf0[0]=buf.length;
 
                 MPI.COMM_WORLD.Bcast(buf0, 0, 1, MPI.INT, 0);
+		readyToCloseWorld = new CountDownLatch(1);    
                 MPI.COMM_WORLD.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
             } catch (IOException e) {
                 throw new Error("[TeamedPlaceGroup] init error at master!");
@@ -113,6 +118,7 @@ public class TeamedPlaceGroup implements Serializable {
             int[] buf0 = new int[1];
             MPI.COMM_WORLD.Bcast(buf0, 0, 1, MPI.INT, 0);
             byte[] buf = new byte[buf0[0]];
+	    readyToCloseWorld = new CountDownLatch(1);
             MPI.COMM_WORLD.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
             try {
                 ObjectInputStream in =
@@ -123,13 +129,29 @@ public class TeamedPlaceGroup implements Serializable {
             }
         }
         world = new TeamedPlaceGroup(id, myrank, size, rank2place);
-
         /*
         PlaceLocalObject.make(places(), ()->{
             return new TeamedPlaceGroup().init();
         });
         */
     }
+
+    public static void readyToClose(boolean master) {
+	if(master) {
+	    finish(() -> {
+	      world.broadcastFlat(() -> {
+		readyToCloseWorld.countDown();
+	      });
+            });
+	} else {
+	    try {
+		readyToCloseWorld.await();
+	    } catch (InterruptedException e) {
+		System.err.println("[TeamedPlaceGroup#readyToApgasMPILauncher] Error: readyToClose is interrupt at rank + " + world.myrank + ".");
+	    }
+	}
+    }
+    
 
     List<Place> places() {
         return places;
