@@ -72,16 +72,15 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 	}
 
 	public int compareTo(LongRange r) {
-		//        if (r.from <= this.from && this.to <= r.to) {
-		//            return 0;
-		//        } else 
-		if (this.to <= r.from) {
+		if (to <= r.from && from != to ) {
 			return -1;
-		} else if (r.to <= this.from) {
+		} else if (r.to <= from && from != to) {
 			return 1;
-		}
-		//        throw new ClassCastException();
-		return 0;
+		} 
+		// The LongRange instances overlap,
+		// We order them based on "from" first and "to" second
+		int fromComparison = Long.compare(from, r.from);
+		return (fromComparison == 0) ? Long.compare(to, r.to) : fromComparison; 
 	}
 
 

@@ -97,11 +97,17 @@ public class TestLongRange {
 
 	@Test
 	public void testCompareTo() {
-		assertSame(range5.compareTo(range0to10), range0to10.compareTo(range5));
-		assertEquals(0, range5.compareTo(range0to10));
 		LongRange range0 = new LongRange(0l);
+		LongRange range10to20 = new LongRange(10l,20l);
+		
+		assertSame(range5.compareTo(range0to10), -range0to10.compareTo(range5));
+		assertEquals(1, range5.compareTo(range0to10));
 		assertEquals(1, range0to10.compareTo(range0));
 		assertEquals(-1, range0.compareTo(range0to10));
+		assertEquals(-1, range0to5.compareTo(new LongRange(0,7)));
+		assertEquals(-1, range0to10.compareTo(range10to20));
+		assertEquals(0, range5.compareTo(range5));
+		assertEquals(0, range0to10.compareTo(range0to10));
 	}
 
 	@Test(expected=NullPointerException.class)
