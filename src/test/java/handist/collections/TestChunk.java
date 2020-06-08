@@ -2,22 +2,10 @@ package handist.collections;
 
 import static org.junit.Assert.*;
 
-import java.util.Collection;
-
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
-
-import com.hazelcast.query.IndexAwarePredicate;
-
-import handist.collections.Chunk;
-import handist.collections.LongRange;
-import handist.collections.RangedList;
-import handist.collections.RangedListView;
-import handist.collections.TestChunkedList.Element;
 
 public class TestChunk {
 
@@ -42,15 +30,12 @@ public class TestChunk {
 	private Chunk<Element> includeNullChunk;
 	/** Contains 5 initialized instances of class Element */
 	Element[] elems = new Element[5];
-	/** freshly created chunk which is empty */
-	Chunk<Element> newlyCreatedChunk;
 
 	
 	@Before
 	public void setUp() throws Exception {
-		newlyCreatedChunk = new Chunk<Element>();
-		chunk = new Chunk(new LongRange(0, 5));
-		includeNullChunk = new Chunk(new LongRange(0, 5));
+		chunk = new Chunk<>(new LongRange(0, 5));
+		includeNullChunk = new Chunk<handist.collections.TestChunk.Element>(new LongRange(0, 5));
 		
 		for(int i = 0; i < 5; i++) {
 			elems[i] = new Element(i);
@@ -124,8 +109,7 @@ public class TestChunk {
 	
 	@Test
 	public void testClone() {
-		Chunk c = new Chunk();
-		c = chunk.clone();
+		Chunk<Element> c = chunk.clone();
 		for(int i = 0; i < 5; i++) {
 			assertEquals(c.get(i), chunk.get(i));
 		}
@@ -189,11 +173,10 @@ public class TestChunk {
 	}
 	
 	
-	@Test(expected = ArrayIndexOutOfBoundsException.class)
-	public void testSubListError() {
-		RangedList<Element> subList = chunk.subList((long)5, (long)10);
+	@Test(expected = IllegalArgumentException.class)
+	public void testSubListIllegalArguments() {
+		chunk.subList(10l, 5l);
 	}
-	
 	
 	@Test
 	public void testForEach() {
