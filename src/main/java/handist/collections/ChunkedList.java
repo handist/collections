@@ -515,7 +515,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		sb.append("]");
 		return sb.toString();
 	}
-
+/*
 	public static void main(String[] args) {
 
 		ChunkedList<String> cl5 = new ChunkedList<>();
@@ -649,5 +649,5 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		System.out.println("--- OK ---");
 
 	}
-
+*/
 }
