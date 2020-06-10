@@ -295,7 +295,6 @@ public class TestChunkedList {
 	}
 	
 	@Test
-	@Ignore
 	public void testSeparate() {
 		List<ChunkedList<Element>> cLists = chunkedList.separate(2);
 		assertSame(cLists.size(), 2);

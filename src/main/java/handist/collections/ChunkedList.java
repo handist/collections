@@ -441,7 +441,9 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 				LongRange range = c.getRange();
 				if (c.longSize() - used < rest) { // not enough
 					long from = range.from + used;
-					r.addChunk(c.subList(from, range.to));
+					if (from != range.to) {
+						r.addChunk(c.subList(from, range.to));	
+					}
 					rest -= c.longSize() - used;
 					used = 0;
 					// TODO should use iterator??
@@ -449,7 +451,9 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 				} else {
 					long from = range.from + used;
 					long to = from + rest;
-					r.addChunk(c.subList(from, to));
+					if (from != to) {
+						r.addChunk(c.subList(from, to));	
+					}
 					used += rest;
 					rest = 0;
 				}
