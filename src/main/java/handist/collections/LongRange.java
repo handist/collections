@@ -56,9 +56,14 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 
 	public boolean isOverlapped(LongRange range) {
 		if (from == to || range.from == range.to) {
-			return false;
+			if (from <= range.from) { 
+				return (to >= range.from) ; 
+			} else { 
+				return (from <= range.to);
+			}
+		} else {
+			return (from < range.from)? (to > range.from) : (from < range.to);
 		}
-		return (from < range.from)? (to > range.from) : (from < range.to);
 	}
 
 	public void forEach(LongConsumer func) {

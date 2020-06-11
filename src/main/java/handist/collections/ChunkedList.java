@@ -90,8 +90,14 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	}
 
 	public void addChunk(RangedList<T> c) {
-		checkOverlap(c.getRange());
-		chunks.put(c.getRange(), c);
+		LongRange desired = c.getRange();
+		LongRange intersection = checkOverlap(desired);
+		if (intersection != null) {
+			throw new RuntimeException("LongRange " + desired + " "
+					+ "overlaps " + intersection + " which is already present in"
+					+ "this ChunkedList");
+		}
+		chunks.put(desired, c);
 		size += c.longSize();
 	}
 
@@ -133,18 +139,25 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		return new FutureN<S, ChunkedList<S>>(futures, result);
 	}
 
-	public void checkOverlap(LongRange range) {
+	/**
+	 * Checks if the provided {@link LongRange} intersects with one of the keys
+	 * contained by this instance. Returns the intersecting key, or {@code null} 
+	 * if there are no such  intersecting key. 
+	 * 
+	 * @param range the LongRange instance to check
+	 * @return a LongRange key of this object that intersects the provided 
+	 * 	{@link LongRange}, or {@code null} if there are so such key.
+	 */
+	private LongRange checkOverlap(LongRange range) {
 		LongRange floorKey = chunks.floorKey(range);
 		if (floorKey != null && floorKey.isOverlapped(range)) {
-			throw new IllegalArgumentException("ChunkedList#checkOverlap : requested range " + range
-					+ " is overlapped with " + chunks.get(floorKey));
+			return floorKey;
 		}
-
 		LongRange nextKey = chunks.higherKey(range);
 		if (nextKey != null && nextKey.isOverlapped(range)) {
-			throw new IllegalArgumentException("ChunkedList#checkOverlap : requested range " + range
-					+ " is overlapped with " + chunks.get(nextKey));
+			return nextKey;
 		}
+		return null;
 	}
 
 	/**
