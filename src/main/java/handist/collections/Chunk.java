@@ -9,7 +9,6 @@ import java.util.ListIterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.IntStream;
 
 import java.io.*;
 import handist.collections.function.LTConsumer;
@@ -376,15 +375,15 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         StringBuilder sb = new StringBuilder();
         sb.append("[" + range + "]:");
         int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
-        long c = 0;
-        for (long i = range.from; i < range.to; i++) {
-            if (c++ > 0) {
+        
+        for (long i = range.from, c = 0; i < range.to && c < sz; i++, c++) {
+            if (c > 0) {
                 sb.append(",");
             }
             sb.append("" + get(i));
-            if (c == sz) {
-                break;
-            }
+//            if (c == sz) {
+//                break;
+//            }
         }
         if (sz < size()) {
             sb.append("...(omitted " + (size() - sz) + " elements)");
