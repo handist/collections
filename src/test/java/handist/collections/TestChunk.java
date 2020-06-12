@@ -11,18 +11,17 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.ListIterator;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
-
-public class TestChunk implements Serializable {
+public class TestChunk {
 
 	public class Element implements Serializable {
+		/**Serial Version UID */
+		private static final long serialVersionUID = -300902383514143401L;
 		public int n = 0;
 		public Element(int i) {
 			n = i;
@@ -325,8 +324,7 @@ public class TestChunk implements Serializable {
 		new Chunk<>(new LongRange(0, Config.maxChunkSize + 10), (byte)0);
 	}
 	
-	
-	@Test(expected = Error.class)
+	@Test(expected = NullPointerException.class)
 	public void testChunkNullRange() {
 		new Chunk<>(null, elems);
 	}
@@ -445,17 +443,17 @@ public class TestChunk implements Serializable {
 	
 	@Test
 	public void testToString() {
-		assertEquals(chunk.toString(),"[[0,5)]0,1,2,3,4");
+		assertEquals("[[0,5)]:0,1,2,3,4", chunk.toString());
 		
 		chunk.range = null;
-		assertEquals(chunk.toString(), "[Chunk] in Construction");
+		assertEquals("[Chunk] in Construction", chunk.toString());
 	
 		// test omitElementsToString 
 		chunk = new Chunk<>(new LongRange(10, 100));
 		for(int i = 10; i < 100; i++) {
 			chunk.set(i, new Element(i));
 		}
-		assertEquals(chunk.toString(), "[[10,100)]10,11,12,13,14,15,16,17,18,19...(omitted 80 elements)");
+		assertEquals("[[10,100)]:10,11,12,13,14,15,16,17,18,19...(omitted 80 elements)", chunk.toString());
 	}
 	
 	
@@ -471,6 +469,7 @@ public class TestChunk implements Serializable {
 		
 		ByteArrayInputStream byteIn = new ByteArrayInputStream(buf);
 		ObjectInputStream objectIn = new ObjectInputStream(byteIn);
+		@SuppressWarnings("unchecked")
 		Chunk<Element> readChunk = (Chunk<Element>)objectIn.readObject();
 		
 		for(int i = 0; i < elems.length; i++) {

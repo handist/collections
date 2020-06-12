@@ -9,14 +9,16 @@ import java.util.ListIterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.IntStream;
 
 import java.io.*;
 import handist.collections.function.LTConsumer;
 
 public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Serializable, List<T> {
 
-    private Object[] a;
+    /** Serial Version UID */
+	private static final long serialVersionUID = -7691832846457812518L;
+
+	private Object[] a;
 
     public LongRange range;
 
@@ -161,38 +163,91 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         return newRail;
     }
 
-    // Constructor
-
+    /**
+     * Builds a Chunk with the given range and no mapping.
+     * <p>
+     * The given LongRange should have a strictly positive size. Giving a 
+     * {@link LongRange} instance with identical lower and upper bounds will
+     * result in a {@link IllegalArgumentException} being thrown.
+     * <p>
+     * If the {@link LongRange} provided has a range that exceeds 
+     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be
+     * be thrown. 
+     *   
+     * @param range the range of the chunk to build
+     * @throws IllegalArgumentException if a {@link Chunk} cannot be built with
+     * 	the provided range. 
+     */
     public Chunk(LongRange range) {
         long size = range.to - range.from;
         if (size > Config.maxChunkSize) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("The given range " + range + 
+            		" exceeds the maximum Chunk size " + Config.maxChunkSize);
+        } else if (size <= 0) {
+        	throw new IllegalArgumentException("Cannot build a Chunk with "
+        			+ "LongRange " + range + ", should have a strictly positive"
+        			+ " size");
         }
         a = new Object[(int) size];
         this.range = range;
     }
 
-    public Chunk(LongRange range, T v) {
-        long size = range.to - range.from;
-        if (size > Config.maxChunkSize) {
-            throw new IllegalArgumentException();
-        }
-        a = new Object[(int) size];
-        Arrays.fill(a, v);
-        this.range = range;
+    /**
+     * Builds a {@link Chunk} with the provided {@link LongRange} with each long
+     * in the provided range mapped to object t. 
+     * The given LongRange should have a strictly positive size. Giving a 
+     * {@link LongRange} instance with identical lower and upper bounds will
+     * result in a {@link IllegalArgumentException} being thrown.
+     * <p>
+     * If the {@link LongRange} provided has a range that exceeds 
+     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be
+     * be thrown. 
+     *   
+     * @param range the range of the chunk to build
+     * @param t initial mapping for every long in the provided range
+     * @throws IllegalArgumentException if a {@link Chunk} cannot be built with
+     * 	the provided range. 
+     */
+    public Chunk(LongRange range, T t) {
+    	this(range);
+    	// TODO Is this what we really want to do?
+    	// The mapping will be on the SAME OBJECT for every long in LongRange.
+    	// Don't we need a Generator<T> generator as argument and create an 
+    	// instance for each key with Arrays.setAll(a, generator) ?
+        Arrays.fill(a, t); 
+        
     }
 
-//    public Chunk() {
-//        // a = new Object[];
-//        this.range = new LongRange(0, 1);
-//        a = new Object[1];
-//    }
-
+    /**
+     * Builds a {@link Chunk} with the provided {@link LongRange} and an initial
+     * mapping for each long in the object array. The provided {@link LongRange}
+     * and Object array should have the same size. An 
+     * {@link IllegalArgumentException} will be thrown otherwise.  
+     * <p>
+     * The given {@link LongRange} should have a strictly positive size. Giving a 
+     * {@link LongRange} instance with identical lower and upper bounds will
+     * result in a {@link IllegalArgumentException} being thrown.
+     * <p>
+     * If the {@link LongRange} provided has a range that exceeds 
+     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be
+     * be thrown. 
+     *   
+     * @param range the range of the chunk to build
+     * @param a array with the initial mapping for every long in the provided range
+     * @throws IllegalArgumentException if a {@link Chunk} cannot be built with
+     * 	the provided range and object array. 
+     */
     public Chunk(LongRange range, Object[] a) {
-        if (range == null)
-            throw new Error("This should not happen!");
+    	this(range);
+    	if (a.length != range.size()) {
+    		throw new IllegalArgumentException("The length of the provided "
+    				+ "array <" + a.length +"> does not match the size of the "
+    				+ "LongRange <" + range.size() + ">");
+    	}
+    	// TODO Do we check for objects in array a that are not of type T?
+    	// We can leave as is and let the code fail later in methods get and 
+    	// others where a ClassCastException should be thrown.  
         this.a = a;
-        this.range = range;
     }
 
     public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
@@ -318,17 +373,17 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
             return "[Chunk] in Construction";
         }
         StringBuilder sb = new StringBuilder();
-        sb.append("[" + range + "]");
+        sb.append("[" + range + "]:");
         int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
-        long c = 0;
-        for (long i = range.from; i < range.to; i++) {
-            if (c++ > 0) {
+        
+        for (long i = range.from, c = 0; i < range.to && c < sz; i++, c++) {
+            if (c > 0) {
                 sb.append(",");
             }
             sb.append("" + get(i));
-            if (c == sz) {
-                break;
-            }
+//            if (c == sz) {
+//                break;
+//            }
         }
         if (sz < size()) {
             sb.append("...(omitted " + (size() - sz) + " elements)");
