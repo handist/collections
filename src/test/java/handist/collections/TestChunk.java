@@ -17,7 +17,11 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
-public class TestChunk {
+public class TestChunk implements Serializable {
+
+	/** Serial Version UID */
+	private static final long serialVersionUID = -2700365175790886892L;
+
 
 	public class Element implements Serializable {
 		/**Serial Version UID */
