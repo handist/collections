@@ -17,7 +17,6 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
-
 public class TestChunk {
 
 	public class Element implements Serializable {
@@ -324,7 +323,6 @@ public class TestChunk {
 	public void testHugeChunkWithValue() {
 		new Chunk<>(new LongRange(0, Config.maxChunkSize + 10), (byte)0);
 	}
-	
 	
 	@Test(expected = NullPointerException.class)
 	public void testChunkNullRange() {
