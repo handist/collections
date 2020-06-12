@@ -95,7 +95,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		if (intersection != null) {
 			throw new RuntimeException("LongRange " + desired + " "
 					+ "overlaps " + intersection + " which is already present in"
-					+ "this ChunkedList");
+					+ " this ChunkedList");
 		}
 		chunks.put(desired, c);
 		size += c.longSize();
@@ -514,7 +514,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("[ChunksList(" + chunks.size() + ")");
+		sb.append("[ChunkedList(" + chunks.size() + ")");
 		for (RangedList<T> c : chunks.values()) {
 			sb.append("," + c);
 		}

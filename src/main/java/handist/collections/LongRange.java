@@ -55,12 +55,12 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 	}
 
 	public boolean isOverlapped(LongRange range) {
-		if (from == to || range.from == range.to) {
-			if (from <= range.from) { 
-				return (to >= range.from) ; 
-			} else { 
-				return (from <= range.to);
-			}
+		if (this.equals(range)) {
+			return true;
+		} else if (from == to) {
+			return from >= range.from && from < range.to;
+		} else if (range.from == range.to) {
+			return range.from >= from && range.from < to;
 		} else {
 			return (from < range.from)? (to > range.from) : (from < range.to);
 		}

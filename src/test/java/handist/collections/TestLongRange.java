@@ -69,8 +69,8 @@ public class TestLongRange {
 		assertTrue(range0to10.isOverlapped(range5));
 		assertTrue(range5.isOverlapped(range5to20));
 		assertTrue(range5to20.isOverlapped(range5));
-		assertTrue(range5.isOverlapped(range0to5));
-		assertTrue(range0to5.isOverlapped(range5));
+		assertFalse(range5.isOverlapped(range0to5));
+		assertFalse(range0to5.isOverlapped(range5));
 		assertFalse(range5.isOverlapped(range10to20));
 		assertFalse(range10to20.isOverlapped(range5));
 

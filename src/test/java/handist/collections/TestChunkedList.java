@@ -6,6 +6,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -75,16 +79,17 @@ public class TestChunkedList {
 
 	@Test
 	public void testAddChunk() {
-		Chunk<Element> emptyChunk = new Chunk<>(new LongRange(0));
-		newlyCreatedChunkedList.addChunk(emptyChunk);
-		assertEquals(0l, newlyCreatedChunkedList.longSize());
-		assertEquals(1, newlyCreatedChunkedList.numChunks());
-
+		assertEquals(0, newlyCreatedChunkedList.numChunks());
 		newlyCreatedChunkedList.addChunk(chunks[1]);
 		assertEquals(2l, newlyCreatedChunkedList.longSize());
-		assertEquals(2, newlyCreatedChunkedList.numChunks());
+		assertEquals(1, newlyCreatedChunkedList.numChunks());
 	}
 
+	@Test(expected = NullPointerException.class)
+	public void testAddChunkNullArg() {
+		newlyCreatedChunkedList.addChunk(null);
+	}
+	
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorIdenticalChunk() {
 		chunkedList.addChunk(chunks[1]);
@@ -113,6 +118,37 @@ public class TestChunkedList {
 	@Test(expected = UnsupportedOperationException.class)
 	public void testAddAll() {
 		chunkedList.addAll(null);
+	}
+	
+	@Test
+	public void testAsyncForEachConsumer() {
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		Future<ChunkedList<Element>> future = 
+				chunkedList.asyncforEach(pool, 2, (e) -> {
+			if (e != null) {
+				e.increase(10);
+			}
+		});
+		
+		ChunkedList<Element> result = null;
+		try {
+			result = future.get();
+		} catch (InterruptedException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+			fail();
+		} catch (ExecutionException e1) {
+			e1.printStackTrace();
+			fail();
+		}
+		assertEquals(6l, result.longSize());
+		assertEquals(3, result.numChunks());
+		assertEquals(10, result.get(0).n);
+		assertEquals(11, result.get(1).n);
+		assertEquals(12, result.get(2).n);
+		assertEquals(13, result.get(3).n);
+		assertEquals(null, result.get(4));
+		assertEquals(15, result.get(5).n);
 	}
 
 	@Test(expected = UnsupportedOperationException.class)
@@ -280,12 +316,6 @@ public class TestChunkedList {
 		assertEquals(6, chunkedList.size());
 		assertNull(removed);
 
-		// A LongRange of same included and excluded bounds not present in the
-		// chunked list
-		chunkToRemove = new Chunk<>(new LongRange(0l));
-		removed = chunkedList.removeChunk(chunkToRemove);
-		assertEquals(6, chunkedList.size());
-
 		// A Chunk that is included but not identical to a chunk of the
 		// chunked list is not removed
 		chunkToRemove = new Chunk<>(new LongRange(0l, 1l));
@@ -373,6 +403,11 @@ public class TestChunkedList {
 		chunkedList.toArray();
 	}
 
+	@Test
+	public void testToString() {
+		assertEquals("[ChunkedList(3),[[0,3)]:0,1,2,[[3,5)]:3,null,[[5,6)]:5]", chunkedList.toString());
+		assertEquals("[ChunkedList(0)]", newlyCreatedChunkedList.toString());
+	}
 
 	@Test(expected = UnsupportedOperationException.class)
 	public void testToArrayWithParameters() {
