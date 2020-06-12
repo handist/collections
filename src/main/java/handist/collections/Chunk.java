@@ -154,7 +154,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         if (from == to) {
             return new Object[0];
         }
-        long newSize = (int) (newRange.to - newRange.from);
+        long newSize = /*(int)*/ (newRange.to - newRange.from);
         if (newSize > Config.maxChunkSize) {
             throw new IllegalArgumentException();
         }
@@ -392,6 +392,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         return sb.toString();
     }
 
+    /*
     public static void main(String[] args) {
         long i = 5;
         Chunk<Integer> c = new Chunk<>(new LongRange(10 * i, 11 * i));
@@ -402,7 +403,10 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
             c.set(10 * i + j, v);
         });
         System.out.println("Chunk :" + c);
+        
+        c.toArray(new LongRange(0, Config.maxChunkSize));
     }
+    */
 
     private void writeObject(ObjectOutputStream out) throws IOException {
         // System.out.println("writeChunk:"+this);
