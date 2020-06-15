@@ -22,17 +22,6 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     public LongRange range;
 
-    public static <T> Chunk<T> make(Collection<T> c, LongRange range, T v) {
-        Chunk<T> a = new Chunk<T>(range, v);
-        a.addAll(c);
-        return a;
-    }
-
-    public static <T> Chunk<T> make(Collection<T> c, LongRange range) {
-        Chunk<T> a = new Chunk<T>(range);
-        a.addAll(c);
-        return a;
-    }
 
     @Override
     public LongRange getRange() {
@@ -142,18 +131,16 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     @Override
     public Object[] toArray(LongRange newRange) {
-        long from = Math.max(range.from, newRange.from);
-        long to = Math.min(range.to, newRange.to);
-        if (from > to) {
-            throw new ArrayIndexOutOfBoundsException(); // Need boundary check
+        if(!range.contains(newRange)) {
+        	throw new ArrayIndexOutOfBoundsException();
         }
-        if (from == range.from && to == range.to) {
+        if (newRange.from == range.from && newRange.to == range.to) {
             return a;
         }
-        if (from == to) {
+        if (newRange.from == newRange.to) {
             return new Object[0];
         }
-        long newSize = /*(int)*/ (newRange.to - newRange.from);
+        long newSize = (newRange.to - newRange.from);
         if (newSize > Config.maxChunkSize) {
             throw new IllegalArgumentException();
         }
