@@ -210,18 +210,19 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		});
 	}
 
-	private List<Future<?>> forEachParallelBody(ExecutorService pool, int nthreads, Consumer<ChunkedList<T>> run) {
+	private List<Future<Void>> forEachParallelBody(ExecutorService pool, int nthreads, Consumer<ChunkedList<T>> run) {
 		List<ChunkedList<T>> separated = this.separate(nthreads);
-		List<Future<?>> futures = new ArrayList<Future<?>>();
+		List<Future<Void>> futures = new ArrayList<Future<Void>>();
 		for (ChunkedList<T> sub: separated) {
 			futures.add(pool.submit(() -> {
 				run.accept(sub);
+				return null;
 			}));
 		}
 		return futures;
 	}
 
-	private void waitNfutures(List<Future<?>> futures) {
+	private void waitNfutures(List<Future<Void>> futures) {
 		for (Future<?> f : futures) {
 			try {
 				f.get();
@@ -232,46 +233,46 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		}
 	}
 	public void forEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
-		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
+		List<Future<Void>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
 		});
 		waitNfutures(futures);
 	}
 
 	public Future<ChunkedList<T>> asyncforEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
-		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
+		List<Future<Void>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
 		});
-		return new FutureN<T, ChunkedList<T>>(futures, this);
+		return new FutureN.PrepareResult<Void, ChunkedList<T>>(futures,  this);
 	}
 
 	public void forEach(ExecutorService pool, int nthreads, LTConsumer<? super T> action) {
-		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
+		List<Future<Void>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
 		});
-		waitNfutures(futures);        
+		waitNfutures(futures);
 	}
 
 	public Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, LTConsumer<? super T> action) {
-		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
+		List<Future<Void>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
 		});
-		return new FutureN<T, ChunkedList<T>>(futures, this);
+		return new FutureN.PrepareResult<Void, ChunkedList<T>>(futures, this);
 	}
 
 	public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<U>> action,
 			final MultiReceiver<U> toStore) {
-		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
+		List<Future<Void>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action,toStore.getReceiver());
 		});
-		waitNfutures(futures);        
+		waitNfutures(futures);
 	}
 	public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<U>> action,
 			final MultiReceiver<U> toStore) {
-		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
+		List<Future<Void>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action,toStore.getReceiver());
 		});
-		return new FutureN<T, ChunkedList<T>>(futures, this);        
+		return new FutureN.PrepareResult<Void, ChunkedList<T>>(futures, this);
 	}
 
 
@@ -296,20 +297,21 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		}
 	}
 
-	private <S> List<Future<?>> mapParallelBody(ExecutorService pool, int nthreads,
+	private <S> List<Future<Void>> mapParallelBody(ExecutorService pool, int nthreads,
 			Function<? super T, ? extends S> func, ChunkedList<S> result) {
 		forEachChunk((RangedList<T> c) -> {
 			result.addChunk(new Chunk<S>(c.getRange()));
 		});
 		List<ChunkedList<T>> separatedIn = this.separate(nthreads);
 		List<ChunkedList<S>> separatedOut = result.separate(nthreads);
-		List<Future<?>> futures = new ArrayList<Future<?>>();
+		List<Future<Void>> futures = new ArrayList<>();
 		for (int i = 0; i < nthreads; i++) {
 			final int i0 = i;
 			futures.add(pool.submit(() -> {
 				ChunkedList<T> from = separatedIn.get(i0);
 				ChunkedList<S> to = separatedOut.get(i0);
 				from.mapTo(to, func);
+				return null;
 			}));
 		}
 		return futures;
@@ -317,7 +319,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 
 	public <S> ChunkedList<S> map(ExecutorService pool, int nthreads, Function<? super T, ? extends S> func) {
 		ChunkedList<S> result = new ChunkedList<>();
-		List<Future<?>> futures = mapParallelBody(pool, nthreads, func, result);
+		List<Future<Void>> futures = mapParallelBody(pool, nthreads, func, result);
 		for (Future<?> f : futures) {
 			try {
 				f.get();
@@ -332,7 +334,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	public <S> Future<ChunkedList<S>> asyncMap(ExecutorService pool, int nthreads,
 			Function<? super T, ? extends S> func) {
 		final ChunkedList<S> result = new ChunkedList<>();
-		final List<Future<?>> futures = mapParallelBody(pool, nthreads, func, result);
+		final List<Future<Void>> futures = mapParallelBody(pool, nthreads, func, result);
 
 		for (Future<?> f : futures) {
 			try {
@@ -342,7 +344,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 				throw new RuntimeException("[ChunkedList] exception raised by worker threads.");
 			}
 		}
-		return new FutureN<S, ChunkedList<S>>(futures, result);
+		return new FutureN.PrepareResult<Void, ChunkedList<S>>(futures, result);
 	}
 
 
@@ -373,14 +375,14 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	}
 
 	/**
-	 * Seperates the contents of the ChunkedList in <em>n</em> parts. 
+	 * Seperates the contents of the ChunkedList in <em>n</em> parts.
 	 * This can be used to apply a forEach method in parallel using 'n' threads
 	 * for instance. The method returns <em>n</em> lists, each containing a
 	 * {@link ChunkedList} of <em>T</em>s.
-	 * 
+	 *
 	 * @param n the number of parts in which to split the ChunkedList
-	 * @return <em>n</em> {@link ChunkedList}s containing the same number of 
-	 * 	elements 
+	 * @return <em>n</em> {@link ChunkedList}s containing the same number of
+	 * 	elements
 	 */
 	public List<ChunkedList<T>> separate(int n) {
 		long totalNum = size();
