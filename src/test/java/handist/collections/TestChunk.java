@@ -177,19 +177,6 @@ public class TestChunk implements Serializable {
 			assertEquals(subList.get(i), elems[i]);
 		}
 		
-		//both over range
-		subList = chunk.subList((long)-1, (long)6);
-		assertSame(subList.longSize(), (long)5);
-		for(int i = 0; i < 5; i++) {
-			assertEquals(subList.get(i), elems[i]);
-		}
-		
-		//oneside over range
-		subList = chunk.subList((long)-1, (long)3);
-		assertSame(subList.longSize(), (long)3);
-		for(int i = 0; i < 3; i++) {
-			assertEquals(subList.get(i), elems[i]);
-		}
 	}
 	
 	
@@ -200,9 +187,16 @@ public class TestChunk implements Serializable {
 	
 	
 	@Test(expected = IllegalArgumentException.class)
+	public void testSubListOverRange() {
+		chunk.subList((long)-1, (long)1);
+	}
+	
+	
+	@Test(expected = IllegalArgumentException.class)
 	public void testSubListIllegalRange() {
 		chunk.subList((long)5, (long)4);
 	}
+	
 	
 	@Test
 	public void testGet() {
