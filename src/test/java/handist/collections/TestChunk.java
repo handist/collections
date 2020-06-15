@@ -11,6 +11,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.ListIterator;
+import java.util.function.Consumer;
 
 import org.junit.After;
 import org.junit.Before;
@@ -23,6 +24,7 @@ public class TestChunk implements Serializable {
 	private static final long serialVersionUID = -2700365175790886892L;
 
 
+	/** Element Class for Chunk */
 	public class Element implements Serializable {
 		/**Serial Version UID */
 		private static final long serialVersionUID = -300902383514143401L;
@@ -47,6 +49,11 @@ public class TestChunk implements Serializable {
 	Element[] elems = new Element[5];
 
 	
+	/** 
+	 * elems[i] = new Element(i);
+	 * chunk 			: { elems[0], elems[1], ... elems[4] }
+	 * includeNullChunk : {  null   , elems[1], ... elems[4] }
+	 *  */
 	@Before
 	public void setUp() throws Exception {
 		chunk = new Chunk<>(new LongRange(0, 5));
@@ -57,31 +64,6 @@ public class TestChunk implements Serializable {
 			chunk.set(i, elems[i]);
 		}
 		includeNullChunk.set(0, null);
-		
-	}
-	
-	@After
-	public void tearDown() throws Exception {
-	}
-
-	
-	@Test(expected = UnsupportedOperationException.class)
-	public void testMake() {
-		ArrayList<Element> list = new ArrayList<Element>();
-		for(int i = 0; i < elems.length; i++) {
-			list.add(elems[i]);
-		}
-		chunk = Chunk.make(list, new LongRange(0, elems.length));
-	}
-	
-	
-	@Test(expected = UnsupportedOperationException.class)
-	public void testMakeWithParameter() {
-		ArrayList<Element> list = new ArrayList<Element>();
-		for(int i = 0; i < elems.length; i++) {
-			list.add(elems[i]);
-		}
-		chunk = Chunk.make(list, new LongRange(0, elems.length), new Element(0));
 	}
 	
 	
@@ -144,41 +126,38 @@ public class TestChunk implements Serializable {
 	}
 	
 	
-	@Ignore
 	@Test
 	public void testToChunk() {
-		//same size
+		// same size
 		Chunk<Element> c = chunk.toChunk(chunk.getRange());
 		for(int i = 0; i < elems.length; i++) {
 			assertEquals(c.get(i), elems[i]);
 		}
 		
-		//inner size
+		// inner size
 		c = chunk.toChunk(new LongRange(1, 3));
 		assertSame(c.size(), 2);
 		for(int i = 1; i < 3; i++) {
 			assertEquals(c.get(i), elems[i]);
 		}
-	
-		//both over size
-		c = chunk.toChunk(new LongRange(-1, 6));
-		assertSame(c.size(), 5);
-		for(int i = 0; i < 5; i++) {
-			assertEquals(c.get(i), elems[i]);
-		}
-		
-		//oneside over size		// chunk.toArray / error in arrayCopy 
-		c = chunk.toChunk(new LongRange(-1, 3));
-		assertSame(c.size(), 3);
-		for(int i = 0; i < 3; i++) {
-			assertEquals(c.get(i), elems[i]);
-		}
 	}
 	
 	
-	@Test(expected = IndexOutOfBoundsException.class)
-	public void testToChunkError() {
+	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	public void testToChunkOverRange() {
+		chunk.toChunk(new LongRange(1, 6));
+	}
+	
+	
+	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	public void testToChunkOutRange() {
 		chunk.toChunk(new LongRange(5, 10));
+	}
+	
+	
+	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	public void testToChunkZeroRange() {
+		chunk.toChunk(new LongRange(1, 1));
 	}
 	
 	
@@ -215,10 +194,15 @@ public class TestChunk implements Serializable {
 	
 	
 	@Test(expected = IllegalArgumentException.class)
-	public void testSubListIllegalArguments() {
-		chunk.subList(10l, 5l);
+	public void testSubListOutRange() {
+		chunk.subList((long)10, (long)12);
 	}
 	
+	
+	@Test(expected = IllegalArgumentException.class)
+	public void testSubListIllegalRange() {
+		chunk.subList((long)5, (long)4);
+	}
 	
 	@Test
 	public void testGet() {
@@ -270,67 +254,92 @@ public class TestChunk implements Serializable {
 	}
 	
 	
-	@Ignore
 	@Test
 	public void testToArray() {
-		// same range
 		Object[] a = chunk.toArray();
 		for(int i = 0; i < a.length; i++) {
 			assertEquals(a[i], elems[i]);
 		}
 		
+		// same range
 		a = chunk.toArray(chunk.getRange());
 		for(int i = 0; i < elems.length; i++) {
 			assertEquals(a[i], elems[i]);
 		}
 		
-		//inner range
+		// inner range
 		a = chunk.toArray(new LongRange(1, 3));
 		for(int i = 1; i < 3; i++) {
 			assertEquals(a[i-1], elems[i]);
 		}
 		
-		//both over range
-		a = chunk.toArray(new LongRange(-1, 6));
-		for(int i = 0; i < elems.length; i++) {
-			assertEquals(a[i], elems[i]);
-		}
-		
-		//oneside over range
-		a = chunk.toArray(new LongRange(-1, 3));
-		for(int i = 0; i < 3; i++) {
-			assertEquals(a[i], elems[i]);
-		}
-		
+		// zero range
+		a = chunk.toArray(new LongRange(1, 1));
+		assertSame(a.length, 0);
 	}
 	
 	
 	@Test(expected = ArrayIndexOutOfBoundsException.class)
-	public void testToArrayWithParameters() {
+	public void testToArrayOverRange() {
+		Object[] a = chunk.toArray(new LongRange(-1, 4));
+		for(int i = 0; i < 4; i++) {
+			assertEquals(a[i], elems[i]);
+		}
+	}
+	
+	
+	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	public void testToArrayOutRange() {
 		chunk.toArray(new LongRange(-5, -4));
 	}
 	
 	
 	@Test(expected = IllegalArgumentException.class)
 	public void testToArrayHugeSize() {
-		chunk.toArray(new LongRange(1, Config.maxChunkSize + 10));
+		chunk.range = new LongRange(0, Config.maxChunkSize + 10);
+		chunk.toArray(new LongRange(0, Config.maxChunkSize + 9));
 	}
 	
 
+	@Test
+	public void testConstructorWithParameter() {
+		Element e = new Element(1);
+		Chunk<Element> c = new Chunk<>(new LongRange(0, 5), e);
+		for(int i = 0; i < 5; i++) {
+			assertEquals(c.get(i), e);
+		}
+		
+		e = null;
+		c = new Chunk<>(new LongRange(1, 5), e);
+		assertSame(c.size(), 4);
+		for(int i = 1; i < 5; i++) {
+			assertNull(c.get(i));
+		}
+	}
+	
+	
 	@Test(expected = IllegalArgumentException.class)
-	public void testHugeChunk() {
+	public void testConstructorZeroSize() {
+		new Chunk<>(new LongRange(0, 0));
+	}
+	
+	
+	@Test(expected = IllegalArgumentException.class)
+	public void testConstructorHugeSize() {
 		new Chunk<>(new LongRange(0, Config.maxChunkSize + 10));
 	}
 	
 	
-	@Test(expected = IllegalArgumentException.class)
-	public void testHugeChunkWithValue() {
-		new Chunk<>(new LongRange(0, Config.maxChunkSize + 10), (byte)0);
+	@Test(expected = NullPointerException.class)
+	public void testConstructorNullRange() {
+		new Chunk<>(null, elems);
 	}
 	
-	@Test(expected = NullPointerException.class)
-	public void testChunkNullRange() {
-		new Chunk<>(null, elems);
+	
+	@Test(expected = IllegalArgumentException.class)
+	public void testConstructorDiffRange() {
+		Object[] o = new Object[100];
+		new Chunk<Object>(new LongRange(0, 1), o);
 	}
 	
 	
@@ -434,30 +443,54 @@ public class TestChunk implements Serializable {
 	// -- end iterator region --
 	
 	
+	// normal forEach
 	@Test
 	public void testForEach() {
 		chunk.forEach(e -> e.increase(5));
-		for(int i = 0; i < 5; i++) {
+		
+		for(int i = 0; i < chunk.size(); i++) {
 			assertSame(chunk.get(i).n, i + 5);
 		}
+	}
+	
+	
+	@Test
+	public void testForEachWithIndex() {
+		// test forEach that has parameter LTConsumer
+		chunk.forEach((l, e) -> {e.n += l;} );
 		
-		//TODO :test forEach that has parameter BiConsumer 
+		for(int i = 0; i < chunk.size(); i++) {
+			assertSame(chunk.get(i).n, i + i);
+		}
+	}
+	
+	
+	@Test
+	public void testForEachWithReceiver() {
+		// test forEach that has parameter BiConsumer
+		chunk.forEach(new LongRange(0, 5), (e, reciever) -> {
+			reciever.accept(e);
+		}, (e -> ((Element) e).increase(5)));
+		
+		for(int i = 0; i < chunk.size(); i++) {
+			assertSame(chunk.get(i).n, i + 5);
+		}
 	}
 	
 	
 	@Test
 	public void testToString() {
-		assertEquals("[[0,5)]:0,1,2,3,4", chunk.toString());
+		assertEquals(chunk.toString(), "[[0,5)]:0,1,2,3,4");
 		
 		chunk.range = null;
-		assertEquals("[Chunk] in Construction", chunk.toString());
+		assertEquals(chunk.toString(), "[Chunk] in Construction");
 	
 		// test omitElementsToString 
 		chunk = new Chunk<>(new LongRange(10, 100));
 		for(int i = 10; i < 100; i++) {
 			chunk.set(i, new Element(i));
 		}
-		assertEquals("[[10,100)]:10,11,12,13,14,15,16,17,18,19...(omitted 80 elements)", chunk.toString());
+		assertEquals(chunk.toString(), "[[10,100)]:10,11,12,13,14,15,16,17,18,19...(omitted 80 elements)");
 	}
 	
 	
@@ -487,6 +520,7 @@ public class TestChunk implements Serializable {
 	}
 	
 	
+	// Unsupported Functions
 	@Test(expected = UnsupportedOperationException.class)
 	public void testAddAll() {
 		chunk.addAll(1, new ArrayList<Element>());
