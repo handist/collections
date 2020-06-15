@@ -86,12 +86,14 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         	throw new IllegalArgumentException("Cannot obtain a sublist from " +
         			begin + " to " + end);
         }
-    	long from = Math.max(begin, range.from);
-        long to = Math.min(end, range.to);
+    	if(begin < range.from || range.to < end) {
+    		throw new IllegalArgumentException();
+    	}
+    	
         if (begin == range.from && end == range.to) {
             return this;
         }
-        return new RangedListView<T>(this, new LongRange(from, to));
+        return new RangedListView<T>(this, new LongRange(begin, end));
     }
 
     @Override
