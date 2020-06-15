@@ -8,7 +8,25 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
-public class FutureN<S>  {
+/**
+ * FutureN receives a list of Future elements and waits for the termination of all the futures.
+ * There are four variations of futureN.
+ * <UL>
+*  <LI>When a list of `Future<?>` given
+*     <UL> <LI>`FutureN.OnlyWait` only waits for the termination of the given futures.</LI>
+*                <LI> `FutureN.ReturnGivenResult<R>` receives the result data structure `R result` and returns the result
+*                 when all the futures are finished.</LI>
+*      </UL>
+*  </LI>
+*  <LI> When a list of `Future<R>` given
+*      <UL><LI> `FutureN.ListResult<R>` receives List<Future<R>> and returns List<R>.</LI>
+*                <LI>  `FutureN.ConsumeResult<R>` receives List<Future<R> and Consumer<R>.
+*                It waits for the termination of the given futures and processes the result using the consumer. </LI>
+*      </UL>
+*  </LI>
+*  </UL>
+ */
+public abstract class FutureN<S>  {
 	protected final List<Future<S>> futures;
 	boolean isCanceled = false;
 	boolean isDone = false;
@@ -46,7 +64,7 @@ public class FutureN<S>  {
 		return true;
 	}
 
-	public void get0() throws InterruptedException, ExecutionException {
+	protected void get0() throws InterruptedException, ExecutionException {
 		synchronized (this) {
 			if (isDone) return;
 		}
@@ -55,7 +73,7 @@ public class FutureN<S>  {
 		return;
 	}
 
-	public void get0(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+	protected void get0(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
 		long start = System.currentTimeMillis();
 		synchronized (this) {
 			if (isDone)
@@ -68,6 +86,11 @@ public class FutureN<S>  {
 		return;
 	}
 
+	/**
+	 * `FutureN.ReturnGivenResult<R>` receives the result data structure `R result` and returns the result
+     *  when all the futures are finished.
+	 * @param <R> the type of the result type (This class implementes `Future<R>`)
+	 */
 	public static class ReturnGivenResult<R> extends FutureN implements Future<R> {
 		R result;
 		public ReturnGivenResult(List<Future<?>> futures, R result) {
@@ -86,11 +109,19 @@ public class FutureN<S>  {
 			return result;
 		}
 	}
+	/**
+	 * `FutureN.OnlyWait` only waits for the termination of the given futures.
+	 *
+	 */
 	public static class OnlyWait extends ReturnGivenResult<Void> {
 		public OnlyWait(List<Future<?>> futures) {
 			super(futures, null);
 		}
 	}
+	/**
+	 *  `FutureN.ListResult<R>` receives List<Future<R>> and returns List<R>.
+	 * @param <R>
+	 */
 	public static class ListResults<R> extends FutureN<R> implements Future<List<R>> {
 		public ListResults(List<Future<R>> futures) {
 			super(futures);
@@ -122,6 +153,12 @@ public class FutureN<S>  {
 			return result;
 		}
 	}
+	/**
+      * `FutureN.ConsumeResult<R>` receives List<Future<R> and Consumer<R>.
+      * It waits for the termination of the given futures and processes the result using the consumer.
+	 *
+	 * @param <R>
+	 */
 	public static class ConsumeResults<R> extends FutureN<R> implements Future<Void> {
 
 		private Consumer<R> consumer;
