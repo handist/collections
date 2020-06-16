@@ -89,12 +89,12 @@ public class TestChunkedList {
 		assertEquals(2l, newlyCreatedChunkedList.longSize());
 		assertEquals(1, newlyCreatedChunkedList.numChunks());
 	}
-
+	
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorIdenticalChunk() {
 		chunkedList.addChunk(chunks[1]);
 	}
-
+	
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorOverlapChunk1() {
 		chunkedList.addChunk(new Chunk<>(new LongRange(0)));
@@ -119,7 +119,6 @@ public class TestChunkedList {
 	public void testAddChunkNullArg() {
 		newlyCreatedChunkedList.addChunk(null);
 	}
-
 
 	@Test
 	public void testAsyncForEachConsumer() {
@@ -301,7 +300,6 @@ public class TestChunkedList {
 			assertEquals((int) originalValues[(int)i]+i, chunkedList.get(i).n);
 		}
 	}
-
 
 	@Test(expected=NullPointerException.class)
 	public void testForEachWithNull() {

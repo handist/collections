@@ -9,7 +9,6 @@ import java.util.ListIterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.IntStream;
 
 import java.io.*;
 import handist.collections.function.LongTBiConsumer;
@@ -23,17 +22,6 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     public LongRange range;
 
-    public static <T> Chunk<T> make(Collection<T> c, LongRange range, T v) {
-        Chunk<T> a = new Chunk<T>(range, v);
-        a.addAll(c);
-        return a;
-    }
-
-    public static <T> Chunk<T> make(Collection<T> c, LongRange range) {
-        Chunk<T> a = new Chunk<T>(range);
-        a.addAll(c);
-        return a;
-    }
 
     @Override
     public LongRange getRange() {
@@ -98,12 +86,14 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         	throw new IllegalArgumentException("Cannot obtain a sublist from " +
         			begin + " to " + end);
         }
-    	long from = Math.max(begin, range.from);
-        long to = Math.min(end, range.to);
+    	if(begin < range.from || range.to < end) {
+    		throw new IllegalArgumentException();
+    	}
+    	
         if (begin == range.from && end == range.to) {
             return this;
         }
-        return new RangedListView<T>(this, new LongRange(from, to));
+        return new RangedListView<T>(this, new LongRange(begin, end));
     }
 
     @Override
@@ -143,18 +133,16 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     @Override
     public Object[] toArray(LongRange newRange) {
-        long from = Math.max(range.from, newRange.from);
-        long to = Math.min(range.to, newRange.to);
-        if (from > to) {
-            throw new ArrayIndexOutOfBoundsException(); // Need boundary check
+        if(!range.contains(newRange)) {
+        	throw new ArrayIndexOutOfBoundsException();
         }
-        if (from == range.from && to == range.to) {
+        if (newRange.from == range.from && newRange.to == range.to) {
             return a;
         }
-        if (from == to) {
+        if (newRange.from == newRange.to) {
             return new Object[0];
         }
-        long newSize = (int) (newRange.to - newRange.from);
+        long newSize = (newRange.to - newRange.from);
         if (newSize > Config.maxChunkSize) {
             throw new IllegalArgumentException();
         }
@@ -376,32 +364,20 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         StringBuilder sb = new StringBuilder();
         sb.append("[" + range + "]:");
         int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
-        long c = 0;
-        for (long i = range.from; i < range.to; i++) {
-            if (c++ > 0) {
+        
+        for (long i = range.from, c = 0; i < range.to && c < sz; i++, c++) {
+            if (c > 0) {
                 sb.append(",");
             }
             sb.append("" + get(i));
-            if (c == sz) {
-                break;
-            }
+//            if (c == sz) {
+//                break;
+//            }
         }
         if (sz < size()) {
             sb.append("...(omitted " + (size() - sz) + " elements)");
         }
         return sb.toString();
-    }
-
-    public static void main(String[] args) {
-        long i = 5;
-        Chunk<Integer> c = new Chunk<>(new LongRange(10 * i, 11 * i));
-        System.out.println("prepare: " + c);
-        IntStream.range(0, (int) i).forEach(j -> {
-            int v = (int) (10 * i + j);
-            System.out.println("set@" + v);
-            c.set(10 * i + j, v);
-        });
-        System.out.println("Chunk :" + c);
     }
 
     private void writeObject(ObjectOutputStream out) throws IOException {
@@ -466,4 +442,20 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     public List<T> subList(int fromIndex, int toIndex) {
         throw new UnsupportedOperationException("[Chunk] does not support copy operation.");
     }
+    
+    /*
+    public static void main(String[] args) {
+        long i = 5;
+        Chunk<Integer> c = new Chunk<>(new LongRange(10 * i, 11 * i));
+        System.out.println("prepare: " + c);
+        IntStream.range(0, (int) i).forEach(j -> {
+            int v = (int) (10 * i + j);
+            System.out.println("set@" + v);
+            c.set(10 * i + j, v);
+        });
+        System.out.println("Chunk :" + c);
+        
+        c.toArray(new LongRange(0, Config.maxChunkSize));
+    }
+    */
 }

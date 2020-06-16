@@ -338,7 +338,6 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		return size;
 	}
 
-
 	public <S> ChunkedList<S> map(ExecutorService pool, int nthreads, Function<? super T, ? extends S> func) {
 		ChunkedList<S> result = new ChunkedList<>();
 		List<Future<?>> futures = mapParallelBody(pool, nthreads, func, result);
@@ -382,7 +381,6 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		return futures;
 	}
 
-
 	private <S> void mapTo(ChunkedList<S> to, Function<? super T, ? extends S> func) {
 		Iterator<RangedList<T>> fromIter = chunks.values().iterator();
 		Iterator<RangedList<S>> toIter = to.chunks.values().iterator();
@@ -406,7 +404,6 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	public Collection<LongRange> ranges() {
 		return chunks.keySet();
 	}
-
 
 	@Override
 	public boolean remove(Object o) {
@@ -524,7 +521,18 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		sb.append("]");
 		return sb.toString();
 	}
-	/*
+	
+	private void waitNfutures(List<Future<?>> futures) {
+		for (Future<?> f : futures) {
+			try {
+				f.get();
+			} catch (InterruptedException | ExecutionException e) {
+				e.printStackTrace();
+				throw new RuntimeException("[ChunkedList] exception raised by worker threads.");
+			}
+		}
+	}
+/*
 	public static void main(String[] args) {
 
 		ChunkedList<String> cl5 = new ChunkedList<>();
@@ -658,16 +666,5 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		System.out.println("--- OK ---");
 
 	}
-	 */
-
-	private void waitNfutures(List<Future<?>> futures) {
-		for (Future<?> f : futures) {
-			try {
-				f.get();
-			} catch (InterruptedException | ExecutionException e) {
-				e.printStackTrace();
-				throw new RuntimeException("[ChunkedList] exception raised by worker threads.");
-			}
-		}
-	}
+*/
 }
