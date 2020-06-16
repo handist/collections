@@ -6,7 +6,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.io.*;
-import handist.collections.function.LTConsumer;
+import handist.collections.function.LongTBiConsumer;
 
 
 public class RangedListView<T> extends AbstractCollection<T> implements RangedList<T>, Serializable {
@@ -148,7 +148,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
     }
 
     @Override
-    public void forEach(LongRange range, LTConsumer<? super T> action) {
+    public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
         rangeCheck(range);        
         base.forEach(range, action);
     }
