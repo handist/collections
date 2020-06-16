@@ -154,7 +154,6 @@ public class TestChunkedList {
 	@Test
 	public void testAsyncForEachLongTBiConsumer() {
 		chunkedList.set(4l, elems[4]);
-
 		int [] originalValues = new int[elems.length];
 		for (int i = 0; i < elems.length; i++) {
 			originalValues[i] = elems[i].n;
@@ -176,7 +175,6 @@ public class TestChunkedList {
 		for (long i=0; i<elems.length; i++) {
 			assertEquals((int) originalValues[(int)i]+i, result.get(i).n);
 		}
-		
 	}
 
 	@Test(expected = UnsupportedOperationException.class)
