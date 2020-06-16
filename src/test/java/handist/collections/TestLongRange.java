@@ -60,15 +60,27 @@ public class TestLongRange {
 
 	@Test
 	public void testIsOverlapped() {
-		assertFalse(range0to10.isOverlapped(range5));
-		assertFalse(range5.isOverlapped(range0to10));
-
-		assertTrue(range0to5.isOverlapped(range0to10));
 		LongRange range10to20 = new LongRange(10l, 20l);
 		LongRange range5to20 = new LongRange(5l,20l);
+
+		// Cases with LongRange with identical bounds
+		assertTrue(range5.isOverlapped(range5));
+		assertTrue(range5.isOverlapped(range0to10));
+		assertTrue(range0to10.isOverlapped(range5));
+		assertTrue(range5.isOverlapped(range5to20));
+		assertTrue(range5to20.isOverlapped(range5));
+		assertFalse(range5.isOverlapped(range0to5));
+		assertFalse(range0to5.isOverlapped(range5));
+		assertFalse(range5.isOverlapped(range10to20));
+		assertFalse(range10to20.isOverlapped(range5));
+
+		// Other cases with "normal" LongRange instancecs
+		assertTrue(range0to5.isOverlapped(range0to10));
+		assertTrue(range0to10.isOverlapped(range0to5));
 		assertFalse(range0to10.isOverlapped(range10to20));
 		assertFalse(range10to20.isOverlapped(range0to10));
 		assertTrue(range0to10.isOverlapped(range5to20));
+		assertTrue(range5to20.isOverlapped(range0to10));
 	}
 
 	@Test
@@ -99,7 +111,7 @@ public class TestLongRange {
 	public void testCompareTo() {
 		LongRange range0 = new LongRange(0l);
 		LongRange range10to20 = new LongRange(10l,20l);
-		
+
 		assertSame(range5.compareTo(range0to10), -range0to10.compareTo(range5));
 		assertEquals(1, range5.compareTo(range0to10));
 		assertEquals(1, range0to10.compareTo(range0));

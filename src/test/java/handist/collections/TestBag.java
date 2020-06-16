@@ -283,6 +283,7 @@ public class TestBag implements Serializable {
 		
 		ByteArrayInputStream byteIn = new ByteArrayInputStream(buf);
 		ObjectInputStream objectIn = new ObjectInputStream(byteIn);
+		@SuppressWarnings("unchecked")
 		Bag<Element> readBag = (Bag<Element>)objectIn.readObject();
 		
 		for(int i = 0; i < ELEMENTS_COUNT; i++) {

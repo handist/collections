@@ -166,7 +166,7 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
                 f.get();
             } catch (InterruptedException | ExecutionException e) {
                 e.printStackTrace();
-                throw new RuntimeException("[ChunkedList] exception raised by worker threads.");
+                throw new RuntimeException("[Bag] exception raised by worker threads.");
             }
         }
     }
