@@ -16,6 +16,9 @@ import java.util.concurrent.CountDownLatch;
 import apgas.Place;
 import apgas.SerializableJob;
 import apgas.util.GlobalID;
+import handist.collections.mpi.MPILauncher;
+import handist.collections.mpi.MPILauncher.Plugin;
+import mpi.Comm;
 import mpi.Datatype;
 import mpi.Intracomm;
 import mpi.MPI;
@@ -39,6 +42,21 @@ public class TeamedPlaceGroup implements Serializable {
         private Object readResolve() throws ObjectStreamException {
             return id.getHere();
         }
+    }
+    public static void setup() {
+    	MPILauncher.registerPlugins(new Plugin() {
+			@Override
+			public String getName() { return TeamedPlaceGroup.class.toString(); }
+			@Override
+			public void init(int rank, Comm cocm) throws MPIException {
+				worldSetup();
+			}
+
+			@Override
+			public void beforeFinalize(int rank, Comm com) {
+				readyToClose(rank==0);
+			}
+    	});
     }
 
     final GlobalID id;
@@ -85,7 +103,7 @@ public class TeamedPlaceGroup implements Serializable {
         return this;
     }
 
-    public static void worldSetup() throws Exception { // must be called at initialization of MPI process.
+    public static void worldSetup() throws MPIException { // must be called at initialization of MPI process.
         int myrank = MPI.COMM_WORLD.Rank();
         int size = MPI.COMM_WORLD.Size();
         int[] rank2place = new int[size];
@@ -109,7 +127,7 @@ public class TeamedPlaceGroup implements Serializable {
                 buf0[0]=buf.length;
 
                 MPI.COMM_WORLD.Bcast(buf0, 0, 1, MPI.INT, 0);
-		readyToCloseWorld = new CountDownLatch(1);    
+                readyToCloseWorld = new CountDownLatch(1);
                 MPI.COMM_WORLD.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
             } catch (IOException e) {
                 throw new Error("[TeamedPlaceGroup] init error at master!");
@@ -118,7 +136,7 @@ public class TeamedPlaceGroup implements Serializable {
             int[] buf0 = new int[1];
             MPI.COMM_WORLD.Bcast(buf0, 0, 1, MPI.INT, 0);
             byte[] buf = new byte[buf0[0]];
-	    readyToCloseWorld = new CountDownLatch(1);
+            readyToCloseWorld = new CountDownLatch(1);
             MPI.COMM_WORLD.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
             try {
                 ObjectInputStream in =
@@ -151,7 +169,7 @@ public class TeamedPlaceGroup implements Serializable {
 	    }
 	}
     }
-    
+
 
     List<Place> places() {
         return places;
