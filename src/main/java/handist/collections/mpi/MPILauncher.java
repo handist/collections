@@ -45,7 +45,7 @@ final public class MPILauncher implements Launcher {
   static List<Plugin> plugins = new ArrayList<>();
   public static void registerPlugins(Plugin plugin) {
       if(verboseLauncher) System.err.println("[MPILauncher] " + plugin.getName() + " is registered.");
-    plugins.add(plugin);
+      plugins.add(plugin);
   }
 
   public static void mpiCustomSetup(int rank, Comm world) throws MPIException {
