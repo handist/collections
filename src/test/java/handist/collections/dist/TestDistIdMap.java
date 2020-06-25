@@ -11,6 +11,9 @@ import handist.collections.dist.MoveManagerLocal;
 import handist.collections.dist.TeamedPlaceGroup;
 
 public class TestDistIdMap  {
+    static {
+	TeamedPlaceGroup.setup();
+    }    
     TeamedPlaceGroup placeGroup;
     // long numData = 10;
     long numData = 200;

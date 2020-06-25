@@ -16,6 +16,9 @@ import handist.collections.dist.TeamedPlaceGroup;
 
 
 public class TestDistCol {
+    static {
+	TeamedPlaceGroup.setup();
+    }    
     TeamedPlaceGroup placeGroup;
     long NPLACES0;
     long rangeSize0 = 10;
@@ -35,6 +38,7 @@ public class TestDistCol {
     public static void main(String[] args) {
         TeamedPlaceGroup world = TeamedPlaceGroup.getWorld();
 	new TestDistCol(world).run();
+	System.out.println("----finish");
     }
 
     public void run() {
@@ -74,7 +78,6 @@ public class TestDistCol {
 	//	gather.setCurrentAsInit();
 
 	// ---------------------------------------------------------------------------
-
         // Distribute all entries
         System.out.println("");
         System.out.println("### MoveAtSync // Distribute all entries");
@@ -103,7 +106,6 @@ public class TestDistCol {
 		    throw e;
 		}
         });
-
 	//	gather.gather();
 	//	gather.print();
 	//	if (gather.validate() &&
@@ -557,7 +559,6 @@ public class TestDistCol {
 	//	    System.out.println("VALIDATE 7-1: FAIL");
 	//	}
 
-
         System.out.println("");
         System.out.println("### Update dist // Split range into large pieces");
 	pg.broadcastFlat(() -> {
@@ -601,7 +602,6 @@ public class TestDistCol {
 		    //throw e;
 		}
 	    });
-	
 	//	gather.gather();
 	//	gather.print();
 
@@ -614,7 +614,6 @@ public class TestDistCol {
 	//	} else {
 	//	    System.out.println("VALIDATE 8-1: FAIL");
 	//	}
-
         System.out.println("");
         System.out.println("### Update dist // Split range into small pieces");
 	pg.broadcastFlat(() -> {
@@ -634,6 +633,5 @@ public class TestDistCol {
 	//	} else {
 	//	    System.out.println("VALIDATE 8-2: FAIL");
 	//	}
-
     }
 }
