@@ -298,8 +298,15 @@ final public class MPILauncher implements Launcher {
     verboseLauncher = Boolean.parseBoolean(
         System.getProperty(Configuration.APGAS_VERBOSE_LAUNCHER, "false"));
 
-    final Method rankMethod = Class.forName("mpi.Comm").getMethod("Rank");
-    boolean isMPJ = (rankMethod != null);
+    
+    //Determine is we are using MPJ, in which case the args will need to be adjusted
+    boolean isMPJ = false;
+    try {
+      final Class<?> mpjdevCommClass = Class.forName("mpjdev.Comm");
+      isMPJ = (mpjdevCommClass != null);
+    } catch (Exception e) {
+      // Ignore any exception
+    }
     
     if (verboseLauncher) {
       System.err.println("[MPILaucnher] command: " + java.util.Arrays.asList(args));	

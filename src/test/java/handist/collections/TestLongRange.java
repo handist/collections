@@ -133,6 +133,7 @@ public class TestLongRange {
 		assertTrue(range0to10.toString().equals("[0,10)"));
 	}
 
+	@SuppressWarnings("unlikely-arg-type")
 	@Test
 	public void testEquals() {
 		assertFalse(range0to10.equals(new Long(5)));
