@@ -4,12 +4,9 @@ import static org.junit.Assert.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,19 +14,21 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
-
-import handist.collections.Bag;
 
 public class TestBag implements Serializable {
 
+	/** serial Version UID */
+	private static final long serialVersionUID = -443049222349805678L;
+
+
 	public class Element implements Serializable {
+		/** Serial Version UID */
+		private static final long serialVersionUID = -7271678225893322926L;
 		public int n;
 		public Element(int n) {
 			this.n = n;
@@ -122,7 +121,7 @@ public class TestBag implements Serializable {
 	
 	@Test
 	public void testClone() {
-		Bag b = bag.clone();
+		Bag<?> b = bag.clone();
 		assertSame(b.size(), bag.size());
 		for(int i = 0; i < ELEMENTS_COUNT; i++) {
 			assertEquals(b.remove(), bag.remove());
