@@ -101,7 +101,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		size += c.longSize();
 	}
 
-	public Future<ChunkedList<T>> asyncforEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
+	public Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
 		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
 		});

@@ -10,11 +10,53 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
 import org.junit.Before;
 import org.junit.Test;
 
 public class TestChunkedList {
+
+	public class MultiIntegerReceiver implements MultiReceiver<Integer> {
+
+		Object [] parallelAcceptors;
+		private int nextReceiver;
+		
+		private class PConsumer implements Consumer<Integer> {
+
+			int number;
+			
+			@SuppressWarnings("unchecked")
+			@Override
+			public void accept(Integer t) {
+				((ArrayList<Integer>) parallelAcceptors[number]).add(t);
+			}
+			
+			PConsumer(int nb) {
+				number = nb;
+			}
+			
+		}
+		
+		@Override
+		public Consumer<Integer> getReceiver() {
+			return new PConsumer(nextReceiver++);
+		}
+
+		/**
+		 * Builds a Receiver of {@link Integer} that can accept objects
+		 * from the specified number of concurrent threads. 
+		 * 
+		 * @param parallelism the number of threads susceptible to send {@link Integer}s to be accepted by this object
+		 */
+		public MultiIntegerReceiver (int parallelism) {
+			nextReceiver = 0;
+			parallelAcceptors = new Object[parallelism];
+			for(int i=0; i<parallelism; i++) {
+				parallelAcceptors[i] = new ArrayList<Integer>();
+			}
+		}
+	}
 
 	public class Element {
 		public int n = 0;
@@ -89,12 +131,12 @@ public class TestChunkedList {
 		assertEquals(2l, newlyCreatedChunkedList.longSize());
 		assertEquals(1, newlyCreatedChunkedList.numChunks());
 	}
-	
+
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorIdenticalChunk() {
 		chunkedList.addChunk(chunks[1]);
 	}
-	
+
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorOverlapChunk1() {
 		chunkedList.addChunk(new Chunk<>(new LongRange(0)));
@@ -120,11 +162,28 @@ public class TestChunkedList {
 		newlyCreatedChunkedList.addChunk(null);
 	}
 
+	@SuppressWarnings("unchecked")
+	@Test
+	public void testAsyncForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		chunkedList.set(4l, elems[4]);
+		
+		final MultiIntegerReceiver accumulator = new MultiIntegerReceiver(2);
+		
+		chunkedList.asyncForEach(	pool, 2, 
+				(t, consumer)-> consumer.accept(-t.n), 
+				accumulator).get();
+		
+		assertEquals(2, accumulator.parallelAcceptors.length);
+		assertEquals(3, ((ArrayList<Integer>) accumulator.parallelAcceptors[0]).size());
+		assertEquals(3, ((ArrayList<Integer>)accumulator.parallelAcceptors[1]).size());
+	}
+
 	@Test
 	public void testAsyncForEachConsumer() {
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 		Future<ChunkedList<Element>> future = 
-				chunkedList.asyncforEach(pool, 2, (e) -> {
+				chunkedList.asyncForEach(pool, 2, (e) -> {
 					if (e != null) {
 						e.increase(10);
 					}
@@ -159,7 +218,7 @@ public class TestChunkedList {
 		}
 
 		ExecutorService pool = Executors.newFixedThreadPool(2);
-		
+
 		Future<ChunkedList<Element>> future = chunkedList.asyncForEach(pool, 2, (l,e)-> {
 			e.increase((int)l);
 		});
@@ -173,6 +232,34 @@ public class TestChunkedList {
 
 		for (long i=0; i<elems.length; i++) {
 			assertEquals((int) originalValues[(int)i]+i, result.get(i).n);
+		}
+	}
+
+	@Test
+	public void testAsyncMap() throws InterruptedException, ExecutionException {
+		// First, remove the null element
+		chunkedList.set(4, new Element(42));
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+
+		Future<ChunkedList<Integer>> future = chunkedList.asyncMap(pool, 2, e-> e.n + 5);
+		ChunkedList<Integer> result = null;
+		try {
+			result = future.get();
+		} catch (InterruptedException e1) {
+			e1.printStackTrace();
+			fail();
+		} catch (ExecutionException e1) {
+			e1.printStackTrace();
+			fail();
+		}
+
+		assertNotSame(chunkedList, result);
+		assertEquals(6, chunkedList.longSize());
+		assertSame(chunkedList.longSize(), result.longSize());
+		Iterator<Element> originalIterator = chunkedList.iterator();
+		Iterator<Integer> integerIterator = result.iterator();
+		while (integerIterator.hasNext()) {
+			assertSame(integerIterator.next(), originalIterator.next().n + 5);
 		}
 	}
 
@@ -216,6 +303,21 @@ public class TestChunkedList {
 		assertFalse(chunkedList.containsIndex(-1));
 	}
 
+	@SuppressWarnings("unused")
+	@Test
+	public void testItOnEmptyChunkedList() {
+		for (Element e : newlyCreatedChunkedList) {
+			fail("The ChunkedList iterator got an element from an empty ChunkedList");
+		}
+	}
+	
+	@Test(expected = IndexOutOfBoundsException.class)
+	public void testItOutOfBounds() {
+		Iterator<Element> it = newlyCreatedChunkedList.iterator();
+		assertFalse(it.hasNext());
+		it.next();
+	}
+	
 	@Test
 	public void testFilterChunk() {
 		List<RangedList<Element>> l = chunkedList.filterChunk(chunk -> chunk.isEmpty());
@@ -246,6 +348,54 @@ public class TestChunkedList {
 	}
 
 	@Test
+	public void testForEachBiConsumerCollection() {
+		// Remove the null value
+		chunkedList.set(4l, elems[4]);
+
+		ArrayList<Integer> accumulator = new ArrayList<>();
+
+		//Accumulate the opposites of each element
+		chunkedList.forEach((t, consumer)->consumer.accept(-t.n), accumulator);
+
+		assertEquals(chunkedList.size(), accumulator.size());
+	}
+
+	@Test
+	public void testForEachBiConsumerConsumer() {
+		// Remove the null value
+		chunkedList.set(4l, elems[4]);
+
+		// Compute an average of the members in the ChunkedList
+		Consumer<Integer> averageComputation = new Consumer<Integer>() {
+			public int sum = 0;
+			public int count = 0;
+
+			@Override
+			public void accept(Integer t) {
+				sum += t;
+				count++;
+			}
+
+			public String toString() {
+				return sum + " / " + count;
+			}
+		};
+
+		chunkedList.forEach((t, consumer)->consumer.accept(t.n), averageComputation);
+
+
+		//Expected result
+		int expectedSum = 0;
+		for(Element e : elems) {
+			expectedSum += e.n;
+		}
+		int expectedCount = elems.length;
+		String expectedOutput = expectedSum + " / " + expectedCount;
+
+		assertEquals(expectedOutput, averageComputation.toString());
+	}
+
+	@Test
 	public void testForEachConsumer() {
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 		chunkedList.forEach(pool, 2, (e) -> {
@@ -264,6 +414,21 @@ public class TestChunkedList {
 		assertEquals(15, chunkedList.get(5).n);
 	}
 	
+	@SuppressWarnings("unchecked")
+	@Test
+	public void testForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		chunkedList.set(4l, elems[4]);
+		
+		final MultiIntegerReceiver accumulator = new MultiIntegerReceiver(2);
+		
+		chunkedList.forEach(pool, 2, (t, consumer)-> consumer.accept(-t.n),	accumulator);
+		
+		assertEquals(2, accumulator.parallelAcceptors.length);
+		assertEquals(3, ((ArrayList<Integer>) accumulator.parallelAcceptors[0]).size());
+		assertEquals(3, ((ArrayList<Integer>)accumulator.parallelAcceptors[1]).size());
+	}
+
 	@Test
 	public void testForEachLongTBiconsumer() {
 		chunkedList.set(4l, elems[4]);
@@ -325,12 +490,12 @@ public class TestChunkedList {
 		assertTrue(newlyCreatedChunkedList.isEmpty());
 	}
 
+
 	@Test
 	public void testLongSize() {
 		assertEquals(6l, chunkedList.longSize());
 		assertEquals(0, newlyCreatedChunkedList.longSize());
 	}
-
 
 	@Test
 	public void testMap() {
@@ -351,6 +516,23 @@ public class TestChunkedList {
 		}
 	}
 
+	@Test
+	public void testMapExecutorService() {
+		// First, remove the null element
+		chunkedList.set(4, new Element(42));
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+
+		ChunkedList<Integer> result = chunkedList.map(pool, 2, e-> e.n + 5);
+
+		assertNotSame(chunkedList, result);
+		assertEquals(6, chunkedList.longSize());
+		assertSame(chunkedList.longSize(), result.longSize());
+		Iterator<Element> originalIterator = chunkedList.iterator();
+		Iterator<Integer> integerIterator = result.iterator();
+		while (integerIterator.hasNext()) {
+			assertSame(integerIterator.next(), originalIterator.next().n + 5);
+		}
+	}
 
 	@Test(expected = NullPointerException.class)
 	public void testMapWithNullElement() {		
