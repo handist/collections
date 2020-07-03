@@ -247,7 +247,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
             T r = func.apply(s);
             a[(int) (index - range.from)] = r;
         };
-        from.forEach(range, consumer);
+        from.forEach(consumer);
     }
 
     // iterator
