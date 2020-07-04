@@ -1,62 +1,53 @@
 # handist collections library
 
-* cassia Distributed Collections @X10 -> handist Collections library @ Java
+A Java distributed collections library.
 
+# Documentation / Information
 
-# directory structure
-
-* **src/main/java**: main source files of the library
-  * **handist.collections**: sequential/multi-threaded classes 
-  * **handist.collections.dist**:  distributed collections
-
-* **src/tests/java**: test routines using Junit
+| Version | |
+| master branch | [Javadoc](master-latest/apidocs/inde.html)<br>[Test Coverage Report](master-latest/jacoco/index.html) |
 
 # Build instructions (MAVEN)
 
-The configuration of the project is defined at the root of the project directory by the file `pom.xml`. 
-
 ## Dependencies
 
-This project relies on several libraries:
-* [APGAS for Java](https://github.com/x10-lang/apgas/tree/master/apgas) 
-* [mpiJava v1.2.7](https://sourceforge.net/projects/mpijava/) to make native MPI calls from Java
+This Java libraries relies on a number of libraries:
 
-These two libraries can have slight variations depending on the platform on which they need to run. Therefore, they should be compiled independantly prior to compiling this project. The Maven builder of this project expects the two Java archives (JAR) of these projects to be present under a certain directory on your system indicated by the environment variable ${APGAS_HOME}. You should therefore define the environment variable `APGAS_HOME` to reflect this location. For instance on a linux system: 
++ A slightly customized version of [APGAS for Java](https://github.com/x10-lang/apgas/tree/master/apgas) [located in this repository](https://github.com/handist/apgas)
++ A library providing Java bindings to MPI calls: either [MPJ-Express](http://mpj-express.org/) or [mpiJava](https://sourceforge.net/projects/mpijava/).
 
-~~~
-$ ls /home/user/apgaslibs
--rw-r--r-- 1 user group 7844811  3月 11 11:46 apgas.jar
--rw-r--r-- 1 user group   27154  3月 11 11:55 mpi.jar
-$ export APGAS_HOME=/home/user/apgaslibs
-~~~
-Note: As an alternative to mpiJava, it may also be possible to use the MPJ project as it uses the same classes and method signatures to allow MPI calls from a Java program.
+To ease the compilation process, we placed these two libraries which are usually downloaded from their project's website in a git repository so that they will be downloaded automatically like any normal maven dependency. We provide two compilation profiles for the library: `mpj` (default) and `mpijava` which allows you to switch the dependency to the MPJ-Express library or the mpiJava library respectively.
 
-Other dependencies (`hazelcast`, `kryo`, and their respective dependencies) will be automatically downloaded by maven.
+Whichever library/profile you choose does not change the JAR produced by running `mvn package` or `mvn package -Pmpijava`. You can very well compile the library with default profile (using the MPJ-Express library) and execute your programs using the mpiJava library. The implementation of the Java bindings used is determined by the classpath you provide when launching your program.
 
-## Compiling, testing, and JAR creation
+## Creating the JAR
 
-To compile the project from the command line, you can use the following commands:
+You can compile the library from source by checking out the library and running `mvn package` of `mvn package -Pmpijava`. The JAR will be created under the `target` directory.
 
-| Command | Action performed |
-| ------ | ------ |
-| `mvn validate` | checks if the project configuration is correct. Use it to check if you have set the APGAS_HOME variable correctly |
-| `mvn compile` | does the above, and compiles the source files to folder `target/classes` |
-| `mvn test`| does all the above, compiles the test source files to folder `target/test-classes`, and runs the Junit tests. The result of the Junit tests can be found in the directory `target/surefire-reports` | 
-| `mvn package` | does all the above, and packages the source files into a JAR: `target/collections-0.0.1-SNAPSHOT.jar` |
-| `mvn clean` | Deletes the `target` folder which contains the compiled files, the test reports, and the JAR |
+## Running the tests
 
-If you are using Eclipse, you should use maven to compile the project. You can create Maven run configurations with `validate`, `compile` etc as "Goals". To create a new run configuration, *select the project in the package explorer -> Right click -> Run As -> Maven build ...*. A pop-up window will appear and will let you choose your "goal". No other particular settings are needed at this point. 
+The test code is located under the `src/test/java` directory. There are two kinds of tests for this project:
 
++ Normal Junit4 test (classes named `Test<class under test>.java`)
++ Test dealing with distributed features of the library that involve multiple hosts (classes named `IT_<class under test>.java`)
 
-# branch maintenance
+The former are bound to the `test` phase of the standard lifecycle of Maven. You can run them without any prerequisite using the `mvn test` command. They will also be run when generating the Java ARchive with `mvn package`.
 
-* master@gittk is a release branch that will be also stored to handist/handist@github (use scash merge)
-  * Developer version: develop@gittk 
+The former are bound to the `verify` phase. **HOWEVER**, only the `mpijava` profile that relies on the mpiJava library can run these tests at the moment. Attempting to run these tests in the default profile will result in failure. You need to use the `mpijava` profile as such: `mvn verify -Pmpijava`.
 
+As a requirement, you will need to specify the location of the Shared Object libraries (`libmpijava.so` and potentially `libsavesignals.so`) generated during the compilation of the mpiJava library on your particular system. This is done by setting the environment variable `MPIJAVA_LIB` to wherever these files are located on your system. For instance:
+```
+user@computer:~/mpiJava/lib$ ls -l
+total 108
+drwxr-xr-x 3 user group  4096 Apr 15 02:25 classes
+-rwxr-xr-x 1 user group 96872 Apr 14 19:37 libmpijava.so
+-rwxr-xr-x 1 user group  8000 Apr 14 19:37 libsavesignals.so
+user@computer:~/mpiJava/lib$ export MPIJVA_LIB=/home/user/mpiJava/lib
+user@computer:~/mpiJava/lib$ cd ~/handistCollections
+user@computer:~/handistCollections$ mvn verify -Pmpijava
+...
+```
 
-# related repository
+# Related repository
 
-* [Java GLB](https://github.com/handist/JavaGLB)
-  * developped by Patrick
-
-* X10 version [cassia](https://gittk.cs.kobe-u.ac.jp/x10kobeu/cassia)@gittk, [cassiaX10lib](https://github.com/handist/cassiaX10lib)@github
+This work was inspired by the distributed collections library of X10. You can check this project named "Cassia" there: [cassiaX10lib](https://github.com/handist/cassiaX10lib)@github
