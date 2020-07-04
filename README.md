@@ -5,7 +5,7 @@ A Java distributed collections library.
 # Documentation / Information
 
 | Version | |
-| master branch | [Javadoc](master-latest/apidocs/inde.html)<br>[Test Coverage Report](master-latest/jacoco/index.html) |
+| master branch | [Javadoc](master-latest/apidocs/index.html)<br>[Test Coverage Report](master-latest/jacoco/index.html) |
 
 # Build instructions (MAVEN)
 
