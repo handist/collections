@@ -1,0 +1,54 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+handistCollections,handist.collections,RangedListView.It,56,0,2,0,12,0,5,0,4,0
+handistCollections,handist.collections,ChunkedList.It,0,83,0,10,0,26,0,8,0,3
+handistCollections,handist.collections,Bag,1,385,1,35,1,94,1,37,0,20
+handistCollections,handist.collections,FutureN.ReturnGivenResult,7,12,0,0,2,5,1,2,1,2
+handistCollections,handist.collections,Chunk.It,0,101,0,6,0,20,0,14,0,11
+handistCollections,handist.collections,RangedList,153,74,9,1,20,14,12,6,7,6
+handistCollections,handist.collections,FutureN.OnlyWait,5,0,0,0,2,0,1,0,1,0
+handistCollections,handist.collections,LongRange,0,469,0,64,0,76,0,47,0,15
+handistCollections,handist.collections,Chunk,0,679,0,60,0,119,0,66,0,36
+handistCollections,handist.collections,LongRange.It,0,30,0,2,0,5,0,4,0,3
+handistCollections,handist.collections,ChunkedList.new Consumer() {...},0,15,0,0,0,3,0,2,0,2
+handistCollections,handist.collections,FutureN.ListResults,67,0,4,0,18,0,6,0,4,0
+handistCollections,handist.collections,Bag.It,0,65,0,10,0,17,0,8,0,3
+handistCollections,handist.collections,ChunkedList,67,975,8,84,17,213,9,96,2,57
+handistCollections,handist.collections,RangedListView,335,153,19,7,48,32,20,18,9,16
+handistCollections,handist.collections,Bag.new Consumer() {...},0,15,0,0,0,3,0,2,0,2
+handistCollections,handist.collections,FutureN.ConsumeResults,65,0,4,0,21,0,6,0,4,0
+handistCollections,handist.collections,FutureN,132,38,15,3,30,11,12,3,4,2
+handistCollections,handist.collections.function,LongTBiConsumer.new LongTBiConsumer() {...},19,0,0,0,4,0,2,0,2,0
+handistCollections,handist.collections.function,LongTBiConsumer,6,0,0,0,1,0,1,0,1,0
+handistCollections,handist.collections.mpi,MPILauncherNoExit2,459,0,30,0,106,0,27,0,12,0
+handistCollections,handist.collections.mpi,MPILauncher,240,282,15,19,46,71,16,16,4,11
+handistCollections,handist.collections.mpi,MPILauncherNoExit2.ExitException,16,0,0,0,3,0,1,0,1,0
+handistCollections,handist.collections.mpi,MPILauncherNoExit2.NoExitSecurityManager,10,0,0,0,4,0,3,0,3,0
+handistCollections,handist.collections.dist,DistManager.SystemError,7,0,0,0,3,0,1,0,1,0
+handistCollections,handist.collections.dist,DistManager.ParameterErrorException,7,0,0,0,3,0,1,0,1,0
+handistCollections,handist.collections.dist,DistCol.ChunkExtractLeft,0,15,0,0,0,5,0,2,0,2
+handistCollections,handist.collections.dist,CollectiveRelocator,319,256,12,10,81,53,9,8,3,3
+handistCollections,handist.collections.dist,MoveManagerLocal,102,262,8,18,24,51,8,15,4,6
+handistCollections,handist.collections.dist,LoadBalancer.ListBalancer,31,0,0,0,9,0,4,0,4,0
+handistCollections,handist.collections.dist,DistMapList,55,167,1,13,16,45,6,17,5,11
+handistCollections,handist.collections.dist,CachableArray,251,0,8,0,59,0,35,0,31,0
+handistCollections,handist.collections.dist,TeamedPlaceGroup,145,554,6,32,27,129,10,34,4,21
+handistCollections,handist.collections.dist,DistCol,671,381,38,27,124,94,56,27,33,17
+handistCollections,handist.collections.dist,AbstractDistCollection.IFPair,9,0,0,0,4,0,1,0,1,0
+handistCollections,handist.collections.dist,AbstractDistCollection,667,32,50,0,118,10,37,3,12,3
+handistCollections,handist.collections.dist,DistManager,346,320,46,32,56,71,36,23,4,16
+handistCollections,handist.collections.dist,LoadBalancer.MapBalancer,60,0,6,0,15,0,8,0,5,0
+handistCollections,handist.collections.dist,TeamedPlaceGroup.new MPILauncher.Plugin() {...},3,12,0,2,1,5,1,4,1,3
+handistCollections,handist.collections.dist,RangedDistributionLong,117,0,12,0,22,0,11,0,5,0
+handistCollections,handist.collections.dist,DistributionLong,113,0,6,0,22,0,10,0,7,0
+handistCollections,handist.collections.dist,DistMap,478,126,35,5,109,35,45,16,27,14
+handistCollections,handist.collections.dist,DistCol.ChunkExtractMiddle,20,0,0,0,6,0,2,0,2,0
+handistCollections,handist.collections.dist,DistCol.ChunkExtractRight,15,0,0,0,5,0,2,0,2,0
+handistCollections,handist.collections.dist,DistIdMap,497,190,36,5,111,48,44,14,24,13
+handistCollections,handist.collections.dist,TeamedPlaceGroup.ObjectReference,0,10,0,0,0,4,0,2,0,2
+handistCollections,handist.collections.dist,AbstractDistCollection.LazyObjectReference,6,34,0,2,2,12,0,3,0,2
+handistCollections,handist.collections.dist,DistManager.Index,0,3,0,0,0,1,0,1,0,1
+handistCollections,handist.collections.dist,LoadBalancer,625,0,56,0,123,0,35,0,7,0
+handistCollections,handist.collections.dist,DistManager.Range,0,3,0,0,0,1,0,1,0,1
+handistCollections,handist.collections.dist,DistBag,272,12,10,0,68,4,31,2,26,2
+handistCollections,handist.collections.dist,DistCol.Pair,9,0,0,0,4,0,1,0,1,0
+handistCollections,handist.collections.dist,AbstractDistCollection.ILPair,9,0,0,0,4,0,1,0,1,0

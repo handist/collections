@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Bag.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">Bag.java</span></div><h1>Bag.java</h1><pre class="source lang-java linenums">package handist.collections;
+
+import java.util.AbstractCollection;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.function.Consumer;
+
+
+import java.io.*;
+
+public class Bag&lt;T&gt; extends AbstractCollection&lt;T&gt; implements Serializable, MultiReceiver&lt;T&gt; {
+
+    /** Serial Version UID */
+	private static final long serialVersionUID = 5436363137856754303L;
+<span class="fc" id="L21">	ConcurrentLinkedDeque&lt;List&lt;T&gt;&gt; bags = new ConcurrentLinkedDeque&lt;&gt;();</span>
+
+    @Override
+    public boolean contains(Object v) {
+<span class="fc bfc" id="L25" title="All 2 branches covered.">        for(Collection&lt;T&gt; bag: bags) {</span>
+<span class="fc bfc" id="L26" title="All 2 branches covered.">            if(bag.contains(v)) return true;</span>
+<span class="fc" id="L27">        }</span>
+<span class="fc" id="L28">        return false;</span>
+    }
+
+    @Override
+    public void clear() {
+<span class="fc" id="L33">        bags.clear();</span>
+<span class="fc" id="L34">    }</span>
+
+    @Override
+    public Bag&lt;T&gt; clone() {
+<span class="fc" id="L38">        Bag&lt;T&gt; result = new Bag&lt;T&gt;();</span>
+<span class="fc bfc" id="L39" title="All 2 branches covered.">        for (Collection&lt;T&gt; bag : bags) {</span>
+<span class="fc" id="L40">            ArrayList&lt;T&gt; nbag = new ArrayList&lt;&gt;(bag);</span>
+<span class="fc" id="L41">            result.addBag(nbag);</span>
+<span class="fc" id="L42">        }</span>
+<span class="fc" id="L43">        return result;</span>
+    }
+
+    public void addBag(List&lt;T&gt; bag) {
+<span class="fc" id="L47">        bags.add(bag);</span>
+<span class="fc" id="L48">    }</span>
+
+    @Override
+    public int size() {
+<span class="fc" id="L52">        int size = 0;</span>
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        for (Collection&lt;T&gt; bag : bags)</span>
+<span class="fc" id="L54">            size += bag.size();</span>
+<span class="fc" id="L55">        return size;</span>
+    }
+
+    @Override
+    public boolean isEmpty() {
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        for (Collection&lt;T&gt; bag : bags) {</span>
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">            if (!bag.isEmpty())</span>
+<span class="fc" id="L62">                return false;</span>
+<span class="nc" id="L63">        }</span>
+<span class="fc" id="L64">        return true;</span>
+    }
+
+    public synchronized T remove() {
+        while (true) {
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            if (bags.isEmpty())</span>
+<span class="fc" id="L70">                return null;</span>
+<span class="fc" id="L71">            List&lt;T&gt; bag = bags.getLast();</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">            if (bag.isEmpty()) {</span>
+<span class="fc" id="L73">                bags.removeLast();</span>
+            } else {
+<span class="fc" id="L75">                return bag.remove(bag.size() - 1);</span>
+            }
+<span class="fc" id="L77">        }</span>
+    }
+    
+    public synchronized List&lt;T&gt; removeN(int count) {
+<span class="fc" id="L81">        ArrayList&lt;T&gt; result = new ArrayList&lt;T&gt;(count);</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        while(count &gt; 0) {</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        	if(bags.isEmpty())	return null;</span>
+<span class="fc" id="L84">        	List&lt;T&gt; bag = bags.getLast();</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        	if(bag.isEmpty()) {</span>
+<span class="fc" id="L86">        		bags.removeLast();</span>
+<span class="fc" id="L87">        		continue;</span>
+        	}
+<span class="fc" id="L89">        	result.add(bag.remove(bag.size() - 1)); </span>
+<span class="fc" id="L90">        	count--;</span>
+<span class="fc" id="L91">        }        </span>
+<span class="fc" id="L92">        return result;</span>
+    }
+
+
+<span class="fc" id="L96">    public Bag() {</span>
+
+<span class="fc" id="L98">    }</span>
+
+    private class It implements Iterator&lt;T&gt; {
+        Iterator&lt;List&lt;T&gt;&gt; oIter;
+        Iterator&lt;T&gt; cIter;
+
+<span class="fc" id="L104">        public It() {</span>
+<span class="fc" id="L105">            oIter = bags.iterator();</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">            if (oIter.hasNext()) {</span>
+<span class="fc" id="L107">                cIter = oIter.next().iterator();</span>
+            } else {
+<span class="fc" id="L109">                cIter = null;</span>
+            }
+<span class="fc" id="L111">        }</span>
+
+        @Override
+        public boolean hasNext() {
+<span class="fc bfc" id="L115" title="All 2 branches covered.">            if (cIter == null) {</span>
+<span class="fc" id="L116">                return false;</span>
+            }
+            while(true) {
+<span class="fc bfc" id="L119" title="All 2 branches covered.">                if (cIter.hasNext()) {</span>
+<span class="fc" id="L120">                    return true;</span>
+                }
+<span class="fc bfc" id="L122" title="All 2 branches covered.">                if (oIter.hasNext()) {</span>
+<span class="fc" id="L123">                    cIter = oIter.next().iterator();</span>
+                } else {
+<span class="fc" id="L125">                    cIter = null;</span>
+<span class="fc" id="L126">                    return false;</span>
+                }
+            }
+        }
+
+        @Override
+        public T next() {
+<span class="fc bfc" id="L133" title="All 2 branches covered.">            if (hasNext()) {</span>
+<span class="fc" id="L134">                return cIter.next();</span>
+            }
+<span class="fc" id="L136">            throw new IndexOutOfBoundsException();</span>
+        }
+
+    }
+
+    @Override
+    public Iterator&lt;T&gt; iterator() {
+<span class="fc" id="L143">        return new It();</span>
+    }
+
+    @Override
+    public void forEach(final Consumer&lt;? super T&gt; action) {
+<span class="fc" id="L148">        bags.forEach((Collection&lt;T&gt; bag) -&gt; {</span>
+<span class="fc" id="L149">            bag.forEach(action);</span>
+<span class="fc" id="L150">        });</span>
+<span class="fc" id="L151">    }</span>
+
+    private List&lt;Future&lt;?&gt;&gt; forEachConst(ExecutorService pool, final Consumer&lt;? super T&gt; action) {
+<span class="fc" id="L154">        ArrayList&lt;Future&lt;?&gt;&gt; futures = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">        for (Collection&lt;T&gt; bag : bags) {</span>
+<span class="fc" id="L156">            futures.add(pool.submit(() -&gt; {</span>
+<span class="fc" id="L157">                bag.forEach(action);</span>
+<span class="fc" id="L158">            }));</span>
+<span class="fc" id="L159">        }</span>
+<span class="fc" id="L160">        return futures;</span>
+    }
+
+    public void forEach(ExecutorService pool, final Consumer&lt;? super T&gt; action) {
+<span class="fc" id="L164">        List&lt;Future&lt;?&gt;&gt; futures = forEachConst(pool, action);</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">        for (Future&lt;?&gt; f : futures) {</span>
+            try {
+<span class="fc" id="L167">                f.get();</span>
+<span class="fc" id="L168">            } catch (InterruptedException | ExecutionException e) {</span>
+<span class="fc" id="L169">                e.printStackTrace();</span>
+<span class="fc" id="L170">                throw new RuntimeException(&quot;[Bag] exception raised by worker threads.&quot;);</span>
+<span class="fc" id="L171">            }</span>
+<span class="fc" id="L172">        }</span>
+<span class="fc" id="L173">    }</span>
+
+
+    @Override
+    public String toString() {
+<span class="fc" id="L178">        StringBuilder sb = new StringBuilder();</span>
+<span class="fc" id="L179">        sb.append(&quot;[Bag]&quot;);</span>
+<span class="fc bfc" id="L180" title="All 2 branches covered.">        for (Collection&lt;T&gt; bag: bags) {</span>
+<span class="fc" id="L181">            sb.append(bag.toString()+ &quot;:&quot;);</span>
+<span class="fc" id="L182">        }</span>
+<span class="fc" id="L183">        sb.append(&quot;end of Bag&quot;);</span>
+<span class="fc" id="L184">        return sb.toString();</span>
+    }
+
+    /*
+    public static void main(String[] args) {
+        long i = 5;
+        Chunk&lt;Integer&gt; c = new Chunk&lt;&gt;(new LongRange(10 * i, 11 * i));
+        System.out.println(&quot;prepare: &quot; + c);
+        IntStream.range(0, (int) i).forEach(j -&gt; {
+            int v = (int) (10 * i + j);
+            System.out.println(&quot;set@&quot; + v);
+            c.set(10 * i + j, v);
+        });
+        System.out.println(&quot;Chunk :&quot; + c);
+    }
+*/
+    
+    private void writeObject(ObjectOutputStream out) throws IOException {
+        // System.out.println(&quot;writeChunk:&quot;+this);
+<span class="fc" id="L203">        out.writeInt(size());</span>
+<span class="fc bfc" id="L204" title="All 2 branches covered.">        for (Collection&lt;T&gt; bag : bags) {</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">            for (T item : bag) {</span>
+<span class="fc" id="L206">                out.writeObject(item);</span>
+<span class="fc" id="L207">            }</span>
+<span class="fc" id="L208">        }</span>
+<span class="fc" id="L209">    }</span>
+    
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+<span class="fc" id="L213">        int size = in.readInt();</span>
+<span class="fc" id="L214">        bags = new ConcurrentLinkedDeque&lt;&gt;();</span>
+<span class="fc" id="L215">        ArrayList&lt;T&gt; bag1 = new ArrayList&lt;T&gt;(size);</span>
+<span class="fc bfc" id="L216" title="All 2 branches covered.">        for (int i = 0; i &lt; size; i++) {</span>
+<span class="fc" id="L217">            bag1.add((T) in.readObject());</span>
+        }
+<span class="fc" id="L219">        bags.add(bag1);</span>
+<span class="fc" id="L220">    }</span>
+
+    public Consumer&lt;T&gt; getReceiver() {
+<span class="fc" id="L223">        final ArrayList&lt;T&gt; bag = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L224">        bags.add(bag);</span>
+<span class="fc" id="L225">        return new Consumer&lt;T&gt;() {</span>
+            @Override
+            public void accept(T t) {
+<span class="fc" id="L228">                bag.add(t);</span>
+<span class="fc" id="L229">            }</span>
+        };
+    }
+
+    /**
+     * Convert the bag into a list and clears the bag.
+     * @return the contents of the Bag as a list
+     */
+    public List&lt;T&gt; convertToList() {
+        // TODO: prepare more smart implementation
+<span class="fc" id="L239">        ArrayList&lt;T&gt; result = new ArrayList&lt;&gt;(this.size());</span>
+<span class="fc bfc" id="L240" title="All 2 branches covered.">        for (List&lt;T&gt; c : bags) {</span>
+<span class="fc" id="L241">            result.addAll(c);</span>
+<span class="fc" id="L242">        }</span>
+<span class="fc" id="L243">        bags.clear();</span>
+<span class="fc" id="L244">        return result;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

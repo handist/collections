@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RangedDistributionLong.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">RangedDistributionLong.java</span></div><h1>RangedDistributionLong.java</h1><pre class="source lang-java linenums">package handist.collections.dist;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import apgas.Place;
+import handist.collections.LongRange;
+
+public class RangedDistributionLong implements RangedDistribution&lt;LongRange&gt; {
+
+    private HashMap&lt;LongRange, Place&gt; dist;
+
+<span class="nc" id="L13">    public RangedDistributionLong(RangedDistributionLong distribution) {</span>
+<span class="nc" id="L14">        dist = new HashMap&lt;LongRange, Place&gt;(distribution.getHashMap());</span>
+<span class="nc" id="L15">    }</span>
+
+<span class="nc" id="L17">    public RangedDistributionLong(Map&lt;LongRange, Place&gt; originalHashMap) {</span>
+<span class="nc" id="L18">		dist = new HashMap&lt;&gt;(originalHashMap);</span>
+<span class="nc" id="L19">    }</span>
+
+    public RangedDistributionLong clone() {
+<span class="nc" id="L22">        return new RangedDistributionLong(this);</span>
+	}
+
+	public Map&lt;LongRange, Place&gt; placeRanges(LongRange range) {
+<span class="nc" id="L26">		Map&lt;LongRange,Place&gt; listPlaceRange = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L27" title="All 2 branches missed.">		for (LongRange mappedRange: dist.keySet()) {</span>
+<span class="nc" id="L28">		    Place mappedPlace = dist.get(mappedRange);</span>
+<span class="nc bnc" id="L29" title="All 2 branches missed.">		    if (mappedRange.from &lt;= range.from) {</span>
+<span class="nc bnc" id="L30" title="All 2 branches missed.">	        	if (range.from &lt; mappedRange.to) { //if (range.min &lt;= mappedRange.max) {</span>
+<span class="nc bnc" id="L31" title="All 2 branches missed.">			    	if (range.to &lt;= mappedRange.to) {</span>
+<span class="nc" id="L32">			        	listPlaceRange.put(range, mappedPlace);</span>
+		    		} else {
+<span class="nc" id="L34">						listPlaceRange.put(new LongRange(range.from, mappedRange.to), mappedPlace);</span>
+		    		}
+				}
+		    } else {
+<span class="nc bnc" id="L38" title="All 2 branches missed.">				if (mappedRange.from &lt; range.to) { //if (mappedRange.min &lt;= range.max) {</span>
+<span class="nc bnc" id="L39" title="All 2 branches missed.">				    if (range.to &lt;= mappedRange.to) {</span>
+<span class="nc" id="L40">		       			listPlaceRange.put(new LongRange(mappedRange.from, range.to), mappedPlace);</span>
+		    		} else {
+<span class="nc" id="L42">				        listPlaceRange.put(mappedRange, mappedPlace);</span>
+		    		}
+	        	}
+	    	}
+<span class="nc" id="L46">		}</span>
+<span class="nc" id="L47">        return listPlaceRange;</span>
+    }
+
+    public HashMap&lt;LongRange, Place&gt; getHashMap() {
+<span class="nc" id="L51">        return dist;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

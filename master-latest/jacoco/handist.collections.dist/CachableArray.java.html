@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CachableArray.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">CachableArray.java</span></div><h1>CachableArray.java</h1><pre class="source lang-java linenums">package handist.collections.dist;
+
+import static apgas.Constructs.*;
+
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+
+import apgas.Place;
+import apgas.util.PlaceLocalObject;
+import mpi.MPIException;
+
+/**
+ * A class for handling objects using the Master-Proxy mechanism. The master
+ * place has the body of each elements. The proxy places have the branch of each
+ * elements.
+ *
+ * Note: In the current implementation, there are some limitations.
+ *
+ * o The first place of the PlaceGroup is selected as the master place
+ * automatically. o To add any new elements is not allowed. The elements are
+ * assigned only in the construction.
+ * 
+ * @param &lt;T&gt; type of the elements handled by the {@link CachableArray}
+ */
+public class CachableArray&lt;T&gt; extends PlaceLocalObject implements List&lt;T&gt; {
+    protected transient ArrayList&lt;T&gt; data;
+    public transient TeamedPlaceGroup placeGroup;
+    public transient Place master;
+
+    /**
+     * Create a new CacheableArray using the given list. data must not be shared
+     * with others.
+     *
+     * @param placeGroup group of hosts suceptible to manipulate this instance
+     * @param master the &quot;master&quot; of the Cachable array
+     * @param data the initial data to create this CachableArray with
+     */
+<span class="nc" id="L46">    protected CachableArray(TeamedPlaceGroup placeGroup, Place master, ArrayList&lt;T&gt; data) {</span>
+<span class="nc" id="L47">        this.data = data;</span>
+<span class="nc" id="L48">        this.placeGroup = placeGroup;</span>
+<span class="nc" id="L49">        this.master = master;</span>
+<span class="nc" id="L50">    }</span>
+
+    /**
+     * Create a new CacheableArray using the given arguments. The elements of the 
+     * newly created CacheableArray and the given collection will be identical. 
+     * The proxies are also prepared as part of the initialization.
+     * 
+     * @param &lt;T&gt; type of the elements contained in the instance to create
+     * @param pg {@link TeamedPlaceGroup} on which the {@link CachableArray} will be prepared
+     * @param data initial content to be placed in the {@link CachableArray}
+     * @return the handle to the local instance of the {@link CachableArray}
+     */
+    public static &lt;T&gt; CachableArray&lt;T&gt; make(final TeamedPlaceGroup pg, List&lt;T&gt; data) {
+<span class="nc" id="L63">        final Place master = here();</span>
+<span class="nc" id="L64">        final ArrayList&lt;T&gt; body = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L65">        body.addAll(data);</span>
+<span class="nc" id="L66">        return PlaceLocalObject.make(pg.places(), () -&gt; new CachableArray&lt;T&gt;(pg, master, body));</span>
+    }
+
+    /**
+     * Return the PlaceGroup on which this instance was created.
+     * @return the {@link TeamedPlaceGroup} on which this instance was replicated
+     */
+    public TeamedPlaceGroup placeGroup() {
+<span class="nc" id="L74">        return placeGroup;</span>
+    }
+
+    /**
+     * Broadcast from master place to proxy place, packing elements using the
+     * specified function. It is assumed that the type U is declared as a struct
+     * and that it does not contain any reference.
+     * &lt;p&gt;
+     * Note: Currently, this method is implemented in too simple way.
+     *
+     * @param &lt;U&gt; type used to represent the elements of this instance and that 
+     * 	is going to be transfered to remote hosts. In the implementation of the
+     * 	&lt;em&gt;pack&lt;/em&gt; and &lt;code&gt;unpack&lt;/code&gt;, the programmer may choose to use
+     * 	T, but this allows any other custom type to be used.
+     * @param pack   a function which packs the elements of the master node.
+     * @param unpack a function which unpacks the received data and inserts the
+     *               unpacked data into the instance local to each proxy.
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;U&gt; void broadcast(Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack) {
+<span class="nc" id="L94">        Serializer serProcess = (ObjectOutputStream ser) -&gt; {</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">            for (T elem : data) {</span>
+<span class="nc" id="L96">                ser.writeObject(pack.apply(elem));</span>
+<span class="nc" id="L97">            }</span>
+<span class="nc" id="L98">        };</span>
+<span class="nc" id="L99">        DeSerializer desProcess = (ObjectInputStream des) -&gt; {</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            for (T elem : data) {</span>
+<span class="nc" id="L101">                U diff = (U) des.readObject();</span>
+<span class="nc" id="L102">                unpack.accept(elem, diff);</span>
+<span class="nc" id="L103">            }</span>
+<span class="nc" id="L104">        };</span>
+        try {
+<span class="nc" id="L106">            CollectiveRelocator.bcastSer(placeGroup, master, serProcess, desProcess);</span>
+<span class="nc" id="L107">        } catch (MPIException e) {</span>
+<span class="nc" id="L108">            e.printStackTrace();</span>
+<span class="nc" id="L109">            throw new Error(&quot;[CachableArray] MPIException raised.&quot;);</span>
+<span class="nc" id="L110">        }</span>
+<span class="nc" id="L111">    }</span>
+
+    public String toString() {
+<span class="nc" id="L114">        StringBuffer sb = new StringBuffer();</span>
+<span class="nc" id="L115">        Iterator&lt;T&gt; ei = this.data.iterator();</span>
+<span class="nc" id="L116">        sb.append(&quot;CacheableArray[&quot;);</span>
+        while (true) {
+<span class="nc bnc" id="L118" title="All 2 branches missed.">            if (ei.hasNext()) {</span>
+<span class="nc" id="L119">                sb.append(ei.next());</span>
+            } else {
+                break;
+            }
+<span class="nc bnc" id="L123" title="All 2 branches missed.">            if (ei.hasNext()) {</span>
+<span class="nc" id="L124">                sb.append(&quot; &quot;);</span>
+            }
+        }
+
+<span class="nc" id="L128">        sb.append(&quot;]&quot;);</span>
+<span class="nc" id="L129">        return sb.toString();</span>
+    }
+
+    @Override
+    public int size() {
+<span class="nc" id="L134">        return data.size();</span>
+    }
+
+    @Override
+    public boolean isEmpty() {
+<span class="nc" id="L139">        return data.isEmpty();</span>
+    }
+
+    @Override
+    public boolean contains(Object o) {
+<span class="nc" id="L144">        return data.contains(o);</span>
+    }
+
+    @Override
+    public Iterator&lt;T&gt; iterator() {
+<span class="nc" id="L149">        return Collections.unmodifiableList(data).iterator();</span>
+    }
+
+    @Override
+    public Object[] toArray() {
+<span class="nc" id="L154">        throw new UnsupportedOperationException(&quot;[CachableArray] No direct access to members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public &lt;S&gt; S[] toArray(S[] a) {
+<span class="nc" id="L159">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public boolean add(T e) {
+<span class="nc" id="L164">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public boolean remove(Object o) {
+<span class="nc" id="L169">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public boolean containsAll(Collection&lt;?&gt; c) {
+<span class="nc" id="L174">        return data.containsAll(c);</span>
+    }
+
+    @Override
+    public boolean addAll(Collection&lt;? extends T&gt; c) {
+<span class="nc" id="L179">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public boolean addAll(int index, Collection&lt;? extends T&gt; c) {
+<span class="nc" id="L184">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public boolean removeAll(Collection&lt;?&gt; c) {
+<span class="nc" id="L189">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public boolean retainAll(Collection&lt;?&gt; c) {
+<span class="nc" id="L194">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public void clear() {
+<span class="nc" id="L199">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public T get(int index) {
+<span class="nc" id="L204">        return data.get(index);</span>
+    }
+
+    @Override
+    public T set(int index, T element) {
+<span class="nc" id="L209">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public void add(int index, T element) {
+<span class="nc" id="L214">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public T remove(int index) {
+<span class="nc" id="L219">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+    @Override
+    public int indexOf(Object o) {
+<span class="nc" id="L224">        return data.indexOf(o);</span>
+    }
+
+    @Override
+    public int lastIndexOf(Object o) {
+<span class="nc" id="L229">        return data.lastIndexOf(o);</span>
+    }
+
+    @Override
+    public ListIterator&lt;T&gt; listIterator() {
+<span class="nc" id="L234">        return Collections.unmodifiableList(data).listIterator();</span>
+    }
+
+    @Override
+    public ListIterator&lt;T&gt; listIterator(int index) {
+<span class="nc" id="L239">        return Collections.unmodifiableList(data).listIterator(index);</span>
+    }
+
+    @Override
+    public List&lt;T&gt; subList(int fromIndex, int toIndex) {
+<span class="nc" id="L244">        throw new UnsupportedOperationException(&quot;[CachableArray] No modification of members is allowed.&quot;);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

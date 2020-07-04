@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TeamedPlaceGroup.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">TeamedPlaceGroup.java</span></div><h1>TeamedPlaceGroup.java</h1><pre class="source lang-java linenums">package handist.collections.dist;
+
+import static apgas.Constructs.*;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.ObjectStreamException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.concurrent.CountDownLatch;
+
+import apgas.Place;
+import apgas.SerializableJob;
+import apgas.util.GlobalID;
+import handist.collections.mpi.MPILauncher;
+import handist.collections.mpi.MPILauncher.Plugin;
+import mpi.Comm;
+import mpi.Datatype;
+import mpi.Intracomm;
+import mpi.MPI;
+import mpi.MPIException;
+
+// TODO merge with ResilientPlaceGroup, ..
+public class TeamedPlaceGroup implements Serializable {
+    // TODO
+<span class="fc" id="L33">    public static boolean debugF = false;</span>
+
+    private static final class ObjectReference implements Serializable {
+        /**
+         *
+         */
+        private static final long serialVersionUID = -1948016251753684732L;
+        private final GlobalID id;
+
+        /**
+         */
+<span class="fc" id="L44">        private ObjectReference(GlobalID id) {</span>
+<span class="fc" id="L45">            this.id = id;</span>
+<span class="fc" id="L46">        }</span>
+
+        private Object readResolve() throws ObjectStreamException {
+<span class="fc" id="L49">            return id.getHere();</span>
+        }
+    }
+
+<span class="fc" id="L53">    static boolean isRegistered = false;</span>
+
+    public static void setup() {
+<span class="pc bpc" id="L56" title="1 of 2 branches missed.">        if (isRegistered)</span>
+<span class="nc" id="L57">            return;</span>
+<span class="fc" id="L58">        MPILauncher.registerPlugins(new Plugin() {</span>
+            @Override
+            public String getName() {
+<span class="nc" id="L61">                return TeamedPlaceGroup.class.toString();</span>
+            }
+
+            @Override
+            public void init(int rank, Comm comm) throws MPIException {
+<span class="fc" id="L66">                worldSetup();</span>
+<span class="fc" id="L67">            }</span>
+
+            @Override
+            public void beforeFinalize(int rank, Comm comm) {
+<span class="fc bfc" id="L71" title="All 2 branches covered.">                readyToClose(rank == 0);</span>
+<span class="fc" id="L72">            }</span>
+        });
+<span class="fc" id="L74">        isRegistered = true;</span>
+<span class="fc" id="L75">    }</span>
+
+    final GlobalID id;
+    List&lt;Place&gt; places;
+    //int[] place2rank;
+    int size;
+    int myrank;
+
+    // TODO
+    Intracomm comm;
+    private TeamedPlaceGroup parent;
+
+    static TeamedPlaceGroup world;
+    static volatile CountDownLatch readyToCloseWorld;
+
+    public static TeamedPlaceGroup getWorld() {
+<span class="fc" id="L91">        return world;</span>
+    }
+
+<span class="fc" id="L94">    protected TeamedPlaceGroup(GlobalID id, int myrank, int size, int[] rank2place) { // for whole_world</span>
+<span class="fc" id="L95">        this.id = id;</span>
+<span class="fc" id="L96">        this.size = size;</span>
+<span class="fc" id="L97">        this.myrank = myrank;</span>
+<span class="fc" id="L98">        this.places = new ArrayList&lt;Place&gt;(size);</span>
+<span class="fc" id="L99">        this.comm = MPI.COMM_WORLD;</span>
+        // this.place2rank = new int[size];
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        for (int i = 0; i &lt; rank2place.length; i++) {</span>
+<span class="fc" id="L102">            int p = rank2place[i];</span>
+<span class="fc" id="L103">            places.add(new Place(p));</span>
+            // place2rank[p] = i;
+        }
+<span class="fc" id="L106">        id.putHere(this);</span>
+<span class="fc" id="L107">        this.parent = null;</span>
+<span class="fc" id="L108">    }</span>
+
+<span class="fc" id="L110">    protected TeamedPlaceGroup(GlobalID id, int myrank, List&lt;Place&gt; places, Intracomm comm, TeamedPlaceGroup parent) { // for whole_world</span>
+<span class="fc" id="L111">        this.id = id;</span>
+<span class="fc" id="L112">        this.size = places.size();</span>
+<span class="fc" id="L113">        this.myrank = myrank;</span>
+<span class="fc" id="L114">        this.comm = comm;</span>
+<span class="fc" id="L115">        this.places = places;</span>
+<span class="fc" id="L116">        this.parent = parent;</span>
+<span class="fc" id="L117">        id.putHere(this);</span>
+<span class="fc" id="L118">    }</span>
+
+    public Object writeReplace() throws ObjectStreamException {
+<span class="fc" id="L121">        return new ObjectReference(id);</span>
+    }
+
+    protected TeamedPlaceGroup init() {
+        //TODO
+        // setup MPI
+        /*  if(!MPI.Initialized()) {
+            throw new Error(&quot;[TeamedPlaceGroup] Please setup MPI first&quot;);
+        }*/
+        // setup arrays
+        // setup rank2place
+        // share the infromation
+        // set this to singleton
+<span class="nc" id="L134">        return this;</span>
+    }
+
+    static void worldSetup() throws MPIException { // called by plugin setup routines
+<span class="fc" id="L138">        int myrank = MPI.COMM_WORLD.Rank();</span>
+<span class="fc" id="L139">        int size = MPI.COMM_WORLD.Size();</span>
+<span class="fc" id="L140">        int[] rank2place = new int[size];</span>
+<span class="fc" id="L141">        Place here = here();</span>
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        if (debugF)</span>
+<span class="nc" id="L143">            System.out.println(&quot;world setup: rank=&quot; + myrank + &quot;, place&quot; + here + &quot;::&quot; + here.id);</span>
+<span class="fc" id="L144">        rank2place[myrank] = here.id;</span>
+<span class="fc" id="L145">        MPI.COMM_WORLD.Allgather(rank2place, myrank, 1, MPI.INT, rank2place, 0, 1, MPI.INT);</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">        for (int i = 0; i &lt; rank2place.length; i++) {</span>
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">            if (debugF)</span>
+<span class="nc" id="L148">                System.out.println(&quot;ws: &quot; + i + &quot;:&quot; + rank2place[i] + &quot;@&quot; + myrank);</span>
+        }
+        GlobalID id;
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        if (myrank == 0) { // TODO or here()</span>
+<span class="fc" id="L152">            id = new GlobalID();</span>
+            try {
+<span class="fc" id="L154">                ByteArrayOutputStream out0 = new ByteArrayOutputStream();</span>
+<span class="fc" id="L155">                ObjectOutputStream out = new ObjectOutputStream(out0);</span>
+<span class="fc" id="L156">                out.writeObject(id);</span>
+<span class="fc" id="L157">                out.close();</span>
+<span class="fc" id="L158">                byte[] buf = out0.toByteArray();</span>
+<span class="fc" id="L159">                int[] buf0 = new int[1];</span>
+<span class="fc" id="L160">                buf0[0] = buf.length;</span>
+
+<span class="fc" id="L162">                MPI.COMM_WORLD.Bcast(buf0, 0, 1, MPI.INT, 0);</span>
+<span class="fc" id="L163">                readyToCloseWorld = new CountDownLatch(1);</span>
+<span class="fc" id="L164">                MPI.COMM_WORLD.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);</span>
+<span class="nc" id="L165">            } catch (IOException e) {</span>
+<span class="nc" id="L166">                throw new Error(&quot;[TeamedPlaceGroup] init error at master!&quot;);</span>
+<span class="fc" id="L167">            }</span>
+        } else {
+<span class="fc" id="L169">            int[] buf0 = new int[1];</span>
+<span class="fc" id="L170">            MPI.COMM_WORLD.Bcast(buf0, 0, 1, MPI.INT, 0);</span>
+<span class="fc" id="L171">            byte[] buf = new byte[buf0[0]];</span>
+<span class="fc" id="L172">            readyToCloseWorld = new CountDownLatch(1);</span>
+<span class="fc" id="L173">            MPI.COMM_WORLD.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);</span>
+            try {
+<span class="fc" id="L175">                ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(buf));</span>
+<span class="fc" id="L176">                id = (GlobalID) in.readObject();</span>
+<span class="nc" id="L177">            } catch (Exception e) {</span>
+<span class="nc" id="L178">                throw new Error(&quot;[TeamedPlaceGroup] init error at worker&quot;);</span>
+<span class="fc" id="L179">            }</span>
+        }
+<span class="fc" id="L181">        world = new TeamedPlaceGroup(id, myrank, size, rank2place);</span>
+        /*
+        PlaceLocalObject.make(places(), ()-&gt;{
+            return new TeamedPlaceGroup().init();
+        });
+        */
+<span class="fc" id="L187">    }</span>
+
+    public static void readyToClose(boolean master) {
+<span class="fc bfc" id="L190" title="All 2 branches covered.">        if (master) {</span>
+<span class="fc" id="L191">            finish(() -&gt; {</span>
+<span class="fc" id="L192">                world.broadcastFlat(() -&gt; {</span>
+<span class="fc" id="L193">                    readyToCloseWorld.countDown();</span>
+<span class="fc" id="L194">                });</span>
+<span class="fc" id="L195">            });</span>
+        } else {
+            try {
+<span class="fc" id="L198">                readyToCloseWorld.await();</span>
+<span class="nc" id="L199">            } catch (InterruptedException e) {</span>
+<span class="nc" id="L200">                System.err.println(</span>
+                        &quot;[TeamedPlaceGroup#readyToApgasMPILauncher] Error: readyToClose is interrupt at rank + &quot;
+                                + world.myrank + &quot;.&quot;);
+<span class="fc" id="L203">            }</span>
+        }
+<span class="fc" id="L205">    }</span>
+
+    List&lt;Place&gt; places() {
+<span class="fc" id="L208">        return places;</span>
+    }
+
+    public int size() {
+<span class="fc" id="L212">        return size;</span>
+    }
+
+    public int myrank() {
+<span class="fc" id="L216">        return myrank;</span>
+    }
+
+    public List&lt;Place&gt; getPlaces() {
+<span class="nc" id="L220">        return places;</span>
+    }
+
+    public Place get(int rank) {
+<span class="fc" id="L224">        return places.get(rank);</span>
+    }
+
+    public int rank(Place place) {
+<span class="fc" id="L228">        int result = places.indexOf(place);</span>
+<span class="pc bpc" id="L229" title="1 of 2 branches missed.">        if (result &lt; 0)</span>
+<span class="nc" id="L230">            throw new RuntimeException(&quot;[TeamedPlaceGroup] &quot; + place + &quot; is not a member of &quot; + this + &quot;.&quot;);</span>
+<span class="fc" id="L231">        return result;</span>
+    }
+
+    public String toString() {
+<span class="fc" id="L235">        return &quot;TeamedPlaceGroup[&quot; + id + &quot;, myrank&quot; + myrank + &quot;, places&quot; + places();</span>
+    }
+
+    // TODO
+    // split, relocate feature
+    public void remove(GlobalID id) {
+        // TODO
+
+<span class="nc" id="L243">    }</span>
+
+    public void broadcastFlat(SerializableJob run) {
+        // TODO
+<span class="fc" id="L247">        finish(() -&gt; {</span>
+<span class="fc bfc" id="L248" title="All 2 branches covered.">            for (Place p : this.places()) {</span>
+<span class="fc bfc" id="L249" title="All 2 branches covered.">                if (!p.equals(here()))</span>
+<span class="fc" id="L250">                    asyncAt(p, run);</span>
+<span class="fc" id="L251">            }</span>
+<span class="fc" id="L252">            run.run();</span>
+<span class="fc" id="L253">        });</span>
+<span class="fc" id="L254">    }</span>
+
+    public void Alltoallv(Object byteArray, int soffset, int[] sendSize, int[] sendOffset, Datatype stype,
+            Object recvbuf, int roffset, int[] rcvSize, int[] rcvOffset, Datatype rtype) throws MPIException {
+        if (false) {
+            this.comm.Alltoallv(byteArray, soffset, sendSize, sendOffset, stype, recvbuf, roffset, rcvSize, rcvOffset,
+                    rtype);
+        } else {
+<span class="fc bfc" id="L262" title="All 2 branches covered.">            for (int rank = 0; rank &lt; rcvSize.length; rank++) {</span>
+<span class="fc" id="L263">                this.comm.Gatherv(byteArray, soffset + sendOffset[rank], sendSize[rank], stype,</span>
+                        recvbuf, roffset, rcvSize, rcvOffset, rtype, rank);
+            }
+        }
+<span class="fc" id="L267">    }</span>
+
+    public void barrier() {
+        try {
+<span class="nc" id="L271">            this.comm.Barrier();</span>
+<span class="nc" id="L272">        } catch (MPIException e) {</span>
+<span class="nc" id="L273">            e.printStackTrace();</span>
+<span class="nc" id="L274">            throw new Error(&quot;[TeamedPlaceGroup] MPI Exception raised.&quot;);</span>
+<span class="nc" id="L275">        }</span>
+<span class="nc" id="L276">    }</span>
+
+    public TeamedPlaceGroup splitHalf() {
+<span class="fc" id="L279">        TreeMap&lt;Integer, Integer&gt; rank2color = new TreeMap&lt;&gt;();</span>
+<span class="pc bpc" id="L280" title="1 of 2 branches missed.">        if (size() == 1) {</span>
+<span class="nc" id="L281">            throw new RuntimeException(&quot;[TeamedPlaceGroup] TeamedPlaceGroup with size == 1 cannnot be split.&quot;);</span>
+        }
+<span class="fc" id="L283">        int half = size() / 2;</span>
+<span class="fc bfc" id="L284" title="All 2 branches covered.">        for (int i = 0; i &lt; half; i++)</span>
+<span class="fc" id="L285">            rank2color.put(i, 0);</span>
+<span class="fc bfc" id="L286" title="All 2 branches covered.">        for (int i = half; i &lt; size(); i++)</span>
+<span class="fc" id="L287">            rank2color.put(i, 1);</span>
+<span class="fc" id="L288">        return split(rank2color);</span>
+    }
+
+    public TeamedPlaceGroup split(SortedMap&lt;Integer, Integer&gt; rank2color) {
+        try {
+<span class="fc" id="L293">            int newColor = rank2color.get(myrank);</span>
+<span class="fc" id="L294">            int newRank = 0;</span>
+<span class="fc" id="L295">            List&lt;Place&gt; newPlaces = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L296" title="All 2 branches covered.">            for (Map.Entry&lt;Integer, Integer&gt; entry : rank2color.entrySet()) {</span>
+<span class="fc" id="L297">                int r = entry.getKey();</span>
+<span class="fc bfc" id="L298" title="All 2 branches covered.">                if (entry.getValue().equals(newColor)) {</span>
+<span class="fc bfc" id="L299" title="All 2 branches covered.">                    if (r == myrank) {</span>
+<span class="fc" id="L300">                        newRank = newPlaces.size();</span>
+                    }
+<span class="fc" id="L302">                    newPlaces.add(places.get(r));</span>
+                }
+<span class="fc" id="L304">            }</span>
+<span class="fc" id="L305">            Intracomm newComm = comm.Split(newColor, newRank); // MPIException</span>
+<span class="pc bpc" id="L306" title="1 of 2 branches missed.">            if (debugF)</span>
+<span class="nc" id="L307">                System.out.println(&quot;PlaceGroup split =&quot; + newRank + &quot;, place&quot; + here() + &quot;::&quot; + here().id);</span>
+            GlobalID id;
+<span class="fc bfc" id="L309" title="All 2 branches covered.">            if (newRank == 0) {</span>
+<span class="fc" id="L310">                id = new GlobalID();</span>
+                try {
+<span class="fc" id="L312">                    ByteArrayOutputStream out0 = new ByteArrayOutputStream();</span>
+<span class="fc" id="L313">                    ObjectOutputStream out = new ObjectOutputStream(out0);</span>
+<span class="fc" id="L314">                    out.writeObject(id);</span>
+<span class="fc" id="L315">                    out.close();</span>
+<span class="fc" id="L316">                    byte[] buf = out0.toByteArray();</span>
+<span class="fc" id="L317">                    int[] buf0 = new int[1];</span>
+<span class="fc" id="L318">                    buf0[0] = buf.length;</span>
+<span class="fc" id="L319">                    newComm.Bcast(buf0, 0, 1, MPI.INT, 0);</span>
+<span class="fc" id="L320">                    newComm.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);</span>
+<span class="nc" id="L321">                } catch (IOException e) {</span>
+<span class="nc" id="L322">                    throw new Error(&quot;[TeamedPlaceGroup] init error at master!&quot;);</span>
+<span class="fc" id="L323">                }</span>
+            } else {
+<span class="fc" id="L325">                int[] buf0 = new int[1];</span>
+<span class="fc" id="L326">                newComm.Bcast(buf0, 0, 1, MPI.INT, 0);</span>
+<span class="fc" id="L327">                byte[] buf = new byte[buf0[0]];</span>
+<span class="fc" id="L328">                newComm.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);</span>
+                try {
+<span class="fc" id="L330">                    ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(buf));</span>
+<span class="fc" id="L331">                    id = (GlobalID) in.readObject();</span>
+<span class="nc" id="L332">                } catch (Exception e) {</span>
+<span class="nc" id="L333">                    throw new Error(&quot;[TeamedPlaceGroup] init error at worker&quot;);</span>
+<span class="fc" id="L334">                }</span>
+            }
+<span class="fc" id="L336">            return new TeamedPlaceGroup(id, newRank, newPlaces, newComm, this);</span>
+            /*
+            PlaceLocalObject.make(places(), ()-&gt;{
+            return new TeamedPlaceGroup().init();
+            });
+            */
+<span class="nc" id="L342">        } catch (MPIException e) {</span>
+<span class="nc" id="L343">            throw new RuntimeException(&quot;[TeamedPlaceGroup] MPIException caught.&quot;);</span>
+        }
+    }
+    /* TODO: Is close() needed? What close() should do?
+    public void close() {
+	comm.Free();
+    }
+    */
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

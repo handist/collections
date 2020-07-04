@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RangedList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">RangedList.java</span></div><h1>RangedList.java</h1><pre class="source lang-java linenums">package handist.collections;
+
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+import handist.collections.function.LongTBiConsumer;
+
+public interface RangedList&lt;T&gt; extends Iterable&lt;T&gt; {
+
+    RangedList&lt;T&gt; cloneRange(LongRange newRange);
+
+    abstract boolean contains(Object o);
+    default public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action, Consumer&lt;? super U&gt; receiver) {
+<span class="nc" id="L18">        forEach(getRange(), action, receiver);</span>
+<span class="nc" id="L19">    }</span>
+
+    default public void forEach(Consumer&lt;? super T&gt; action) {
+<span class="fc" id="L22">        forEach(getRange(), action);</span>
+<span class="fc" id="L23">    };</span>
+
+    default public &lt;U&gt; void forEach(LongRange range, BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
+            Consumer&lt;? super U&gt; receiver) {
+<span class="nc bnc" id="L27" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
+<span class="nc" id="L28">            action.accept(get(i), receiver);</span>
+        }   
+<span class="nc" id="L30">    }</span>
+
+    default public void forEach(LongRange range, Consumer&lt;? super T&gt; action) {
+<span class="nc bnc" id="L33" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
+<span class="nc" id="L34">            action.accept(get(i));</span>
+        }   
+<span class="nc" id="L36">    }</span>
+
+    default public void forEach(LongRange range, LongTBiConsumer&lt;? super T&gt; action) {
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
+<span class="nc" id="L40">            action.accept(i, get(i));</span>
+        }   
+<span class="nc" id="L42">    }</span>
+    
+    
+    default public void forEach(LongTBiConsumer&lt;? super T&gt; action) {
+<span class="fc" id="L46">        forEach(getRange(), action);</span>
+<span class="fc" id="L47">    }</span>
+
+    T get(long index);
+
+    LongRange getRange();
+
+    default public boolean isEmpty() {
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        return getRange().size() == 0;</span>
+    }
+
+    public Iterator&lt;T&gt; iteratorFrom(long i);
+    long longSize();
+    default public &lt;U&gt; RangedList&lt;U&gt; map(Function&lt;? super T, ? extends U&gt; func) {
+<span class="fc" id="L60">        Chunk&lt;U&gt; result = new Chunk&lt;&gt;(this.getRange());</span>
+<span class="fc" id="L61">        result.setupFrom(this, func);</span>
+<span class="fc" id="L62">        return result;</span>
+    }
+
+    // TODO
+    // forEach(pool, nthread) and map(pool, nthreads) will be implemented using
+    // those of ChunkedList
+
+    default public &lt;U&gt; RangedList&lt;U&gt; map(LongRange range, Function&lt;? super T, ? extends U&gt; func) {
+<span class="nc" id="L70">        return this.subList(range.from, range.to).map(func);</span>
+    }
+
+    default public void rangeCheck(LongRange target) {
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">        if(!this.getRange().contains(target)) {</span>
+<span class="nc" id="L75">            throw new ArrayIndexOutOfBoundsException(</span>
+<span class="nc" id="L76">                &quot;[Chunk] range missmatch:&quot; + this.getRange() + &quot; must includes &quot; + target);</span>
+        }
+<span class="fc" id="L78">    }</span>
+
+    T set(long index, T value);
+    
+
+    
+    abstract public &lt;S&gt; void setupFrom(RangedList&lt;S&gt; from, Function&lt;? super S, ? extends T&gt; func);
+    default public List&lt;RangedList&lt;T&gt;&gt; splitRange(long splitPoint) {
+<span class="fc" id="L86">        LongRange range = getRange();</span>
+<span class="fc" id="L87">        RangedList&lt;T&gt; rangedList1 = new RangedListView&lt;T&gt;(this, new LongRange(range.from, splitPoint));</span>
+<span class="fc" id="L88">        RangedList&lt;T&gt; rangedList2 = new RangedListView&lt;T&gt;(this, new LongRange(splitPoint, range.to));</span>
+<span class="fc" id="L89">        return Arrays.asList(rangedList1, rangedList2);</span>
+    }
+    default public List&lt;RangedList&lt;T&gt;&gt; splitRange(long splitPoint1, long splitPoint2) {
+<span class="nc" id="L92">        LongRange range = getRange();</span>
+<span class="nc" id="L93">        RangedList&lt;T&gt; rangedList1 = new RangedListView&lt;T&gt;(this, new LongRange(range.from, splitPoint1));</span>
+<span class="nc" id="L94">        RangedList&lt;T&gt; rangedList2 = new RangedListView&lt;T&gt;(this, new LongRange(splitPoint1, splitPoint2));</span>
+<span class="nc" id="L95">        RangedList&lt;T&gt; rangedList3 = new RangedListView&lt;T&gt;(this, new LongRange(splitPoint2, range.to));</span>
+<span class="nc" id="L96">        return Arrays.asList(rangedList1, rangedList2, rangedList3);</span>
+    }
+    /**
+     * Provides a RangedList of the elements contained in this object from index
+     * &lt;em&gt;begin&lt;/em&gt; to index &lt;em&gt;end&lt;/em&gt;. 
+     * &lt;p&gt;
+     * If the provided range exceeds the indices contained in this instance
+     * (i.e. if &lt;em&gt;begin&lt;/em&gt; is lower than the lowest index contained in this 
+     * instance, or if &lt;em&gt;end&lt;/em&gt; is higher than the highest index contained in
+     * this instance) the method will return the elements it contains that fit
+     * within the provided range.
+     * 
+     * @param begin starting index of the desired sub-list
+     * @param end last index of the desired sub-list (exlusive)
+     * @return a ranged list of the elements contained in this 
+     * 	{@link RangedList} that fit in the provided range. 
+     * @throws IllegalArgumentException if &lt;em&gt;begin&lt;/em&gt; is superior to 
+     * &lt;em&gt;end&lt;/em&gt;.
+     */
+    public RangedList&lt;T&gt; subList(long begin, long end);
+
+    default public RangedList&lt;T&gt; subList(LongRange range) {
+<span class="fc" id="L118">        return subList(range.from, range.to);</span>
+    };
+    Object[] toArray();
+    Object[] toArray(LongRange newRange);
+
+	Chunk&lt;T&gt; toChunk(LongRange newRange);
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

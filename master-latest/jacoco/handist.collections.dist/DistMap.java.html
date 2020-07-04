@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistMap.java</span></div><h1>DistMap.java</h1><pre class="source lang-java linenums">package handist.collections.dist;
+
+import static apgas.Constructs.*;
+
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.ObjectStreamException;
+import java.io.PrintWriter;
+import java.io.Serializable;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
+import apgas.Constructs;
+import apgas.Place;
+import apgas.util.GlobalID;
+import mpi.MPI;
+import mpi.MPIException;
+
+/**
+ * A Map data structure spread over the multiple places.
+ * 
+ * @param &lt;K&gt; type of the key used in the {@link DistMap}
+ * @param &lt;V&gt; type of the value mapped to each key in the {@link DistMap}
+ */
+public class DistMap&lt;K, V&gt; extends AbstractDistCollection {
+
+<span class="fc" id="L36">    private static int _debug_level = 5;</span>
+
+    // TODO implements Relocatable
+
+    // TODO not public
+    public HashMap&lt;K, V&gt; data;
+
+    public Object writeReplace() throws ObjectStreamException {
+<span class="fc" id="L44">        final TeamedPlaceGroup pg1 = placeGroup;</span>
+<span class="fc" id="L45">        final GlobalID id1 = id;</span>
+<span class="fc" id="L46">        return new AbstractDistCollection.LazyObjectReference&lt;DistMap&lt;K, V&gt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L47">            return new DistMap&lt;K, V&gt;(pg1, id1);</span>
+        });
+    }
+
+    /**
+     * Construct a DistMap.
+     */
+    public DistMap() {
+<span class="nc" id="L55">        this(TeamedPlaceGroup.world);</span>
+<span class="nc" id="L56">    }</span>
+
+    /**
+     * Construct a DistMap with the given argument.
+     *
+     * @param pg the group of hosts that are susceptible to manipulate this 
+     *  {@link DistMap}
+     */
+    public DistMap(TeamedPlaceGroup pg) {
+<span class="fc" id="L65">        super(pg);</span>
+<span class="fc" id="L66">        this.data = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L67">    }</span>
+
+    public DistMap(TeamedPlaceGroup pg, GlobalID id) {
+<span class="fc" id="L70">        super(pg, id);</span>
+<span class="fc" id="L71">        this.data = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L72">    }</span>
+
+    public static interface Generator&lt;K, V&gt; extends BiConsumer&lt;Place, DistMap&lt;K, V&gt;&gt;, Serializable {
+    }
+    // TODO
+    /*
+     * public void setupBranches(Generator&lt;T,U&gt; gen) { final DistMap&lt;T,U&gt; handle =
+     * this; finish(()-&gt;{ placeGroup.broadcastFlat(()-&gt;{ gen.accept(here(), handle);
+     * }); }); }
+     */
+
+    /**
+     * Remove the all local entries.
+     */
+    public void clear() {
+<span class="nc" id="L87">        this.data.clear();</span>
+<span class="nc" id="L88">    }</span>
+
+    /**
+     * Return the number of the local entries.
+     *
+     * @return the number of the local entries.
+     */
+    public int size() {
+<span class="fc" id="L96">        return data.size();</span>
+    }
+
+    /**
+     * Return the value corresponding to the specified key. If the specified entry
+     * is not found, return the value of Zero.get[U]().
+     *
+     * @param key the key corresponding to the value.
+     * @return the value corresponding to the specified key.
+     */
+    public V get(K key) {
+<span class="nc" id="L107">        return data.get(key);</span>
+    }
+
+    /**
+     * Put a new entry.
+     *
+     * @param key   the key of the new entry.
+     * @param value the value of the new entry.
+     * @return the previous value associated with {@code key}, or 
+     * {@code null} if there was no mapping for {@code key}.(A {@code null} 
+     * return can also indicate that the map previously associated {@code null} 
+     * with {@code key}.)
+     */
+    public V put(K key, V value) {
+<span class="fc" id="L121">        return data.put(key, value);</span>
+    }
+
+    private V putForMove(K key, V value) {
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">        if (data.containsKey(key)) {</span>
+<span class="nc" id="L126">            throw new RuntimeException(&quot;DistMap cannot override existing entry: &quot; + key);</span>
+        }
+<span class="fc" id="L128">        return data.put(key, value);</span>
+    }
+
+    public boolean delete(K key) {
+<span class="nc" id="L132">        V result = data.remove(key);</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        return (result != null);</span>
+    }
+
+    /**
+     * Remove the entry corresponding to the specified key.
+     *
+     * @param key the key corresponding to the value.
+     * @return the previous value associated with the key, or {@code null} if 
+     * 	there was no existing mapping (or the key was mapped to {@code null})
+     */
+    public V remove(K key) {
+<span class="fc" id="L144">        return data.remove(key);</span>
+    }
+
+    /**
+     * Apply the same operation onto the all local entries.
+     *
+     * @param op the operation.
+     */
+    public void forEach(BiConsumer&lt;K, V&gt; op) {
+<span class="fc bfc" id="L153" title="All 2 branches covered.">        if (!data.isEmpty())</span>
+<span class="fc" id="L154">            data.forEach(op);</span>
+<span class="fc" id="L155">    }</span>
+
+    /**
+     * Apply the same operation on the all elements including remote places and
+     * creates a new {@link DistMap} with the same keys as this instance and the
+     * result of the mapping operation as values. 
+     * 
+     * @param &lt;W&gt; result type of mapping operation
+     * @param op the map operation from type &lt;code&gt;V&lt;/code&gt; to &lt;code&gt;W&lt;/code&gt; 
+     * @return a DistMap from &lt;code&gt;K&lt;/code&gt; to &lt;code&gt;W&lt;/code&gt; built from 
+     *  applying the mapping operation on each element of this instance
+     */
+    public &lt;W&gt; DistMap&lt;K, W&gt; map(Function&lt;V, W&gt; op) {
+<span class="nc" id="L168">        throw new Error(&quot;not supported yet&quot;);</span>
+        // TODO
+        /*
+         * return new DistMap&lt;T,S&gt;(placeGroup, team, () -&gt; { val dst = new
+         * HashMap&lt;T,S&gt;(); for (entry in entries()) { val key = entry.getKey(); val
+         * value = entry.getValue(); dst(key) = op(value); } return dst; });
+         */
+    }
+
+    /**
+     * Reduce the all elements including other place using the given operation.
+     *
+     * @param op   the operation.
+     * @param unit the zero value of the reduction.
+     * @return the result of the reduction.
+     */
+    public V reduce(BiFunction&lt;V, V, V&gt; op, V unit) {
+<span class="nc" id="L185">        return reduce(op, op, unit);</span>
+    }
+
+    /**
+     * Reduce the all elements including other place using the given operation.
+     *
+     * @param &lt;S&gt; type of the result produced by the reduction operation
+     * @param lop  the operation using in the local reduction.
+     * @param gop  the operation using in the reduction of the results of the local
+     *             reduction.
+     * @param unit the zero value of the reduction.
+     * @return the result of the reduction.
+     */
+    public &lt;S&gt; S reduce(BiFunction&lt;S, V, S&gt; lop, BiFunction&lt;S, S, S&gt; gop, S unit) {
+        // TODO
+<span class="nc" id="L200">        throw new Error(&quot;Not implemented yet.&quot;);</span>
+        /*
+         * val reducer = new Reducible[S]() { public def zero() = unit; public operator
+         * this(a: S, b: S) = gop(a, b); }; return finish (reducer) {
+         * placeGroup.broadcastFlat(() =&gt; { offer(reduceLocal(lop, unit)); }); };
+         */
+
+    }
+
+    /**
+     * Reduce the all local elements using the given operation.
+     *
+     * @param &lt;S&gt; type of the result produced by the reduction operation
+     * @param op   the operation used in the reduction
+     * @param unit the neutral element of the reduction operation
+     * @return the result of the reduction
+     */
+    public &lt;S&gt; S reduceLocal(BiFunction&lt;S, V, S&gt; op, S unit) {
+        // TODO may be build-in method for Map
+<span class="nc" id="L219">        S accum = unit;</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">        for (Map.Entry&lt;K, V&gt; entry : data.entrySet()) {</span>
+<span class="nc" id="L221">            accum = op.apply(accum, entry.getValue());</span>
+<span class="nc" id="L222">        }</span>
+<span class="nc" id="L223">        return accum;</span>
+    }
+
+    /*
+     * Return true if the specified entry is exist at local.
+     *
+     * @param key a key.
+     * 
+     * @return true or false.
+     */
+    public boolean containsKey(K key) {
+<span class="fc" id="L234">        return data.containsKey(key);</span>
+    }
+
+    /**
+     * Return the Set of local keys.
+     *
+     * @return the Set of local keys.
+     */
+    public Set&lt;K&gt; keySet() {
+<span class="nc" id="L243">        return data.keySet();</span>
+    }
+
+    /**
+     * Return the Set of local entries.
+     *
+     * @return the Set of local entries.
+     */
+    public Set&lt;Map.Entry&lt;K, V&gt;&gt; entrySet() {
+<span class="nc" id="L252">        return data.entrySet();</span>
+    }
+
+    /**
+     * Request that the specified element is relocated when #sync is called.
+     *
+     * @param key the key of the relocated entry.
+     * @param pl  the destination place.
+     * @param mm  MoveManagerLocal
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public void moveAtSync(K key, Place pl, MoveManagerLocal mm) {
+<span class="fc bfc" id="L264" title="All 2 branches covered.">        if (pl.equals(Constructs.here()))</span>
+<span class="fc" id="L265">            return;</span>
+<span class="fc" id="L266">        final DistMap&lt;K, V&gt; toBranch = this;</span>
+<span class="fc" id="L267">        Serializer serialize = (ObjectOutputStream s) -&gt; {</span>
+<span class="fc" id="L268">            V value = this.remove(key);</span>
+<span class="fc" id="L269">            s.writeObject(key);</span>
+<span class="fc" id="L270">            s.writeObject(value);</span>
+<span class="fc" id="L271">        };</span>
+<span class="fc" id="L272">        DeSerializer deserialize = (ObjectInputStream ds) -&gt;  {</span>
+<span class="fc" id="L273">            K k = (K) ds.readObject();</span>
+<span class="fc" id="L274">            V v = (V) ds.readObject();</span>
+<span class="fc" id="L275">            toBranch.putForMove(k, v);</span>
+<span class="fc" id="L276">        };</span>
+<span class="fc" id="L277">        mm.request(pl, serialize, deserialize);</span>
+<span class="fc" id="L278">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public void moveAtSync(Collection&lt;K&gt; keys, Place pl, MoveManagerLocal mm) {
+<span class="nc bnc" id="L282" title="All 2 branches missed.">        if (pl.equals(Constructs.here()))</span>
+<span class="nc" id="L283">            return;</span>
+<span class="nc" id="L284">        final DistMap&lt;K, V&gt; collection = this;</span>
+<span class="nc" id="L285">        Serializer serialize = (ObjectOutputStream s) -&gt; {</span>
+<span class="nc" id="L286">            int size = keys.size();</span>
+<span class="nc" id="L287">            s.writeInt(size);</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">            for (K key : keys) {</span>
+<span class="nc" id="L289">                V value = collection.remove(key);</span>
+<span class="nc" id="L290">                s.writeObject(key);</span>
+<span class="nc" id="L291">                s.writeObject(value);</span>
+<span class="nc" id="L292">            }</span>
+<span class="nc" id="L293">        };</span>
+<span class="nc" id="L294">        DeSerializer deserialize = (ObjectInputStream ds) -&gt; {</span>
+<span class="nc" id="L295">            int size = ds.readInt();</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">            for (int i = 1; i &lt;= size; i++) {</span>
+<span class="nc" id="L297">                K key = (K) ds.readObject();</span>
+<span class="nc" id="L298">                V value = (V) ds.readObject();</span>
+<span class="nc" id="L299">                collection.putForMove(key, value);</span>
+            }
+<span class="nc" id="L301">        };</span>
+<span class="nc" id="L302">        mm.request(pl, serialize, deserialize);</span>
+<span class="nc" id="L303">    }</span>
+
+    public void moveAtSync(Function&lt;K, Place&gt; rule, MoveManagerLocal mm) {
+<span class="nc" id="L306">        DistMap&lt;K, V&gt; collection = this;</span>
+<span class="nc" id="L307">        HashMap&lt;Place, List&lt;K&gt;&gt; keysToMove = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L308">        collection.forEach((K key, V value) -&gt; {</span>
+<span class="nc" id="L309">            Place destination = rule.apply(key);</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">            if (!keysToMove.containsKey(destination)) {</span>
+<span class="nc" id="L311">                keysToMove.put(destination, new ArrayList&lt;K&gt;());</span>
+            }
+<span class="nc" id="L313">            keysToMove.get(destination).add(key);</span>
+<span class="nc" id="L314">        });</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">        for (Map.Entry&lt;Place, List&lt;K&gt;&gt; entry : keysToMove.entrySet()) {</span>
+<span class="nc" id="L316">            moveAtSync(entry.getValue(), entry.getKey(), mm);</span>
+<span class="nc" id="L317">        }</span>
+<span class="nc" id="L318">    }</span>
+
+    private Collection&lt;K&gt; getNKeys(int count) {
+<span class="nc bnc" id="L321" title="All 2 branches missed.">        if (count == 0)</span>
+<span class="nc" id="L322">            return Collections.emptySet();</span>
+<span class="nc" id="L323">        ArrayList&lt;K&gt; keys = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L324" title="All 2 branches missed.">        for (K key : data.keySet()) {</span>
+<span class="nc" id="L325">            keys.add(key);</span>
+<span class="nc" id="L326">            --count;</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">            if (count == 0)</span>
+<span class="nc" id="L328">                return keys;</span>
+<span class="nc" id="L329">        }</span>
+<span class="nc" id="L330">        return data.keySet();</span>
+    }
+    public void moveAtSyncCount(int count, Place dest, MoveManagerLocal mm) {
+<span class="nc bnc" id="L333" title="All 2 branches missed.">        if (count == 0)</span>
+<span class="nc" id="L334">            return;</span>
+<span class="nc" id="L335">        moveAtSync(getNKeys(count), dest, mm);</span>
+<span class="nc" id="L336">    }</span>
+
+
+    public void moveAtSync(Distribution&lt;K&gt; dist, MoveManagerLocal mm) {
+<span class="nc" id="L340">        Function&lt;K, Place&gt; rule = (K key) -&gt; {</span>
+<span class="nc" id="L341">            return dist.place(key);</span>
+        };
+<span class="nc" id="L343">        moveAtSync(rule, mm);</span>
+<span class="nc" id="L344">    }</span>
+
+    public void checkDistInfo(long[] result) {
+<span class="nc" id="L347">        TeamedPlaceGroup pg = this.placeGroup;</span>
+<span class="nc" id="L348">        long localSize = data.size(); // int-&gt;long</span>
+<span class="nc" id="L349">        long[] sendbuf = new long[] { localSize };</span>
+        // team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
+        try {
+<span class="nc" id="L352">            pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);</span>
+<span class="nc" id="L353">        } catch (MPIException e) {</span>
+<span class="nc" id="L354">            e.printStackTrace();</span>
+<span class="nc" id="L355">            throw new Error(&quot;[DistMap] network error in balance()&quot;);</span>
+<span class="nc" id="L356">        }</span>
+<span class="nc" id="L357">    }</span>
+
+    protected void moveAtSyncCount(final ArrayList&lt;ILPair&gt; moveList, final MoveManagerLocal mm) throws Exception {
+<span class="nc bnc" id="L360" title="All 2 branches missed.">        for (ILPair pair : moveList) {</span>
+<span class="nc bnc" id="L361" title="All 2 branches missed.">            if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L362">                System.out.println(&quot;MOVE src: &quot; + here() + &quot; dest: &quot; + pair.first + &quot; size: &quot; + pair.second);</span>
+            }
+<span class="nc bnc" id="L364" title="All 2 branches missed.">            if (pair.second &gt; Integer.MAX_VALUE)</span>
+<span class="nc" id="L365">                throw new Error(&quot;One place cannot receive so much elements: &quot; + pair.second);</span>
+<span class="nc" id="L366">            moveAtSyncCount((int) pair.second, placeGroup.get(pair.first), mm);</span>
+<span class="nc" id="L367">        }</span>
+<span class="nc" id="L368">    }</span>
+
+    public void relocate(Function&lt;K, Place&gt; rule, MoveManagerLocal mm) throws Exception {
+<span class="nc bnc" id="L371" title="All 2 branches missed.">        for (K key: data.keySet()) {</span>
+<span class="nc" id="L372">            Place place = rule.apply(key);</span>
+<span class="nc" id="L373">            moveAtSync(key, place, mm);</span>
+<span class="nc" id="L374">        }</span>
+<span class="nc" id="L375">        mm.sync();</span>
+<span class="nc" id="L376">    }</span>
+
+    public void relocate(Function&lt;K,Place&gt; rule) throws Exception {
+<span class="nc" id="L379">        relocate(rule, new MoveManagerLocal(placeGroup));</span>
+<span class="nc" id="L380">    }</span>
+<span class="nc" id="L381">    boolean debugPrint() { return true; }</span>
+
+    /*
+    void teamedBalance() {
+        LoadBalancer.MapBalancer&lt;T, U&gt; balance = new LoadBalancer.MapBalancer&lt;&gt;(this.data, placeGroup);
+        balance.execute();
+        if(debugPrint()) System.out.println(here() + &quot; balance.check1&quot;);
+        clear();
+        if(debugPrint()) {
+            System.out.println(here() + &quot; balance.check2&quot;);
+            System.out.println(here() + &quot; balance.ArrayList.size() : &quot; + data.size());
+        }
+        long time = - System.nanoTime();
+        time += System.nanoTime();
+        if(debugPrint()) {
+    //        	System.out.println(here() + &quot; count : &quot; + (count) + &quot; ms&quot;);
+    //        	System.out.println(here() + &quot; put : &quot; + (total/(1000000)) + &quot; ms&quot;);
+            System.out.println(here() + &quot; for : &quot; + (time/(1000000)) + &quot; ms&quot;);
+            System.out.println(here() + &quot; data.size() : &quot; + size());
+            System.out.println(here() + &quot; balance.check3&quot;);
+        }
+    
+    }*/
+    
+
+    // TODO different naming convention of balance methods with DistMap
+
+    public void integrate(Map&lt;K, V&gt; src) {
+<span class="nc bnc" id="L409" title="All 2 branches missed.">        for(Map.Entry&lt;K,V&gt; e: src.entrySet()) {</span>
+<span class="nc" id="L410">            put(e.getKey(), e.getValue());</span>
+<span class="nc" id="L411">        }</span>
+<span class="nc" id="L412">    }</span>
+
+/*    Abstractovdef create(placeGroup: PlaceGroup, team: Team, init: ()=&gt;Map[T, U]){
+        // return new DistMap[T,U](placeGroup, init) as AbstractDistCollection[Map[T,U]];
+        return null as AbstractDistCollection[Map[T,U]];
+    }*/
+/*
+    public def versioningMap(srcName : String){
+        // return new BranchingManager[DistMap[T,U], Map[T,U]](srcName, this);
+        return null as BranchingManager[DistMap[T,U], Map[T,U]];
+    }*/
+
+    public String toString() {
+<span class="nc" id="L425">        StringWriter out0 = new StringWriter();</span>
+<span class="nc" id="L426">        PrintWriter out = new PrintWriter(out0);</span>
+<span class="nc" id="L427">        out.println(&quot;at &quot;+ here());</span>
+<span class="nc bnc" id="L428" title="All 2 branches missed.">        for(Map.Entry&lt;K,V&gt; e : data.entrySet()) {</span>
+<span class="nc" id="L429">            out.println(&quot;key : &quot;+e.getKey() + &quot;, value : &quot; + e.getValue());</span>
+<span class="nc" id="L430">        }</span>
+<span class="nc" id="L431">        out.close();</span>
+<span class="nc" id="L432">        return out0.toString();</span>
+    }
+
+    void printLocalData(){
+<span class="nc" id="L436">        System.out.println(this);</span>
+<span class="nc" id="L437">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

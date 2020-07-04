@@ -1,0 +1,389 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MPILauncherNoExit2.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.mpi</a> &gt; <span class="el_source">MPILauncherNoExit2.java</span></div><h1>MPILauncherNoExit2.java</h1><pre class="source lang-java linenums">package handist.collections.mpi;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.security.Permission;
+import java.util.List;
+
+import apgas.Configuration;
+import apgas.GlobalRuntime;
+import apgas.impl.Config;
+import apgas.impl.Launcher;
+import mpi.MPI;
+import mpi.MPIException;
+
+/**
+ * The {@link MPILauncherNoExit2} class implements a launcher for the apgas runtime using MPI. Programs should be run in
+ * the following way:
+ * &lt;p&gt;
+ * &lt;em&gt;mpirun -np &amp;lt;nb hosts&amp;gt; -host &amp;lt; comma-seperated list of hosts&amp;gt; 
+ * java -cp &amp;lt;classpath&amp;gt; apgas.mpi.MPILauncher &amp;lt;main class to launch&amp;gt;
+ * &amp;lt;arguments for said class&amp;gt;&lt;/em&gt;
+ * &lt;p&gt;
+ * For instance, to launch the HelloWorld example with message &quot;Hello&quot; on 4 servers, a solution would be:
+ * &lt;p&gt;
+ * &lt;em&gt;mpirun -np 4 -host piccolo04,piccolo05,piccolo06,piccolo07 java -cp
+ * apgas.jar:apgasExamples.jar:kryo.jar:mpi.jar:reflectasm.jar:hazelcast.jar:minlog.jar:objenesis.jar
+ * apgas.mpi.MPILauncher apgas.examples.HelloWorld Hello&lt;/em&gt;
+ *
+ * @author Toshiyuki
+ */
+final public class MPILauncherNoExit2 implements Launcher {
+
+  /**
+   * Exception thrown when the application given as parameter calls {@link System#exit(int)} rather than exiting the
+   * whole application.
+   */
+  protected static class ExitException extends SecurityException {
+
+    /** Serial Version UID */
+    private static final long serialVersionUID = -5788271742636040872L;
+    public final int status;
+
+    public ExitException(int status) {
+<span class="nc" id="L50">      super(&quot;The MPI launcher prevented the call to System.exit(&quot; + status + &quot;)&quot;);</span>
+<span class="nc" id="L51">      this.status = status;</span>
+<span class="nc" id="L52">    }</span>
+  }
+
+  /**
+   * Security manager that prevents any call to {@link System#exit(int)}.
+   * 
+   * @author Patrick
+   */
+  private static class NoExitSecurityManager extends SecurityManager {
+
+    @Override
+    public void checkPermission(Permission perm) {
+      // allow anything.
+<span class="nc" id="L65">    }</span>
+
+    @Override
+    public void checkPermission(Permission perm, Object context) {
+      // allow anything.
+<span class="nc" id="L70">    }</span>
+
+    @Override
+    public void checkExit(int status) {
+<span class="nc" id="L74">      super.checkExit(status);</span>
+<span class="nc" id="L75">      throw new ExitException(status);</span>
+    }
+  }
+
+  /** Identifier of this place */
+  static int commRank;
+  /** Number of places in the system */
+  static int commSize;
+
+<span class="nc" id="L84">  static boolean finalizeCalled = false;</span>
+
+  /**
+   * Set in the main method according to the value set by {@link Configuration#APGAS_VERBOSE_LAUNCHER}
+   */
+  static boolean verboseLauncher;
+
+  /**
+   * Constructs a new {@link MPILauncherNoExit2} instance.
+   */
+<span class="nc" id="L94">  public MPILauncherNoExit2() {</span>
+<span class="nc" id="L95">  }</span>
+
+  /**
+   * Launches one process with the given command line at the specified host.
+   * &lt;p&gt;
+   * Should not be called in practice as every java processes are supposed to be launched using the `mpirun` command.
+   * Implementation will print an &quot;Internal error&quot; on the {@link System#err} before calling for the program's
+   * termination and exiting with return code -1.
+   *
+   * @param  command   command line
+   * @param  host      host
+   * @param  verbose   dumps the executed commands to stderr
+   * @return           the process object
+   * @throws Exception if launching fails
+   */
+  @Override
+  public Process launch(List&lt;String&gt; command, String host, boolean verbose) throws Exception {
+
+<span class="nc" id="L113">    System.err.println(&quot;[MPILauncher] Internal Error&quot;);</span>
+<span class="nc" id="L114">    MPI.Finalize();</span>
+<span class="nc" id="L115">    System.exit(-1);</span>
+
+<span class="nc" id="L117">    return null;</span>
+  }
+
+  /**
+   * Launches n processes with the given command line and host list. The first host of the list is skipped. If the list
+   * is incomplete, the last host is repeated.
+   *
+   * @param  n         number of processes to launch
+   * @param  command   command line
+   * @param  hosts     host list (not null, not empty, but possibly incomplete)
+   * @param  verbose   dumps the executed commands to stderr
+   * @throws Exception if launching fails
+   */
+  @Override
+  public void launch(int n, List&lt;String&gt; command, List&lt;String&gt; hosts, boolean verbose) throws Exception {
+
+<span class="nc bnc" id="L133" title="All 2 branches missed.">    if (n + 1 != commSize) {</span>
+<span class="nc" id="L134">      System.err.println(</span>
+          &quot;[MPILauncher] &quot; + Configuration.APGAS_PLACES + &quot; should be equal to number of MPI processes &quot; + commSize);
+<span class="nc" id="L136">      MPI.Finalize();</span>
+<span class="nc" id="L137">      System.exit(-1);</span>
+    }
+
+<span class="nc" id="L140">    final byte[] baCommand = serializeToByteArray(command.toArray(new String[command.size()]));</span>
+<span class="nc" id="L141">    final int[] msglen = new int[1];</span>
+<span class="nc" id="L142">    msglen[0] = baCommand.length;</span>
+<span class="nc" id="L143">    MPI.COMM_WORLD.Bcast(msglen, 0, 1, MPI.INT, 0);</span>
+<span class="nc" id="L144">    MPI.COMM_WORLD.Bcast(baCommand, 0, msglen[0], MPI.BYTE, 0);</span>
+<span class="nc" id="L145">  }</span>
+
+  /**
+   * Sets up the apgas runtime for it to wait for activities to be spawned on this place.
+   *
+   * @throws Exception if some problem occurs with the MPI runtime
+   */
+  static void slave() throws Exception {
+
+<span class="nc" id="L154">    final int[] msglen = new int[1];</span>
+<span class="nc" id="L155">    MPI.COMM_WORLD.Bcast(msglen, 0, 1, MPI.INT, 0);</span>
+<span class="nc" id="L156">    final byte[] msgbuf = new byte[msglen[0]];</span>
+<span class="nc" id="L157">    MPI.COMM_WORLD.Bcast(msgbuf, 0, msglen[0], MPI.BYTE, 0);</span>
+<span class="nc" id="L158">    final String[] command = (String[]) deserializeFromByteArray(msgbuf);</span>
+
+<span class="nc bnc" id="L160" title="All 2 branches missed.">    for (int i = 1; i &lt; command.length; i++) {</span>
+<span class="nc" id="L161">      final String term = command[i];</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">      if (term.startsWith(&quot;-D&quot;)) {</span>
+<span class="nc" id="L163">        final String[] kv = term.substring(2).split(&quot;=&quot;, 2);</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        if (verboseLauncher) {</span>
+<span class="nc" id="L165">          System.err.println(&quot;[&quot; + commRank + &quot;] setProperty \&quot;&quot; + kv[0] + &quot;\&quot; = \&quot;&quot; + kv[1] + &quot;\&quot;&quot;);</span>
+        }
+
+<span class="nc" id="L168">        System.setProperty(kv[0], kv[1]);</span>
+      }
+    }
+
+<span class="nc" id="L172">    GlobalRuntime.getRuntime();</span>
+<span class="nc" id="L173">  }</span>
+
+  /**
+   * Shuts down the local process launched using MPI.
+   */
+  @Override
+  public void shutdown() {
+<span class="nc bnc" id="L180" title="All 2 branches missed.">    if (verboseLauncher) {</span>
+<span class="nc" id="L181">      System.err.println(&quot;[MPILauncherNoExit2] About to call MPI.Finalize on rank&quot; + commRank);</span>
+    }
+    try {
+<span class="nc bnc" id="L184" title="All 2 branches missed.">      if (!finalizeCalled) {</span>
+<span class="nc" id="L185">        finalizeCalled = true;</span>
+<span class="nc" id="L186">        MPI.Finalize();</span>
+      }
+<span class="nc" id="L188">    } catch (final MPIException e) {</span>
+<span class="nc" id="L189">      System.err.println(&quot;[MPILauncher] Error on Shutdown at rank &quot; + commRank);</span>
+<span class="nc" id="L190">      e.printStackTrace();</span>
+<span class="nc" id="L191">    }</span>
+<span class="nc" id="L192">    System.exit(0);</span>
+<span class="nc" id="L193">  }</span>
+
+  /**
+   * Checks that all the processes launched are healthy.
+   * &lt;p&gt;
+   * Current implementation of {@link MPILauncherNoExit2} always returns true.
+   *
+   * @return true if all subprocesses are healthy
+   */
+  @Override
+  public boolean healthy() {
+    // TODO
+<span class="nc" id="L205">    return true;</span>
+  }
+
+  /**
+   * Converts a String to an int array
+   *
+   * @param  src String to be converted
+   * @return     array of integer corresponding to the given parameter
+   * @see        #intArrayToString(int[])
+   */
+  static int[] stringToIntArray(String src) {
+<span class="nc" id="L216">    final char[] charArray = src.toCharArray();</span>
+<span class="nc" id="L217">    final int[] intArray = new int[charArray.length];</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">    for (int i = 0; i &lt; charArray.length; i++) {</span>
+<span class="nc" id="L219">      intArray[i] = charArray[i];</span>
+    }
+<span class="nc" id="L221">    return intArray;</span>
+  }
+
+  /**
+   * Converts an int array back into the String it represents
+   *
+   * @param  src the integer array to be converted back into a String
+   * @return     the constructed String
+   * @see        #stringToIntArray(String)
+   */
+  static String intArrayToString(int[] src) {
+<span class="nc" id="L232">    final char[] charArray = new char[src.length];</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">    for (int i = 0; i &lt; src.length; i++) {</span>
+<span class="nc" id="L234">      charArray[i] = (char) src[i];</span>
+    }
+<span class="nc" id="L236">    final String str = new String(charArray);</span>
+<span class="nc" id="L237">    return str;</span>
+  }
+
+  /**
+   * Serializer method
+   *
+   * @param  obj         Object to be serialized
+   * @return             array of bytes
+   * @throws IOException if an I/O exception occurs
+   * @see                #deserializeFromByteArray(byte[])
+   */
+  static byte[] serializeToByteArray(Serializable obj) throws IOException {
+<span class="nc" id="L249">    final ByteArrayOutputStream baos = new ByteArrayOutputStream();</span>
+<span class="nc" id="L250">    final ObjectOutputStream oos = new ObjectOutputStream(baos);</span>
+<span class="nc" id="L251">    oos.writeObject(obj);</span>
+<span class="nc" id="L252">    return baos.toByteArray();</span>
+  }
+
+  /**
+   * Deserializer method
+   *
+   * @param  barray                 byte array input
+   * @return                        Object constructed from the input
+   * @throws IOException            if an I/O occurs
+   * @throws ClassNotFoundException if the class could not be identified
+   * @see                           #serializeToByteArray(Serializable)
+   */
+  static Object deserializeFromByteArray(byte[] barray) throws IOException, ClassNotFoundException {
+<span class="nc" id="L265">    final ByteArrayInputStream bais = new ByteArrayInputStream(barray);</span>
+<span class="nc" id="L266">    final ObjectInputStream ois = new ObjectInputStream(bais);</span>
+<span class="nc" id="L267">    return ois.readObject();</span>
+  }
+
+  /**
+   * Main method of the MPILauncher class
+   * &lt;p&gt;
+   * Sets up the APGAS environment using an mpi launcher. Rank 0 of the processes will launch the main method of the
+   * class specified as parameter with the arguments specified afterward. Other processes will only setup their apgas
+   * environment and wait for incoming activities.
+   * &lt;p&gt;
+   * This main method takes at least one argument, the fully qualified name of the class whose main method is to be run.
+   * Arguments for that class' main need to to follow that first argument.
+   *
+   * @param  args      Path to the class whose main method is to be run, followed by the arguments of that classe's main
+   *                   method.
+   * @throws Exception if MPI exception occur
+   */
+  public static void main(String[] args) throws Exception {
+<span class="nc" id="L285">    int exitStatus = 0;</span>
+<span class="nc" id="L286">    MPI.Init(args);</span>
+<span class="nc" id="L287">    commRank = MPI.COMM_WORLD.Rank();</span>
+<span class="nc" id="L288">    commSize = MPI.COMM_WORLD.Size();</span>
+
+<span class="nc" id="L290">    verboseLauncher = Boolean.parseBoolean(System.getProperty(Configuration.APGAS_VERBOSE_LAUNCHER, &quot;false&quot;));</span>
+
+<span class="nc bnc" id="L292" title="All 2 branches missed.">    if (verboseLauncher) {</span>
+<span class="nc" id="L293">      System.err.println(&quot;[MPILauncher] rank = &quot; + commRank);</span>
+    }
+
+<span class="nc bnc" id="L296" title="All 2 branches missed.">    if (args.length &lt; 1) {</span>
+<span class="nc" id="L297">      System.err.println(&quot;[MPILauncher] Error Main Class Required&quot;);</span>
+<span class="nc" id="L298">      MPI.Finalize();</span>
+<span class="nc" id="L299">      System.exit(0);</span>
+    }
+
+    /*
+     * Extracts the arguments destined for the main method of the specified class.
+     */
+<span class="nc" id="L305">    final String[] newArgs = new String[args.length - 1];</span>
+<span class="nc" id="L306">    System.arraycopy(args, 1, newArgs, 0, args.length - 1);</span>
+
+    // Sets the number of places according to the arguments given to `mpirun`
+    // command
+<span class="nc" id="L310">    System.setProperty(Configuration.APGAS_PLACES, Integer.toString(commSize));</span>
+    // Sets the launcher to be of MPILauncher class. This will make the apgas
+    // runtime use the MPILauncher shutdown method when the apgas shutdown
+    // method is launched
+<span class="nc" id="L314">    System.setProperty(Config.APGAS_LAUNCHER, &quot;apgas.mpi.MPILauncherNoExit2&quot;);</span>
+
+    /*
+     * If this place is the &quot;master&quot;, i.e. rank, launches the main method of the class specified as parameter. If it is
+     * not the &quot;master&quot;, sets up the APGAS runtime and waits till asynchronous tasks are submitted to this place.
+     */
+<span class="nc bnc" id="L320" title="All 2 branches missed.">    if (commRank == 0) {</span>
+      try {
+<span class="nc" id="L322">        GlobalRuntime.getRuntime();</span>
+<span class="nc" id="L323">        final Method mainMethod = Class.forName(args[0]).getMethod(&quot;main&quot;, String[].class);</span>
+<span class="nc" id="L324">        final Object[] mainArgs = new Object[1];</span>
+<span class="nc" id="L325">        mainArgs[0] = newArgs;</span>
+
+        // Prevent call to exit()
+<span class="nc" id="L328">        System.setSecurityManager(new NoExitSecurityManager());</span>
+<span class="nc" id="L329">        mainMethod.invoke(null, mainArgs);</span>
+<span class="nc" id="L330">      } catch (final ClassNotFoundException e) {</span>
+<span class="nc" id="L331">        System.err.println(&quot;[MPILauncher] Error: Class &quot; + args[0] + &quot; could not be found&quot;);</span>
+<span class="nc" id="L332">      } catch (final NoSuchMethodException e) {</span>
+<span class="nc" id="L333">        System.err.println(&quot;[MPILauncher] Error: Class &quot; + args[0] + &quot; does not have a main method&quot;);</span>
+<span class="nc" id="L334">      } catch (final InvocationTargetException e) {</span>
+<span class="nc bnc" id="L335" title="All 2 branches missed.">        if (e.getCause() instanceof ExitException) {</span>
+          // Obtain the exit status to make host 0 transmit it
+          // after the program shutdown occurs
+<span class="nc" id="L338">          exitStatus = ((ExitException) e.getCause()).status;</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">          if (verboseLauncher) {</span>
+<span class="nc" id="L340">            System.err.println(&quot;[MPILauncherNoExit] exit code &quot; + exitStatus + &quot; was intercepted&quot;);</span>
+          }
+        }
+<span class="nc" id="L343">      } catch (final Exception e) {</span>
+<span class="nc" id="L344">        e.printStackTrace();</span>
+      } finally {
+        // Remove the security manager to allow shutdown
+<span class="nc" id="L347">        System.setSecurityManager(null);</span>
+      }
+
+      // Initiating shutdown
+<span class="nc bnc" id="L351" title="All 2 branches missed.">      if (verboseLauncher) {</span>
+<span class="nc" id="L352">        System.err.println(&quot;[MPILauncher] MPI rank&quot; + commRank + &quot; is initiating shutdown&quot;);</span>
+      }
+      // for (Place p : apgas.Constructs.places()) {
+      // if (p.id != 0) {
+      // ((GlobalRuntimeImpl) GlobalRuntime.getRuntime()).immediateAsyncAt(p, () -&gt; {
+      // if (verboseLauncher) {System.err.println(&quot;[MPILauncherNoExit2] &quot; + apgas.Constructs.here() + &quot; has received the
+      // task making it shut down&quot;);}
+      // GlobalRuntime.getRuntime().shutdown();
+      // System.exit(0); // Should activate the shutdown hook of the remote host.
+      // });
+      // }
+      // }
+      // // Call to finalize for host 0 as well
+      // try {
+      // MPI.Finalize();
+      // } catch (final MPIException e) {
+      // System.err.println(&quot;[MPILauncher] Error on Shutdown at rank &quot; + commRank);
+      // e.printStackTrace();
+      // } finally {
+      // System.exit(exitStatus);
+      // }
+      //
+    } else {
+<span class="nc" id="L375">      slave();</span>
+    }
+    try {
+<span class="nc bnc" id="L378" title="All 2 branches missed.">      if (!finalizeCalled) {</span>
+<span class="nc" id="L379">        finalizeCalled = true;</span>
+<span class="nc" id="L380">        MPI.Finalize();</span>
+      }
+<span class="nc" id="L382">      System.exit(0);</span>
+<span class="nc" id="L383">    } catch (final MPIException e) {</span>
+<span class="nc" id="L384">      System.err.println(&quot;[MPILauncher] Error on Finalize - main method at rank &quot; + commRank);</span>
+<span class="nc" id="L385">      e.printStackTrace();</span>
+<span class="nc" id="L386">    }</span>
+<span class="nc" id="L387">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>
