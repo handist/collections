@@ -26,11 +26,14 @@ import static apgas.Constructs.*;
 /**
  * A class for handling objects at multiple places. It is allowed to add new
  * elements dynamically. This class provides the method for load balancing.
- *
+ * <p>
  * Note: In the current implementation, there are some limitations.
- *
- * o There is only one load balancing method. The method flattens the number of
+ * <ul>
+ *  <li>There is only one load balancing method: the method flattens the number of
  * elements of the all places.
+ * </ul>
+ * 
+ * @param <T> the type of elements handled by this {@link DistCol}
  */
 public class DistCol<T> extends AbstractDistCollection /* implements List[T], ManagedDistribution[LongRange] */ {
 
@@ -48,10 +51,10 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
     }
 
     /**
-     * Create a new DistCol using the given arguments.
-     *
-     * @param placeGroup an instance of PlaceGroup.
-     * @param team       an instance of Team.
+     * Create a new DistCol. All the hosts participating in the distributed 
+     * computation are susceptible to handle the created instance. This 
+     * constructor is equivalent to calling {@link #DistCol(TeamedPlaceGroup)} 
+     * with {@link TeamedPlaceGroup#getWorld()} as argument. 
      */
     public DistCol() {
         this(TeamedPlaceGroup.getWorld());

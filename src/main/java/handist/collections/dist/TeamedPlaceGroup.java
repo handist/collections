@@ -39,6 +39,8 @@ public class TeamedPlaceGroup implements Serializable {
         private static final long serialVersionUID = -1948016251753684732L;
         private final GlobalID id;
 
+        /**
+         */
         private ObjectReference(GlobalID id) {
             this.id = id;
         }

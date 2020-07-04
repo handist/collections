@@ -6,7 +6,6 @@ import static apgas.Constructs.*;
 import java.io.Serializable;
 import java.util.Random;
 
-import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -29,7 +28,7 @@ public class IT_DistMap2 implements Serializable {
 	 * {@link #setUpBeforeClass()}. 
 	 */
 	/** Size of the sata-set used for the tests **/
-	static final long numData = 200;
+	public static final long numData = 200;
 	/** PlaceGroup object representing the collaboration between processes */
 	TeamedPlaceGroup placeGroup;
 	/** Random object used to generate values */
@@ -49,19 +48,11 @@ public class IT_DistMap2 implements Serializable {
 	}
 
 	/**
-	 * Sets Up the group communication runtime and prepares static members.
-	 * @throws Exception
+	 * Prepares static members
 	 */
 	@BeforeClass
-	public static void setUpBeforeClass() throws Exception {
+	public static void setUpBeforeClass() {
 		random = new Random(12345l);
-
-	}
-
-	/** Shuts down the group communication runtime */
-	@AfterClass
-	public static void tearDownAfterClass() throws Exception {
-		//TeamedPlaceGroup.readyToClose(Constructs.here().id == 0);
 	}
 
 	/**
@@ -104,7 +95,7 @@ public class IT_DistMap2 implements Serializable {
 
 	/**
 	 * Moves all the entries contained in host 0 to host 1
-	 * @throws Exception 
+	 * @throws Exception if an exception is thrown during the test
 	 */
 	@Test(timeout=10000)
 	public void testMoveToHost1() throws Exception {

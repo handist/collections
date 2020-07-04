@@ -11,7 +11,9 @@ import handist.collections.function.LongTBiConsumer;
 
 public class RangedListView<T> extends AbstractCollection<T> implements RangedList<T>, Serializable {
 
-    private RangedList<T> base;
+    /** Serial Version UID */
+	private static final long serialVersionUID = 8258165981421352660L;
+	private RangedList<T> base;
     protected LongRange range;
 
     public static <T> RangedListView<T> emptyView() {
