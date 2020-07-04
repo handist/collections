@@ -10,14 +10,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
-import java.util.stream.IntStream;
 
 
 import java.io.*;
 
 public class Bag<T> extends AbstractCollection<T> implements Serializable, MultiReceiver<T> {
 
-    ConcurrentLinkedDeque<List<T>> bags = new ConcurrentLinkedDeque<>();
+    /** Serial Version UID */
+	private static final long serialVersionUID = 5436363137856754303L;
+	ConcurrentLinkedDeque<List<T>> bags = new ConcurrentLinkedDeque<>();
 
     @Override
     public boolean contains(Object v) {
@@ -230,8 +231,8 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
     }
 
     /**
-     * Convert the bag into a list and clear the bag.
-     * @return
+     * Convert the bag into a list and clears the bag.
+     * @return the contents of the Bag as a list
      */
     public List<T> convertToList() {
         // TODO: prepare more smart implementation

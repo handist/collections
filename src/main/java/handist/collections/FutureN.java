@@ -9,22 +9,26 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 /**
- * FutureN receives a list of Future elements and waits for the termination of all the futures.
+ * {@link FutureN} receives a list of {@link Future} and waits for the 
+ * termination of all the futures. 
  * There are four variations of futureN.
- * <UL>
-*  <LI>When a list of `Future<?>` given
-*     <UL> <LI>`FutureN.OnlyWait` only waits for the termination of the given futures.</LI>
-*                <LI> `FutureN.ReturnGivenResult<R>` receives the result data structure `R result` and returns the result
-*                 when all the futures are finished.</LI>
-*      </UL>
-*  </LI>
-*  <LI> When a list of `Future<R>` given
-*      <UL><LI> `FutureN.ListResult<R>` receives List<Future<R>> and returns List<R>.</LI>
-*                <LI>  `FutureN.ConsumeResult<R>` receives List<Future<R> and Consumer<R>.
-*                It waits for the termination of the given futures and processes the result using the consumer. </LI>
-*      </UL>
-*  </LI>
-*  </UL>
+ * <ul>
+ * 	<li>When a list of <code>Future&lt;?&gt;</code> is given
+ *     <ul> 
+ *     	<li>{@link FutureN.OnlyWait} waits for the termination of the given futures.
+ *       <li>{@link FutureN.ReturnGivenResult} receives the result data structure `R result` and returns the result
+ *                 when all the futures are finished.
+ *     </ul>
+ *   <li> When a list of <code>Future&lt;R&gt;</code> is given
+ *     <ul>
+ *       <li>{@link FutureN.ListResults} receives a <code>List&lt;Future&lt;R&gt;&gt;</code> and returns a <code>List&lt;R&gt;</code>. 
+ *       <li>{@link FutureN.ConsumeResults} receives a <code>List&lt;Future&lt;R&gt;&gt;</code> and a <code>Consumer&lt;R&gt;</code>. 
+ *       	It waits for the termination of the given futures and processes the result using the provided consumer.
+ *     </ul>
+ *  </ul>
+ *  
+ *  @param <S> generic type of the group of {@link Future} this class will 
+ *   handle
  */
 public abstract class FutureN<S>  {
 	protected final List<Future<S>> futures;
@@ -87,12 +91,19 @@ public abstract class FutureN<S>  {
 	}
 
 	/**
-	 * `FutureN.ReturnGivenResult<R>` receives the result data structure `R result` and returns the result
-     *  when all the futures are finished.
-	 * @param <R> the type of the result type (This class implementes `Future<R>`)
+	 * {@link ReturnGivenResult} receives a list
+	 * of futures and an instance of the generic type R. This instance is 
+	 * returned in method {@link #get()} when all the futures have completed.
+	 * <p>
+	 * TODO explain a typical use-case.
+	 * 
+	 * @param <R> the type of the result type (This class implements <code>Future&lt;R&gt;</code>)
 	 */
+	@SuppressWarnings("rawtypes")
 	public static class ReturnGivenResult<R> extends FutureN implements Future<R> {
 		R result;
+
+		@SuppressWarnings("unchecked")
 		public ReturnGivenResult(List<Future<?>> futures, R r) {
 			super(futures);
 			result = r;
@@ -111,17 +122,20 @@ public abstract class FutureN<S>  {
 		}
 	}
 	/**
-	 * `FutureN.OnlyWait` only waits for the termination of the given futures.
-	 *
+	 * {@link OnlyWait} waits for the termination of all its given futures.
 	 */
 	public static class OnlyWait extends ReturnGivenResult<Void> {
 		public OnlyWait(List<Future<?>> futures) {
 			super(futures, null);
 		}
 	}
+
 	/**
-	 *  `FutureN.ListResult<R>` receives List<Future<R>> and returns List<R>.
-	 * @param <R>
+	 * {@link ListResults} receives a <code>List&lt;Future&lt;R&gt;&gt;</code> and 
+	 * returns a <code>List&lt;R&gt;</code> containing the result of each of the
+	 * given futures.
+	 * 
+	 * @param <R> type of the result of each parallel future. 
 	 */
 	public static class ListResults<R> extends FutureN<R> implements Future<List<R>> {
 		public ListResults(List<Future<R>> futures) {
@@ -154,11 +168,14 @@ public abstract class FutureN<S>  {
 			return result;
 		}
 	}
+
 	/**
-      * `FutureN.ConsumeResult<R>` receives List<Future<R> and Consumer<R>.
-      * It waits for the termination of the given futures and processes the result using the consumer.
+	 * {@link ConsumeResults} receives a <code>List&lt;Future&lt;R&gt;&gt;</code>
+	 * and a <code>Consumer&lt;R&gt;</code>. It waits for the termination of 
+	 * the given futures before giving the individual results of type <code>R</code>
+	 * to the consumer.
 	 *
-	 * @param <R>
+	 * @param <R> type of the result produced by the individual futures
 	 */
 	public static class ConsumeResults<R> extends FutureN<R> implements Future<Void> {
 

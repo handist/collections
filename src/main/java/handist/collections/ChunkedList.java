@@ -206,9 +206,12 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	}
 
 	/**
-	 * Return whether this chunked list contins the given chunk.
+	 * Return whether this chunked list contains the given chunk.
+	 * @param c the {@link RangedList} whose inclusion in this instance needs to
+	 * 	be checked
+	 * @return {@code true} if the provided {@link RangedList} is contained in 
+	 * 	this instance, {@code false} otherwise
 	 */
-
 	public boolean containsChunk(RangedList<T> c) {
 		return chunks.containsValue(c);
 	}

@@ -50,9 +50,9 @@ public class TestChunk implements Serializable {
 	 * elems[i] = new Element(i);
 	 * chunk 			: { elems[0], elems[1], ... elems[4] }
 	 * includeNullChunk : {  null   , elems[1], ... elems[4] }
-	 *  */
+	 */
 	@Before
-	public void setUp() throws Exception {
+	public void setUp() {
 		chunk = new Chunk<>(new LongRange(0, 5));
 		includeNullChunk = new Chunk<Element>(new LongRange(0, 5));
 		

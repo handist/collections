@@ -18,15 +18,17 @@ import apgas.util.GlobalID;
 /**
  * A Map data structure spread over the multiple places.
  * This class allows multiple values for one key.
+ * @param <K> type of the key used in the {@link DistMapList}
+ * @param <V> type of the elements contained in the lists to which the keys map
  */
-public class DistMapList<T,U> extends DistMap<T, List<U>> {
+public class DistMapList<K,V> extends DistMap<K, List<V>> {
 
 
     public Object writeReplace() throws ObjectStreamException {
         final TeamedPlaceGroup pg1 = placeGroup;
         final GlobalID id1 = id;
-            return new AbstractDistCollection.LazyObjectReference<DistMapList<T,U>>(pg1, id1, ()-> {
-                return new DistMapList<T,U>(pg1, id1);
+            return new AbstractDistCollection.LazyObjectReference<DistMapList<K,V>>(pg1, id1, ()-> {
+                return new DistMapList<K,V>(pg1, id1);
         });
     }
 
@@ -49,8 +51,8 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
     /**
      * Construct a DistMapList with given arguments.
      *
-     * @param placeGroup PlaceGroup.
-     * @param init the function used in initialization.
+     * @param placeGroup PlaceGroup
+     * @param id the global ID used to identify this instance
      */
     public DistMapList(TeamedPlaceGroup placeGroup, GlobalID id) {
         super(placeGroup, id);
@@ -60,24 +62,26 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
     //public void setupBranches(DistMap.Generator<T,List<U>> gen)
 
     /**
-     * Put a new value to the list of specified entry.
+     * Puts a new value to the list of specified entry.
      *
-     * @param key the key of the entry.
-     * @param value the new value.
+     * @param key the key of the entry
+     * @param value the new value to be added to the mappings of {@code key}.
+     * @return {@code true} as the collection is modified as a result (as 
+     * 	specified by {@link Collection#add(Object)}. 
      */
-    public boolean put1(T key, U value) {
-        List<U> list = data.get(key);
+    public boolean put1(K key, V value) {
+        List<V> list = data.get(key);
         if (list == null) {
-            list = new ArrayList<U>();
+            list = new ArrayList<V>();
             data.put(key, list);
         }
         return list.add(value);
     }
 
-    public boolean putForMove(T key, Collection<U> values) {
-        List<U> list = data.get(key);
+    public boolean putForMove(K key, Collection<V> values) {
+        List<V> list = data.get(key);
         if (list == null) {
-            list = new ArrayList<U>();
+            list = new ArrayList<V>();
             data.put(key, list);
         }
         // TODO we should check values!=null before transportation
@@ -87,54 +91,58 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
     }
 
     /**
-     * Remove the entry corresponding to the specified key.
+     * Removes the entry corresponding to the specified key.
      *
-     * @param key the key corresponding to the value.
+     * @param key the key whose mapping need to be removed from this instance
+     * @return the list of all the mappings to the specified key. 
      */
-    public List<U> removeForMove(T key) {
-        List<U> list = data.remove(key);
+    public List<V> removeForMove(K key) {
+        List<V> list = data.remove(key);
         return list;
     }
 
     /**
-     * Request that the specified value is put to the list corresponding to the given key when #sync is called.
+     * Request that the specified value be put in the list of the given key on 
+     * the specified place when the method {@link MoveManagerLocal#sync()} of 
+     * the specified {@link MoveManagerLocal} instance is called.
      *
      * @param key the key of the list.
-     * @param pl the destination place.
-     * @param mm MoveManagerLocal
+     * @param value the value to be added to the mapping of {@code key}
+     * @param pl the destination place
+     * @param mm MoveManagerLocal handling the data transfers
      */
     @SuppressWarnings("unchecked")
-    public void putAtSync(T key, U value, Place pl, MoveManagerLocal mm) {
-        DistMapList<T,U> toBranch = this; // using plh@AbstractCol
+    public void putAtSync(K key, V value, Place pl, MoveManagerLocal mm) {
+        DistMapList<K,V> toBranch = this; // using plh@AbstractCol
         Serializer serialize = (ObjectOutputStream s) -> {
             s.writeObject(key);
             s.writeObject(value);
         };
         DeSerializer deserialize = (ObjectInputStream ds) -> {
-            T k = (T)ds.readObject();
-            U v = (U)ds.readObject();
+            K k = (K)ds.readObject();
+            V v = (V)ds.readObject();
             toBranch.put1(k, v);
         };
         mm.request(pl, serialize, deserialize);
     }
 
     @SuppressWarnings("unchecked")
-    public void moveAtSync(T key, Place pl, MoveManagerLocal mm) {
+    public void moveAtSync(K key, Place pl, MoveManagerLocal mm) {
         if (pl.equals(here()))
             return;
         if (!containsKey(key))
             throw new RuntimeException("DistMapList cannot move uncontained entry: " + key);
-        final DistMapList<T, U> toBranch = this; // using plh@AbstractCol
+        final DistMapList<K, V> toBranch = this; // using plh@AbstractCol
         Serializer serialize = (ObjectOutputStream s) -> {
-            List<U> value = this.removeForMove(key);
+            List<V> value = this.removeForMove(key);
             // TODO we should check values!=null before transportation
             s.writeObject(key);
             s.writeObject(value);
         };
         DeSerializer deserialize = (ObjectInputStream ds) -> {
-            T k = (T) ds.readObject();
+            K k = (K) ds.readObject();
             // TODO we should check values!=null before transportation
-            List<U> v = (List<U>) ds.readObject();
+            List<V> v = (List<V>) ds.readObject();
             toBranch.putForMove(k, v);
         };
         mm.request(pl, serialize, deserialize);
@@ -145,22 +153,25 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
      *
      * @param op the operation.
      */
-    public void forEach1(BiConsumer<T, U> op) {
-        for (Map.Entry<T, List<U>> entry: data.entrySet()) {
-            T key = entry.getKey();
-            for (U value: entry.getValue()) {
+    public void forEach1(BiConsumer<K, V> op) {
+        for (Map.Entry<K, List<V>> entry: data.entrySet()) {
+            K key = entry.getKey();
+            for (V value: entry.getValue()) {
                 op.accept(key, value);
             }
         }
     }
 
     /**
-     * Apply the same operation onto the all elements including other places and create new DistMapList which consists of the results of the operation.
-     *
-     * @param op the operation.
+     * Apply the same operation on each element including remote places and 
+     * creates a new {@link DistMapList} with the same keys as this instance and
+     * the result of the mapping operation as values.
+     * 
+     * @param <W> the type of the result of the map operation
+     * @param op the mapping operation from {@code V} to {@code W}
      * @return a new DistMapList which consists of the result of the operation.
      */
-    public <S> DistMapList<T,S> map(BiFunction<T, U, S> op) {
+    public <W> DistMapList<K,W> map(BiFunction<K, V, W> op) {
         // TODO
         throw new Error("not implemented yet");
         /*return new DistMapList[T,S](placeGroup, team, () => {
@@ -179,7 +190,7 @@ public class DistMapList<T,U> extends DistMap<T, List<U>> {
     }
 
     /**
-     * Reduce the all local elements using given function.
+     * Reduce the all the local elements using given function.
      *
      * @param op the operation.
      * @param unit the zero value of the reduction.
