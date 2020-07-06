@@ -31,17 +31,6 @@
 			<build>
 				<plugins>
 					<plugin>
-						<artifactId>maven-surefire-plugin</artifactId>
-						<configuration>
-							<systemPropertyVariables>
-								<mpirunner.mpiImpl>mpj-multicore</mpirunner.mpiImpl>
-								<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
-								<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
-								<mpirunner.actionOnError>skip</mpirunner.actionOnError>
-							</systemPropertyVariables>
-						</configuration>
-					</plugin>
-					<plugin>
 						<artifactId>maven-failsafe-plugin</artifactId>
 						<configuration>
 							<systemPropertyVariables>
@@ -66,19 +55,6 @@
 			</dependencies>
 			<build>
 				<plugins>
-					<plugin>
-						<artifactId>maven-surefire-plugin</artifactId>
-						<configuration>
-							<systemPropertyVariables>
-								<mpirunner.mpiImpl>native</mpirunner.mpiImpl>
-								<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
-								<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
-								<mpirunner.javaLibraryPath>${env.MPIJAVA_LIB}</mpirunner.javaLibraryPath>
-								<mpirunner.mpirunOptions>--oversubscribe</mpirunner.mpirunOptions>
-								<mpirunner.parseNotifications>0</mpirunner.parseNotifications>
-							</systemPropertyVariables>
-						</configuration>
-					</plugin>
 					<plugin>
 						<artifactId>maven-failsafe-plugin</artifactId>
 						<configuration>
@@ -120,12 +96,12 @@
 		<dependency>
 			<groupId>com.github.handist</groupId> <!-- Corresponds to github.com/handist/apgas repository -->
 			<artifactId>apgas</artifactId>
-			<version>v1-mpijava</version>
+			<version>v1.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.handist</groupId>
 			<artifactId>mpi-junit</artifactId>
-			<version>master-SNAPSHOT</version>
+			<version>v1.2</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
