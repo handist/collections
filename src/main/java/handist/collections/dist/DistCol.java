@@ -1,5 +1,7 @@
 package handist.collections.dist;
 
+import static apgas.Constructs.*;
+
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
@@ -11,6 +13,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -20,8 +24,9 @@ import apgas.Place;
 import apgas.util.GlobalID;
 import handist.collections.ChunkedList;
 import handist.collections.LongRange;
+import handist.collections.MultiReceiver;
 import handist.collections.RangedList;
-import static apgas.Constructs.*;
+import handist.collections.function.LongTBiConsumer;
 
 /**
  * A class for handling objects at multiple places. It is allowed to add new
@@ -111,15 +116,11 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 
     /*
     // var proxy:(Long)=>T = null;
-    
+
     public def setProxy(proxy:(Long)=>T) {
     this.proxy = proxy;
     }
     */
-    /*
-     * public def containIndex(i: Long): Boolean { return
-     * getLocalInternal().data.containIndex(i); }
-     */
 
     public int size() {
         return data.size();
@@ -131,6 +132,14 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 
     public boolean contains(final T v) {
         return data.contains(v);
+    }
+
+    public boolean containsChunk(RangedList<T> c) {
+        return data.containsChunk(c);
+    }
+
+    public boolean containsIndex(long i) {
+        return data.containsIndex(i);
     }
 
     public boolean containsAll(final Collection<T> vs) {
@@ -152,7 +161,7 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
         Arrays.fill(locality, 1.0f);
     }
 
-    public void putChunk(final RangedList<T> c) throws Exception {
+    public void addChunk(final RangedList<T> c) throws Exception {
         ldist.add(c.getRange());
         data.addChunk(c);
     }
@@ -299,9 +308,9 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
             //	    System.out.println("[" + here.id + "] removeChunk " + original.getRange());
             removeChunk(original);
             //	    System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-            putChunk(splits.get(0)/*first*/);
+            addChunk(splits.get(0)/*first*/);
             //	    System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-            putChunk(splits.get(1)/*second*/);
+            addChunk(splits.get(1)/*second*/);
             chunksToMove.add(splits.get(0)/*first*/);
         }
 
@@ -311,11 +320,11 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
             //	    System.out.println("[" + here.id + "] removeChunk " + original.getRange());
             removeChunk(original);
             //	    System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-            putChunk(splits.get(0)/*first*/);
+            addChunk(splits.get(0)/*first*/);
             //	    System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-            putChunk(splits.get(1)/*second*/);
+            addChunk(splits.get(1)/*second*/);
             //	    System.out.println("[" + here.id + "] putChunk " + splits.third.getRange());
-            putChunk(splits.get(2)/*third*/);
+            addChunk(splits.get(2)/*third*/);
             chunksToMove.add(splits.get(1)/*second*/);
         }
 
@@ -325,9 +334,9 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
             //	    System.out.println("[" + here.id + "] removeChunk " + original.getRange());
             removeChunk(original);
             //	    System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-            putChunk(splits.get(0)/*first*/);
+            addChunk(splits.get(0)/*first*/);
             //	    System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-            putChunk(splits.get(1)/*second*/);
+            addChunk(splits.get(1)/*second*/);
             chunksToMove.add(splits.get(1)/*second*/);
         }
 
@@ -446,6 +455,22 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
         }
     }
 
+    public T get(long i) {
+        return data.get(i);
+    }
+
+    public long longSize() {
+        return data.longSize();
+    }
+
+    public int numChunks() {
+        return data.numChunks();
+    }
+
+    public T set(long i, T value) {
+        return data.set(i, value);
+    }
+
     public void moveAtSync(final RangedDistribution<LongRange> dist, final MoveManagerLocal mm) throws Exception {
         moveAtSync((LongRange range) -> {
             return dist.placeRanges(range);
@@ -470,7 +495,7 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
             result[placeGroup.rank(p)] += k.size();
         }
     }
-    
+
     /*
      * public def relocate(dist:RangedDistribution) { val mm = new
      * MoveManagerLocal(placeGroup,team); moveAtSync(dist, mm); mm.sync(); }
@@ -485,27 +510,48 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
         return data.ranges();
     }
 
-    // TODO
-    /*
-    public <U> void forEach(Pool pool, ReceiverHolder<U> receiverHolder, int nth, BiConsumer<T, Receiver<U>> op) {
-        if (isEmpty()) {
-            return;
-        }
-        ParallelAccumulator.execute(pool, getLocalInternal().data, receiverHolder, nth, op);
+    public Future<ChunkedList<T>> asyncforEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
+        return data.asyncforEach(pool, nthreads, action);
     }
-    
-    public <U> Condition asyncForEach(Pool pool, ReceiverHolder<U> receiverHolder, int nth, BiConsumer<T, Receiver<U>> op) {
-        if (isEmpty()) {
-            final val condition = new Condition();
-            condition.release();
-            return condition;
-        }
-        if (_debug_level > 5n) {
-    	    System.out.println("DistCol#asyncEach@ " + here + " data:" + data.ranges());
-        }
-        return ParallelAccumulator.executeAsync(pool, getLocalInternal().data, receiverHolder, nth, op);
+
+    public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads,
+            BiConsumer<? super T, Consumer<U>> action, MultiReceiver<U> toStore) {
+        return data.asyncForEach(pool, nthreads, action, toStore);
     }
-    */
+
+    public Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, LongTBiConsumer<? super T> action) {
+        return data.asyncForEach(pool, nthreads, action);
+    }
+
+    public <U> void forEach(BiConsumer<? super T, Consumer<U>> action, Collection<? super U> toStore) {
+        data.forEach(action, toStore);
+    }
+
+    public <U> void forEach(BiConsumer<? super T, Consumer<U>> action, Consumer<U> receiver) {
+        data.forEach(action, receiver);
+    }
+
+    public void forEach(Consumer<? super T> action) {
+        data.forEach(action);
+    }
+
+    public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<U>> action,
+            MultiReceiver<U> toStore) {
+        data.forEach(pool, nthreads, action, toStore);
+    }
+
+    public void forEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
+        data.forEach(pool, nthreads, action);
+    }
+
+    public void forEach(ExecutorService pool, int nthreads, LongTBiConsumer<? super T> action) {
+        data.forEach(pool, nthreads, action);
+    }
+
+    public void forEach(LongTBiConsumer<? super T> action) {
+        data.forEach(action);
+    }
+
     public void forEachChunk(Consumer<RangedList<T>> op) {
         data.forEachChunk(op);
     }

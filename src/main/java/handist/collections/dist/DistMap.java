@@ -9,10 +9,10 @@ import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -227,7 +227,7 @@ public class DistMap<K, V> extends AbstractDistCollection {
      * Return true if the specified entry is exist at local.
      *
      * @param key a key.
-     * 
+     *
      * @return true or false.
      */
     public boolean containsKey(K key) {
@@ -378,6 +378,18 @@ public class DistMap<K, V> extends AbstractDistCollection {
     public void relocate(Function<K,Place> rule) throws Exception {
         relocate(rule, new MoveManagerLocal(placeGroup));
     }
+
+    public void relocate(Distribution<T> rule, MoveManagerLocal mm) throws Exception {
+        for (T key: data.keySet()) {
+            Place place = rule.place(key);
+            moveAtSync(key, place, mm);
+        }
+        mm.sync();
+    }
+    public void relocate(Distribution<T> rule) throws Exception {
+        relocate(rule, new MoveManagerLocal(placeGroup));
+    }
+
     boolean debugPrint() { return true; }
 
     /*
@@ -399,9 +411,9 @@ public class DistMap<K, V> extends AbstractDistCollection {
             System.out.println(here() + " data.size() : " + size());
             System.out.println(here() + " balance.check3");
         }
-    
+
     }*/
-    
+
 
     // TODO different naming convention of balance methods with DistMap
 
