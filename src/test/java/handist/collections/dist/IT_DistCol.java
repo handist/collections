@@ -73,7 +73,7 @@ public class IT_DistCol implements Serializable {
 				for (long j = rangeBegin; j < rangeEnd; j++) {
 					c.set(j, "" + j + "/" + i);
 				}
-				distCol.putChunk(c);
+				distCol.addChunk(c);
 				rangeBegin = rangeBegin + rangeSize + rangeSkip;
 			}
 		} catch (Exception e) {
@@ -433,7 +433,7 @@ public class IT_DistCol implements Serializable {
 				for (long j = rangeBegin; j < rangeEnd; j++) {
 					c.set(j, "" + j + "/" + i);
 				}
-				distCol.putChunk(c);
+				distCol.addChunk(c);
 				rangeBegin = rangeBegin + rangeSize + rangeSkip;
 			}
 		} catch (Exception e) {
