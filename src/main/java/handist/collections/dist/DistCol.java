@@ -37,7 +37,7 @@ import handist.collections.function.LongTBiConsumer;
  *  <li>There is only one load balancing method: the method flattens the number of
  * elements of the all places.
  * </ul>
- * 
+ *
  * @param <T> the type of elements handled by this {@link DistCol}
  */
 public class DistCol<T> extends AbstractDistCollection /* implements List[T], ManagedDistribution[LongRange] */ {
@@ -56,10 +56,10 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
     }
 
     /**
-     * Create a new DistCol. All the hosts participating in the distributed 
-     * computation are susceptible to handle the created instance. This 
-     * constructor is equivalent to calling {@link #DistCol(TeamedPlaceGroup)} 
-     * with {@link TeamedPlaceGroup#getWorld()} as argument. 
+     * Create a new DistCol. All the hosts participating in the distributed
+     * computation are susceptible to handle the created instance. This
+     * constructor is equivalent to calling {@link #DistCol(TeamedPlaceGroup)}
+     * with {@link TeamedPlaceGroup#getWorld()} as argument.
      */
     public DistCol() {
         this(TeamedPlaceGroup.getWorld());
@@ -510,8 +510,9 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
         return data.ranges();
     }
 
-    public Future<ChunkedList<T>> asyncforEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
-        return data.asyncforEach(pool, nthreads, action);
+
+    public Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
+        return data.asyncForEach(pool, nthreads, action);
     }
 
     public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads,
