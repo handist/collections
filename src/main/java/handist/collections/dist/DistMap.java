@@ -27,7 +27,7 @@ import mpi.MPIException;
 
 /**
  * A Map data structure spread over the multiple places.
- * 
+ *
  * @param <K> type of the key used in the {@link DistMap}
  * @param <V> type of the value mapped to each key in the {@link DistMap}
  */
@@ -58,7 +58,7 @@ public class DistMap<K, V> extends AbstractDistCollection {
     /**
      * Construct a DistMap with the given argument.
      *
-     * @param pg the group of hosts that are susceptible to manipulate this 
+     * @param pg the group of hosts that are susceptible to manipulate this
      *  {@link DistMap}
      */
     public DistMap(TeamedPlaceGroup pg) {
@@ -112,9 +112,9 @@ public class DistMap<K, V> extends AbstractDistCollection {
      *
      * @param key   the key of the new entry.
      * @param value the value of the new entry.
-     * @return the previous value associated with {@code key}, or 
-     * {@code null} if there was no mapping for {@code key}.(A {@code null} 
-     * return can also indicate that the map previously associated {@code null} 
+     * @return the previous value associated with {@code key}, or
+     * {@code null} if there was no mapping for {@code key}.(A {@code null}
+     * return can also indicate that the map previously associated {@code null}
      * with {@code key}.)
      */
     public V put(K key, V value) {
@@ -137,7 +137,7 @@ public class DistMap<K, V> extends AbstractDistCollection {
      * Remove the entry corresponding to the specified key.
      *
      * @param key the key corresponding to the value.
-     * @return the previous value associated with the key, or {@code null} if 
+     * @return the previous value associated with the key, or {@code null} if
      * 	there was no existing mapping (or the key was mapped to {@code null})
      */
     public V remove(K key) {
@@ -157,11 +157,11 @@ public class DistMap<K, V> extends AbstractDistCollection {
     /**
      * Apply the same operation on the all elements including remote places and
      * creates a new {@link DistMap} with the same keys as this instance and the
-     * result of the mapping operation as values. 
-     * 
+     * result of the mapping operation as values.
+     *
      * @param <W> result type of mapping operation
-     * @param op the map operation from type <code>V</code> to <code>W</code> 
-     * @return a DistMap from <code>K</code> to <code>W</code> built from 
+     * @param op the map operation from type <code>V</code> to <code>W</code>
+     * @return a DistMap from <code>K</code> to <code>W</code> built from
      *  applying the mapping operation on each element of this instance
      */
     public <W> DistMap<K, W> map(Function<V, W> op) {
@@ -379,14 +379,14 @@ public class DistMap<K, V> extends AbstractDistCollection {
         relocate(rule, new MoveManagerLocal(placeGroup));
     }
 
-    public void relocate(Distribution<T> rule, MoveManagerLocal mm) throws Exception {
-        for (T key: data.keySet()) {
+    public void relocate(Distribution<K> rule, MoveManagerLocal mm) throws Exception {
+        for (K key: data.keySet()) {
             Place place = rule.place(key);
             moveAtSync(key, place, mm);
         }
         mm.sync();
     }
-    public void relocate(Distribution<T> rule) throws Exception {
+    public void relocate(Distribution<K> rule) throws Exception {
         relocate(rule, new MoveManagerLocal(placeGroup));
     }
 
