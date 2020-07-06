@@ -1,3 +1,12 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
@@ -22,12 +31,15 @@ import mpi.MPIException;
 /**
  * A class for handling objects at multiple places.
  * It is allowed to add new elements dynamically.
- * This class provides the method for load balancing.
- *
- * Note: In the current implementation, there are some limitations.
- *
- * o There is only one load balancing method.
- *   The method flattens the number of elements of the all places.
+ * This class provides methods for load balancing.
+ * <p>
+ * Note: In its current implementation, there are some limitations.
+ * <ul>
+ * 	<li>There is only one load balancing method
+ *  <li>The method flattens the number of elements of the all places
+ * </ul>
+ * 
+ * @param <T> type of the elements handled by the {@link DistBag}.
  */
 public class DistBag<T> extends AbstractDistCollection /* implements Container[T], ReceiverHolder[T] */{
     private static int _debug_level = 5;
@@ -61,8 +73,7 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
     /**
      * Create a new DistBag using the given arguments.
      *
-     * @param placeGroup a PlaceGroup.
-     * @param team a Team.
+     * @param placeGroup the places susceptible to interact with this instance.
      */
     public DistBag(TeamedPlaceGroup placeGroup) {
         super(placeGroup);
@@ -90,23 +101,22 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
      * Add new element.
      *
      * @param v a new element.
+     * @return {@code true} if the instance changed as a result of the call
      */
     public boolean add(T v) {
         return data.add(v);
     }
 
     /**
-     * Add all elements int the given list.
+     * Add all the elements to this instance.
      *
-     * @param list the list.
+     * @param elements the elements to add to te {@link DistBag}
+     * @return {@code true} if the instance changed as a result of the call
      */
-    public boolean addAll(Collection<T> list) {
-        return this.data.addAll(list);
+    public boolean addAll(Collection<T> elements) {
+        return data.addAll(elements);
     }
 
-    /**
-     * Remove a element at the local storage.
-     */
     public T remove() {
         return data.remove();
     }

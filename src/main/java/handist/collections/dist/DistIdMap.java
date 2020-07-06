@@ -1,3 +1,12 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
@@ -17,9 +26,11 @@ import apgas.Place;
 import apgas.util.GlobalID;
 
 /**
- * Distributed Collection like Map[Long,Value].
+ * Distributed Map using {@link Long} as key and type <code>V</code> as value. 
+ * 
+ *  @param <V> the type of the value mappings of this instance 
  */
-public class DistIdMap<T> extends DistMap<Long, T>
+public class DistIdMap<V> extends DistMap<Long, V>
 //TODO
 /* implements ManagedDistribution[Long] */
 {
@@ -35,8 +46,8 @@ public class DistIdMap<T> extends DistMap<Long, T>
     public Object writeReplace() throws ObjectStreamException {
         final TeamedPlaceGroup pg1 = placeGroup;
         final GlobalID id1 = id;
-            return new AbstractDistCollection.LazyObjectReference<DistIdMap<T>>(pg1, id1, ()-> {
-                return new DistIdMap<T>(pg1, id1);
+            return new AbstractDistCollection.LazyObjectReference<DistIdMap<V>>(pg1, id1, ()-> {
+                return new DistIdMap<V>(pg1, id1);
         });
     }
 
@@ -88,7 +99,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
      * @param id a Long type value.
      * @return the corresponding value of the specified id.
      */
-    public T get(long id) {
+    public V get(long id) {
         return data.get(id);
     }
 
@@ -98,7 +109,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
      * @param id a Long type value.
      * @param value a value.
      */
-    public T put(long id, T value) throws Exception {
+    public V put(long id, V value) throws Exception {
         if (data.containsKey(id)) {
             return data.put(id, value);
         }
@@ -106,7 +117,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
         return data.put(id, value);
     }
 
-    private T putForMove(long key, byte mType, T value) throws Exception {
+    private V putForMove(long key, byte mType, V value) throws Exception {
         switch (mType) {
         case DistManager.MOVE_NEW:
             ldist.moveInNew(key);
@@ -130,12 +141,12 @@ public class DistIdMap<T> extends DistMap<Long, T>
      *
      * @param id a Long type value.
      */
-    public T remove(long id) {
+    public V remove(long id) {
         ldist.remove(id);
         return super.remove(id);
     }
 
-    private T removeForMove(long id) {
+    private V removeForMove(long id) {
         return data.remove(id);
     }
 
@@ -176,7 +187,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
      * @param id a Long type value.
      * @param op the operation.
      */
-    public void execAt(long id, SerializableConsumer<T> op) {
+    public void execAt(long id, SerializableConsumer<V> op) {
         Place place = getPlace(id);
         if (place.equals(here())) {
             op.accept(data.get(id));
@@ -196,9 +207,9 @@ public class DistIdMap<T> extends DistMap<Long, T>
         if (dest.equals(here()))
             return;
 
-        final DistIdMap<T> toBranch = this;
+        final DistIdMap<V> toBranch = this;
         Serializer serialize = (ObjectOutputStream s) -> {
-            T value = this.removeForMove(key);
+            V value = this.removeForMove(key);
             byte mType = ldist.moveOut(key, dest);
             s.writeLong(key);
             s.writeByte(mType);
@@ -207,7 +218,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
         DeSerializer deserialize = (ObjectInputStream ds) -> {
             long k = ds.readLong();
             byte mType = ds.readByte();
-            T v = (T) ds.readObject();
+            V v = (V) ds.readObject();
             if (_debug_level > 5) {
                 System.err.println("[" + here() + "] putForMove key: " + k + " keyType: " + mType + " value: " + v);
             }
@@ -220,12 +231,12 @@ public class DistIdMap<T> extends DistMap<Long, T>
     @SuppressWarnings("unchecked")
     public void moveAtSync(Collection<Long> keys, Place dest, MoveManagerLocal mm) {
         if (dest.equals(here())) return;
-        final DistIdMap<T> collection = this;
+        final DistIdMap<V> collection = this;
         Serializer serialize = (ObjectOutputStream s) -> {
             int size = keys.size();
             s.writeInt(size);
             for (Long key: keys) {
-                T value = collection.removeForMove(key);
+                V value = collection.removeForMove(key);
                 byte mType = ldist.moveOut(key, dest);
                 s.writeLong(key);
                 s.writeByte(mType);
@@ -237,7 +248,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
             for (int i =0; i<size; i++) {
                 long key = ds.readLong();
                 byte mType = ds.readByte();
-                T value = (T)ds.readObject();
+                V value = (V)ds.readObject();
                 collection.putForMove(key, mType, value);
             }
         };
@@ -247,7 +258,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
     @SuppressWarnings("unchecked")
     public void moveAtSyncCount(int count, Place dest, MoveManagerLocal mm) {
         if (dest.equals(here())) return;
-        final DistIdMap<T> collection = this;
+        final DistIdMap<V> collection = this;
         Serializer serialize = (ObjectOutputStream s) -> {
             int size = count;
             s.writeInt(size);
@@ -255,7 +266,7 @@ public class DistIdMap<T> extends DistMap<Long, T>
             Object[] values = new Object[size];
 
             int i = 0;
-            for (Map.Entry<Long, T> entry: data.entrySet()) {
+            for (Map.Entry<Long, V> entry: data.entrySet()) {
                 if (i == size) break;
                 keys[i] = entry.getKey();
                 values[i] = entry.getValue();
@@ -287,16 +298,16 @@ public class DistIdMap<T> extends DistMap<Long, T>
             }
             for (int j=0; j<size; j++) {
                 byte mType = ds.readByte();
-                collection.putForMove(keys[j], mType, (T)values[j]);
+                collection.putForMove(keys[j], mType, (V)values[j]);
             }
         };
         mm.request(dest, serialize, deserialize);
     }
     @Override
     public void moveAtSync(Function<Long, Place> rule, MoveManagerLocal mm) {
-        final DistIdMap<T> collection = this;
+        final DistIdMap<V> collection = this;
         HashMap<Place, ArrayList<Long>> keysToMove = new HashMap<>();
-        collection.forEach((Long key, T value) -> {
+        collection.forEach((Long key, V value) -> {
             Place destination = rule.apply(key);
             if (!keysToMove.containsKey(destination)) {
                 keysToMove.put(destination, new ArrayList<Long>());

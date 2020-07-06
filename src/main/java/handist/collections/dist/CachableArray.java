@@ -1,3 +1,12 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
@@ -27,6 +36,8 @@ import mpi.MPIException;
  * o The first place of the PlaceGroup is selected as the master place
  * automatically. o To add any new elements is not allowed. The elements are
  * assigned only in the construction.
+ * 
+ * @param <T> type of the elements handled by the {@link CachableArray}
  */
 public class CachableArray<T> extends PlaceLocalObject implements List<T> {
     protected transient ArrayList<T> data;
@@ -37,9 +48,9 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T> {
      * Create a new CacheableArray using the given list. data must not be shared
      * with others.
      *
-     * @param data
-     * @param placeGroup
-     * @param master
+     * @param placeGroup group of hosts suceptible to manipulate this instance
+     * @param master the "master" of the Cachable array
+     * @param data the initial data to create this CachableArray with
      */
     protected CachableArray(TeamedPlaceGroup placeGroup, Place master, ArrayList<T> data) {
         this.data = data;
@@ -48,14 +59,14 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T> {
     }
 
     /**
-     * Create a new CacheableArray using the given arguments. The elements of new
-     * CacheableArray and given collection is the same. The proxies are also set in
-     * the construction.
-     *
-     * @param placeGroup a PlaceGroup.
-     * @param team       a Team.
-     * @param indexed    an instance of Indexed that is used for initializing the
-     *                   elements.
+     * Create a new CacheableArray using the given arguments. The elements of the 
+     * newly created CacheableArray and the given collection will be identical. 
+     * The proxies are also prepared as part of the initialization.
+     * 
+     * @param <T> type of the elements contained in the instance to create
+     * @param pg {@link TeamedPlaceGroup} on which the {@link CachableArray} will be prepared
+     * @param data initial content to be placed in the {@link CachableArray}
+     * @return the handle to the local instance of the {@link CachableArray}
      */
     public static <T> CachableArray<T> make(final TeamedPlaceGroup pg, List<T> data) {
         final Place master = here();
@@ -65,23 +76,27 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T> {
     }
 
     /**
-     * Return the PlaceGroup.
+     * Return the PlaceGroup on which this instance was created.
+     * @return the {@link TeamedPlaceGroup} on which this instance was replicated
      */
     public TeamedPlaceGroup placeGroup() {
         return placeGroup;
     }
 
     /**
-     * Broadcast from master place to proxy place. Packing elements using the
-     * specified function. It is assumed that type U is declared as struct and it
-     * has no references.
+     * Broadcast from master place to proxy place, packing elements using the
+     * specified function. It is assumed that the type U is declared as a struct
+     * and that it does not contain any reference.
+     * <p>
+     * Note: Currently, this method is implemented in too simple way.
      *
-     * Note: Now, this method is implemented in too simple way.
-     *
-     * @param team   a Team used in broadcast the packed data.
-     * @param pack   a function which packs the elements of master node.
+     * @param <U> type used to represent the elements of this instance and that 
+     * 	is going to be transfered to remote hosts. In the implementation of the
+     * 	<em>pack</em> and <code>unpack</code>, the programmer may choose to use
+     * 	T, but this allows any other custom type to be used.
+     * @param pack   a function which packs the elements of the master node.
      * @param unpack a function which unpacks the received data and inserts the
-     *               unpacked data to each proxy.
+     *               unpacked data into the instance local to each proxy.
      */
     @SuppressWarnings("unchecked")
     public <U> void broadcast(Function<T, U> pack, BiConsumer<T, U> unpack) {

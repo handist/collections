@@ -1,3 +1,12 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
 package handist.collections;
 
 import java.util.AbstractCollection;
@@ -9,28 +18,19 @@ import java.util.ListIterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.IntStream;
 
 import java.io.*;
-import handist.collections.function.LTConsumer;
+import handist.collections.function.LongTBiConsumer;
 
 public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Serializable, List<T> {
 
-    private Object[] a;
+    /** Serial Version UID */
+	private static final long serialVersionUID = -7691832846457812518L;
+
+	private Object[] a;
 
     public LongRange range;
 
-    public static <T> Chunk<T> make(Collection<T> c, LongRange range, T v) {
-        Chunk<T> a = new Chunk<T>(range, v);
-        a.addAll(c);
-        return a;
-    }
-
-    public static <T> Chunk<T> make(Collection<T> c, LongRange range) {
-        Chunk<T> a = new Chunk<T>(range);
-        a.addAll(c);
-        return a;
-    }
 
     @Override
     public LongRange getRange() {
@@ -40,7 +40,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     @Override
     public boolean contains(Object v) {
         for (Object e : a) {
-            if (v == null ? e == null : e.equals(v)) {
+        	if (v == null ? e == null : v.equals(e)) {
                 return true;
             }
         }
@@ -83,16 +83,22 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         if (newRail == a) {
             return this;
         }
+        if (newRail.length == 0) {
+        	throw new ArrayIndexOutOfBoundsException();
+        }
         return new Chunk<>(newRange, newRail);
     }
 
     @Override
     public RangedList<T> subList(long begin, long end) {
-        long from = Math.max(begin, range.from);
-        long to = Math.min(end, range.to);
-        if (from > to) {
-            throw new ArrayIndexOutOfBoundsException();
+    	if(begin > end) {
+        	throw new IllegalArgumentException("Cannot obtain a sublist from " +
+        			begin + " to " + end);
         }
+    	if(begin < range.from || range.to < end) {
+    		throw new IllegalArgumentException();
+    	}
+    	
         if (begin == range.from && end == range.to) {
             return this;
         }
@@ -136,18 +142,16 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     @Override
     public Object[] toArray(LongRange newRange) {
-        long from = Math.max(range.from, newRange.from);
-        long to = Math.min(range.to, newRange.to);
-        if (from > to) {
-            throw new ArrayIndexOutOfBoundsException(); // Need boundary check
+        if(!range.contains(newRange)) {
+        	throw new ArrayIndexOutOfBoundsException();
         }
-        if (from == range.from && to == range.to) {
+        if (newRange.from == range.from && newRange.to == range.to) {
             return a;
         }
-        if (from == to) {
+        if (newRange.from == newRange.to) {
             return new Object[0];
         }
-        long newSize = (int) (newRange.to - newRange.from);
+        long newSize = (newRange.to - newRange.from);
         if (newSize > Config.maxChunkSize) {
             throw new IllegalArgumentException();
         }
@@ -157,49 +161,102 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         return newRail;
     }
 
-    // Constructor
-
+    /**
+     * Builds a Chunk with the given range and no mapping.
+     * <p>
+     * The given LongRange should have a strictly positive size. Giving a 
+     * {@link LongRange} instance with identical lower and upper bounds will
+     * result in a {@link IllegalArgumentException} being thrown.
+     * <p>
+     * If the {@link LongRange} provided has a range that exceeds 
+     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be
+     * be thrown. 
+     *   
+     * @param range the range of the chunk to build
+     * @throws IllegalArgumentException if a {@link Chunk} cannot be built with
+     * 	the provided range. 
+     */
     public Chunk(LongRange range) {
         long size = range.to - range.from;
         if (size > Config.maxChunkSize) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("The given range " + range + 
+            		" exceeds the maximum Chunk size " + Config.maxChunkSize);
+        } else if (size <= 0) {
+        	throw new IllegalArgumentException("Cannot build a Chunk with "
+        			+ "LongRange " + range + ", should have a strictly positive"
+        			+ " size");
         }
         a = new Object[(int) size];
         this.range = range;
     }
 
-    public Chunk(LongRange range, T v) {
-        long size = range.to - range.from;
-        if (size > Config.maxChunkSize) {
-            throw new IllegalArgumentException();
-        }
-        a = new Object[(int) size];
-        Arrays.fill(a, v);
-        this.range = range;
+    /**
+     * Builds a {@link Chunk} with the provided {@link LongRange} with each long
+     * in the provided range mapped to object t. 
+     * The given LongRange should have a strictly positive size. Giving a 
+     * {@link LongRange} instance with identical lower and upper bounds will
+     * result in a {@link IllegalArgumentException} being thrown.
+     * <p>
+     * If the {@link LongRange} provided has a range that exceeds 
+     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be
+     * be thrown. 
+     *   
+     * @param range the range of the chunk to build
+     * @param t initial mapping for every long in the provided range
+     * @throws IllegalArgumentException if a {@link Chunk} cannot be built with
+     * 	the provided range. 
+     */
+    public Chunk(LongRange range, T t) {
+    	this(range);
+    	// TODO Is this what we really want to do?
+    	// The mapping will be on the SAME OBJECT for every long in LongRange.
+    	// Don't we need a Generator<T> generator as argument and create an 
+    	// instance for each key with Arrays.setAll(a, generator) ?
+        Arrays.fill(a, t); 
+        
     }
 
-    public Chunk() {
-        // a = new Object[];
-        this.range = new LongRange(0, 1);
-        a = new Object[1];
-    }
-
+    /**
+     * Builds a {@link Chunk} with the provided {@link LongRange} and an initial
+     * mapping for each long in the object array. The provided {@link LongRange}
+     * and Object array should have the same size. An 
+     * {@link IllegalArgumentException} will be thrown otherwise.  
+     * <p>
+     * The given {@link LongRange} should have a strictly positive size. Giving a 
+     * {@link LongRange} instance with identical lower and upper bounds will
+     * result in a {@link IllegalArgumentException} being thrown.
+     * <p>
+     * If the {@link LongRange} provided has a range that exceeds 
+     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be
+     * be thrown. 
+     *   
+     * @param range the range of the chunk to build
+     * @param a array with the initial mapping for every long in the provided range
+     * @throws IllegalArgumentException if a {@link Chunk} cannot be built with
+     * 	the provided range and object array. 
+     */
     public Chunk(LongRange range, Object[] a) {
-        if (range == null)
-            throw new Error("This should not happen!");
+    	this(range);
+    	if (a.length != range.size()) {
+    		throw new IllegalArgumentException("The length of the provided "
+    				+ "array <" + a.length +"> does not match the size of the "
+    				+ "LongRange <" + range.size() + ">");
+    	}
+    	// TODO Do we check for objects in array a that are not of type T?
+    	// We can leave as is and let the code fail later in methods get and 
+    	// others where a ClassCastException should be thrown.  
         this.a = a;
-        this.range = range;
     }
 
     public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
         rangeCheck(from.getRange());
         if (range.size() > Integer.MAX_VALUE)
             throw new RuntimeException("[Chunk] number of elements cannot exceed Integer.MAX_VALUE.");
-        LTConsumer<S> consumer = (long index, S s) -> {
+        LongTBiConsumer<S> consumer = (long index, S s) -> {
             T r = func.apply(s);
             a[(int) (index - range.from)] = r;
         };
-        from.forEach(range, consumer);
+        from.forEach(consumer);
     }
 
     // iterator
@@ -291,7 +348,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         }
     }
 
-    public void forEach(LongRange range, final LTConsumer<? super T> action) {
+    public void forEach(LongRange range, final LongTBiConsumer<? super T> action) {
         rangeCheck(range);
         // IntStream.range(begin, end).forEach();
         for (long i = range.from; i < range.to; i++) {
@@ -314,34 +371,22 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
             return "[Chunk] in Construction";
         }
         StringBuilder sb = new StringBuilder();
-        sb.append("[" + range + "]");
+        sb.append("[" + range + "]:");
         int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
-        long c = 0;
-        for (long i = range.from; i < range.to; i++) {
-            if (c++ > 0) {
+        
+        for (long i = range.from, c = 0; i < range.to && c < sz; i++, c++) {
+            if (c > 0) {
                 sb.append(",");
             }
             sb.append("" + get(i));
-            if (c == sz) {
-                break;
-            }
+//            if (c == sz) {
+//                break;
+//            }
         }
         if (sz < size()) {
             sb.append("...(omitted " + (size() - sz) + " elements)");
         }
         return sb.toString();
-    }
-
-    public static void main(String[] args) {
-        long i = 5;
-        Chunk<Integer> c = new Chunk<>(new LongRange(10 * i, 11 * i));
-        System.out.println("prepare: " + c);
-        IntStream.range(0, (int) i).forEach(j -> {
-            int v = (int) (10 * i + j);
-            System.out.println("set@" + v);
-            c.set(10 * i + j, v);
-        });
-        System.out.println("Chunk :" + c);
     }
 
     private void writeObject(ObjectOutputStream out) throws IOException {
@@ -406,4 +451,20 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     public List<T> subList(int fromIndex, int toIndex) {
         throw new UnsupportedOperationException("[Chunk] does not support copy operation.");
     }
+    
+    /*
+    public static void main(String[] args) {
+        long i = 5;
+        Chunk<Integer> c = new Chunk<>(new LongRange(10 * i, 11 * i));
+        System.out.println("prepare: " + c);
+        IntStream.range(0, (int) i).forEach(j -> {
+            int v = (int) (10 * i + j);
+            System.out.println("set@" + v);
+            c.set(10 * i + j, v);
+        });
+        System.out.println("Chunk :" + c);
+        
+        c.toArray(new LongRange(0, Config.maxChunkSize));
+    }
+    */
 }

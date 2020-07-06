@@ -1,3 +1,12 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
@@ -9,10 +18,10 @@ import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -27,21 +36,24 @@ import mpi.MPIException;
 
 /**
  * A Map data structure spread over the multiple places.
+ *
+ * @param <K> type of the key used in the {@link DistMap}
+ * @param <V> type of the value mapped to each key in the {@link DistMap}
  */
-public class DistMap<T, U> extends AbstractDistCollection {
+public class DistMap<K, V> extends AbstractDistCollection {
 
     private static int _debug_level = 5;
 
     // TODO implements Relocatable
 
     // TODO not public
-    public HashMap<T, U> data;
+    public HashMap<K, V> data;
 
     public Object writeReplace() throws ObjectStreamException {
         final TeamedPlaceGroup pg1 = placeGroup;
         final GlobalID id1 = id;
-        return new AbstractDistCollection.LazyObjectReference<DistMap<T, U>>(pg1, id1, () -> {
-            return new DistMap<T, U>(pg1, id1);
+        return new AbstractDistCollection.LazyObjectReference<DistMap<K, V>>(pg1, id1, () -> {
+            return new DistMap<K, V>(pg1, id1);
         });
     }
 
@@ -55,7 +67,8 @@ public class DistMap<T, U> extends AbstractDistCollection {
     /**
      * Construct a DistMap with the given argument.
      *
-     * @param placeGroup PlaceGroup.
+     * @param pg the group of hosts that are susceptible to manipulate this
+     *  {@link DistMap}
      */
     public DistMap(TeamedPlaceGroup pg) {
         super(pg);
@@ -99,7 +112,7 @@ public class DistMap<T, U> extends AbstractDistCollection {
      * @param key the key corresponding to the value.
      * @return the value corresponding to the specified key.
      */
-    public U get(T key) {
+    public V get(K key) {
         return data.get(key);
     }
 
@@ -108,20 +121,24 @@ public class DistMap<T, U> extends AbstractDistCollection {
      *
      * @param key   the key of the new entry.
      * @param value the value of the new entry.
+     * @return the previous value associated with {@code key}, or
+     * {@code null} if there was no mapping for {@code key}.(A {@code null}
+     * return can also indicate that the map previously associated {@code null}
+     * with {@code key}.)
      */
-    public U put(T key, U value) {
+    public V put(K key, V value) {
         return data.put(key, value);
     }
 
-    private U putForMove(T key, U value) {
+    private V putForMove(K key, V value) {
         if (data.containsKey(key)) {
             throw new RuntimeException("DistMap cannot override existing entry: " + key);
         }
         return data.put(key, value);
     }
 
-    public boolean delete(T key) {
-        U result = data.remove(key);
+    public boolean delete(K key) {
+        V result = data.remove(key);
         return (result != null);
     }
 
@@ -129,8 +146,10 @@ public class DistMap<T, U> extends AbstractDistCollection {
      * Remove the entry corresponding to the specified key.
      *
      * @param key the key corresponding to the value.
+     * @return the previous value associated with the key, or {@code null} if
+     * 	there was no existing mapping (or the key was mapped to {@code null})
      */
-    public U remove(T key) {
+    public V remove(K key) {
         return data.remove(key);
     }
 
@@ -139,19 +158,22 @@ public class DistMap<T, U> extends AbstractDistCollection {
      *
      * @param op the operation.
      */
-    public void forEach(BiConsumer<T, U> op) {
+    public void forEach(BiConsumer<K, V> op) {
         if (!data.isEmpty())
             data.forEach(op);
     }
 
     /**
-     * Apply the same operation onto the all elements including other place and
-     * create a new DistMap which consists of the results of the operation.
+     * Apply the same operation on the all elements including remote places and
+     * creates a new {@link DistMap} with the same keys as this instance and the
+     * result of the mapping operation as values.
      *
-     * @param op the operation.
-     * @return a DistMap which consists of the results of the operation.
+     * @param <W> result type of mapping operation
+     * @param op the map operation from type <code>V</code> to <code>W</code>
+     * @return a DistMap from <code>K</code> to <code>W</code> built from
+     *  applying the mapping operation on each element of this instance
      */
-    public <S> DistMap<T, S> map(Function<U, S> op) {
+    public <W> DistMap<K, W> map(Function<V, W> op) {
         throw new Error("not supported yet");
         // TODO
         /*
@@ -168,20 +190,21 @@ public class DistMap<T, U> extends AbstractDistCollection {
      * @param unit the zero value of the reduction.
      * @return the result of the reduction.
      */
-    public U reduce(BiFunction<U, U, U> op, U unit) {
+    public V reduce(BiFunction<V, V, V> op, V unit) {
         return reduce(op, op, unit);
     }
 
     /**
      * Reduce the all elements including other place using the given operation.
      *
+     * @param <S> type of the result produced by the reduction operation
      * @param lop  the operation using in the local reduction.
      * @param gop  the operation using in the reduction of the results of the local
      *             reduction.
      * @param unit the zero value of the reduction.
      * @return the result of the reduction.
      */
-    public <S> S reduce(BiFunction<S, U, S> lop, BiFunction<S, S, S> gop, S unit) {
+    public <S> S reduce(BiFunction<S, V, S> lop, BiFunction<S, S, S> gop, S unit) {
         // TODO
         throw new Error("Not implemented yet.");
         /*
@@ -195,15 +218,16 @@ public class DistMap<T, U> extends AbstractDistCollection {
     /**
      * Reduce the all local elements using the given operation.
      *
-     * @param op   the operation using in the reduction.
-     * @param unit the zero value of the reduction.
-     * @return the result of the reduction.
+     * @param <S> type of the result produced by the reduction operation
+     * @param op   the operation used in the reduction
+     * @param unit the neutral element of the reduction operation
+     * @return the result of the reduction
      */
-    public <S> S reduceLocal(BiFunction<S, U, S> Fop, S unit) {
+    public <S> S reduceLocal(BiFunction<S, V, S> op, S unit) {
         // TODO may be build-in method for Map
         S accum = unit;
-        for (Map.Entry<T, U> entry : data.entrySet()) {
-            accum = Fop.apply(accum, entry.getValue());
+        for (Map.Entry<K, V> entry : data.entrySet()) {
+            accum = op.apply(accum, entry.getValue());
         }
         return accum;
     }
@@ -212,10 +236,10 @@ public class DistMap<T, U> extends AbstractDistCollection {
      * Return true if the specified entry is exist at local.
      *
      * @param key a key.
-     * 
+     *
      * @return true or false.
      */
-    public boolean containsKey(T key) {
+    public boolean containsKey(K key) {
         return data.containsKey(key);
     }
 
@@ -224,7 +248,7 @@ public class DistMap<T, U> extends AbstractDistCollection {
      *
      * @return the Set of local keys.
      */
-    public Set<T> keySet() {
+    public Set<K> keySet() {
         return data.keySet();
     }
 
@@ -233,7 +257,7 @@ public class DistMap<T, U> extends AbstractDistCollection {
      *
      * @return the Set of local entries.
      */
-    public Set<Map.Entry<T, U>> entrySet() {
+    public Set<Map.Entry<K, V>> entrySet() {
         return data.entrySet();
     }
 
@@ -245,33 +269,33 @@ public class DistMap<T, U> extends AbstractDistCollection {
      * @param mm  MoveManagerLocal
      */
     @SuppressWarnings("unchecked")
-    public void moveAtSync(T key, Place pl, MoveManagerLocal mm) {
+    public void moveAtSync(K key, Place pl, MoveManagerLocal mm) {
         if (pl.equals(Constructs.here()))
             return;
-        final DistMap<T, U> toBranch = this;
+        final DistMap<K, V> toBranch = this;
         Serializer serialize = (ObjectOutputStream s) -> {
-            U value = this.remove(key);
+            V value = this.remove(key);
             s.writeObject(key);
             s.writeObject(value);
         };
         DeSerializer deserialize = (ObjectInputStream ds) ->  {
-            T k = (T) ds.readObject();
-            U v = (U) ds.readObject();
+            K k = (K) ds.readObject();
+            V v = (V) ds.readObject();
             toBranch.putForMove(k, v);
         };
         mm.request(pl, serialize, deserialize);
     }
 
     @SuppressWarnings("unchecked")
-    public void moveAtSync(Collection<T> keys, Place pl, MoveManagerLocal mm) {
+    public void moveAtSync(Collection<K> keys, Place pl, MoveManagerLocal mm) {
         if (pl.equals(Constructs.here()))
             return;
-        final DistMap<T, U> collection = this;
+        final DistMap<K, V> collection = this;
         Serializer serialize = (ObjectOutputStream s) -> {
             int size = keys.size();
             s.writeInt(size);
-            for (T key : keys) {
-                U value = collection.remove(key);
+            for (K key : keys) {
+                V value = collection.remove(key);
                 s.writeObject(key);
                 s.writeObject(value);
             }
@@ -279,34 +303,34 @@ public class DistMap<T, U> extends AbstractDistCollection {
         DeSerializer deserialize = (ObjectInputStream ds) -> {
             int size = ds.readInt();
             for (int i = 1; i <= size; i++) {
-                T key = (T) ds.readObject();
-                U value = (U) ds.readObject();
+                K key = (K) ds.readObject();
+                V value = (V) ds.readObject();
                 collection.putForMove(key, value);
             }
         };
         mm.request(pl, serialize, deserialize);
     }
 
-    public void moveAtSync(Function<T, Place> rule, MoveManagerLocal mm) {
-        DistMap<T, U> collection = this;
-        HashMap<Place, List<T>> keysToMove = new HashMap<>();
-        collection.forEach((T key, U value) -> {
+    public void moveAtSync(Function<K, Place> rule, MoveManagerLocal mm) {
+        DistMap<K, V> collection = this;
+        HashMap<Place, List<K>> keysToMove = new HashMap<>();
+        collection.forEach((K key, V value) -> {
             Place destination = rule.apply(key);
             if (!keysToMove.containsKey(destination)) {
-                keysToMove.put(destination, new ArrayList<T>());
+                keysToMove.put(destination, new ArrayList<K>());
             }
             keysToMove.get(destination).add(key);
         });
-        for (Map.Entry<Place, List<T>> entry : keysToMove.entrySet()) {
+        for (Map.Entry<Place, List<K>> entry : keysToMove.entrySet()) {
             moveAtSync(entry.getValue(), entry.getKey(), mm);
         }
     }
 
-    private Collection<T> getNKeys(int count) {
+    private Collection<K> getNKeys(int count) {
         if (count == 0)
             return Collections.emptySet();
-        ArrayList<T> keys = new ArrayList<>();
-        for (T key : data.keySet()) {
+        ArrayList<K> keys = new ArrayList<>();
+        for (K key : data.keySet()) {
             keys.add(key);
             --count;
             if (count == 0)
@@ -321,8 +345,8 @@ public class DistMap<T, U> extends AbstractDistCollection {
     }
 
 
-    public void moveAtSync(Distribution<T> dist, MoveManagerLocal mm) {
-        Function<T, Place> rule = (T key) -> {
+    public void moveAtSync(Distribution<K> dist, MoveManagerLocal mm) {
+        Function<K, Place> rule = (K key) -> {
             return dist.place(key);
         };
         moveAtSync(rule, mm);
@@ -352,17 +376,29 @@ public class DistMap<T, U> extends AbstractDistCollection {
         }
     }
 
-    public void relocate(Function<T, Place> rule, MoveManagerLocal mm) throws Exception {
-        for (T key: data.keySet()) {
+    public void relocate(Function<K, Place> rule, MoveManagerLocal mm) throws Exception {
+        for (K key: data.keySet()) {
             Place place = rule.apply(key);
             moveAtSync(key, place, mm);
         }
         mm.sync();
     }
 
-    public void relocate(Function<T,Place> rule) throws Exception {
+    public void relocate(Function<K,Place> rule) throws Exception {
         relocate(rule, new MoveManagerLocal(placeGroup));
     }
+
+    public void relocate(Distribution<K> rule, MoveManagerLocal mm) throws Exception {
+        for (K key: data.keySet()) {
+            Place place = rule.place(key);
+            moveAtSync(key, place, mm);
+        }
+        mm.sync();
+    }
+    public void relocate(Distribution<K> rule) throws Exception {
+        relocate(rule, new MoveManagerLocal(placeGroup));
+    }
+
     boolean debugPrint() { return true; }
 
     /*
@@ -384,14 +420,14 @@ public class DistMap<T, U> extends AbstractDistCollection {
             System.out.println(here() + " data.size() : " + size());
             System.out.println(here() + " balance.check3");
         }
-    
+
     }*/
-    
+
 
     // TODO different naming convention of balance methods with DistMap
 
-    public void integrate(Map<T, U> src) {
-        for(Map.Entry<T,U> e: src.entrySet()) {
+    public void integrate(Map<K, V> src) {
+        for(Map.Entry<K,V> e: src.entrySet()) {
             put(e.getKey(), e.getValue());
         }
     }
@@ -410,7 +446,7 @@ public class DistMap<T, U> extends AbstractDistCollection {
         StringWriter out0 = new StringWriter();
         PrintWriter out = new PrintWriter(out0);
         out.println("at "+ here());
-        for(Map.Entry<T,U> e : data.entrySet()) {
+        for(Map.Entry<K,V> e : data.entrySet()) {
             out.println("key : "+e.getKey() + ", value : " + e.getValue());
         }
         out.close();

@@ -1,3 +1,12 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
@@ -26,10 +35,10 @@ public final class MoveManagerLocal {
 
 
     /**
-     * Construct a MoveManagerLocal with given arguments.
+     * Construct a MoveManagerLocal with the given arguments.
      *
-     * @param placeGroup PlaceGroup.
-     * @param team Team
+     * @param placeGroup the group hosts that will transfer objects between
+     * 	themselves using this instance.
      */
 
     public MoveManagerLocal(TeamedPlaceGroup placeGroup) {
@@ -60,7 +69,7 @@ public final class MoveManagerLocal {
     /**
      * Request to reset the Serializer at the specified place.
      *
-     * @param atPlace the target place.
+     * @param pl the target place.
      */
     public void reset(Place pl) {
         serializeListMap.get(pl).add((ObjectOutputStream s) -> {
@@ -142,6 +151,8 @@ public final class MoveManagerLocal {
 
     /**
      * Execute the all requests synchronously.
+     * @throws Exception if a runtime exception is thrown at any stage during 
+     *  the relocation
      */
     public void sync() throws Exception {
         CollectiveRelocator.all2allser(placeGroup, this);

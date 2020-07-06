@@ -1,3 +1,12 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
 package handist.collections.mpi;
 
 import java.io.ByteArrayInputStream;
@@ -22,8 +31,9 @@ import mpi.MPIException;
  * The {@link MPILauncherNoExit2} class implements a launcher for the apgas runtime using MPI. Programs should be run in
  * the following way:
  * <p>
- * <em>mpirun -np <nb hosts> -host <, seperated list of hosts> java -cp <: seperated list of jar> apgas.mpi.MPILauncher
- * <class with main to be launched on place 0> <arguments for said class></em>
+ * <em>mpirun -np &lt;nb hosts&gt; -host &lt; comma-seperated list of hosts&gt; 
+ * java -cp &lt;classpath&gt; apgas.mpi.MPILauncher &lt;main class to launch&gt;
+ * &lt;arguments for said class&gt;</em>
  * <p>
  * For instance, to launch the HelloWorld example with message "Hello" on 4 servers, a solution would be:
  * <p>

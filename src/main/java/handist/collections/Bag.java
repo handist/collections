@@ -1,3 +1,12 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
 package handist.collections;
 
 import java.util.AbstractCollection;
@@ -10,14 +19,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
-import java.util.stream.IntStream;
 
 
 import java.io.*;
 
 public class Bag<T> extends AbstractCollection<T> implements Serializable, MultiReceiver<T> {
 
-    ConcurrentLinkedDeque<List<T>> bags = new ConcurrentLinkedDeque<>();
+    /** Serial Version UID */
+	private static final long serialVersionUID = 5436363137856754303L;
+	ConcurrentLinkedDeque<List<T>> bags = new ConcurrentLinkedDeque<>();
 
     @Override
     public boolean contains(Object v) {
@@ -64,13 +74,12 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
     }
 
     public synchronized T remove() {
-        Iterator<List<T>> iter = bags.iterator();
         while (true) {
-            if (!iter.hasNext())
+            if (bags.isEmpty())
                 return null;
-            List<T> bag = iter.next();
+            List<T> bag = bags.getLast();
             if (bag.isEmpty()) {
-                iter.remove();
+                bags.removeLast();
             } else {
                 return bag.remove(bag.size() - 1);
             }
@@ -78,25 +87,18 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
     }
     
     public synchronized List<T> removeN(int count) {
-        ArrayList<T> result = new ArrayList<>(count);
-        Iterator<List<T>> iter = bags.iterator();
-        while(true) {
-            if(!iter.hasNext()) return null;
-            List<T> bag = iter.next();
-            if(bag.isEmpty()) {
-                iter.remove();
-            } else {
-                if (bag.size() < count) {
-                    result.addAll(bag);
-                    iter.remove();
-                } else {
-                    while (count > 0) {
-                        result.add(bag.remove(bag.size() - 1));
-                        count--;
-                    }
-                }
-            }
-        }
+        ArrayList<T> result = new ArrayList<T>(count);
+        while(count > 0) {
+        	if(bags.isEmpty())	return null;
+        	List<T> bag = bags.getLast();
+        	if(bag.isEmpty()) {
+        		bags.removeLast();
+        		continue;
+        	}
+        	result.add(bag.remove(bag.size() - 1)); 
+        	count--;
+        }        
+        return result;
     }
 
 
@@ -174,7 +176,7 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
                 f.get();
             } catch (InterruptedException | ExecutionException e) {
                 e.printStackTrace();
-                throw new RuntimeException("[ChunkedList] exception raised by worker threads.");
+                throw new RuntimeException("[Bag] exception raised by worker threads.");
             }
         }
     }
@@ -191,6 +193,7 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         return sb.toString();
     }
 
+    /*
     public static void main(String[] args) {
         long i = 5;
         Chunk<Integer> c = new Chunk<>(new LongRange(10 * i, 11 * i));
@@ -202,7 +205,8 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         });
         System.out.println("Chunk :" + c);
     }
-
+*/
+    
     private void writeObject(ObjectOutputStream out) throws IOException {
         // System.out.println("writeChunk:"+this);
         out.writeInt(size());
@@ -236,8 +240,8 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
     }
 
     /**
-     * Convert the bag into a list and clear the bag.
-     * @return
+     * Convert the bag into a list and clears the bag.
+     * @return the contents of the Bag as a list
      */
     public List<T> convertToList() {
         // TODO: prepare more smart implementation

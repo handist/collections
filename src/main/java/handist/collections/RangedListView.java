@@ -1,3 +1,12 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
 package handist.collections;
 
 import java.util.AbstractCollection;
@@ -6,12 +15,14 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.io.*;
-import handist.collections.function.LTConsumer;
+import handist.collections.function.LongTBiConsumer;
 
 
 public class RangedListView<T> extends AbstractCollection<T> implements RangedList<T>, Serializable {
 
-    private RangedList<T> base;
+    /** Serial Version UID */
+	private static final long serialVersionUID = 8258165981421352660L;
+	private RangedList<T> base;
     protected LongRange range;
 
     public static <T> RangedListView<T> emptyView() {
@@ -148,7 +159,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
     }
 
     @Override
-    public void forEach(LongRange range, LTConsumer<? super T> action) {
+    public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
         rangeCheck(range);        
         base.forEach(range, action);
     }
