@@ -23,6 +23,7 @@ junit_tests:
   script:
     - source /home/gitlab-runner/.profile
     - mvn $MAVEN_CLI_OPTS test
+    - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
   artifacts:
     when: always
     reports:
@@ -47,13 +48,13 @@ integration_tests:
       - target/failsafe-reports/TEST-*.xml
       - target/site/*
     expire_in: 1 week
-    
+
 javadoc:
   stage: report
-  script: 
+  script:
     - source /home/gitlab-runner/.profile
     - mvn $MAVEN_CLI_OPTS site
-  only: 
+  only:
     - develop
 
 publish:
@@ -71,5 +72,5 @@ publish:
     - git commit -m "${CI_COMMIT_MESSAGE}"
     - git remote set-url origin https://${GITHUB_USER}:${GITHUB_OAUTH}@github.com/handist/handistCollections.git
     - git push origin gh-pages
-  only: 
+  only:
     - master
