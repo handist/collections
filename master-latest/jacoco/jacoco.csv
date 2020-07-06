@@ -7,7 +7,7 @@ handistCollections,handist.collections,Chunk.It,0,101,0,6,0,20,0,14,0,11
 handistCollections,handist.collections,RangedList,153,74,9,1,20,14,12,6,7,6
 handistCollections,handist.collections,FutureN.OnlyWait,5,0,0,0,2,0,1,0,1,0
 handistCollections,handist.collections,LongRange,0,469,0,64,0,76,0,47,0,15
-handistCollections,handist.collections,Chunk,0,679,0,60,0,119,0,66,0,36
+handistCollections,handist.collections,Chunk,0,677,0,60,0,119,0,66,0,36
 handistCollections,handist.collections,LongRange.It,0,30,0,2,0,5,0,4,0,3
 handistCollections,handist.collections,ChunkedList.new Consumer() {...},0,15,0,0,0,3,0,2,0,2
 handistCollections,handist.collections,FutureN.ListResults,67,0,4,0,18,0,6,0,4,0
@@ -32,7 +32,7 @@ handistCollections,handist.collections.dist,LoadBalancer.ListBalancer,31,0,0,0,9
 handistCollections,handist.collections.dist,DistMapList,55,167,1,13,16,45,6,17,5,11
 handistCollections,handist.collections.dist,CachableArray,251,0,8,0,59,0,35,0,31,0
 handistCollections,handist.collections.dist,TeamedPlaceGroup,145,554,6,32,27,129,10,34,4,21
-handistCollections,handist.collections.dist,DistCol,671,381,38,27,124,94,56,27,33,17
+handistCollections,handist.collections.dist,DistCol,766,381,38,27,147,94,72,27,49,17
 handistCollections,handist.collections.dist,AbstractDistCollection.IFPair,9,0,0,0,4,0,1,0,1,0
 handistCollections,handist.collections.dist,AbstractDistCollection,667,32,50,0,118,10,37,3,12,3
 handistCollections,handist.collections.dist,DistManager,346,320,46,32,56,71,36,23,4,16
@@ -40,7 +40,7 @@ handistCollections,handist.collections.dist,LoadBalancer.MapBalancer,60,0,6,0,15
 handistCollections,handist.collections.dist,TeamedPlaceGroup.new MPILauncher.Plugin() {...},3,12,0,2,1,5,1,4,1,3
 handistCollections,handist.collections.dist,RangedDistributionLong,117,0,12,0,22,0,11,0,5,0
 handistCollections,handist.collections.dist,DistributionLong,113,0,6,0,22,0,10,0,7,0
-handistCollections,handist.collections.dist,DistMap,478,126,35,5,109,35,45,16,27,14
+handistCollections,handist.collections.dist,DistMap,511,126,37,5,117,35,48,16,29,14
 handistCollections,handist.collections.dist,DistCol.ChunkExtractMiddle,20,0,0,0,6,0,2,0,2,0
 handistCollections,handist.collections.dist,DistCol.ChunkExtractRight,15,0,0,0,5,0,2,0,2,0
 handistCollections,handist.collections.dist,DistIdMap,497,190,36,5,111,48,44,14,24,13

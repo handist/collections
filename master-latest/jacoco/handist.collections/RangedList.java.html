@@ -1,4 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RangedList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">RangedList.java</span></div><h1>RangedList.java</h1><pre class="source lang-java linenums">package handist.collections;
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RangedList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">RangedList.java</span></div><h1>RangedList.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
+package handist.collections;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -15,51 +24,51 @@ public interface RangedList&lt;T&gt; extends Iterable&lt;T&gt; {
 
     abstract boolean contains(Object o);
     default public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action, Consumer&lt;? super U&gt; receiver) {
-<span class="nc" id="L18">        forEach(getRange(), action, receiver);</span>
-<span class="nc" id="L19">    }</span>
+<span class="nc" id="L27">        forEach(getRange(), action, receiver);</span>
+<span class="nc" id="L28">    }</span>
 
     default public void forEach(Consumer&lt;? super T&gt; action) {
-<span class="fc" id="L22">        forEach(getRange(), action);</span>
-<span class="fc" id="L23">    };</span>
+<span class="fc" id="L31">        forEach(getRange(), action);</span>
+<span class="fc" id="L32">    };</span>
 
     default public &lt;U&gt; void forEach(LongRange range, BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
             Consumer&lt;? super U&gt; receiver) {
-<span class="nc bnc" id="L27" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
-<span class="nc" id="L28">            action.accept(get(i), receiver);</span>
+<span class="nc bnc" id="L36" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
+<span class="nc" id="L37">            action.accept(get(i), receiver);</span>
         }   
-<span class="nc" id="L30">    }</span>
+<span class="nc" id="L39">    }</span>
 
     default public void forEach(LongRange range, Consumer&lt;? super T&gt; action) {
-<span class="nc bnc" id="L33" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
-<span class="nc" id="L34">            action.accept(get(i));</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
+<span class="nc" id="L43">            action.accept(get(i));</span>
         }   
-<span class="nc" id="L36">    }</span>
+<span class="nc" id="L45">    }</span>
 
     default public void forEach(LongRange range, LongTBiConsumer&lt;? super T&gt; action) {
-<span class="nc bnc" id="L39" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
-<span class="nc" id="L40">            action.accept(i, get(i));</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
+<span class="nc" id="L49">            action.accept(i, get(i));</span>
         }   
-<span class="nc" id="L42">    }</span>
+<span class="nc" id="L51">    }</span>
     
     
     default public void forEach(LongTBiConsumer&lt;? super T&gt; action) {
-<span class="fc" id="L46">        forEach(getRange(), action);</span>
-<span class="fc" id="L47">    }</span>
+<span class="fc" id="L55">        forEach(getRange(), action);</span>
+<span class="fc" id="L56">    }</span>
 
     T get(long index);
 
     LongRange getRange();
 
     default public boolean isEmpty() {
-<span class="nc bnc" id="L54" title="All 2 branches missed.">        return getRange().size() == 0;</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">        return getRange().size() == 0;</span>
     }
 
     public Iterator&lt;T&gt; iteratorFrom(long i);
     long longSize();
     default public &lt;U&gt; RangedList&lt;U&gt; map(Function&lt;? super T, ? extends U&gt; func) {
-<span class="fc" id="L60">        Chunk&lt;U&gt; result = new Chunk&lt;&gt;(this.getRange());</span>
-<span class="fc" id="L61">        result.setupFrom(this, func);</span>
-<span class="fc" id="L62">        return result;</span>
+<span class="fc" id="L69">        Chunk&lt;U&gt; result = new Chunk&lt;&gt;(this.getRange());</span>
+<span class="fc" id="L70">        result.setupFrom(this, func);</span>
+<span class="fc" id="L71">        return result;</span>
     }
 
     // TODO
@@ -67,15 +76,15 @@ public interface RangedList&lt;T&gt; extends Iterable&lt;T&gt; {
     // those of ChunkedList
 
     default public &lt;U&gt; RangedList&lt;U&gt; map(LongRange range, Function&lt;? super T, ? extends U&gt; func) {
-<span class="nc" id="L70">        return this.subList(range.from, range.to).map(func);</span>
+<span class="nc" id="L79">        return this.subList(range.from, range.to).map(func);</span>
     }
 
     default public void rangeCheck(LongRange target) {
-<span class="pc bpc" id="L74" title="1 of 2 branches missed.">        if(!this.getRange().contains(target)) {</span>
-<span class="nc" id="L75">            throw new ArrayIndexOutOfBoundsException(</span>
-<span class="nc" id="L76">                &quot;[Chunk] range missmatch:&quot; + this.getRange() + &quot; must includes &quot; + target);</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        if(!this.getRange().contains(target)) {</span>
+<span class="nc" id="L84">            throw new ArrayIndexOutOfBoundsException(</span>
+<span class="nc" id="L85">                &quot;[Chunk] range missmatch:&quot; + this.getRange() + &quot; must includes &quot; + target);</span>
         }
-<span class="fc" id="L78">    }</span>
+<span class="fc" id="L87">    }</span>
 
     T set(long index, T value);
     
@@ -83,17 +92,17 @@ public interface RangedList&lt;T&gt; extends Iterable&lt;T&gt; {
     
     abstract public &lt;S&gt; void setupFrom(RangedList&lt;S&gt; from, Function&lt;? super S, ? extends T&gt; func);
     default public List&lt;RangedList&lt;T&gt;&gt; splitRange(long splitPoint) {
-<span class="fc" id="L86">        LongRange range = getRange();</span>
-<span class="fc" id="L87">        RangedList&lt;T&gt; rangedList1 = new RangedListView&lt;T&gt;(this, new LongRange(range.from, splitPoint));</span>
-<span class="fc" id="L88">        RangedList&lt;T&gt; rangedList2 = new RangedListView&lt;T&gt;(this, new LongRange(splitPoint, range.to));</span>
-<span class="fc" id="L89">        return Arrays.asList(rangedList1, rangedList2);</span>
+<span class="fc" id="L95">        LongRange range = getRange();</span>
+<span class="fc" id="L96">        RangedList&lt;T&gt; rangedList1 = new RangedListView&lt;T&gt;(this, new LongRange(range.from, splitPoint));</span>
+<span class="fc" id="L97">        RangedList&lt;T&gt; rangedList2 = new RangedListView&lt;T&gt;(this, new LongRange(splitPoint, range.to));</span>
+<span class="fc" id="L98">        return Arrays.asList(rangedList1, rangedList2);</span>
     }
     default public List&lt;RangedList&lt;T&gt;&gt; splitRange(long splitPoint1, long splitPoint2) {
-<span class="nc" id="L92">        LongRange range = getRange();</span>
-<span class="nc" id="L93">        RangedList&lt;T&gt; rangedList1 = new RangedListView&lt;T&gt;(this, new LongRange(range.from, splitPoint1));</span>
-<span class="nc" id="L94">        RangedList&lt;T&gt; rangedList2 = new RangedListView&lt;T&gt;(this, new LongRange(splitPoint1, splitPoint2));</span>
-<span class="nc" id="L95">        RangedList&lt;T&gt; rangedList3 = new RangedListView&lt;T&gt;(this, new LongRange(splitPoint2, range.to));</span>
-<span class="nc" id="L96">        return Arrays.asList(rangedList1, rangedList2, rangedList3);</span>
+<span class="nc" id="L101">        LongRange range = getRange();</span>
+<span class="nc" id="L102">        RangedList&lt;T&gt; rangedList1 = new RangedListView&lt;T&gt;(this, new LongRange(range.from, splitPoint1));</span>
+<span class="nc" id="L103">        RangedList&lt;T&gt; rangedList2 = new RangedListView&lt;T&gt;(this, new LongRange(splitPoint1, splitPoint2));</span>
+<span class="nc" id="L104">        RangedList&lt;T&gt; rangedList3 = new RangedListView&lt;T&gt;(this, new LongRange(splitPoint2, range.to));</span>
+<span class="nc" id="L105">        return Arrays.asList(rangedList1, rangedList2, rangedList3);</span>
     }
     /**
      * Provides a RangedList of the elements contained in this object from index
@@ -115,7 +124,7 @@ public interface RangedList&lt;T&gt; extends Iterable&lt;T&gt; {
     public RangedList&lt;T&gt; subList(long begin, long end);
 
     default public RangedList&lt;T&gt; subList(LongRange range) {
-<span class="fc" id="L118">        return subList(range.from, range.to);</span>
+<span class="fc" id="L127">        return subList(range.from, range.to);</span>
     };
     Object[] toArray();
     Object[] toArray(LongRange newRange);

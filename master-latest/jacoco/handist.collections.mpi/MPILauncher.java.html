@@ -1,4 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MPILauncher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.mpi</a> &gt; <span class="el_source">MPILauncher.java</span></div><h1>MPILauncher.java</h1><pre class="source lang-java linenums">package handist.collections.mpi;
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MPILauncher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.mpi</a> &gt; <span class="el_source">MPILauncher.java</span></div><h1>MPILauncher.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
+package handist.collections.mpi;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -42,23 +51,23 @@ final public class MPILauncher implements Launcher {
     public void beforeFinalize(int rank, Comm com) throws MPIException;
   }
 
-<span class="fc" id="L45">  static List&lt;Plugin&gt; plugins = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L54">  static List&lt;Plugin&gt; plugins = new ArrayList&lt;&gt;();</span>
   public static void registerPlugins(Plugin plugin) {
-<span class="pc bpc" id="L47" title="1 of 2 branches missed.">      if(verboseLauncher) System.err.println(&quot;[MPILauncher] &quot; + plugin.getName() + &quot; is registered.&quot;);</span>
-<span class="fc" id="L48">      plugins.add(plugin);</span>
-<span class="fc" id="L49">  }</span>
+<span class="pc bpc" id="L56" title="1 of 2 branches missed.">      if(verboseLauncher) System.err.println(&quot;[MPILauncher] &quot; + plugin.getName() + &quot; is registered.&quot;);</span>
+<span class="fc" id="L57">      plugins.add(plugin);</span>
+<span class="fc" id="L58">  }</span>
 
   public static void mpiCustomSetup(int rank, Comm world) throws MPIException {
-<span class="fc bfc" id="L52" title="All 2 branches covered.">    for(Plugin plugin: plugins) {</span>
-<span class="fc" id="L53">      plugin.init(rank, world);</span>
-<span class="fc" id="L54">    }</span>
-<span class="fc" id="L55">  }</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">    for(Plugin plugin: plugins) {</span>
+<span class="fc" id="L62">      plugin.init(rank, world);</span>
+<span class="fc" id="L63">    }</span>
+<span class="fc" id="L64">  }</span>
   public static void mpiCustomFinalize(int rank, Comm world) throws MPIException {
-<span class="fc bfc" id="L57" title="All 2 branches covered.">    for(Plugin plugin: plugins) {</span>
-<span class="fc" id="L58">      plugin.beforeFinalize(rank, world);</span>
-<span class="fc" id="L59">    }</span>
-<span class="fc" id="L60">    MPI.Finalize();</span>
-<span class="fc" id="L61">  }</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">    for(Plugin plugin: plugins) {</span>
+<span class="fc" id="L67">      plugin.beforeFinalize(rank, world);</span>
+<span class="fc" id="L68">    }</span>
+<span class="fc" id="L69">    MPI.Finalize();</span>
+<span class="fc" id="L70">  }</span>
 
 
   /** Identifier of this place */
@@ -74,8 +83,8 @@ final public class MPILauncher implements Launcher {
   /**
    * Constructs a new {@link MPILauncher} instance.
    */
-<span class="fc" id="L77">  public MPILauncher() {</span>
-<span class="fc" id="L78">  }</span>
+<span class="fc" id="L86">  public MPILauncher() {</span>
+<span class="fc" id="L87">  }</span>
 
   /**
    * Launches one process with the given command line at the specified host.
@@ -99,11 +108,11 @@ final public class MPILauncher implements Launcher {
   public Process launch(List&lt;String&gt; command, String host, boolean verbose)
       throws Exception {
 
-<span class="nc" id="L102">    System.err.println(&quot;[MPILauncher] Internal Error&quot;);</span>
-<span class="nc" id="L103">    mpiCustomFinalize(MPI.COMM_WORLD.Rank(), MPI.COMM_WORLD);</span>
-<span class="nc" id="L104">    System.exit(-1);</span>
+<span class="nc" id="L111">    System.err.println(&quot;[MPILauncher] Internal Error&quot;);</span>
+<span class="nc" id="L112">    mpiCustomFinalize(MPI.COMM_WORLD.Rank(), MPI.COMM_WORLD);</span>
+<span class="nc" id="L113">    System.exit(-1);</span>
 
-<span class="nc" id="L106">    return null;</span>
+<span class="nc" id="L115">    return null;</span>
   }
 
   /**
@@ -126,20 +135,20 @@ final public class MPILauncher implements Launcher {
   public void launch(int n, List&lt;String&gt; command, List&lt;String&gt; hosts,
       boolean verbose) throws Exception {
 
-<span class="pc bpc" id="L129" title="1 of 2 branches missed.">    if (n + 1 != commSize) {</span>
-<span class="nc" id="L130">      System.err.println(&quot;[MPILauncher] &quot; + Configuration.APGAS_PLACES</span>
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">    if (n + 1 != commSize) {</span>
+<span class="nc" id="L139">      System.err.println(&quot;[MPILauncher] &quot; + Configuration.APGAS_PLACES</span>
           + &quot; should be equal to number of MPI processes &quot; + commSize);
-<span class="nc" id="L132">      MPI.Finalize();</span>
-<span class="nc" id="L133">      System.exit(-1);</span>
+<span class="nc" id="L141">      MPI.Finalize();</span>
+<span class="nc" id="L142">      System.exit(-1);</span>
     }
 
-<span class="fc" id="L136">    final byte[] baCommand = serializeToByteArray(</span>
-<span class="fc" id="L137">        command.toArray(new String[command.size()]));</span>
-<span class="fc" id="L138">    final int[] msglen = new int[1];</span>
-<span class="fc" id="L139">    msglen[0] = baCommand.length;</span>
-<span class="fc" id="L140">    MPI.COMM_WORLD.Bcast(msglen, 0, 1, MPI.INT, 0);</span>
-<span class="fc" id="L141">    MPI.COMM_WORLD.Bcast(baCommand, 0, msglen[0], MPI.BYTE, 0);</span>
-<span class="fc" id="L142">  }</span>
+<span class="fc" id="L145">    final byte[] baCommand = serializeToByteArray(</span>
+<span class="fc" id="L146">        command.toArray(new String[command.size()]));</span>
+<span class="fc" id="L147">    final int[] msglen = new int[1];</span>
+<span class="fc" id="L148">    msglen[0] = baCommand.length;</span>
+<span class="fc" id="L149">    MPI.COMM_WORLD.Bcast(msglen, 0, 1, MPI.INT, 0);</span>
+<span class="fc" id="L150">    MPI.COMM_WORLD.Bcast(baCommand, 0, msglen[0], MPI.BYTE, 0);</span>
+<span class="fc" id="L151">  }</span>
 
   /**
    * Sets up the apgas runtime for it to wait for activities to be spawned on
@@ -150,29 +159,29 @@ final public class MPILauncher implements Launcher {
    */
   static void slave() throws Exception {
 
-<span class="fc" id="L153">    final int[] msglen = new int[1];</span>
-<span class="fc" id="L154">    MPI.COMM_WORLD.Bcast(msglen, 0, 1, MPI.INT, 0);</span>
-<span class="fc" id="L155">    final byte[] msgbuf = new byte[msglen[0]];</span>
-<span class="fc" id="L156">    MPI.COMM_WORLD.Bcast(msgbuf, 0, msglen[0], MPI.BYTE, 0);</span>
-<span class="fc" id="L157">    final String[] command = (String[]) deserializeFromByteArray(msgbuf);</span>
-<span class="pc bpc" id="L158" title="1 of 2 branches missed.">    if(verboseLauncher) {</span>
-<span class="nc" id="L159">	System.err.println(&quot;command@worker[&quot;+MPI.COMM_WORLD.Rank()+&quot;]: &quot; + java.util.Arrays.asList(command));</span>
+<span class="fc" id="L162">    final int[] msglen = new int[1];</span>
+<span class="fc" id="L163">    MPI.COMM_WORLD.Bcast(msglen, 0, 1, MPI.INT, 0);</span>
+<span class="fc" id="L164">    final byte[] msgbuf = new byte[msglen[0]];</span>
+<span class="fc" id="L165">    MPI.COMM_WORLD.Bcast(msgbuf, 0, msglen[0], MPI.BYTE, 0);</span>
+<span class="fc" id="L166">    final String[] command = (String[]) deserializeFromByteArray(msgbuf);</span>
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">    if(verboseLauncher) {</span>
+<span class="nc" id="L168">	System.err.println(&quot;command@worker[&quot;+MPI.COMM_WORLD.Rank()+&quot;]: &quot; + java.util.Arrays.asList(command));</span>
     }
-<span class="fc bfc" id="L161" title="All 2 branches covered.">    for (int i = 1; i &lt; command.length; i++) {</span>
-<span class="fc" id="L162">      final String term = command[i];</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">    for (int i = 1; i &lt; command.length; i++) {</span>
+<span class="fc" id="L171">      final String term = command[i];</span>
 
-<span class="fc bfc" id="L164" title="All 2 branches covered.">      if (term.startsWith(&quot;-D&quot;)) {</span>
-<span class="fc" id="L165">        final String[] kv = term.substring(2).split(&quot;=&quot;, 2);</span>
-<span class="pc bpc" id="L166" title="1 of 2 branches missed.">        if (verboseLauncher) {</span>
-<span class="nc" id="L167">          System.err.println(&quot;[&quot; + commRank + &quot;] setProperty \&quot;&quot; + kv[0]</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">      if (term.startsWith(&quot;-D&quot;)) {</span>
+<span class="fc" id="L174">        final String[] kv = term.substring(2).split(&quot;=&quot;, 2);</span>
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">        if (verboseLauncher) {</span>
+<span class="nc" id="L176">          System.err.println(&quot;[&quot; + commRank + &quot;] setProperty \&quot;&quot; + kv[0]</span>
               + &quot;\&quot; = \&quot;&quot; + kv[1] + &quot;\&quot;&quot;);
         }
-<span class="fc" id="L170">        System.setProperty(kv[0], kv[1]);</span>
+<span class="fc" id="L179">        System.setProperty(kv[0], kv[1]);</span>
       }
     }
 
-<span class="fc" id="L174">    GlobalRuntime.getRuntime();</span>
-<span class="fc" id="L175">  }</span>
+<span class="fc" id="L183">    GlobalRuntime.getRuntime();</span>
+<span class="fc" id="L184">  }</span>
 
   /**
    * Shuts down the local process launched using MPI.
@@ -180,13 +189,13 @@ final public class MPILauncher implements Launcher {
   @Override
   public void shutdown() {
     try {
-<span class="nc" id="L183">      MPI.Finalize();</span>
-<span class="nc" id="L184">    } catch (final MPIException e) {</span>
-<span class="nc" id="L185">      System.err.println(&quot;[MPILauncher] Error on Shutdown at rank &quot; + commRank);</span>
-<span class="nc" id="L186">      e.printStackTrace();</span>
-<span class="nc" id="L187">    }</span>
-<span class="nc" id="L188">    System.exit(0);</span>
-<span class="nc" id="L189">  }</span>
+<span class="nc" id="L192">      MPI.Finalize();</span>
+<span class="nc" id="L193">    } catch (final MPIException e) {</span>
+<span class="nc" id="L194">      System.err.println(&quot;[MPILauncher] Error on Shutdown at rank &quot; + commRank);</span>
+<span class="nc" id="L195">      e.printStackTrace();</span>
+<span class="nc" id="L196">    }</span>
+<span class="nc" id="L197">    System.exit(0);</span>
+<span class="nc" id="L198">  }</span>
 
   /**
    * Checks that all the processes launched are healthy.
@@ -198,7 +207,7 @@ final public class MPILauncher implements Launcher {
   @Override
   public boolean healthy() {
     // TODO
-<span class="fc" id="L201">    return true;</span>
+<span class="fc" id="L210">    return true;</span>
   }
 
   /**
@@ -210,12 +219,12 @@ final public class MPILauncher implements Launcher {
    * @see #intArrayToString(int[])
    */
   static int[] stringToIntArray(String src) {
-<span class="nc" id="L213">    final char[] charArray = src.toCharArray();</span>
-<span class="nc" id="L214">    final int[] intArray = new int[charArray.length];</span>
-<span class="nc bnc" id="L215" title="All 2 branches missed.">    for (int i = 0; i &lt; charArray.length; i++) {</span>
-<span class="nc" id="L216">      intArray[i] = charArray[i];</span>
+<span class="nc" id="L222">    final char[] charArray = src.toCharArray();</span>
+<span class="nc" id="L223">    final int[] intArray = new int[charArray.length];</span>
+<span class="nc bnc" id="L224" title="All 2 branches missed.">    for (int i = 0; i &lt; charArray.length; i++) {</span>
+<span class="nc" id="L225">      intArray[i] = charArray[i];</span>
     }
-<span class="nc" id="L218">    return intArray;</span>
+<span class="nc" id="L227">    return intArray;</span>
   }
 
   /**
@@ -227,12 +236,12 @@ final public class MPILauncher implements Launcher {
    * @see #stringToIntArray(String)
    */
   static String intArrayToString(int[] src) {
-<span class="nc" id="L230">    final char[] charArray = new char[src.length];</span>
-<span class="nc bnc" id="L231" title="All 2 branches missed.">    for (int i = 0; i &lt; src.length; i++) {</span>
-<span class="nc" id="L232">      charArray[i] = (char) src[i];</span>
+<span class="nc" id="L239">    final char[] charArray = new char[src.length];</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">    for (int i = 0; i &lt; src.length; i++) {</span>
+<span class="nc" id="L241">      charArray[i] = (char) src[i];</span>
     }
-<span class="nc" id="L234">    final String str = new String(charArray);</span>
-<span class="nc" id="L235">    return str;</span>
+<span class="nc" id="L243">    final String str = new String(charArray);</span>
+<span class="nc" id="L244">    return str;</span>
   }
 
   /**
@@ -246,10 +255,10 @@ final public class MPILauncher implements Launcher {
    * @see #deserializeFromByteArray(byte[])
    */
   static byte[] serializeToByteArray(Serializable obj) throws IOException {
-<span class="fc" id="L249">    final ByteArrayOutputStream baos = new ByteArrayOutputStream();</span>
-<span class="fc" id="L250">    final ObjectOutputStream oos = new ObjectOutputStream(baos);</span>
-<span class="fc" id="L251">    oos.writeObject(obj);</span>
-<span class="fc" id="L252">    return baos.toByteArray();</span>
+<span class="fc" id="L258">    final ByteArrayOutputStream baos = new ByteArrayOutputStream();</span>
+<span class="fc" id="L259">    final ObjectOutputStream oos = new ObjectOutputStream(baos);</span>
+<span class="fc" id="L260">    oos.writeObject(obj);</span>
+<span class="fc" id="L261">    return baos.toByteArray();</span>
   }
 
   /**
@@ -266,9 +275,9 @@ final public class MPILauncher implements Launcher {
    */
   static Object deserializeFromByteArray(byte[] barray)
       throws IOException, ClassNotFoundException {
-<span class="fc" id="L269">    final ByteArrayInputStream bais = new ByteArrayInputStream(barray);</span>
-<span class="fc" id="L270">    final ObjectInputStream ois = new ObjectInputStream(bais);</span>
-<span class="fc" id="L271">    return ois.readObject();</span>
+<span class="fc" id="L278">    final ByteArrayInputStream bais = new ByteArrayInputStream(barray);</span>
+<span class="fc" id="L279">    final ObjectInputStream ois = new ObjectInputStream(bais);</span>
+<span class="fc" id="L280">    return ois.readObject();</span>
   }
 
   /**
@@ -291,49 +300,49 @@ final public class MPILauncher implements Launcher {
    */
   public static void main(String[] args) throws Exception {
    
-<span class="fc" id="L294">    MPI.Init(args);</span>
-<span class="fc" id="L295">    commRank = MPI.COMM_WORLD.Rank();</span>
-<span class="fc" id="L296">    commSize = MPI.COMM_WORLD.Size();</span>
+<span class="fc" id="L303">    MPI.Init(args);</span>
+<span class="fc" id="L304">    commRank = MPI.COMM_WORLD.Rank();</span>
+<span class="fc" id="L305">    commSize = MPI.COMM_WORLD.Size();</span>
 
-<span class="fc" id="L298">    verboseLauncher = Boolean.parseBoolean(</span>
-<span class="fc" id="L299">        System.getProperty(Configuration.APGAS_VERBOSE_LAUNCHER, &quot;false&quot;));</span>
+<span class="fc" id="L307">    verboseLauncher = Boolean.parseBoolean(</span>
+<span class="fc" id="L308">        System.getProperty(Configuration.APGAS_VERBOSE_LAUNCHER, &quot;false&quot;));</span>
 
     
     //Determine is we are using MPJ, in which case the args will need to be adjusted
-<span class="fc" id="L303">    boolean isMPJ = false;</span>
+<span class="fc" id="L312">    boolean isMPJ = false;</span>
     try {
-<span class="nc" id="L305">      final Class&lt;?&gt; mpjdevCommClass = Class.forName(&quot;mpjdev.Comm&quot;);</span>
-<span class="nc bnc" id="L306" title="All 2 branches missed.">      isMPJ = (mpjdevCommClass != null);</span>
-<span class="fc" id="L307">    } catch (Exception e) {</span>
+<span class="nc" id="L314">      final Class&lt;?&gt; mpjdevCommClass = Class.forName(&quot;mpjdev.Comm&quot;);</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">      isMPJ = (mpjdevCommClass != null);</span>
+<span class="fc" id="L316">    } catch (Exception e) {</span>
       // Ignore any exception
-<span class="nc" id="L309">    }</span>
+<span class="nc" id="L318">    }</span>
     
-<span class="pc bpc" id="L311" title="1 of 2 branches missed.">    if (verboseLauncher) {</span>
-<span class="nc" id="L312">      System.err.println(&quot;[MPILaucnher] command: &quot; + java.util.Arrays.asList(args));	</span>
-<span class="nc" id="L313">      System.err.println(&quot;[MPILauncher] rank = &quot; + commRank);</span>
+<span class="pc bpc" id="L320" title="1 of 2 branches missed.">    if (verboseLauncher) {</span>
+<span class="nc" id="L321">      System.err.println(&quot;[MPILaucnher] command: &quot; + java.util.Arrays.asList(args));	</span>
+<span class="nc" id="L322">      System.err.println(&quot;[MPILauncher] rank = &quot; + commRank);</span>
     }
 
-<span class="pc bpc" id="L316" title="1 of 2 branches missed.">    if (args.length &lt; 1) {</span>
-<span class="nc" id="L317">      System.err.println(&quot;[MPILauncher] Error Main Class Required&quot;);</span>
-<span class="nc" id="L318">      MPI.Finalize();</span>
-<span class="nc" id="L319">      System.exit(0);</span>
+<span class="pc bpc" id="L325" title="1 of 2 branches missed.">    if (args.length &lt; 1) {</span>
+<span class="nc" id="L326">      System.err.println(&quot;[MPILauncher] Error Main Class Required&quot;);</span>
+<span class="nc" id="L327">      MPI.Finalize();</span>
+<span class="nc" id="L328">      System.exit(0);</span>
     }
 
     /*
      * Extracts the arguments destined for the main method of the specified
      * class.
      */
-<span class="pc bpc" id="L326" title="1 of 2 branches missed.">    final int offset = isMPJ?4:1;</span>
-<span class="fc" id="L327">    final String[] newArgs = new String[args.length - offset];</span>
-<span class="fc" id="L328">    System.arraycopy(args, offset, newArgs, 0, args.length - offset);</span>
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">    final int offset = isMPJ?4:1;</span>
+<span class="fc" id="L336">    final String[] newArgs = new String[args.length - offset];</span>
+<span class="fc" id="L337">    System.arraycopy(args, offset, newArgs, 0, args.length - offset);</span>
 
     // Sets the number of places according to the arguments given to `mpirun`
     // command
-<span class="fc" id="L332">    System.setProperty(Configuration.APGAS_PLACES, Integer.toString(commSize));</span>
+<span class="fc" id="L341">    System.setProperty(Configuration.APGAS_PLACES, Integer.toString(commSize));</span>
     // Sets the launcher to be of MPILauncher class. This will make the apgas
     // runtime use the MPILauncher shutdown method when the apgas shutdown
     // method is launched
-<span class="fc" id="L336">    System.setProperty(Config.APGAS_LAUNCHER, &quot;handist.collections.mpi.MPILauncher&quot;);</span>
+<span class="fc" id="L345">    System.setProperty(Config.APGAS_LAUNCHER, &quot;handist.collections.mpi.MPILauncher&quot;);</span>
 
     /*
      * If this place is the &quot;master&quot;, i.e. rank, launches the main method of the
@@ -341,40 +350,40 @@ final public class MPILauncher implements Launcher {
      * APGAS runtime and waits till asynchronous tasks are submitted to this
      * place.
      */
-<span class="fc bfc" id="L344" title="All 2 branches covered.">    if (commRank == 0) {</span>
+<span class="fc bfc" id="L353" title="All 2 branches covered.">    if (commRank == 0) {</span>
       try {
-<span class="fc" id="L346">        GlobalRuntime.getRuntime();</span>
-<span class="pc bpc" id="L347" title="1 of 2 branches missed.">        final Method mainMethod = Class.forName(args[isMPJ? 3:0]).getMethod(&quot;main&quot;,</span>
+<span class="fc" id="L355">        GlobalRuntime.getRuntime();</span>
+<span class="pc bpc" id="L356" title="1 of 2 branches missed.">        final Method mainMethod = Class.forName(args[isMPJ? 3:0]).getMethod(&quot;main&quot;,</span>
             String[].class);
-<span class="fc" id="L349">        final Object[] mainArgs = new Object[1];</span>
-<span class="fc" id="L350">        mainArgs[0] = newArgs;</span>
-<span class="fc" id="L351">        mpiCustomSetup(commRank, MPI.COMM_WORLD);</span>
-<span class="fc" id="L352">        mainMethod.invoke(null, mainArgs);</span>
-<span class="nc" id="L353">      } catch (final ClassNotFoundException e) {</span>
-<span class="nc" id="L354">        System.err.println(</span>
+<span class="fc" id="L358">        final Object[] mainArgs = new Object[1];</span>
+<span class="fc" id="L359">        mainArgs[0] = newArgs;</span>
+<span class="fc" id="L360">        mpiCustomSetup(commRank, MPI.COMM_WORLD);</span>
+<span class="fc" id="L361">        mainMethod.invoke(null, mainArgs);</span>
+<span class="nc" id="L362">      } catch (final ClassNotFoundException e) {</span>
+<span class="nc" id="L363">        System.err.println(</span>
             &quot;[MPILauncher] Error: Class &quot; + args[0] + &quot; could not be found&quot;);
-<span class="nc" id="L356">      } catch (final NoSuchMethodException e) {</span>
-<span class="nc" id="L357">        System.err.println(&quot;[MPILauncher] Error: Class &quot; + args[0]</span>
+<span class="nc" id="L365">      } catch (final NoSuchMethodException e) {</span>
+<span class="nc" id="L366">        System.err.println(&quot;[MPILauncher] Error: Class &quot; + args[0]</span>
             + &quot; does not have a main method&quot;);
-<span class="nc" id="L359">      } catch (final Exception e) {</span>
-<span class="nc" id="L360">        e.printStackTrace();</span>
-<span class="pc" id="L361">      }</span>
+<span class="nc" id="L368">      } catch (final Exception e) {</span>
+<span class="nc" id="L369">        e.printStackTrace();</span>
+<span class="pc" id="L370">      }</span>
     } else {
-<span class="pc bpc" id="L363" title="1 of 2 branches missed.">      Class&lt;?&gt; mainClass = Class.forName(args[isMPJ? 3:0]);</span>
-<span class="fc" id="L364">      slave();</span>
-<span class="fc" id="L365">      mpiCustomSetup(commRank,MPI.COMM_WORLD);</span>
+<span class="pc bpc" id="L372" title="1 of 2 branches missed.">      Class&lt;?&gt; mainClass = Class.forName(args[isMPJ? 3:0]);</span>
+<span class="fc" id="L373">      slave();</span>
+<span class="fc" id="L374">      mpiCustomSetup(commRank,MPI.COMM_WORLD);</span>
     }
 
     try {
-<span class="fc" id="L369">      mpiCustomFinalize(commRank, MPI.COMM_WORLD);</span>
+<span class="fc" id="L378">      mpiCustomFinalize(commRank, MPI.COMM_WORLD);</span>
       //MPI.Finalize();
-<span class="nc" id="L371">      System.exit(0);</span>
-<span class="nc" id="L372">    } catch (final MPIException e) {</span>
-<span class="nc" id="L373">      System.err.println(</span>
+<span class="nc" id="L380">      System.exit(0);</span>
+<span class="nc" id="L381">    } catch (final MPIException e) {</span>
+<span class="nc" id="L382">      System.err.println(</span>
           &quot;[MPILauncher] Error on Finalize - main method at rank &quot; + commRank);
-<span class="nc" id="L375">      e.printStackTrace();</span>
-<span class="nc" id="L376">    }</span>
+<span class="nc" id="L384">      e.printStackTrace();</span>
+<span class="nc" id="L385">    }</span>
 
-<span class="nc" id="L378">  }</span>
+<span class="nc" id="L387">  }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

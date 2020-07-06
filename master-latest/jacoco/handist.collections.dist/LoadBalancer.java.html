@@ -1,4 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoadBalancer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">LoadBalancer.java</span></div><h1>LoadBalancer.java</h1><pre class="source lang-java linenums">package handist.collections.dist;
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoadBalancer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">LoadBalancer.java</span></div><h1>LoadBalancer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
+package handist.collections.dist;
 
 
 import static apgas.Constructs.*;
@@ -23,7 +32,7 @@ import mpi.MPIException;
 //TODO not used now.
 // for internal use
 // this is a class for the load balancing
-<span class="nc bnc" id="L26" title="All 2 branches missed.">abstract class LoadBalancer {</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">abstract class LoadBalancer {</span>
 
     //private static Place tmpRoot = Place(0);
 
@@ -39,222 +48,222 @@ import mpi.MPIException;
     private ArrayList&lt;Integer&gt; senders;
     private ArrayList&lt;Integer&gt; receivers;
 
-<span class="nc" id="L42">    public LoadBalancer(/*List&lt;T&gt; list,*/ TeamedPlaceGroup pg) {</span>
+<span class="nc" id="L51">    public LoadBalancer(/*List&lt;T&gt; list,*/ TeamedPlaceGroup pg) {</span>
         //this.list = list;
-<span class="nc" id="L44">        this.pg = pg;</span>
-<span class="nc" id="L45">        this.root = pg.get(0);</span>
-<span class="nc" id="L46">        this.myRole = pg.rank(here());</span>
-<span class="nc" id="L47">        this.senders = new ArrayList&lt;&gt;(pg.size());</span>
-<span class="nc" id="L48">        this.receivers = new ArrayList&lt;&gt;(pg.size());</span>
-<span class="nc" id="L49">    }</span>
+<span class="nc" id="L53">        this.pg = pg;</span>
+<span class="nc" id="L54">        this.root = pg.get(0);</span>
+<span class="nc" id="L55">        this.myRole = pg.rank(here());</span>
+<span class="nc" id="L56">        this.senders = new ArrayList&lt;&gt;(pg.size());</span>
+<span class="nc" id="L57">        this.receivers = new ArrayList&lt;&gt;(pg.size());</span>
+<span class="nc" id="L58">    }</span>
 
     public void execute() {
-<span class="nc bnc" id="L52" title="All 2 branches missed.">        if (pg.size() == 1) return;</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        if (pg.size() == 1) return;</span>
         try {
-<span class="nc" id="L54">            relocate(getMoveCount());</span>
-<span class="nc" id="L55">        } catch (MPIException e) {</span>
-<span class="nc" id="L56">            e.printStackTrace();</span>
-<span class="nc" id="L57">            throw new Error(&quot;MPI Exception&quot;);</span>
-<span class="nc" id="L58">        }</span>
-<span class="nc" id="L59">    }</span>
+<span class="nc" id="L63">            relocate(getMoveCount());</span>
+<span class="nc" id="L64">        } catch (MPIException e) {</span>
+<span class="nc" id="L65">            e.printStackTrace();</span>
+<span class="nc" id="L66">            throw new Error(&quot;MPI Exception&quot;);</span>
+<span class="nc" id="L67">        }</span>
+<span class="nc" id="L68">    }</span>
 
 
     // return (fromId, toId) =&gt; moveCount
     private BiFunction&lt;Integer,Integer,Integer&gt; getMoveCount() throws MPIException {
-<span class="nc" id="L64">        final int np = pg.size();</span>
-<span class="nc" id="L65">        int[] matrix = new int[np * np];</span>
-<span class="nc" id="L66">        this.senders.clear();</span>
-<span class="nc" id="L67">        this.receivers.clear();</span>
-<span class="nc" id="L68">        long[] tmpOverCounts = new long[np];</span>
-<span class="nc" id="L69">        Arrays.fill(tmpOverCounts, localSize());</span>
-<span class="nc" id="L70">        long[] overCounts = new long[np];</span>
+<span class="nc" id="L73">        final int np = pg.size();</span>
+<span class="nc" id="L74">        int[] matrix = new int[np * np];</span>
+<span class="nc" id="L75">        this.senders.clear();</span>
+<span class="nc" id="L76">        this.receivers.clear();</span>
+<span class="nc" id="L77">        long[] tmpOverCounts = new long[np];</span>
+<span class="nc" id="L78">        Arrays.fill(tmpOverCounts, localSize());</span>
+<span class="nc" id="L79">        long[] overCounts = new long[np];</span>
         //team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
-<span class="nc" id="L72">        pg.comm.Alltoall(tmpOverCounts, 0, 1, MPI.LONG, overCounts, 0, 1, MPI.LONG);</span>
-<span class="nc" id="L73">        long total = 0;</span>
-<span class="nc bnc" id="L74" title="All 2 branches missed.">        for (int i=0; i&lt;np; i++) {</span>
-<span class="nc" id="L75">            total = total + overCounts[i];</span>
+<span class="nc" id="L81">        pg.comm.Alltoall(tmpOverCounts, 0, 1, MPI.LONG, overCounts, 0, 1, MPI.LONG);</span>
+<span class="nc" id="L82">        long total = 0;</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        for (int i=0; i&lt;np; i++) {</span>
+<span class="nc" id="L84">            total = total + overCounts[i];</span>
         }
-<span class="nc" id="L77">        long average = total / np;</span>
-<span class="nc bnc" id="L78" title="All 2 branches missed.">        for (int i=0; i&lt;np; i++) {</span>
-<span class="nc" id="L79">            overCounts[i] = overCounts[i] - average;</span>
+<span class="nc" id="L86">        long average = total / np;</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        for (int i=0; i&lt;np; i++) {</span>
+<span class="nc" id="L88">            overCounts[i] = overCounts[i] - average;</span>
         }
-<span class="nc bnc" id="L81" title="All 2 branches missed.">        for (int i=0; i&lt;np; i++) {</span>
-<span class="nc" id="L82">            long overCount = overCounts[i];</span>
-<span class="nc bnc" id="L83" title="All 2 branches missed.">            if (overCount &lt; 0) {</span>
-<span class="nc" id="L84">                this.receivers.add(i);</span>
-<span class="nc bnc" id="L85" title="All 2 branches missed.">            } else if (overCount &gt; 0) {</span>
-<span class="nc" id="L86">                this.senders.add(i);</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        for (int i=0; i&lt;np; i++) {</span>
+<span class="nc" id="L91">            long overCount = overCounts[i];</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">            if (overCount &lt; 0) {</span>
+<span class="nc" id="L93">                this.receivers.add(i);</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">            } else if (overCount &gt; 0) {</span>
+<span class="nc" id="L95">                this.senders.add(i);</span>
             }
         }
-<span class="nc bnc" id="L89" title="All 2 branches missed.">        if ((here().equals(root)) &amp;&amp;</span>
-<span class="nc bnc" id="L90" title="All 4 branches missed.">                (0 &lt; this.senders.size()) &amp;&amp; (0 &lt; this.receivers.size())) {</span>
-<span class="nc" id="L91">            Integer[] sendersX = new Integer[this.senders.size()];</span>
-<span class="nc" id="L92">            Integer[] receiversX = new Integer[this.receivers.size()];</span>
-<span class="nc" id="L93">            this.senders.toArray(sendersX);</span>
-<span class="nc" id="L94">            Random random = new Random();</span>
-<span class="nc bnc" id="L95" title="All 2 branches missed.">            for (int i=0; i&lt;sendersX.length; i++) {</span>
-<span class="nc" id="L96">                Integer j = random.nextInt(sendersX.length);</span>
-<span class="nc" id="L97">                Integer tmp = sendersX[j];</span>
-<span class="nc" id="L98">                sendersX[j] = sendersX[i];</span>
-<span class="nc" id="L99">                sendersX[i] = tmp;</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        if ((here().equals(root)) &amp;&amp;</span>
+<span class="nc bnc" id="L99" title="All 4 branches missed.">                (0 &lt; this.senders.size()) &amp;&amp; (0 &lt; this.receivers.size())) {</span>
+<span class="nc" id="L100">            Integer[] sendersX = new Integer[this.senders.size()];</span>
+<span class="nc" id="L101">            Integer[] receiversX = new Integer[this.receivers.size()];</span>
+<span class="nc" id="L102">            this.senders.toArray(sendersX);</span>
+<span class="nc" id="L103">            Random random = new Random();</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">            for (int i=0; i&lt;sendersX.length; i++) {</span>
+<span class="nc" id="L105">                Integer j = random.nextInt(sendersX.length);</span>
+<span class="nc" id="L106">                Integer tmp = sendersX[j];</span>
+<span class="nc" id="L107">                sendersX[j] = sendersX[i];</span>
+<span class="nc" id="L108">                sendersX[i] = tmp;</span>
             }
-<span class="nc" id="L101">            this.receivers.toArray(receiversX);</span>
-<span class="nc" id="L102">            Comparator&lt;Integer&gt; comp = (Integer a, Integer b) -&gt; {</span>
-<span class="nc" id="L103">                return Long.compare(overCounts[b], overCounts[a]);</span>
+<span class="nc" id="L110">            this.receivers.toArray(receiversX);</span>
+<span class="nc" id="L111">            Comparator&lt;Integer&gt; comp = (Integer a, Integer b) -&gt; {</span>
+<span class="nc" id="L112">                return Long.compare(overCounts[b], overCounts[a]);</span>
             };
-<span class="nc" id="L105">            Arrays.sort(receiversX, comp);</span>
-<span class="nc" id="L106">            int senderPointer = 0;</span>
-<span class="nc" id="L107">            int receiverPointer = 1;</span>
-<span class="nc bnc" id="L108" title="All 4 branches missed.">            while ((receiverPointer &lt; receiversX.length)</span>
+<span class="nc" id="L114">            Arrays.sort(receiversX, comp);</span>
+<span class="nc" id="L115">            int senderPointer = 0;</span>
+<span class="nc" id="L116">            int receiverPointer = 1;</span>
+<span class="nc bnc" id="L117" title="All 4 branches missed.">            while ((receiverPointer &lt; receiversX.length)</span>
                     &amp;&amp; (senderPointer &lt; sendersX.length)) {
-<span class="nc" id="L110">                int i = sendersX[senderPointer];</span>
-<span class="nc" id="L111">                int j = receiversX[receiverPointer - 1];</span>
-<span class="nc" id="L112">                int k = receiversX[receiverPointer];</span>
-<span class="nc bnc" id="L113" title="All 4 branches missed.">                while ((overCounts[k] &lt; overCounts[j]) &amp;&amp; (0 &lt; overCounts[i])) {</span>
-<span class="nc" id="L114">                    overCounts[i]--;</span>
-<span class="nc" id="L115">                    overCounts[k]++;</span>
-<span class="nc" id="L116">                    matrix[np * i + k]++;</span>
+<span class="nc" id="L119">                int i = sendersX[senderPointer];</span>
+<span class="nc" id="L120">                int j = receiversX[receiverPointer - 1];</span>
+<span class="nc" id="L121">                int k = receiversX[receiverPointer];</span>
+<span class="nc bnc" id="L122" title="All 4 branches missed.">                while ((overCounts[k] &lt; overCounts[j]) &amp;&amp; (0 &lt; overCounts[i])) {</span>
+<span class="nc" id="L123">                    overCounts[i]--;</span>
+<span class="nc" id="L124">                    overCounts[k]++;</span>
+<span class="nc" id="L125">                    matrix[np * i + k]++;</span>
                 }
-<span class="nc bnc" id="L118" title="All 2 branches missed.">                if (overCounts[j] == overCounts[k]) {</span>
-<span class="nc" id="L119">                    receiverPointer++;</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">                if (overCounts[j] == overCounts[k]) {</span>
+<span class="nc" id="L128">                    receiverPointer++;</span>
                 }
-<span class="nc bnc" id="L121" title="All 2 branches missed.">                if (overCounts[i] == 0) {</span>
-<span class="nc" id="L122">                    senderPointer++;</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">                if (overCounts[i] == 0) {</span>
+<span class="nc" id="L131">                    senderPointer++;</span>
                 }
-<span class="nc" id="L124">            }</span>
-<span class="nc bnc" id="L125" title="All 2 branches missed.">            while (senderPointer &lt; sendersX.length) {</span>
-<span class="nc" id="L126">                int i = sendersX[senderPointer];</span>
-<span class="nc bnc" id="L127" title="All 2 branches missed.">                while (0 &lt; overCounts[i]) {</span>
-<span class="nc" id="L128">                    receiverPointer = (receiverPointer + 1) % receiversX.length;</span>
-<span class="nc" id="L129">                    int j = receiversX[receiverPointer];</span>
-<span class="nc" id="L130">                    overCounts[i]--;</span>
-<span class="nc" id="L131">                    overCounts[j]++;</span>
-<span class="nc" id="L132">                    matrix[np * i + j]++;</span>
-<span class="nc" id="L133">                }</span>
-<span class="nc" id="L134">                senderPointer++;</span>
-<span class="nc" id="L135">            }</span>
+<span class="nc" id="L133">            }</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">            while (senderPointer &lt; sendersX.length) {</span>
+<span class="nc" id="L135">                int i = sendersX[senderPointer];</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">                while (0 &lt; overCounts[i]) {</span>
+<span class="nc" id="L137">                    receiverPointer = (receiverPointer + 1) % receiversX.length;</span>
+<span class="nc" id="L138">                    int j = receiversX[receiverPointer];</span>
+<span class="nc" id="L139">                    overCounts[i]--;</span>
+<span class="nc" id="L140">                    overCounts[j]++;</span>
+<span class="nc" id="L141">                    matrix[np * i + j]++;</span>
+<span class="nc" id="L142">                }</span>
+<span class="nc" id="L143">                senderPointer++;</span>
+<span class="nc" id="L144">            }</span>
         }
         //team.bcast(tmpRoot, matrix, 0, matrix, 0, np * np);
-<span class="nc" id="L138">        pg.comm.Bcast(matrix, 0, np*np, MPI.INT, pg.rank(root));</span>
-<span class="nc" id="L139">        BiFunction&lt;Integer,Integer,Integer&gt; func = (Integer i0, Integer j0) -&gt; {</span>
-<span class="nc" id="L140">            return matrix[np * i0 + j0];</span>
+<span class="nc" id="L147">        pg.comm.Bcast(matrix, 0, np*np, MPI.INT, pg.rank(root));</span>
+<span class="nc" id="L148">        BiFunction&lt;Integer,Integer,Integer&gt; func = (Integer i0, Integer j0) -&gt; {</span>
+<span class="nc" id="L149">            return matrix[np * i0 + j0];</span>
         };
-<span class="nc" id="L142">        return func;</span>
+<span class="nc" id="L151">        return func;</span>
     }
 
     // execute relocation using getCount function
     private void relocate(BiFunction&lt;Integer,Integer,Integer&gt; getCount) {
         try {
-<span class="nc" id="L148">            int np = pg.size();</span>
-<span class="nc" id="L149">            ByteArrayOutputStream s0 = new ByteArrayOutputStream();</span>
-<span class="nc" id="L150">            int[] scounts = new int[np];</span>
-<span class="nc" id="L151">            int[] sdispls = new int[np];</span>
-<span class="nc" id="L152">            int[] rcounts = new int[np];</span>
-<span class="nc" id="L153">            int s0used = 0;</span>
-<span class="nc bnc" id="L154" title="All 2 branches missed.">            for(int j=0; j&lt;np; j++) {</span>
-<span class="nc" id="L155">                int count = getCount.apply(myRole, j);</span>
-<span class="nc bnc" id="L156" title="All 2 branches missed.">                if(count &gt; 0) {</span>
-<span class="nc" id="L157">                    ObjectOutputStream s = new ObjectOutputStream(s0);</span>
-<span class="nc" id="L158">                    s.writeInt(count);</span>
-<span class="nc bnc" id="L159" title="All 2 branches missed.">                    for (int k=0; k&lt;count; k++) {</span>
-<span class="nc" id="L160">                        exportOne(s);</span>
+<span class="nc" id="L157">            int np = pg.size();</span>
+<span class="nc" id="L158">            ByteArrayOutputStream s0 = new ByteArrayOutputStream();</span>
+<span class="nc" id="L159">            int[] scounts = new int[np];</span>
+<span class="nc" id="L160">            int[] sdispls = new int[np];</span>
+<span class="nc" id="L161">            int[] rcounts = new int[np];</span>
+<span class="nc" id="L162">            int s0used = 0;</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            for(int j=0; j&lt;np; j++) {</span>
+<span class="nc" id="L164">                int count = getCount.apply(myRole, j);</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">                if(count &gt; 0) {</span>
+<span class="nc" id="L166">                    ObjectOutputStream s = new ObjectOutputStream(s0);</span>
+<span class="nc" id="L167">                    s.writeInt(count);</span>
+<span class="nc bnc" id="L168" title="All 2 branches missed.">                    for (int k=0; k&lt;count; k++) {</span>
+<span class="nc" id="L169">                        exportOne(s);</span>
                     }
-<span class="nc" id="L162">                    s.flush();</span>
-<span class="nc" id="L163">                    int prev = s0used;</span>
-<span class="nc" id="L164">                    sdispls[j] = prev;</span>
-<span class="nc" id="L165">                    s0used = s0.size();</span>
-<span class="nc" id="L166">                    scounts[j] = s0used - prev;</span>
-<span class="nc" id="L167">                } else {</span>
-<span class="nc" id="L168">                    sdispls[j] = s0used;</span>
-<span class="nc" id="L169">                    scounts[j] = 0;</span>
+<span class="nc" id="L171">                    s.flush();</span>
+<span class="nc" id="L172">                    int prev = s0used;</span>
+<span class="nc" id="L173">                    sdispls[j] = prev;</span>
+<span class="nc" id="L174">                    s0used = s0.size();</span>
+<span class="nc" id="L175">                    scounts[j] = s0used - prev;</span>
+<span class="nc" id="L176">                } else {</span>
+<span class="nc" id="L177">                    sdispls[j] = s0used;</span>
+<span class="nc" id="L178">                    scounts[j] = 0;</span>
                 }
             }
 
-<span class="nc" id="L173">            pg.comm.Alltoall(scounts, 0, 1, MPI.INT, rcounts, 0, 1, MPI.INT);</span>
-<span class="nc" id="L174">            byte[] sendbuf = s0.toByteArray();</span>
+<span class="nc" id="L182">            pg.comm.Alltoall(scounts, 0, 1, MPI.INT, rcounts, 0, 1, MPI.INT);</span>
+<span class="nc" id="L183">            byte[] sendbuf = s0.toByteArray();</span>
 
-<span class="nc" id="L176">            int[] rdispls = new int[np];</span>
-<span class="nc" id="L177">            int rused = 0;</span>
-<span class="nc bnc" id="L178" title="All 2 branches missed.">            for(int i=0; i&lt;np; i++) {</span>
-<span class="nc" id="L179">                rdispls[i] = rused;</span>
-<span class="nc" id="L180">                rused += rcounts[i];</span>
+<span class="nc" id="L185">            int[] rdispls = new int[np];</span>
+<span class="nc" id="L186">            int rused = 0;</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">            for(int i=0; i&lt;np; i++) {</span>
+<span class="nc" id="L188">                rdispls[i] = rused;</span>
+<span class="nc" id="L189">                rused += rcounts[i];</span>
             }
-<span class="nc" id="L182">            byte[] recvbuf = new byte[rused];</span>
-<span class="nc" id="L183">            pg.Alltoallv(sendbuf, 0, scounts, sdispls, MPI.BYTE, recvbuf, 0, rcounts, rdispls, MPI.BYTE);</span>
+<span class="nc" id="L191">            byte[] recvbuf = new byte[rused];</span>
+<span class="nc" id="L192">            pg.Alltoallv(sendbuf, 0, scounts, sdispls, MPI.BYTE, recvbuf, 0, rcounts, rdispls, MPI.BYTE);</span>
 
-<span class="nc bnc" id="L185" title="All 2 branches missed.">            for (int i=0; i&lt;np; i++) {</span>
-<span class="nc bnc" id="L186" title="All 2 branches missed.">                if(rcounts[i] == 0) continue;</span>
-<span class="nc" id="L187">                ByteArrayInputStream in = new ByteArrayInputStream(recvbuf, rdispls[i], rcounts[i]);</span>
-<span class="nc" id="L188">                ObjectInputStream ds = new ObjectInputStream(in);</span>
-<span class="nc" id="L189">                int count = ds.readInt();</span>
-<span class="nc bnc" id="L190" title="All 4 branches missed.">                assert(getCount.apply(i, myRole) == count);</span>
-<span class="nc bnc" id="L191" title="All 2 branches missed.">                for(int k =0; k&lt;count; k++) {</span>
-<span class="nc" id="L192">                    importOne(ds);</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">            for (int i=0; i&lt;np; i++) {</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">                if(rcounts[i] == 0) continue;</span>
+<span class="nc" id="L196">                ByteArrayInputStream in = new ByteArrayInputStream(recvbuf, rdispls[i], rcounts[i]);</span>
+<span class="nc" id="L197">                ObjectInputStream ds = new ObjectInputStream(in);</span>
+<span class="nc" id="L198">                int count = ds.readInt();</span>
+<span class="nc bnc" id="L199" title="All 4 branches missed.">                assert(getCount.apply(i, myRole) == count);</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">                for(int k =0; k&lt;count; k++) {</span>
+<span class="nc" id="L201">                    importOne(ds);</span>
                 }
             }
-<span class="nc" id="L195">        } catch(Exception e) {</span>
-<span class="nc" id="L196">            e.printStackTrace(System.err);</span>
-<span class="nc" id="L197">            throw new Error(&quot;Exception during LoadBalance Relocation.&quot;);</span>
-<span class="nc" id="L198">        }</span>
-<span class="nc" id="L199">    }</span>
+<span class="nc" id="L204">        } catch(Exception e) {</span>
+<span class="nc" id="L205">            e.printStackTrace(System.err);</span>
+<span class="nc" id="L206">            throw new Error(&quot;Exception during LoadBalance Relocation.&quot;);</span>
+<span class="nc" id="L207">        }</span>
+<span class="nc" id="L208">    }</span>
     static final class ListBalancer&lt;T&gt; extends LoadBalancer {
 
         private List&lt;T&gt; body;
 
         public ListBalancer(List&lt;T&gt; body, TeamedPlaceGroup pg) {
-<span class="nc" id="L205">            super(pg);</span>
-<span class="nc" id="L206">            this.body = body;</span>
-<span class="nc" id="L207">        }</span>
+<span class="nc" id="L214">            super(pg);</span>
+<span class="nc" id="L215">            this.body = body;</span>
+<span class="nc" id="L216">        }</span>
 
         @Override
         int localSize() {
-<span class="nc" id="L211">            return body.size();</span>
+<span class="nc" id="L220">            return body.size();</span>
         }
 
         @Override
         void exportOne(ObjectOutputStream out) throws IOException {
-<span class="nc" id="L216">            T one = body.remove(body.size()-1);</span>
-<span class="nc" id="L217">            out.writeObject(one);</span>
-<span class="nc" id="L218">        }</span>
+<span class="nc" id="L225">            T one = body.remove(body.size()-1);</span>
+<span class="nc" id="L226">            out.writeObject(one);</span>
+<span class="nc" id="L227">        }</span>
 
         @Override 
         @SuppressWarnings(&quot;unchecked&quot;)
         void importOne(ObjectInputStream in) throws ClassNotFoundException, IOException {
-<span class="nc" id="L223">            body.add((T)in.readObject());</span>
-<span class="nc" id="L224">        }</span>
+<span class="nc" id="L232">            body.add((T)in.readObject());</span>
+<span class="nc" id="L233">        }</span>
 
     }
 
-<span class="nc bnc" id="L228" title="All 2 branches missed.">    static final class MapBalancer&lt;K,V&gt; extends LoadBalancer {</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">    static final class MapBalancer&lt;K,V&gt; extends LoadBalancer {</span>
 
         private Map&lt;K, V&gt; body;
 
         public MapBalancer(Map&lt;K,V&gt; body, TeamedPlaceGroup pg) {
-<span class="nc" id="L233">            super(pg);</span>
-<span class="nc" id="L234">            this.body = body;</span>
-<span class="nc" id="L235">        }</span>
+<span class="nc" id="L242">            super(pg);</span>
+<span class="nc" id="L243">            this.body = body;</span>
+<span class="nc" id="L244">        }</span>
 
         @Override
         int localSize() {
-<span class="nc" id="L239">            return body.size();</span>
+<span class="nc" id="L248">            return body.size();</span>
         }
 
         @Override
         void exportOne(ObjectOutputStream out) throws IOException {
-<span class="nc bnc" id="L244" title="All 4 branches missed.">            assert(!body.isEmpty());</span>
-<span class="nc" id="L245">            K key = body.keySet().iterator().next();</span>
-<span class="nc" id="L246">            V v = body.remove(key);</span>
-<span class="nc" id="L247">            out.writeObject(key);</span>
-<span class="nc" id="L248">            out.writeObject(v);</span>
-<span class="nc" id="L249">        }</span>
+<span class="nc bnc" id="L253" title="All 4 branches missed.">            assert(!body.isEmpty());</span>
+<span class="nc" id="L254">            K key = body.keySet().iterator().next();</span>
+<span class="nc" id="L255">            V v = body.remove(key);</span>
+<span class="nc" id="L256">            out.writeObject(key);</span>
+<span class="nc" id="L257">            out.writeObject(v);</span>
+<span class="nc" id="L258">        }</span>
 
         @Override 
         @SuppressWarnings(&quot;unchecked&quot;)
         void importOne(ObjectInputStream obj) throws ClassNotFoundException, IOException {
-<span class="nc" id="L254">            K key = (K) obj.readObject();</span>
-<span class="nc" id="L255">            V v = (V) obj.readObject();</span>
-<span class="nc" id="L256">            body.put(key, v);</span>
-<span class="nc" id="L257">        }</span>
+<span class="nc" id="L263">            K key = (K) obj.readObject();</span>
+<span class="nc" id="L264">            V v = (V) obj.readObject();</span>
+<span class="nc" id="L265">            body.put(key, v);</span>
+<span class="nc" id="L266">        }</span>
 
     }
 }

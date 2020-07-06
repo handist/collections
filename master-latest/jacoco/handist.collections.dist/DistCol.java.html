@@ -1,4 +1,15 @@
-<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistCol.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistCol.java</span></div><h1>DistCol.java</h1><pre class="source lang-java linenums">package handist.collections.dist;
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistCol.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistCol.java</span></div><h1>DistCol.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
+package handist.collections.dist;
+
+import static apgas.Constructs.*;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -11,6 +22,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -20,8 +33,9 @@ import apgas.Place;
 import apgas.util.GlobalID;
 import handist.collections.ChunkedList;
 import handist.collections.LongRange;
+import handist.collections.MultiReceiver;
 import handist.collections.RangedList;
-import static apgas.Constructs.*;
+import handist.collections.function.LongTBiConsumer;
 
 /**
  * A class for handling objects at multiple places. It is allowed to add new
@@ -32,109 +46,113 @@ import static apgas.Constructs.*;
  *  &lt;li&gt;There is only one load balancing method: the method flattens the number of
  * elements of the all places.
  * &lt;/ul&gt;
- * 
+ *
  * @param &lt;T&gt; the type of elements handled by this {@link DistCol}
  */
 public class DistCol&lt;T&gt; extends AbstractDistCollection /* implements List[T], ManagedDistribution[LongRange] */ {
 
-<span class="fc" id="L40">    private static int _debug_level = 5;</span>
+<span class="fc" id="L54">    private static int _debug_level = 5;</span>
 
     transient DistManager.Range ldist;
     public transient ChunkedList&lt;T&gt; data;
 
     public Object writeReplace() throws ObjectStreamException {
-<span class="fc" id="L46">        final TeamedPlaceGroup pg1 = placeGroup;</span>
-<span class="fc" id="L47">        final GlobalID id1 = id;</span>
-<span class="fc" id="L48">        return new AbstractDistCollection.LazyObjectReference&lt;DistCol&lt;T&gt;&gt;(pg1, id1, () -&gt; {</span>
-<span class="fc" id="L49">            return new DistCol&lt;T&gt;(pg1, id1);</span>
+<span class="fc" id="L60">        final TeamedPlaceGroup pg1 = placeGroup;</span>
+<span class="fc" id="L61">        final GlobalID id1 = id;</span>
+<span class="fc" id="L62">        return new AbstractDistCollection.LazyObjectReference&lt;DistCol&lt;T&gt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L63">            return new DistCol&lt;T&gt;(pg1, id1);</span>
         });
     }
 
     /**
-     * Create a new DistCol. All the hosts participating in the distributed 
-     * computation are susceptible to handle the created instance. This 
-     * constructor is equivalent to calling {@link #DistCol(TeamedPlaceGroup)} 
-     * with {@link TeamedPlaceGroup#getWorld()} as argument. 
+     * Create a new DistCol. All the hosts participating in the distributed
+     * computation are susceptible to handle the created instance. This
+     * constructor is equivalent to calling {@link #DistCol(TeamedPlaceGroup)}
+     * with {@link TeamedPlaceGroup#getWorld()} as argument.
      */
     public DistCol() {
-<span class="nc" id="L60">        this(TeamedPlaceGroup.getWorld());</span>
-<span class="nc" id="L61">    }</span>
+<span class="nc" id="L74">        this(TeamedPlaceGroup.getWorld());</span>
+<span class="nc" id="L75">    }</span>
 
     private static float[] initialLocality(final int size) {
-<span class="fc" id="L64">        final float[] result = new float[size];</span>
-<span class="fc" id="L65">        Arrays.fill(result, 1.0f);</span>
-<span class="fc" id="L66">        return result;</span>
+<span class="fc" id="L78">        final float[] result = new float[size];</span>
+<span class="fc" id="L79">        Arrays.fill(result, 1.0f);</span>
+<span class="fc" id="L80">        return result;</span>
     }
 
     public DistCol(final TeamedPlaceGroup placeGroup) {
-<span class="fc" id="L70">        super(placeGroup);</span>
-<span class="fc" id="L71">        this.ldist = new DistManager.Range();</span>
-<span class="fc" id="L72">        this.data = new ChunkedList&lt;T&gt;();</span>
-<span class="fc" id="L73">        locality = initialLocality(placeGroup.size);</span>
-<span class="fc" id="L74">    }</span>
+<span class="fc" id="L84">        super(placeGroup);</span>
+<span class="fc" id="L85">        this.ldist = new DistManager.Range();</span>
+<span class="fc" id="L86">        this.data = new ChunkedList&lt;T&gt;();</span>
+<span class="fc" id="L87">        locality = initialLocality(placeGroup.size);</span>
+<span class="fc" id="L88">    }</span>
 
     public DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id) {
-<span class="fc" id="L77">        super(placeGroup, id);</span>
-<span class="fc" id="L78">        this.ldist = new DistManager.Range();</span>
-<span class="fc" id="L79">        this.data = new ChunkedList&lt;T&gt;();</span>
-<span class="fc" id="L80">        locality = initialLocality(placeGroup.size);</span>
-<span class="fc" id="L81">    }</span>
+<span class="fc" id="L91">        super(placeGroup, id);</span>
+<span class="fc" id="L92">        this.ldist = new DistManager.Range();</span>
+<span class="fc" id="L93">        this.data = new ChunkedList&lt;T&gt;();</span>
+<span class="fc" id="L94">        locality = initialLocality(placeGroup.size);</span>
+<span class="fc" id="L95">    }</span>
 
     public static interface Generator&lt;V&gt; extends BiConsumer&lt;Place, DistCol&lt;V&gt;&gt;, Serializable {
     }
 
     // TODO ...
     public void setupBranches(final Generator&lt;T&gt; gen) {
-<span class="nc" id="L88">        final DistCol&lt;T&gt; handle = this;</span>
-<span class="nc" id="L89">        finish(() -&gt; {</span>
-<span class="nc" id="L90">            handle.placeGroup.broadcastFlat(() -&gt; {</span>
-<span class="nc" id="L91">                gen.accept(here(), handle);</span>
-<span class="nc" id="L92">            });</span>
-<span class="nc" id="L93">        });</span>
-<span class="nc" id="L94">    }</span>
+<span class="nc" id="L102">        final DistCol&lt;T&gt; handle = this;</span>
+<span class="nc" id="L103">        finish(() -&gt; {</span>
+<span class="nc" id="L104">            handle.placeGroup.broadcastFlat(() -&gt; {</span>
+<span class="nc" id="L105">                gen.accept(here(), handle);</span>
+<span class="nc" id="L106">            });</span>
+<span class="nc" id="L107">        });</span>
+<span class="nc" id="L108">    }</span>
 
     public HashMap&lt;LongRange, Place&gt; getDist() {
-<span class="nc" id="L97">        return ldist.dist;</span>
+<span class="nc" id="L111">        return ldist.dist;</span>
     }
 
     Map&lt;LongRange, Integer&gt; getDiff() {
-<span class="nc" id="L101">        return ldist.diff;</span>
+<span class="nc" id="L115">        return ldist.diff;</span>
     }
 
     public RangedDistributionLong getRangedDistributionLong() {
-<span class="nc" id="L105">        return new RangedDistributionLong(getDist());</span>
+<span class="nc" id="L119">        return new RangedDistributionLong(getDist());</span>
     }
 
     public DistributionLong getDistributionLong() {
-<span class="nc" id="L109">        return DistributionLong.convert(getDist());</span>
+<span class="nc" id="L123">        return DistributionLong.convert(getDist());</span>
     }
 
     /*
     // var proxy:(Long)=&gt;T = null;
-    
+
     public def setProxy(proxy:(Long)=&gt;T) {
     this.proxy = proxy;
     }
     */
-    /*
-     * public def containIndex(i: Long): Boolean { return
-     * getLocalInternal().data.containIndex(i); }
-     */
 
     public int size() {
-<span class="nc" id="L125">        return data.size();</span>
+<span class="nc" id="L135">        return data.size();</span>
     }
 
     public boolean isEmpty() {
-<span class="nc" id="L129">        return data.isEmpty();</span>
+<span class="nc" id="L139">        return data.isEmpty();</span>
     }
 
     public boolean contains(final T v) {
-<span class="nc" id="L133">        return data.contains(v);</span>
+<span class="nc" id="L143">        return data.contains(v);</span>
+    }
+
+    public boolean containsChunk(RangedList&lt;T&gt; c) {
+<span class="nc" id="L147">        return data.containsChunk(c);</span>
+    }
+
+    public boolean containsIndex(long i) {
+<span class="nc" id="L151">        return data.containsIndex(i);</span>
     }
 
     public boolean containsAll(final Collection&lt;T&gt; vs) {
-<span class="nc" id="L137">        return data.containsAll(vs);</span>
+<span class="nc" id="L155">        return data.containsAll(vs);</span>
     }
     /*
      * public def clone(): DistCol[T] { throw new
@@ -143,45 +161,45 @@ public class DistCol&lt;T&gt; extends AbstractDistCollection /* implements List[
      */
 
     public Iterator&lt;T&gt; iterator() {
-<span class="nc" id="L146">        return data.iterator();</span>
+<span class="nc" id="L164">        return data.iterator();</span>
     }
 
     public void clear() {
-<span class="nc" id="L150">        data.clear();</span>
-<span class="nc" id="L151">        ldist.clear();</span>
-<span class="nc" id="L152">        Arrays.fill(locality, 1.0f);</span>
-<span class="nc" id="L153">    }</span>
+<span class="nc" id="L168">        data.clear();</span>
+<span class="nc" id="L169">        ldist.clear();</span>
+<span class="nc" id="L170">        Arrays.fill(locality, 1.0f);</span>
+<span class="nc" id="L171">    }</span>
 
-    public void putChunk(final RangedList&lt;T&gt; c) throws Exception {
-<span class="fc" id="L156">        ldist.add(c.getRange());</span>
-<span class="fc" id="L157">        data.addChunk(c);</span>
-<span class="fc" id="L158">    }</span>
+    public void addChunk(final RangedList&lt;T&gt; c) throws Exception {
+<span class="fc" id="L174">        ldist.add(c.getRange());</span>
+<span class="fc" id="L175">        data.addChunk(c);</span>
+<span class="fc" id="L176">    }</span>
 
     private void putForMove(final RangedList&lt;T&gt; c, final byte mType) throws Exception {
-<span class="fc" id="L161">        final LongRange key = c.getRange();</span>
-<span class="pc bpc" id="L162" title="1 of 3 branches missed.">        switch (mType) {</span>
+<span class="fc" id="L179">        final LongRange key = c.getRange();</span>
+<span class="pc bpc" id="L180" title="1 of 3 branches missed.">        switch (mType) {</span>
             case DistManager.MOVE_NEW:
-<span class="fc" id="L164">                ldist.moveInNew(key);</span>
-<span class="fc" id="L165">                break;</span>
+<span class="fc" id="L182">                ldist.moveInNew(key);</span>
+<span class="fc" id="L183">                break;</span>
             case DistManager.MOVE_OLD:
-<span class="fc" id="L167">                ldist.moveInOld(key);</span>
-<span class="fc" id="L168">                break;</span>
+<span class="fc" id="L185">                ldist.moveInOld(key);</span>
+<span class="fc" id="L186">                break;</span>
             default:
-<span class="nc" id="L170">                throw new Exception(&quot;SystemError when calling putForMove &quot; + key);</span>
+<span class="nc" id="L188">                throw new Exception(&quot;SystemError when calling putForMove &quot; + key);</span>
         }
-<span class="fc" id="L172">        data.addChunk(c);</span>
-<span class="fc" id="L173">    }</span>
+<span class="fc" id="L190">        data.addChunk(c);</span>
+<span class="fc" id="L191">    }</span>
 
     public void removeChunk(final RangedList&lt;T&gt; c) throws Exception {
-<span class="fc" id="L176">        ldist.remove(c.getRange());</span>
-<span class="fc" id="L177">        data.removeChunk(c);</span>
-<span class="fc" id="L178">    }</span>
+<span class="fc" id="L194">        ldist.remove(c.getRange());</span>
+<span class="fc" id="L195">        data.removeChunk(c);</span>
+<span class="fc" id="L196">    }</span>
 
     private void removeForMove(final RangedList&lt;T&gt; c) {
-<span class="pc bpc" id="L181" title="1 of 2 branches missed.">        if (data.removeChunk(c) == null) {</span>
-<span class="nc" id="L182">            throw new RuntimeException(&quot;DistCol#removeForMove&quot;);</span>
+<span class="pc bpc" id="L199" title="1 of 2 branches missed.">        if (data.removeChunk(c) == null) {</span>
+<span class="nc" id="L200">            throw new RuntimeException(&quot;DistCol#removeForMove&quot;);</span>
         }
-<span class="fc" id="L184">    }</span>
+<span class="fc" id="L202">    }</span>
     /*
      * public void integrate(ChunkedList&lt;T&gt; c) { //TODO throw new
      * UnsupportedOperationException(); }
@@ -195,13 +213,13 @@ public class DistCol&lt;T&gt; extends AbstractDistCollection /* implements List[
         public RangedList&lt;T&gt; original;
         public long splitPoint;
 
-<span class="fc" id="L198">        ChunkExtractLeft(final RangedList&lt;T&gt; original, final long splitPoint) {</span>
-<span class="fc" id="L199">            this.original = original;</span>
-<span class="fc" id="L200">            this.splitPoint = splitPoint;</span>
-<span class="fc" id="L201">        }</span>
+<span class="fc" id="L216">        ChunkExtractLeft(final RangedList&lt;T&gt; original, final long splitPoint) {</span>
+<span class="fc" id="L217">            this.original = original;</span>
+<span class="fc" id="L218">            this.splitPoint = splitPoint;</span>
+<span class="fc" id="L219">        }</span>
 
         List&lt;RangedList&lt;T&gt;&gt; extract() {
-<span class="fc" id="L204">            return original.splitRange(splitPoint);</span>
+<span class="fc" id="L222">            return original.splitRange(splitPoint);</span>
         }
     }
 
@@ -210,14 +228,14 @@ public class DistCol&lt;T&gt; extends AbstractDistCollection /* implements List[
         public long splitPoint1;
         public long splitPoint2;
 
-<span class="nc" id="L213">        ChunkExtractMiddle(final RangedList&lt;T&gt; original, final long splitPoint1, final long splitPoint2) {</span>
-<span class="nc" id="L214">            this.original = original;</span>
-<span class="nc" id="L215">            this.splitPoint1 = splitPoint1;</span>
-<span class="nc" id="L216">            this.splitPoint2 = splitPoint2;</span>
-<span class="nc" id="L217">        }</span>
+<span class="nc" id="L231">        ChunkExtractMiddle(final RangedList&lt;T&gt; original, final long splitPoint1, final long splitPoint2) {</span>
+<span class="nc" id="L232">            this.original = original;</span>
+<span class="nc" id="L233">            this.splitPoint1 = splitPoint1;</span>
+<span class="nc" id="L234">            this.splitPoint2 = splitPoint2;</span>
+<span class="nc" id="L235">        }</span>
 
         List&lt;RangedList&lt;T&gt;&gt; extract() {
-<span class="nc" id="L220">            return original.splitRange(splitPoint1, splitPoint2);</span>
+<span class="nc" id="L238">            return original.splitRange(splitPoint1, splitPoint2);</span>
         }
     }
 
@@ -225,325 +243,363 @@ public class DistCol&lt;T&gt; extends AbstractDistCollection /* implements List[
         public RangedList&lt;T&gt; original;
         public long splitPoint;
 
-<span class="nc" id="L228">        ChunkExtractRight(final RangedList&lt;T&gt; original, final long splitPoint) {</span>
-<span class="nc" id="L229">            this.original = original;</span>
-<span class="nc" id="L230">            this.splitPoint = splitPoint;</span>
-<span class="nc" id="L231">        }</span>
+<span class="nc" id="L246">        ChunkExtractRight(final RangedList&lt;T&gt; original, final long splitPoint) {</span>
+<span class="nc" id="L247">            this.original = original;</span>
+<span class="nc" id="L248">            this.splitPoint = splitPoint;</span>
+<span class="nc" id="L249">        }</span>
 
         List&lt;RangedList&lt;T&gt;&gt; extract() {
-<span class="nc" id="L234">            return original.splitRange(splitPoint);</span>
+<span class="nc" id="L252">            return original.splitRange(splitPoint);</span>
         }
     }
 
     public void moveAtSync(final LongRange range, final Place dest, final MoveManagerLocal mm) throws Exception {
-<span class="pc bpc" id="L239" title="1 of 2 branches missed.">        if (_debug_level &gt; 5) {</span>
-<span class="nc" id="L240">            System.out.println(&quot;[&quot; + here().id + &quot;] moveAtSync range: &quot; + range + &quot; dest: &quot; + dest.id);</span>
+<span class="pc bpc" id="L257" title="1 of 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L258">            System.out.println(&quot;[&quot; + here().id + &quot;] moveAtSync range: &quot; + range + &quot; dest: &quot; + dest.id);</span>
         }
-<span class="fc" id="L242">        final ArrayList&lt;RangedList&lt;T&gt;&gt; chunksToMove = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L243">        final ArrayList&lt;ChunkExtractLeft&lt;T&gt;&gt; chunksToExtractLeft = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L244">        final ArrayList&lt;ChunkExtractMiddle&lt;T&gt;&gt; chunksToExtractMiddle = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L245">        final ArrayList&lt;ChunkExtractRight&lt;T&gt;&gt; chunksToExtractRight = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L246">        data.forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
-<span class="fc" id="L247">            final LongRange cRange = c.getRange();</span>
-<span class="fc bfc" id="L248" title="All 2 branches covered.">            if (cRange.from &lt;= range.from) {</span>
-<span class="fc bfc" id="L249" title="All 2 branches covered.">                if (cRange.to &lt;= range.from) { //cRange.max &lt; range.min) {</span>
+<span class="fc" id="L260">        final ArrayList&lt;RangedList&lt;T&gt;&gt; chunksToMove = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L261">        final ArrayList&lt;ChunkExtractLeft&lt;T&gt;&gt; chunksToExtractLeft = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L262">        final ArrayList&lt;ChunkExtractMiddle&lt;T&gt;&gt; chunksToExtractMiddle = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L263">        final ArrayList&lt;ChunkExtractRight&lt;T&gt;&gt; chunksToExtractRight = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L264">        data.forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
+<span class="fc" id="L265">            final LongRange cRange = c.getRange();</span>
+<span class="fc bfc" id="L266" title="All 2 branches covered.">            if (cRange.from &lt;= range.from) {</span>
+<span class="fc bfc" id="L267" title="All 2 branches covered.">                if (cRange.to &lt;= range.from) { //cRange.max &lt; range.min) {</span>
                     // skip
                 } else {
                     // range.min &lt;= cRange.max
-<span class="pc bpc" id="L253" title="1 of 2 branches missed.">                    if (cRange.from == range.from) {</span>
-<span class="fc bfc" id="L254" title="All 2 branches covered.">                        if (cRange.to &lt;= range.to) {</span>
+<span class="pc bpc" id="L271" title="1 of 2 branches missed.">                    if (cRange.from == range.from) {</span>
+<span class="fc bfc" id="L272" title="All 2 branches covered.">                        if (cRange.to &lt;= range.to) {</span>
                             // add cRange.min..cRange.max
-<span class="fc" id="L256">                            chunksToMove.add(c);</span>
+<span class="fc" id="L274">                            chunksToMove.add(c);</span>
                         } else {
                             // range.max &lt; cRange.max
                             // split at range.max/range.max+1
                             // add cRange.min..range.max
-<span class="fc" id="L261">                            chunksToExtractLeft.add(new ChunkExtractLeft&lt;T&gt;(c, range.to/*max + 1*/));</span>
+<span class="fc" id="L279">                            chunksToExtractLeft.add(new ChunkExtractLeft&lt;T&gt;(c, range.to/*max + 1*/));</span>
                         }
                     } else {
                         // cRange.min &lt; range.min
-<span class="nc bnc" id="L265" title="All 2 branches missed.">                        if (range.to &lt; cRange.to) {</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">                        if (range.to &lt; cRange.to) {</span>
                             // split at range.min-1/range.min
                             // split at range.max/range.max+1
                             // add range.min..range.max
-<span class="nc" id="L269">                            chunksToExtractMiddle.add(new ChunkExtractMiddle&lt;T&gt;(c, range.from, range.to/*max + 1*/));</span>
+<span class="nc" id="L287">                            chunksToExtractMiddle.add(new ChunkExtractMiddle&lt;T&gt;(c, range.from, range.to/*max + 1*/));</span>
                         } else {
                             // split at range.min-1/range.min
                             // cRange.max =&lt; range.max
                             // add range.min..cRange.max
-<span class="nc" id="L274">                            chunksToExtractRight.add(new ChunkExtractRight&lt;T&gt;(c, range.from));</span>
+<span class="nc" id="L292">                            chunksToExtractRight.add(new ChunkExtractRight&lt;T&gt;(c, range.from));</span>
                         }
                     }
                 }
             } else {
                 // range.min &lt; cRange.min
-<span class="fc bfc" id="L280" title="All 2 branches covered.">                if (range.to &lt;= cRange.from) { //range.max &lt; cRange.min) {</span>
+<span class="fc bfc" id="L298" title="All 2 branches covered.">                if (range.to &lt;= cRange.from) { //range.max &lt; cRange.min) {</span>
                     // skip
                 } else {
                     // cRange.min &lt;= range.max
-<span class="fc bfc" id="L284" title="All 2 branches covered.">                    if (cRange.to &lt;= range.to) {</span>
+<span class="fc bfc" id="L302" title="All 2 branches covered.">                    if (cRange.to &lt;= range.to) {</span>
                         // add cRange.min..cRange.max
-<span class="fc" id="L286">                        chunksToMove.add(c);</span>
+<span class="fc" id="L304">                        chunksToMove.add(c);</span>
                     } else {
                         // split at range.max/range.max+1
                         // add cRange.min..range.max
-<span class="fc" id="L290">                        chunksToExtractLeft.add(new ChunkExtractLeft&lt;T&gt;(c, range.to/*max + 1*/));</span>
+<span class="fc" id="L308">                        chunksToExtractLeft.add(new ChunkExtractLeft&lt;T&gt;(c, range.to/*max + 1*/));</span>
                     }
                 }
             }
-<span class="fc" id="L294">        });</span>
+<span class="fc" id="L312">        });</span>
 
-<span class="fc bfc" id="L296" title="All 2 branches covered.">        for (final ChunkExtractLeft&lt;T&gt; chunkToExtractLeft : chunksToExtractLeft) {</span>
-<span class="fc" id="L297">            final RangedList&lt;T&gt; original = chunkToExtractLeft.original;</span>
-<span class="fc" id="L298">            final List&lt;RangedList&lt;T&gt;&gt; splits = chunkToExtractLeft.extract();</span>
+<span class="fc bfc" id="L314" title="All 2 branches covered.">        for (final ChunkExtractLeft&lt;T&gt; chunkToExtractLeft : chunksToExtractLeft) {</span>
+<span class="fc" id="L315">            final RangedList&lt;T&gt; original = chunkToExtractLeft.original;</span>
+<span class="fc" id="L316">            final List&lt;RangedList&lt;T&gt;&gt; splits = chunkToExtractLeft.extract();</span>
             //	    System.out.println(&quot;[&quot; + here.id + &quot;] removeChunk &quot; + original.getRange());
-<span class="fc" id="L300">            removeChunk(original);</span>
+<span class="fc" id="L318">            removeChunk(original);</span>
             //	    System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.first.getRange());
-<span class="fc" id="L302">            putChunk(splits.get(0)/*first*/);</span>
+<span class="fc" id="L320">            addChunk(splits.get(0)/*first*/);</span>
             //	    System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.second.getRange());
-<span class="fc" id="L304">            putChunk(splits.get(1)/*second*/);</span>
-<span class="fc" id="L305">            chunksToMove.add(splits.get(0)/*first*/);</span>
-<span class="fc" id="L306">        }</span>
+<span class="fc" id="L322">            addChunk(splits.get(1)/*second*/);</span>
+<span class="fc" id="L323">            chunksToMove.add(splits.get(0)/*first*/);</span>
+<span class="fc" id="L324">        }</span>
 
-<span class="pc bpc" id="L308" title="1 of 2 branches missed.">        for (final ChunkExtractMiddle&lt;T&gt; chunkToExtractMiddle : chunksToExtractMiddle) {</span>
-<span class="nc" id="L309">            final RangedList&lt;T&gt; original = chunkToExtractMiddle.original;</span>
-<span class="nc" id="L310">            final List&lt;RangedList&lt;T&gt;&gt; splits = chunkToExtractMiddle.extract();</span>
+<span class="pc bpc" id="L326" title="1 of 2 branches missed.">        for (final ChunkExtractMiddle&lt;T&gt; chunkToExtractMiddle : chunksToExtractMiddle) {</span>
+<span class="nc" id="L327">            final RangedList&lt;T&gt; original = chunkToExtractMiddle.original;</span>
+<span class="nc" id="L328">            final List&lt;RangedList&lt;T&gt;&gt; splits = chunkToExtractMiddle.extract();</span>
             //	    System.out.println(&quot;[&quot; + here.id + &quot;] removeChunk &quot; + original.getRange());
-<span class="nc" id="L312">            removeChunk(original);</span>
+<span class="nc" id="L330">            removeChunk(original);</span>
             //	    System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.first.getRange());
-<span class="nc" id="L314">            putChunk(splits.get(0)/*first*/);</span>
+<span class="nc" id="L332">            addChunk(splits.get(0)/*first*/);</span>
             //	    System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.second.getRange());
-<span class="nc" id="L316">            putChunk(splits.get(1)/*second*/);</span>
+<span class="nc" id="L334">            addChunk(splits.get(1)/*second*/);</span>
             //	    System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.third.getRange());
-<span class="nc" id="L318">            putChunk(splits.get(2)/*third*/);</span>
-<span class="nc" id="L319">            chunksToMove.add(splits.get(1)/*second*/);</span>
-<span class="nc" id="L320">        }</span>
+<span class="nc" id="L336">            addChunk(splits.get(2)/*third*/);</span>
+<span class="nc" id="L337">            chunksToMove.add(splits.get(1)/*second*/);</span>
+<span class="nc" id="L338">        }</span>
 
-<span class="pc bpc" id="L322" title="1 of 2 branches missed.">        for (final ChunkExtractRight&lt;T&gt; chunkToExtractRight : chunksToExtractRight) {</span>
-<span class="nc" id="L323">            final RangedList&lt;T&gt; original = chunkToExtractRight.original;</span>
-<span class="nc" id="L324">            final List&lt;RangedList&lt;T&gt;&gt; splits = chunkToExtractRight.extract();</span>
+<span class="pc bpc" id="L340" title="1 of 2 branches missed.">        for (final ChunkExtractRight&lt;T&gt; chunkToExtractRight : chunksToExtractRight) {</span>
+<span class="nc" id="L341">            final RangedList&lt;T&gt; original = chunkToExtractRight.original;</span>
+<span class="nc" id="L342">            final List&lt;RangedList&lt;T&gt;&gt; splits = chunkToExtractRight.extract();</span>
             //	    System.out.println(&quot;[&quot; + here.id + &quot;] removeChunk &quot; + original.getRange());
-<span class="nc" id="L326">            removeChunk(original);</span>
+<span class="nc" id="L344">            removeChunk(original);</span>
             //	    System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.first.getRange());
-<span class="nc" id="L328">            putChunk(splits.get(0)/*first*/);</span>
+<span class="nc" id="L346">            addChunk(splits.get(0)/*first*/);</span>
             //	    System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.second.getRange());
-<span class="nc" id="L330">            putChunk(splits.get(1)/*second*/);</span>
-<span class="nc" id="L331">            chunksToMove.add(splits.get(1)/*second*/);</span>
-<span class="nc" id="L332">        }</span>
+<span class="nc" id="L348">            addChunk(splits.get(1)/*second*/);</span>
+<span class="nc" id="L349">            chunksToMove.add(splits.get(1)/*second*/);</span>
+<span class="nc" id="L350">        }</span>
 
-<span class="fc" id="L334">        moveAtSync(chunksToMove, dest, mm);</span>
-<span class="fc" id="L335">    }</span>
+<span class="fc" id="L352">        moveAtSync(chunksToMove, dest, mm);</span>
+<span class="fc" id="L353">    }</span>
     @SuppressWarnings(&quot;unchecked&quot;)
     public void moveAtSync(final List&lt;RangedList&lt;T&gt;&gt; cs, final Place dest, final MoveManagerLocal mm) throws Exception {
-<span class="pc bpc" id="L338" title="1 of 2 branches missed.">        if (_debug_level &gt; 5) {</span>
-<span class="nc" id="L339">            System.out.print(&quot;[&quot; + here().id + &quot;] moveAtSync List[RangedList[T]]: &quot;);</span>
-<span class="nc bnc" id="L340" title="All 2 branches missed.">            for (final RangedList&lt;T&gt; rl : cs) {</span>
-<span class="nc" id="L341">                System.out.print(&quot;&quot; + rl.getRange() + &quot;, &quot;);</span>
-<span class="nc" id="L342">            }</span>
-<span class="nc" id="L343">            System.out.println(&quot; dest: &quot; + dest.id);</span>
+<span class="pc bpc" id="L356" title="1 of 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L357">            System.out.print(&quot;[&quot; + here().id + &quot;] moveAtSync List[RangedList[T]]: &quot;);</span>
+<span class="nc bnc" id="L358" title="All 2 branches missed.">            for (final RangedList&lt;T&gt; rl : cs) {</span>
+<span class="nc" id="L359">                System.out.print(&quot;&quot; + rl.getRange() + &quot;, &quot;);</span>
+<span class="nc" id="L360">            }</span>
+<span class="nc" id="L361">            System.out.println(&quot; dest: &quot; + dest.id);</span>
         }
 
-<span class="fc bfc" id="L346" title="All 2 branches covered.">        if (dest.equals(here()))</span>
-<span class="fc" id="L347">            return;</span>
+<span class="fc bfc" id="L364" title="All 2 branches covered.">        if (dest.equals(here()))</span>
+<span class="fc" id="L365">            return;</span>
 
-<span class="fc" id="L349">        final DistCol&lt;T&gt; toBranch = this; // using plh@AbstractCol</span>
-<span class="fc" id="L350">        final Serializer serialize = (ObjectOutputStream s) -&gt; {</span>
-<span class="fc" id="L351">            final ArrayList&lt;Byte&gt; keyTypeList = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L352" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; c : cs) {</span>
-<span class="fc" id="L353">                keyTypeList.add(ldist.moveOut(c.getRange(), dest));</span>
-<span class="fc" id="L354">                this.removeForMove(c);</span>
-<span class="fc" id="L355">            }</span>
-<span class="fc" id="L356">            s.writeObject(keyTypeList);</span>
-<span class="fc" id="L357">            s.writeObject(cs);</span>
-<span class="fc" id="L358">        };</span>
-<span class="fc" id="L359">        final DeSerializer deserialize = (ObjectInputStream ds) -&gt; {</span>
-<span class="fc" id="L360">            final List&lt;Byte&gt; keyTypeList = (List&lt;Byte&gt;) ds.readObject();</span>
-<span class="fc" id="L361">            final Iterator&lt;Byte&gt; keyTypeListIt = keyTypeList.iterator();</span>
-<span class="fc" id="L362">            final List&lt;RangedList&lt;T&gt;&gt; chunks = (List&lt;RangedList&lt;T&gt;&gt;) ds.readObject();</span>
-<span class="fc bfc" id="L363" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; c : chunks) {</span>
-<span class="fc" id="L364">                final byte keyType = keyTypeListIt.next();</span>
-<span class="fc" id="L365">                final LongRange key = c.getRange();</span>
-<span class="pc bpc" id="L366" title="1 of 2 branches missed.">                if (_debug_level &gt; 5) {</span>
-<span class="nc" id="L367">                    System.out.println(&quot;[&quot; + here() + &quot;] putForMove key: &quot; + key + &quot; keyType: &quot; + keyType);</span>
+<span class="fc" id="L367">        final DistCol&lt;T&gt; toBranch = this; // using plh@AbstractCol</span>
+<span class="fc" id="L368">        final Serializer serialize = (ObjectOutputStream s) -&gt; {</span>
+<span class="fc" id="L369">            final ArrayList&lt;Byte&gt; keyTypeList = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L370" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; c : cs) {</span>
+<span class="fc" id="L371">                keyTypeList.add(ldist.moveOut(c.getRange(), dest));</span>
+<span class="fc" id="L372">                this.removeForMove(c);</span>
+<span class="fc" id="L373">            }</span>
+<span class="fc" id="L374">            s.writeObject(keyTypeList);</span>
+<span class="fc" id="L375">            s.writeObject(cs);</span>
+<span class="fc" id="L376">        };</span>
+<span class="fc" id="L377">        final DeSerializer deserialize = (ObjectInputStream ds) -&gt; {</span>
+<span class="fc" id="L378">            final List&lt;Byte&gt; keyTypeList = (List&lt;Byte&gt;) ds.readObject();</span>
+<span class="fc" id="L379">            final Iterator&lt;Byte&gt; keyTypeListIt = keyTypeList.iterator();</span>
+<span class="fc" id="L380">            final List&lt;RangedList&lt;T&gt;&gt; chunks = (List&lt;RangedList&lt;T&gt;&gt;) ds.readObject();</span>
+<span class="fc bfc" id="L381" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; c : chunks) {</span>
+<span class="fc" id="L382">                final byte keyType = keyTypeListIt.next();</span>
+<span class="fc" id="L383">                final LongRange key = c.getRange();</span>
+<span class="pc bpc" id="L384" title="1 of 2 branches missed.">                if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L385">                    System.out.println(&quot;[&quot; + here() + &quot;] putForMove key: &quot; + key + &quot; keyType: &quot; + keyType);</span>
                 }
-<span class="fc" id="L369">                toBranch.putForMove(c, keyType);</span>
-<span class="fc" id="L370">            }</span>
-<span class="fc" id="L371">        };</span>
-<span class="fc" id="L372">        mm.request(dest, serialize, deserialize);</span>
-<span class="fc" id="L373">    }</span>
+<span class="fc" id="L387">                toBranch.putForMove(c, keyType);</span>
+<span class="fc" id="L388">            }</span>
+<span class="fc" id="L389">        };</span>
+<span class="fc" id="L390">        mm.request(dest, serialize, deserialize);</span>
+<span class="fc" id="L391">    }</span>
 
     static class Pair&lt;F, S&gt; {
         F first;
         S second;
 
-<span class="nc" id="L379">        Pair(F first, S second) {</span>
-<span class="nc" id="L380">            this.first = first;</span>
-<span class="nc" id="L381">            this.second = second;</span>
-<span class="nc" id="L382">        }</span>
+<span class="nc" id="L397">        Pair(F first, S second) {</span>
+<span class="nc" id="L398">            this.first = first;</span>
+<span class="nc" id="L399">            this.second = second;</span>
+<span class="nc" id="L400">        }</span>
     }
 
     protected void moveAtSyncCount(final ArrayList&lt;ILPair&gt; moveList, final MoveManagerLocal mm) throws Exception {
         // TODO -&gt;LinkedList? sort??
-<span class="nc" id="L387">        final ArrayList&lt;LongRange&gt; localKeys = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L388">        localKeys.addAll(ranges());</span>
-<span class="nc" id="L389">        localKeys.sort((LongRange range1, LongRange range2) -&gt; {</span>
-<span class="nc" id="L390">            long len1 = range1.to - range1.from;</span>
-<span class="nc" id="L391">            long len2 = range2.to - range2.from;</span>
-<span class="nc" id="L392">            return (int) (len1 - len2);</span>
+<span class="nc" id="L405">        final ArrayList&lt;LongRange&gt; localKeys = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L406">        localKeys.addAll(ranges());</span>
+<span class="nc" id="L407">        localKeys.sort((LongRange range1, LongRange range2) -&gt; {</span>
+<span class="nc" id="L408">            long len1 = range1.to - range1.from;</span>
+<span class="nc" id="L409">            long len2 = range2.to - range2.from;</span>
+<span class="nc" id="L410">            return (int) (len1 - len2);</span>
         });
-<span class="nc bnc" id="L394" title="All 2 branches missed.">        if (_debug_level &gt; 5) {</span>
-<span class="nc" id="L395">            System.out.print(&quot;[&quot; + here() + &quot;] &quot;);</span>
-<span class="nc bnc" id="L396" title="All 2 branches missed.">            for (int i = 0; i &lt; localKeys.size(); i++) {</span>
-<span class="nc" id="L397">                System.out.print(&quot;&quot; + localKeys.get(i).from + &quot;..&quot; + localKeys.get(i).to + &quot;, &quot;);</span>
+<span class="nc bnc" id="L412" title="All 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L413">            System.out.print(&quot;[&quot; + here() + &quot;] &quot;);</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">            for (int i = 0; i &lt; localKeys.size(); i++) {</span>
+<span class="nc" id="L415">                System.out.print(&quot;&quot; + localKeys.get(i).from + &quot;..&quot; + localKeys.get(i).to + &quot;, &quot;);</span>
             }
-<span class="nc" id="L399">            System.out.println();</span>
+<span class="nc" id="L417">            System.out.println();</span>
         }
-<span class="nc bnc" id="L401" title="All 2 branches missed.">        for (final ILPair moveinfo : moveList) {</span>
-<span class="nc" id="L402">            final long count = moveinfo.second;</span>
-<span class="nc" id="L403">            final Place dest = placeGroup.get(moveinfo.first);</span>
-<span class="nc bnc" id="L404" title="All 2 branches missed.">            if (_debug_level &gt; 5) {</span>
-<span class="nc" id="L405">                System.out.println(&quot;[&quot; + here() + &quot;] move count=&quot; + count + &quot; to dest &quot; + dest.id);</span>
+<span class="nc bnc" id="L419" title="All 2 branches missed.">        for (final ILPair moveinfo : moveList) {</span>
+<span class="nc" id="L420">            final long count = moveinfo.second;</span>
+<span class="nc" id="L421">            final Place dest = placeGroup.get(moveinfo.first);</span>
+<span class="nc bnc" id="L422" title="All 2 branches missed.">            if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L423">                System.out.println(&quot;[&quot; + here() + &quot;] move count=&quot; + count + &quot; to dest &quot; + dest.id);</span>
             }
-<span class="nc bnc" id="L407" title="All 2 branches missed.">            if (dest.equals(here()))</span>
-<span class="nc" id="L408">                continue;</span>
-<span class="nc" id="L409">            long sizeToSend = count;</span>
-<span class="nc bnc" id="L410" title="All 2 branches missed.">            while (sizeToSend &gt; 0) {</span>
-<span class="nc" id="L411">                final LongRange lk = localKeys.remove(0);</span>
-<span class="nc" id="L412">                final long len = lk.to - lk.from;</span>
-<span class="nc bnc" id="L413" title="All 2 branches missed.">                if (len &gt; sizeToSend) {</span>
-<span class="nc" id="L414">                    moveAtSync(new LongRange(lk.from, lk.from + sizeToSend), dest, mm);</span>
-<span class="nc" id="L415">                    localKeys.add(0, new LongRange(lk.from + sizeToSend, lk.to));</span>
-<span class="nc" id="L416">                    break;</span>
+<span class="nc bnc" id="L425" title="All 2 branches missed.">            if (dest.equals(here()))</span>
+<span class="nc" id="L426">                continue;</span>
+<span class="nc" id="L427">            long sizeToSend = count;</span>
+<span class="nc bnc" id="L428" title="All 2 branches missed.">            while (sizeToSend &gt; 0) {</span>
+<span class="nc" id="L429">                final LongRange lk = localKeys.remove(0);</span>
+<span class="nc" id="L430">                final long len = lk.to - lk.from;</span>
+<span class="nc bnc" id="L431" title="All 2 branches missed.">                if (len &gt; sizeToSend) {</span>
+<span class="nc" id="L432">                    moveAtSync(new LongRange(lk.from, lk.from + sizeToSend), dest, mm);</span>
+<span class="nc" id="L433">                    localKeys.add(0, new LongRange(lk.from + sizeToSend, lk.to));</span>
+<span class="nc" id="L434">                    break;</span>
                 } else {
-<span class="nc" id="L418">                    moveAtSync(lk, dest, mm);</span>
-<span class="nc" id="L419">                    sizeToSend -= len;</span>
+<span class="nc" id="L436">                    moveAtSync(lk, dest, mm);</span>
+<span class="nc" id="L437">                    sizeToSend -= len;</span>
                 }
-<span class="nc" id="L421">            }</span>
-<span class="nc" id="L422">        }</span>
-<span class="nc" id="L423">    }</span>
+<span class="nc" id="L439">            }</span>
+<span class="nc" id="L440">        }</span>
+<span class="nc" id="L441">    }</span>
 
     public void moveAtSync(Function&lt;LongRange, List&lt;Pair&lt;Place, LongRange&gt;&gt;&gt; rule, MoveManagerLocal mm)
             throws Exception {
-<span class="nc" id="L427">        final DistCol&lt;T&gt; collection = this;</span>
-<span class="nc" id="L428">        final HashMap&lt;Place, ArrayList&lt;LongRange&gt;&gt; rangesToMove = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L445">        final DistCol&lt;T&gt; collection = this;</span>
+<span class="nc" id="L446">        final HashMap&lt;Place, ArrayList&lt;LongRange&gt;&gt; rangesToMove = new HashMap&lt;&gt;();</span>
 
-<span class="nc" id="L430">        collection.forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
-<span class="nc" id="L431">            final List&lt;Pair&lt;Place, LongRange&gt;&gt; destinationList = rule.apply(c.getRange());</span>
-<span class="nc bnc" id="L432" title="All 2 branches missed.">            for (final Pair&lt;Place, LongRange&gt; destination : destinationList) {</span>
-<span class="nc" id="L433">                final Place destinationPlace = destination.first;</span>
-<span class="nc" id="L434">                final LongRange destinationRange = destination.second;</span>
-<span class="nc bnc" id="L435" title="All 2 branches missed.">                if (!rangesToMove.containsKey(destinationPlace)) {</span>
-<span class="nc" id="L436">                    rangesToMove.put(destinationPlace, new ArrayList&lt;LongRange&gt;());</span>
+<span class="nc" id="L448">        collection.forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
+<span class="nc" id="L449">            final List&lt;Pair&lt;Place, LongRange&gt;&gt; destinationList = rule.apply(c.getRange());</span>
+<span class="nc bnc" id="L450" title="All 2 branches missed.">            for (final Pair&lt;Place, LongRange&gt; destination : destinationList) {</span>
+<span class="nc" id="L451">                final Place destinationPlace = destination.first;</span>
+<span class="nc" id="L452">                final LongRange destinationRange = destination.second;</span>
+<span class="nc bnc" id="L453" title="All 2 branches missed.">                if (!rangesToMove.containsKey(destinationPlace)) {</span>
+<span class="nc" id="L454">                    rangesToMove.put(destinationPlace, new ArrayList&lt;LongRange&gt;());</span>
 
                 }
-<span class="nc" id="L439">                rangesToMove.get(destinationPlace).add(destinationRange);</span>
-<span class="nc" id="L440">            }</span>
-<span class="nc" id="L441">        });</span>
-<span class="nc bnc" id="L442" title="All 2 branches missed.">        for (final Place place : rangesToMove.keySet()) {</span>
-<span class="nc bnc" id="L443" title="All 2 branches missed.">            for (final LongRange range : rangesToMove.get(place)) {</span>
-<span class="nc" id="L444">                moveAtSync(range, place, mm);</span>
-<span class="nc" id="L445">            }</span>
-<span class="nc" id="L446">        }</span>
-<span class="nc" id="L447">    }</span>
+<span class="nc" id="L457">                rangesToMove.get(destinationPlace).add(destinationRange);</span>
+<span class="nc" id="L458">            }</span>
+<span class="nc" id="L459">        });</span>
+<span class="nc bnc" id="L460" title="All 2 branches missed.">        for (final Place place : rangesToMove.keySet()) {</span>
+<span class="nc bnc" id="L461" title="All 2 branches missed.">            for (final LongRange range : rangesToMove.get(place)) {</span>
+<span class="nc" id="L462">                moveAtSync(range, place, mm);</span>
+<span class="nc" id="L463">            }</span>
+<span class="nc" id="L464">        }</span>
+<span class="nc" id="L465">    }</span>
+
+    public T get(long i) {
+<span class="nc" id="L468">        return data.get(i);</span>
+    }
+
+    public long longSize() {
+<span class="nc" id="L472">        return data.longSize();</span>
+    }
+
+    public int numChunks() {
+<span class="nc" id="L476">        return data.numChunks();</span>
+    }
+
+    public T set(long i, T value) {
+<span class="nc" id="L480">        return data.set(i, value);</span>
+    }
 
     public void moveAtSync(final RangedDistribution&lt;LongRange&gt; dist, final MoveManagerLocal mm) throws Exception {
-<span class="nc" id="L450">        moveAtSync((LongRange range) -&gt; {</span>
-<span class="nc" id="L451">            return dist.placeRanges(range);</span>
+<span class="nc" id="L484">        moveAtSync((LongRange range) -&gt; {</span>
+<span class="nc" id="L485">            return dist.placeRanges(range);</span>
         }, mm);
-<span class="nc" id="L453">    }</span>
+<span class="nc" id="L487">    }</span>
 
     public void moveAtSync(final Distribution&lt;Long&gt; dist, final MoveManagerLocal mm) throws Exception {
-<span class="nc" id="L456">        moveAtSync((LongRange range) -&gt; {</span>
-<span class="nc" id="L457">            ArrayList&lt;Pair&lt;Place, LongRange&gt;&gt; listPlaceRange = new ArrayList&lt;&gt;();</span>
-<span class="nc bnc" id="L458" title="All 2 branches missed.">            for (final Long key : range) {</span>
-<span class="nc" id="L459">                listPlaceRange.add(new Pair&lt;Place, LongRange&gt;(dist.place(key), new LongRange(key, key + 1)));</span>
-<span class="nc" id="L460">            }</span>
-<span class="nc" id="L461">            return listPlaceRange;</span>
+<span class="nc" id="L490">        moveAtSync((LongRange range) -&gt; {</span>
+<span class="nc" id="L491">            ArrayList&lt;Pair&lt;Place, LongRange&gt;&gt; listPlaceRange = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L492" title="All 2 branches missed.">            for (final Long key : range) {</span>
+<span class="nc" id="L493">                listPlaceRange.add(new Pair&lt;Place, LongRange&gt;(dist.place(key), new LongRange(key, key + 1)));</span>
+<span class="nc" id="L494">            }</span>
+<span class="nc" id="L495">            return listPlaceRange;</span>
         }, mm);
-<span class="nc" id="L463">    }</span>
+<span class="nc" id="L497">    }</span>
 
     @Override
     public void checkDistInfo(long[] result) {
-<span class="nc bnc" id="L467" title="All 2 branches missed.">        for (final Map.Entry&lt;LongRange, Place&gt; entry : ldist.dist.entrySet()) {</span>
-<span class="nc" id="L468">            final LongRange k = entry.getKey();</span>
-<span class="nc" id="L469">            final Place p = entry.getValue();</span>
-<span class="nc" id="L470">            result[placeGroup.rank(p)] += k.size();</span>
-<span class="nc" id="L471">        }</span>
-<span class="nc" id="L472">    }</span>
-    
+<span class="nc bnc" id="L501" title="All 2 branches missed.">        for (final Map.Entry&lt;LongRange, Place&gt; entry : ldist.dist.entrySet()) {</span>
+<span class="nc" id="L502">            final LongRange k = entry.getKey();</span>
+<span class="nc" id="L503">            final Place p = entry.getValue();</span>
+<span class="nc" id="L504">            result[placeGroup.rank(p)] += k.size();</span>
+<span class="nc" id="L505">        }</span>
+<span class="nc" id="L506">    }</span>
+
     /*
      * public def relocate(dist:RangedDistribution) { val mm = new
      * MoveManagerLocal(placeGroup,team); moveAtSync(dist, mm); mm.sync(); }
      */
 
     public void updateDist() {
-<span class="fc" id="L480">        ldist.updateDist(placeGroup);</span>
-<span class="fc" id="L481">    }</span>
+<span class="fc" id="L514">        ldist.updateDist(placeGroup);</span>
+<span class="fc" id="L515">    }</span>
 
     // TODO
     public Collection&lt;LongRange&gt; ranges() {
-<span class="nc" id="L485">        return data.ranges();</span>
+<span class="nc" id="L519">        return data.ranges();</span>
     }
 
-    // TODO
-    /*
-    public &lt;U&gt; void forEach(Pool pool, ReceiverHolder&lt;U&gt; receiverHolder, int nth, BiConsumer&lt;T, Receiver&lt;U&gt;&gt; op) {
-        if (isEmpty()) {
-            return;
-        }
-        ParallelAccumulator.execute(pool, getLocalInternal().data, receiverHolder, nth, op);
+
+    public Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads, Consumer&lt;? super T&gt; action) {
+<span class="nc" id="L524">        return data.asyncForEach(pool, nthreads, action);</span>
     }
-    
-    public &lt;U&gt; Condition asyncForEach(Pool pool, ReceiverHolder&lt;U&gt; receiverHolder, int nth, BiConsumer&lt;T, Receiver&lt;U&gt;&gt; op) {
-        if (isEmpty()) {
-            final val condition = new Condition();
-            condition.release();
-            return condition;
-        }
-        if (_debug_level &gt; 5n) {
-    	    System.out.println(&quot;DistCol#asyncEach@ &quot; + here + &quot; data:&quot; + data.ranges());
-        }
-        return ParallelAccumulator.executeAsync(pool, getLocalInternal().data, receiverHolder, nth, op);
+
+    public &lt;U&gt; Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads,
+            BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action, MultiReceiver&lt;U&gt; toStore) {
+<span class="nc" id="L529">        return data.asyncForEach(pool, nthreads, action, toStore);</span>
     }
-    */
+
+    public Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads, LongTBiConsumer&lt;? super T&gt; action) {
+<span class="nc" id="L533">        return data.asyncForEach(pool, nthreads, action);</span>
+    }
+
+    public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action, Collection&lt;? super U&gt; toStore) {
+<span class="nc" id="L537">        data.forEach(action, toStore);</span>
+<span class="nc" id="L538">    }</span>
+
+    public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action, Consumer&lt;U&gt; receiver) {
+<span class="nc" id="L541">        data.forEach(action, receiver);</span>
+<span class="nc" id="L542">    }</span>
+
+    public void forEach(Consumer&lt;? super T&gt; action) {
+<span class="nc" id="L545">        data.forEach(action);</span>
+<span class="nc" id="L546">    }</span>
+
+    public &lt;U&gt; void forEach(ExecutorService pool, int nthreads, BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action,
+            MultiReceiver&lt;U&gt; toStore) {
+<span class="nc" id="L550">        data.forEach(pool, nthreads, action, toStore);</span>
+<span class="nc" id="L551">    }</span>
+
+    public void forEach(ExecutorService pool, int nthreads, Consumer&lt;? super T&gt; action) {
+<span class="nc" id="L554">        data.forEach(pool, nthreads, action);</span>
+<span class="nc" id="L555">    }</span>
+
+    public void forEach(ExecutorService pool, int nthreads, LongTBiConsumer&lt;? super T&gt; action) {
+<span class="nc" id="L558">        data.forEach(pool, nthreads, action);</span>
+<span class="nc" id="L559">    }</span>
+
+    public void forEach(LongTBiConsumer&lt;? super T&gt; action) {
+<span class="nc" id="L562">        data.forEach(action);</span>
+<span class="nc" id="L563">    }</span>
+
     public void forEachChunk(Consumer&lt;RangedList&lt;T&gt;&gt; op) {
-<span class="fc" id="L510">        data.forEachChunk(op);</span>
-<span class="fc" id="L511">    }</span>
+<span class="fc" id="L566">        data.forEachChunk(op);</span>
+<span class="fc" id="L567">    }</span>
 
     public List&lt;RangedList&lt;T&gt;&gt; filterChunk(final Predicate&lt;RangedList&lt;? super T&gt;&gt; op) {
-<span class="nc" id="L514">        return data.filterChunk(op);</span>
+<span class="nc" id="L570">        return data.filterChunk(op);</span>
     }
 
     public List&lt;Long&gt; indices() {
-<span class="nc" id="L518">        throw new UnsupportedOperationException();</span>
+<span class="nc" id="L574">        throw new UnsupportedOperationException();</span>
     }
 
     public void reverse() {
-<span class="nc" id="L522">        throw new UnsupportedOperationException();</span>
+<span class="nc" id="L578">        throw new UnsupportedOperationException();</span>
     }
 
     public boolean add(final T v) {
-<span class="nc" id="L526">        throw new UnsupportedOperationException();</span>
+<span class="nc" id="L582">        throw new UnsupportedOperationException();</span>
     }
 
     public void addBefore(final long i, final T v) {
-<span class="nc" id="L530">        throw new UnsupportedOperationException();</span>
+<span class="nc" id="L586">        throw new UnsupportedOperationException();</span>
     }
 
     public boolean addAll(final Collection&lt;T&gt; elems) {
-<span class="nc" id="L534">        throw new UnsupportedOperationException();</span>
+<span class="nc" id="L590">        throw new UnsupportedOperationException();</span>
     }
 
     public boolean remove(final T v) {
-<span class="nc" id="L538">        throw new UnsupportedOperationException();</span>
+<span class="nc" id="L594">        throw new UnsupportedOperationException();</span>
     }
 
     public boolean retainAll(final Collection&lt;T&gt; vs) {
-<span class="nc" id="L542">        throw new UnsupportedOperationException();</span>
+<span class="nc" id="L598">        throw new UnsupportedOperationException();</span>
     }
 
     public boolean removeAll(final Collection&lt;T&gt; vs) {
-<span class="nc" id="L546">        throw new UnsupportedOperationException();</span>
+<span class="nc" id="L602">        throw new UnsupportedOperationException();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,4 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistMapList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistMapList.java</span></div><h1>DistMapList.java</h1><pre class="source lang-java linenums">package handist.collections.dist;
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistMapList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistMapList.java</span></div><h1>DistMapList.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
+package handist.collections.dist;
 
 import static apgas.Constructs.*;
 
@@ -25,10 +34,10 @@ public class DistMapList&lt;K,V&gt; extends DistMap&lt;K, List&lt;V&gt;&gt; {
 
 
     public Object writeReplace() throws ObjectStreamException {
-<span class="fc" id="L28">        final TeamedPlaceGroup pg1 = placeGroup;</span>
-<span class="fc" id="L29">        final GlobalID id1 = id;</span>
-<span class="fc" id="L30">            return new AbstractDistCollection.LazyObjectReference&lt;DistMapList&lt;K,V&gt;&gt;(pg1, id1, ()-&gt; {</span>
-<span class="fc" id="L31">                return new DistMapList&lt;K,V&gt;(pg1, id1);</span>
+<span class="fc" id="L37">        final TeamedPlaceGroup pg1 = placeGroup;</span>
+<span class="fc" id="L38">        final GlobalID id1 = id;</span>
+<span class="fc" id="L39">            return new AbstractDistCollection.LazyObjectReference&lt;DistMapList&lt;K,V&gt;&gt;(pg1, id1, ()-&gt; {</span>
+<span class="fc" id="L40">                return new DistMapList&lt;K,V&gt;(pg1, id1);</span>
         });
     }
 
@@ -36,8 +45,8 @@ public class DistMapList&lt;K,V&gt; extends DistMap&lt;K, List&lt;V&gt;&gt; {
      * Construct a DistMapList.
      */
     public DistMapList() {
-<span class="nc" id="L39">        this(TeamedPlaceGroup.getWorld());</span>
-<span class="nc" id="L40">    }</span>
+<span class="nc" id="L48">        this(TeamedPlaceGroup.getWorld());</span>
+<span class="nc" id="L49">    }</span>
 
     /**
      * Construct a DistMapList with given argument.
@@ -45,8 +54,8 @@ public class DistMapList&lt;K,V&gt; extends DistMap&lt;K, List&lt;V&gt;&gt; {
      * @param placeGroup PlaceGroup.
      */
     public DistMapList(TeamedPlaceGroup placeGroup) {
-<span class="fc" id="L48">        super(placeGroup);</span>
-<span class="fc" id="L49">    }</span>
+<span class="fc" id="L57">        super(placeGroup);</span>
+<span class="fc" id="L58">    }</span>
 
     /**
      * Construct a DistMapList with given arguments.
@@ -55,8 +64,8 @@ public class DistMapList&lt;K,V&gt; extends DistMap&lt;K, List&lt;V&gt;&gt; {
      * @param id the global ID used to identify this instance
      */
     public DistMapList(TeamedPlaceGroup placeGroup, GlobalID id) {
-<span class="fc" id="L58">        super(placeGroup, id);</span>
-<span class="fc" id="L59">    }</span>
+<span class="fc" id="L67">        super(placeGroup, id);</span>
+<span class="fc" id="L68">    }</span>
 
     // TODO ...
     //public void setupBranches(DistMap.Generator&lt;T,List&lt;U&gt;&gt; gen)
@@ -70,24 +79,24 @@ public class DistMapList&lt;K,V&gt; extends DistMap&lt;K, List&lt;V&gt;&gt; {
      * 	specified by {@link Collection#add(Object)}. 
      */
     public boolean put1(K key, V value) {
-<span class="fc" id="L73">        List&lt;V&gt; list = data.get(key);</span>
-<span class="fc bfc" id="L74" title="All 2 branches covered.">        if (list == null) {</span>
-<span class="fc" id="L75">            list = new ArrayList&lt;V&gt;();</span>
-<span class="fc" id="L76">            data.put(key, list);</span>
-        }
-<span class="fc" id="L78">        return list.add(value);</span>
-    }
-
-    public boolean putForMove(K key, Collection&lt;V&gt; values) {
 <span class="fc" id="L82">        List&lt;V&gt; list = data.get(key);</span>
 <span class="fc bfc" id="L83" title="All 2 branches covered.">        if (list == null) {</span>
 <span class="fc" id="L84">            list = new ArrayList&lt;V&gt;();</span>
 <span class="fc" id="L85">            data.put(key, list);</span>
         }
+<span class="fc" id="L87">        return list.add(value);</span>
+    }
+
+    public boolean putForMove(K key, Collection&lt;V&gt; values) {
+<span class="fc" id="L91">        List&lt;V&gt; list = data.get(key);</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (list == null) {</span>
+<span class="fc" id="L93">            list = new ArrayList&lt;V&gt;();</span>
+<span class="fc" id="L94">            data.put(key, list);</span>
+        }
         // TODO we should check values!=null before transportation
-<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (values != null)</span>
-<span class="fc" id="L89">            list.addAll(values);</span>
-<span class="fc" id="L90">        return false;</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">        if (values != null)</span>
+<span class="fc" id="L98">            list.addAll(values);</span>
+<span class="fc" id="L99">        return false;</span>
     }
 
     /**
@@ -97,8 +106,8 @@ public class DistMapList&lt;K,V&gt; extends DistMap&lt;K, List&lt;V&gt;&gt; {
      * @return the list of all the mappings to the specified key. 
      */
     public List&lt;V&gt; removeForMove(K key) {
-<span class="fc" id="L100">        List&lt;V&gt; list = data.remove(key);</span>
-<span class="fc" id="L101">        return list;</span>
+<span class="fc" id="L109">        List&lt;V&gt; list = data.remove(key);</span>
+<span class="fc" id="L110">        return list;</span>
     }
 
     /**
@@ -113,40 +122,40 @@ public class DistMapList&lt;K,V&gt; extends DistMap&lt;K, List&lt;V&gt;&gt; {
      */
     @SuppressWarnings(&quot;unchecked&quot;)
     public void putAtSync(K key, V value, Place pl, MoveManagerLocal mm) {
-<span class="nc" id="L116">        DistMapList&lt;K,V&gt; toBranch = this; // using plh@AbstractCol</span>
-<span class="nc" id="L117">        Serializer serialize = (ObjectOutputStream s) -&gt; {</span>
-<span class="nc" id="L118">            s.writeObject(key);</span>
-<span class="nc" id="L119">            s.writeObject(value);</span>
-<span class="nc" id="L120">        };</span>
-<span class="nc" id="L121">        DeSerializer deserialize = (ObjectInputStream ds) -&gt; {</span>
-<span class="nc" id="L122">            K k = (K)ds.readObject();</span>
-<span class="nc" id="L123">            V v = (V)ds.readObject();</span>
-<span class="nc" id="L124">            toBranch.put1(k, v);</span>
-<span class="nc" id="L125">        };</span>
-<span class="nc" id="L126">        mm.request(pl, serialize, deserialize);</span>
-<span class="nc" id="L127">    }</span>
+<span class="nc" id="L125">        DistMapList&lt;K,V&gt; toBranch = this; // using plh@AbstractCol</span>
+<span class="nc" id="L126">        Serializer serialize = (ObjectOutputStream s) -&gt; {</span>
+<span class="nc" id="L127">            s.writeObject(key);</span>
+<span class="nc" id="L128">            s.writeObject(value);</span>
+<span class="nc" id="L129">        };</span>
+<span class="nc" id="L130">        DeSerializer deserialize = (ObjectInputStream ds) -&gt; {</span>
+<span class="nc" id="L131">            K k = (K)ds.readObject();</span>
+<span class="nc" id="L132">            V v = (V)ds.readObject();</span>
+<span class="nc" id="L133">            toBranch.put1(k, v);</span>
+<span class="nc" id="L134">        };</span>
+<span class="nc" id="L135">        mm.request(pl, serialize, deserialize);</span>
+<span class="nc" id="L136">    }</span>
 
     @SuppressWarnings(&quot;unchecked&quot;)
     public void moveAtSync(K key, Place pl, MoveManagerLocal mm) {
-<span class="fc bfc" id="L131" title="All 2 branches covered.">        if (pl.equals(here()))</span>
-<span class="fc" id="L132">            return;</span>
-<span class="pc bpc" id="L133" title="1 of 2 branches missed.">        if (!containsKey(key))</span>
-<span class="nc" id="L134">            throw new RuntimeException(&quot;DistMapList cannot move uncontained entry: &quot; + key);</span>
-<span class="fc" id="L135">        final DistMapList&lt;K, V&gt; toBranch = this; // using plh@AbstractCol</span>
-<span class="fc" id="L136">        Serializer serialize = (ObjectOutputStream s) -&gt; {</span>
-<span class="fc" id="L137">            List&lt;V&gt; value = this.removeForMove(key);</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">        if (pl.equals(here()))</span>
+<span class="fc" id="L141">            return;</span>
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        if (!containsKey(key))</span>
+<span class="nc" id="L143">            throw new RuntimeException(&quot;DistMapList cannot move uncontained entry: &quot; + key);</span>
+<span class="fc" id="L144">        final DistMapList&lt;K, V&gt; toBranch = this; // using plh@AbstractCol</span>
+<span class="fc" id="L145">        Serializer serialize = (ObjectOutputStream s) -&gt; {</span>
+<span class="fc" id="L146">            List&lt;V&gt; value = this.removeForMove(key);</span>
             // TODO we should check values!=null before transportation
-<span class="fc" id="L139">            s.writeObject(key);</span>
-<span class="fc" id="L140">            s.writeObject(value);</span>
-<span class="fc" id="L141">        };</span>
-<span class="fc" id="L142">        DeSerializer deserialize = (ObjectInputStream ds) -&gt; {</span>
-<span class="fc" id="L143">            K k = (K) ds.readObject();</span>
+<span class="fc" id="L148">            s.writeObject(key);</span>
+<span class="fc" id="L149">            s.writeObject(value);</span>
+<span class="fc" id="L150">        };</span>
+<span class="fc" id="L151">        DeSerializer deserialize = (ObjectInputStream ds) -&gt; {</span>
+<span class="fc" id="L152">            K k = (K) ds.readObject();</span>
             // TODO we should check values!=null before transportation
-<span class="fc" id="L145">            List&lt;V&gt; v = (List&lt;V&gt;) ds.readObject();</span>
-<span class="fc" id="L146">            toBranch.putForMove(k, v);</span>
-<span class="fc" id="L147">        };</span>
-<span class="fc" id="L148">        mm.request(pl, serialize, deserialize);</span>
-<span class="fc" id="L149">    }</span>
+<span class="fc" id="L154">            List&lt;V&gt; v = (List&lt;V&gt;) ds.readObject();</span>
+<span class="fc" id="L155">            toBranch.putForMove(k, v);</span>
+<span class="fc" id="L156">        };</span>
+<span class="fc" id="L157">        mm.request(pl, serialize, deserialize);</span>
+<span class="fc" id="L158">    }</span>
 
     /**
      * Apply the same operation onto the all local entries.
@@ -154,13 +163,13 @@ public class DistMapList&lt;K,V&gt; extends DistMap&lt;K, List&lt;V&gt;&gt; {
      * @param op the operation.
      */
     public void forEach1(BiConsumer&lt;K, V&gt; op) {
-<span class="fc bfc" id="L157" title="All 2 branches covered.">        for (Map.Entry&lt;K, List&lt;V&gt;&gt; entry: data.entrySet()) {</span>
-<span class="fc" id="L158">            K key = entry.getKey();</span>
-<span class="fc bfc" id="L159" title="All 2 branches covered.">            for (V value: entry.getValue()) {</span>
-<span class="fc" id="L160">                op.accept(key, value);</span>
-<span class="fc" id="L161">            }</span>
-<span class="fc" id="L162">        }</span>
-<span class="fc" id="L163">    }</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">        for (Map.Entry&lt;K, List&lt;V&gt;&gt; entry: data.entrySet()) {</span>
+<span class="fc" id="L167">            K key = entry.getKey();</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">            for (V value: entry.getValue()) {</span>
+<span class="fc" id="L169">                op.accept(key, value);</span>
+<span class="fc" id="L170">            }</span>
+<span class="fc" id="L171">        }</span>
+<span class="fc" id="L172">    }</span>
 
     /**
      * Apply the same operation on each element including remote places and 
@@ -173,7 +182,7 @@ public class DistMapList&lt;K,V&gt; extends DistMap&lt;K, List&lt;V&gt;&gt; {
      */
     public &lt;W&gt; DistMapList&lt;K,W&gt; map(BiFunction&lt;K, V, W&gt; op) {
         // TODO
-<span class="nc" id="L176">        throw new Error(&quot;not implemented yet&quot;);</span>
+<span class="nc" id="L185">        throw new Error(&quot;not implemented yet&quot;);</span>
         /*return new DistMapList[T,S](placeGroup, team, () =&gt; {
             val dst = new HashMap[T,List[S]]();
             for (entry in data.entries()) {

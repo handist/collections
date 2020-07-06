@@ -1,4 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChunkedList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">ChunkedList.java</span></div><h1>ChunkedList.java</h1><pre class="source lang-java linenums">package handist.collections;
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChunkedList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">ChunkedList.java</span></div><h1>ChunkedList.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
+package handist.collections;
 
 import java.util.AbstractCollection;
 import java.util.ArrayList;
@@ -17,126 +26,126 @@ import java.util.function.Predicate;
 
 import handist.collections.function.LongTBiConsumer;
 
-<span class="fc bfc" id="L20" title="All 2 branches covered.">public class ChunkedList&lt;T&gt; extends AbstractCollection&lt;T&gt; {</span>
+<span class="fc bfc" id="L29" title="All 2 branches covered.">public class ChunkedList&lt;T&gt; extends AbstractCollection&lt;T&gt; {</span>
 
 	private static class It&lt;S&gt; implements Iterator&lt;S&gt; {
 		public TreeMap&lt;LongRange, RangedList&lt;S&gt;&gt; chunks;
 		private Iterator&lt;S&gt; cIter;
 		private LongRange range;
 
-<span class="fc" id="L27">		public It(TreeMap&lt;LongRange, RangedList&lt;S&gt;&gt; chunks) {</span>
-<span class="fc" id="L28">			this.chunks = chunks;</span>
-<span class="fc" id="L29">			Map.Entry&lt;LongRange, RangedList&lt;S&gt;&gt; firstEntry = chunks.firstEntry();</span>
-<span class="fc bfc" id="L30" title="All 2 branches covered.">			if (firstEntry != null) {</span>
-<span class="fc" id="L31">				RangedList&lt;S&gt; firstChunk = firstEntry.getValue();</span>
-<span class="fc" id="L32">				range = firstChunk.getRange();</span>
-<span class="fc" id="L33">				cIter = firstChunk.iterator();</span>
-<span class="fc" id="L34">			} else {</span>
-<span class="fc" id="L35">				range = null;</span>
-<span class="fc" id="L36">				cIter = null;</span>
+<span class="fc" id="L36">		public It(TreeMap&lt;LongRange, RangedList&lt;S&gt;&gt; chunks) {</span>
+<span class="fc" id="L37">			this.chunks = chunks;</span>
+<span class="fc" id="L38">			Map.Entry&lt;LongRange, RangedList&lt;S&gt;&gt; firstEntry = chunks.firstEntry();</span>
+<span class="fc bfc" id="L39" title="All 2 branches covered.">			if (firstEntry != null) {</span>
+<span class="fc" id="L40">				RangedList&lt;S&gt; firstChunk = firstEntry.getValue();</span>
+<span class="fc" id="L41">				range = firstChunk.getRange();</span>
+<span class="fc" id="L42">				cIter = firstChunk.iterator();</span>
+<span class="fc" id="L43">			} else {</span>
+<span class="fc" id="L44">				range = null;</span>
+<span class="fc" id="L45">				cIter = null;</span>
 			}
-<span class="fc" id="L38">		}</span>
+<span class="fc" id="L47">		}</span>
 
 		@Override
 		public boolean hasNext() {
-<span class="fc bfc" id="L42" title="All 2 branches covered.">			if (range == null) {</span>
-<span class="fc" id="L43">				return false;</span>
-			}
-<span class="fc bfc" id="L45" title="All 2 branches covered.">			if (cIter.hasNext()) {</span>
-<span class="fc" id="L46">				return true;</span>
-			}
-<span class="fc" id="L48">			Map.Entry&lt;LongRange, RangedList&lt;S&gt;&gt; nextEntry = chunks.higherEntry(range);</span>
-<span class="fc bfc" id="L49" title="All 2 branches covered.">			if (nextEntry == null) {</span>
-<span class="fc" id="L50">				range = null;</span>
-<span class="fc" id="L51">				cIter = null;</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">			if (range == null) {</span>
 <span class="fc" id="L52">				return false;</span>
 			}
-<span class="fc" id="L54">			range = nextEntry.getKey();</span>
-<span class="fc" id="L55">			cIter = nextEntry.getValue().iterator();</span>
-<span class="fc" id="L56">			return cIter.hasNext();</span>
+<span class="fc bfc" id="L54" title="All 2 branches covered.">			if (cIter.hasNext()) {</span>
+<span class="fc" id="L55">				return true;</span>
+			}
+<span class="fc" id="L57">			Map.Entry&lt;LongRange, RangedList&lt;S&gt;&gt; nextEntry = chunks.higherEntry(range);</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">			if (nextEntry == null) {</span>
+<span class="fc" id="L59">				range = null;</span>
+<span class="fc" id="L60">				cIter = null;</span>
+<span class="fc" id="L61">				return false;</span>
+			}
+<span class="fc" id="L63">			range = nextEntry.getKey();</span>
+<span class="fc" id="L64">			cIter = nextEntry.getValue().iterator();</span>
+<span class="fc" id="L65">			return cIter.hasNext();</span>
 		}
 
 		@Override
 		public S next() {
-<span class="fc bfc" id="L61" title="All 2 branches covered.">			if (hasNext()) {</span>
-<span class="fc" id="L62">				return cIter.next();</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">			if (hasNext()) {</span>
+<span class="fc" id="L71">				return cIter.next();</span>
 			}
-<span class="fc" id="L64">			throw new IndexOutOfBoundsException();</span>
+<span class="fc" id="L73">			throw new IndexOutOfBoundsException();</span>
 		}
 
 	}
 	// private List&lt;RangedList&lt;T&gt;&gt; chunks;
 	private TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt; chunks;
 
-<span class="pc" id="L71">	private long size = 0;</span>
+<span class="pc" id="L80">	private long size = 0;</span>
 
-<span class="fc" id="L73">	public ChunkedList() {</span>
+<span class="fc" id="L82">	public ChunkedList() {</span>
 		//chunks = new TreeMap&lt;&gt;(Comparator.comparingLong(r -&gt; r.from));
-<span class="fc" id="L75">		chunks = new TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt;();</span>
-<span class="fc" id="L76">	}</span>
+<span class="fc" id="L84">		chunks = new TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt;();</span>
+<span class="fc" id="L85">	}</span>
 
-<span class="nc" id="L78">	public ChunkedList(TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt; chunks) {</span>
-<span class="nc" id="L79">		this.chunks = chunks;</span>
-<span class="nc" id="L80">	}</span>
+<span class="nc" id="L87">	public ChunkedList(TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt; chunks) {</span>
+<span class="nc" id="L88">		this.chunks = chunks;</span>
+<span class="nc" id="L89">	}</span>
 
 	@Override
 	public boolean add(T element) {
-<span class="fc" id="L84">		throw new UnsupportedOperationException();</span>
+<span class="fc" id="L93">		throw new UnsupportedOperationException();</span>
 	}
 
 	@Override
 	public boolean addAll(Collection&lt;? extends T&gt; c) {
-<span class="fc" id="L89">		throw new UnsupportedOperationException();</span>
+<span class="fc" id="L98">		throw new UnsupportedOperationException();</span>
 	}
 
 	public void addChunk(RangedList&lt;T&gt; c) {
-<span class="fc" id="L93">		LongRange desired = c.getRange();</span>
-<span class="fc" id="L94">		LongRange intersection = checkOverlap(desired);</span>
-<span class="fc bfc" id="L95" title="All 2 branches covered.">		if (intersection != null) {</span>
-<span class="fc" id="L96">			throw new RuntimeException(&quot;LongRange &quot; + desired + &quot; &quot;</span>
+<span class="fc" id="L102">		LongRange desired = c.getRange();</span>
+<span class="fc" id="L103">		LongRange intersection = checkOverlap(desired);</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">		if (intersection != null) {</span>
+<span class="fc" id="L105">			throw new RuntimeException(&quot;LongRange &quot; + desired + &quot; &quot;</span>
 					+ &quot;overlaps &quot; + intersection + &quot; which is already present in&quot;
 					+ &quot; this ChunkedList&quot;);
 		}
-<span class="fc" id="L100">		chunks.put(desired, c);</span>
-<span class="fc" id="L101">		size += c.longSize();</span>
-<span class="fc" id="L102">	}</span>
+<span class="fc" id="L109">		chunks.put(desired, c);</span>
+<span class="fc" id="L110">		size += c.longSize();</span>
+<span class="fc" id="L111">	}</span>
 
 	public Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads, Consumer&lt;? super T&gt; action) {
-<span class="fc" id="L105">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L106">			sub.forEach(action);</span>
-<span class="fc" id="L107">		});</span>
-<span class="fc" id="L108">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;T&gt;&gt;(futures,  this);</span>
+<span class="fc" id="L114">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L115">			sub.forEach(action);</span>
+<span class="fc" id="L116">		});</span>
+<span class="fc" id="L117">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;T&gt;&gt;(futures,  this);</span>
 	}
 
 	public &lt;U&gt; Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads, BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action,
 			final MultiReceiver&lt;U&gt; toStore) {
-<span class="fc" id="L113">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L114">			sub.forEach(action,toStore.getReceiver());</span>
-<span class="fc" id="L115">		});</span>
-<span class="fc" id="L116">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;T&gt;&gt;(futures, this);</span>
+<span class="fc" id="L122">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L123">			sub.forEach(action,toStore.getReceiver());</span>
+<span class="fc" id="L124">		});</span>
+<span class="fc" id="L125">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;T&gt;&gt;(futures, this);</span>
 	}
 
 	public Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads, LongTBiConsumer&lt;? super T&gt; action) {
-<span class="fc" id="L120">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L121">			sub.forEach(action);</span>
-<span class="fc" id="L122">		});</span>
-<span class="fc" id="L123">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;T&gt;&gt;(futures, this);</span>
+<span class="fc" id="L129">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L130">			sub.forEach(action);</span>
+<span class="fc" id="L131">		});</span>
+<span class="fc" id="L132">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;T&gt;&gt;(futures, this);</span>
 	}
 
 	public &lt;S&gt; Future&lt;ChunkedList&lt;S&gt;&gt; asyncMap(ExecutorService pool, int nthreads,
 			Function&lt;? super T, ? extends S&gt; func) {
-<span class="fc" id="L128">		final ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
-<span class="fc" id="L129">		final List&lt;Future&lt;?&gt;&gt; futures = mapParallelBody(pool, nthreads, func, result);</span>
+<span class="fc" id="L137">		final ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
+<span class="fc" id="L138">		final List&lt;Future&lt;?&gt;&gt; futures = mapParallelBody(pool, nthreads, func, result);</span>
 
-<span class="fc bfc" id="L131" title="All 2 branches covered.">		for (Future&lt;?&gt; f : futures) {</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">		for (Future&lt;?&gt; f : futures) {</span>
 			try {
-<span class="fc" id="L133">				f.get();</span>
-<span class="nc" id="L134">			} catch (InterruptedException | ExecutionException e) {</span>
-<span class="nc" id="L135">				e.printStackTrace();</span>
-<span class="nc" id="L136">				throw new RuntimeException(&quot;[ChunkedList] exception raised by worker threads.&quot;);</span>
-<span class="fc" id="L137">			}</span>
-<span class="fc" id="L138">		}</span>
-<span class="fc" id="L139">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;S&gt;&gt;(futures, result);</span>
+<span class="fc" id="L142">				f.get();</span>
+<span class="nc" id="L143">			} catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L144">				e.printStackTrace();</span>
+<span class="nc" id="L145">				throw new RuntimeException(&quot;[ChunkedList] exception raised by worker threads.&quot;);</span>
+<span class="fc" id="L146">			}</span>
+<span class="fc" id="L147">		}</span>
+<span class="fc" id="L148">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;S&gt;&gt;(futures, result);</span>
 	}
 
 	/**
@@ -149,15 +158,15 @@ import handist.collections.function.LongTBiConsumer;
 	 * 	{@link LongRange}, or {@code null} if there are so such key.
 	 */
 	private LongRange checkOverlap(LongRange range) {
-<span class="fc" id="L152">		LongRange floorKey = chunks.floorKey(range);</span>
-<span class="fc bfc" id="L153" title="All 4 branches covered.">		if (floorKey != null &amp;&amp; floorKey.isOverlapped(range)) {</span>
-<span class="fc" id="L154">			return floorKey;</span>
+<span class="fc" id="L161">		LongRange floorKey = chunks.floorKey(range);</span>
+<span class="fc bfc" id="L162" title="All 4 branches covered.">		if (floorKey != null &amp;&amp; floorKey.isOverlapped(range)) {</span>
+<span class="fc" id="L163">			return floorKey;</span>
 		}
-<span class="fc" id="L156">		LongRange nextKey = chunks.higherKey(range);</span>
-<span class="fc bfc" id="L157" title="All 4 branches covered.">		if (nextKey != null &amp;&amp; nextKey.isOverlapped(range)) {</span>
-<span class="fc" id="L158">			return nextKey;</span>
+<span class="fc" id="L165">		LongRange nextKey = chunks.higherKey(range);</span>
+<span class="fc bfc" id="L166" title="All 4 branches covered.">		if (nextKey != null &amp;&amp; nextKey.isOverlapped(range)) {</span>
+<span class="fc" id="L167">			return nextKey;</span>
 		}
-<span class="fc" id="L160">		return null;</span>
+<span class="fc" id="L169">		return null;</span>
 	}
 
 	/**
@@ -165,7 +174,7 @@ import handist.collections.function.LongTBiConsumer;
 	 */
 	@Override
 	public void clear() {
-<span class="fc" id="L168">		throw new UnsupportedOperationException();</span>
+<span class="fc" id="L177">		throw new UnsupportedOperationException();</span>
 	}
 
 	/**
@@ -175,34 +184,34 @@ import handist.collections.function.LongTBiConsumer;
 	 */
 	@Override
 	protected Object clone() {
-<span class="nc" id="L178">		TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt; newChunks = new TreeMap&lt;&gt;();</span>
-<span class="nc bnc" id="L179" title="All 2 branches missed.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="nc" id="L180">			newChunks.put(c.getRange(), ((Chunk&lt;T&gt;) c).clone());</span>
-<span class="nc" id="L181">		}</span>
-<span class="nc" id="L182">		return new ChunkedList&lt;T&gt;(newChunks);</span>
+<span class="nc" id="L187">		TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt; newChunks = new TreeMap&lt;&gt;();</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="nc" id="L189">			newChunks.put(c.getRange(), ((Chunk&lt;T&gt;) c).clone());</span>
+<span class="nc" id="L190">		}</span>
+<span class="nc" id="L191">		return new ChunkedList&lt;T&gt;(newChunks);</span>
 	}
 
 	@Override
 	public boolean contains(Object o) {
-<span class="fc bfc" id="L187" title="All 2 branches covered.">		for (RangedList&lt;T&gt; chunk : chunks.values()) {</span>
-<span class="fc bfc" id="L188" title="All 2 branches covered.">			if (chunk.contains(o)) {</span>
-<span class="fc" id="L189">				return true;</span>
+<span class="fc bfc" id="L196" title="All 2 branches covered.">		for (RangedList&lt;T&gt; chunk : chunks.values()) {</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">			if (chunk.contains(o)) {</span>
+<span class="fc" id="L198">				return true;</span>
 			}
-<span class="fc" id="L191">		}</span>
-<span class="fc" id="L192">		return false;</span>
+<span class="fc" id="L200">		}</span>
+<span class="fc" id="L201">		return false;</span>
 	}
 
 	@Override
 	public boolean containsAll(Collection&lt;?&gt; c) {
 		// cf.
 		// https://stackoverflow.com/questions/10199772/what-is-the-cost-of-containsall-in-java
-<span class="fc" id="L199">		Iterator&lt;?&gt; e = c.iterator();</span>
-<span class="fc bfc" id="L200" title="All 2 branches covered.">		while (e.hasNext()) {</span>
-<span class="fc bfc" id="L201" title="All 2 branches covered.">			if (!this.contains(e.next())) {</span>
-<span class="fc" id="L202">				return false;</span>
+<span class="fc" id="L208">		Iterator&lt;?&gt; e = c.iterator();</span>
+<span class="fc bfc" id="L209" title="All 2 branches covered.">		while (e.hasNext()) {</span>
+<span class="fc bfc" id="L210" title="All 2 branches covered.">			if (!this.contains(e.next())) {</span>
+<span class="fc" id="L211">				return false;</span>
 			}
 		}
-<span class="fc" id="L205">		return true;</span>
+<span class="fc" id="L214">		return true;</span>
 	}
 
 	/**
@@ -213,19 +222,19 @@ import handist.collections.function.LongTBiConsumer;
 	 * 	this instance, {@code false} otherwise
 	 */
 	public boolean containsChunk(RangedList&lt;T&gt; c) {
-<span class="fc" id="L216">		return chunks.containsValue(c);</span>
+<span class="fc" id="L225">		return chunks.containsValue(c);</span>
 	}
 
 	public boolean containsIndex(long i) {
-<span class="fc" id="L220">		LongRange r = new LongRange(i);</span>
-<span class="fc" id="L221">		Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
-<span class="pc bpc" id="L222" title="1 of 4 branches missed.">		if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L223">			entry = chunks.ceilingEntry(r);</span>
-<span class="fc bfc" id="L224" title="All 4 branches covered.">			if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L225">				return false;</span>
+<span class="fc" id="L229">		LongRange r = new LongRange(i);</span>
+<span class="fc" id="L230">		Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
+<span class="pc bpc" id="L231" title="1 of 4 branches missed.">		if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L232">			entry = chunks.ceilingEntry(r);</span>
+<span class="fc bfc" id="L233" title="All 4 branches covered.">			if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L234">				return false;</span>
 			}
 		}
-<span class="fc" id="L228">		return true;</span>
+<span class="fc" id="L237">		return true;</span>
 	}
 
 	/*
@@ -239,164 +248,164 @@ import handist.collections.function.LongTBiConsumer;
         return map;
     }*/
 	public List&lt;RangedList&lt;T&gt;&gt; filterChunk(Predicate&lt;RangedList&lt;? super T&gt;&gt; filter) {
-<span class="fc" id="L242">		List&lt;RangedList&lt;T&gt;&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L243" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc bfc" id="L244" title="All 2 branches covered.">			if (filter.test(c)) {</span>
-<span class="fc" id="L245">				result.add(c);</span>
+<span class="fc" id="L251">		List&lt;RangedList&lt;T&gt;&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L252" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc bfc" id="L253" title="All 2 branches covered.">			if (filter.test(c)) {</span>
+<span class="fc" id="L254">				result.add(c);</span>
 			}
-<span class="fc" id="L247">		}</span>
-<span class="fc" id="L248">		return result;</span>
+<span class="fc" id="L256">		}</span>
+<span class="fc" id="L257">		return result;</span>
 	}
 
 	public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action, final Collection&lt;? super U&gt; toStore) {
-<span class="fc" id="L252">		forEach(action, new Consumer&lt;U&gt;() {</span>
+<span class="fc" id="L261">		forEach(action, new Consumer&lt;U&gt;() {</span>
 			@Override
 			public void accept(U u) {
-<span class="fc" id="L255">				toStore.add(u);</span>
-<span class="fc" id="L256">			}</span>
+<span class="fc" id="L264">				toStore.add(u);</span>
+<span class="fc" id="L265">			}</span>
 		});
-<span class="fc" id="L258">	}</span>
+<span class="fc" id="L267">	}</span>
 
 	public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action, Consumer&lt;U&gt; receiver) {
-<span class="fc bfc" id="L261" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc" id="L262">			c.forEach(t -&gt; action.accept((T) t, receiver));</span>
-<span class="fc" id="L263">		}</span>
-<span class="fc" id="L264">	}</span>
+<span class="fc bfc" id="L270" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc" id="L271">			c.forEach(t -&gt; action.accept((T) t, receiver));</span>
+<span class="fc" id="L272">		}</span>
+<span class="fc" id="L273">	}</span>
 
 	public void forEach(Consumer&lt;? super T&gt; action) {
-<span class="fc bfc" id="L267" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc" id="L268">			c.forEach(action);</span>
-<span class="fc" id="L269">		}</span>
-<span class="fc" id="L270">	}</span>
+<span class="fc bfc" id="L276" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc" id="L277">			c.forEach(action);</span>
+<span class="fc" id="L278">		}</span>
+<span class="fc" id="L279">	}</span>
 
 	public &lt;U&gt; void forEach(ExecutorService pool, int nthreads, BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action,
 			final MultiReceiver&lt;U&gt; toStore) {
-<span class="fc" id="L274">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L275">			sub.forEach(action,toStore.getReceiver());</span>
-<span class="fc" id="L276">		});</span>
-<span class="fc" id="L277">		waitNfutures(futures);</span>
-<span class="fc" id="L278">	}</span>
+<span class="fc" id="L283">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L284">			sub.forEach(action,toStore.getReceiver());</span>
+<span class="fc" id="L285">		});</span>
+<span class="fc" id="L286">		waitNfutures(futures);</span>
+<span class="fc" id="L287">	}</span>
 
 	public void forEach(ExecutorService pool, int nthreads, Consumer&lt;? super T&gt; action) {
-<span class="fc" id="L281">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L282">			sub.forEach(action);</span>
-<span class="fc" id="L283">		});</span>
-<span class="fc" id="L284">		waitNfutures(futures);</span>
-<span class="fc" id="L285">	}</span>
+<span class="fc" id="L290">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L291">			sub.forEach(action);</span>
+<span class="fc" id="L292">		});</span>
+<span class="fc" id="L293">		waitNfutures(futures);</span>
+<span class="fc" id="L294">	}</span>
 
 	public void forEach(ExecutorService pool, int nthreads, LongTBiConsumer&lt;? super T&gt; action) {
-<span class="fc" id="L288">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L289">			sub.forEach(action);</span>
-<span class="fc" id="L290">		});</span>
-<span class="fc" id="L291">		waitNfutures(futures);</span>
-<span class="fc" id="L292">	}</span>
+<span class="fc" id="L297">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L298">			sub.forEach(action);</span>
+<span class="fc" id="L299">		});</span>
+<span class="fc" id="L300">		waitNfutures(futures);</span>
+<span class="fc" id="L301">	}</span>
 
 
 	public void forEach(LongTBiConsumer&lt;? super T&gt; action) {
-<span class="fc bfc" id="L296" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc" id="L297">			c.forEach(c.getRange(), action);</span>
-<span class="fc" id="L298">		}</span>
-<span class="fc" id="L299">	}</span>
+<span class="fc bfc" id="L305" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc" id="L306">			c.forEach(c.getRange(), action);</span>
+<span class="fc" id="L307">		}</span>
+<span class="fc" id="L308">	}</span>
 
 	public void forEachChunk(Consumer&lt;RangedList&lt;T&gt;&gt; op) {
-<span class="fc bfc" id="L302" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc" id="L303">			op.accept(c);</span>
-<span class="fc" id="L304">		}</span>
-<span class="fc" id="L305">	}</span>
+<span class="fc bfc" id="L311" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc" id="L312">			op.accept(c);</span>
+<span class="fc" id="L313">		}</span>
+<span class="fc" id="L314">	}</span>
 
 	private List&lt;Future&lt;?&gt;&gt; forEachParallelBody(ExecutorService pool, int nthreads, Consumer&lt;ChunkedList&lt;T&gt;&gt; run) {
-<span class="fc" id="L308">		List&lt;ChunkedList&lt;T&gt;&gt; separated = this.separate(nthreads);</span>
-<span class="fc" id="L309">		List&lt;Future&lt;?&gt;&gt; futures = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L310" title="All 2 branches covered.">		for (ChunkedList&lt;T&gt; sub: separated) {</span>
-<span class="fc" id="L311">			futures.add(pool.submit(() -&gt; {</span>
-<span class="fc" id="L312">				run.accept(sub);</span>
-<span class="fc" id="L313">			}));</span>
-<span class="fc" id="L314">		}</span>
-<span class="fc" id="L315">		return futures;</span>
+<span class="fc" id="L317">		List&lt;ChunkedList&lt;T&gt;&gt; separated = this.separate(nthreads);</span>
+<span class="fc" id="L318">		List&lt;Future&lt;?&gt;&gt; futures = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L319" title="All 2 branches covered.">		for (ChunkedList&lt;T&gt; sub: separated) {</span>
+<span class="fc" id="L320">			futures.add(pool.submit(() -&gt; {</span>
+<span class="fc" id="L321">				run.accept(sub);</span>
+<span class="fc" id="L322">			}));</span>
+<span class="fc" id="L323">		}</span>
+<span class="fc" id="L324">		return futures;</span>
 	}
 
 	public T get(long i) {
-<span class="fc" id="L319">		LongRange r = new LongRange(i);</span>
-<span class="fc" id="L320">		Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
-<span class="fc bfc" id="L321" title="All 4 branches covered.">		if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L322">			entry = chunks.ceilingEntry(r);</span>
-<span class="pc bpc" id="L323" title="1 of 4 branches missed.">			if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L324">				throw new IndexOutOfBoundsException(&quot;ChunkedList: index &quot; + i + &quot; is out of range of &quot; + chunks);</span>
+<span class="fc" id="L328">		LongRange r = new LongRange(i);</span>
+<span class="fc" id="L329">		Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
+<span class="fc bfc" id="L330" title="All 4 branches covered.">		if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L331">			entry = chunks.ceilingEntry(r);</span>
+<span class="pc bpc" id="L332" title="1 of 4 branches missed.">			if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L333">				throw new IndexOutOfBoundsException(&quot;ChunkedList: index &quot; + i + &quot; is out of range of &quot; + chunks);</span>
 			}
 		}
-<span class="fc" id="L327">		RangedList&lt;T&gt; chunk = entry.getValue();</span>
-<span class="fc" id="L328">		return chunk.get(i);</span>
+<span class="fc" id="L336">		RangedList&lt;T&gt; chunk = entry.getValue();</span>
+<span class="fc" id="L337">		return chunk.get(i);</span>
 	}
 
 	@Override
 	public boolean isEmpty() {
-<span class="fc bfc" id="L333" title="All 2 branches covered.">		return size == 0;</span>
+<span class="fc bfc" id="L342" title="All 2 branches covered.">		return size == 0;</span>
 	}
 
 	@Override
 	public Iterator&lt;T&gt; iterator() {
-<span class="fc" id="L338">		return new It&lt;T&gt;(chunks);</span>
+<span class="fc" id="L347">		return new It&lt;T&gt;(chunks);</span>
 	}
 	public long longSize() {
-<span class="fc" id="L341">		return size;</span>
+<span class="fc" id="L350">		return size;</span>
 	}
 
 	public &lt;S&gt; ChunkedList&lt;S&gt; map(ExecutorService pool, int nthreads, Function&lt;? super T, ? extends S&gt; func) {
-<span class="fc" id="L345">		ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
-<span class="fc" id="L346">		List&lt;Future&lt;?&gt;&gt; futures = mapParallelBody(pool, nthreads, func, result);</span>
-<span class="fc bfc" id="L347" title="All 2 branches covered.">		for (Future&lt;?&gt; f : futures) {</span>
+<span class="fc" id="L354">		ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
+<span class="fc" id="L355">		List&lt;Future&lt;?&gt;&gt; futures = mapParallelBody(pool, nthreads, func, result);</span>
+<span class="fc bfc" id="L356" title="All 2 branches covered.">		for (Future&lt;?&gt; f : futures) {</span>
 			try {
-<span class="fc" id="L349">				f.get();</span>
-<span class="nc" id="L350">			} catch (InterruptedException | ExecutionException e) {</span>
-<span class="nc" id="L351">				e.printStackTrace();</span>
-<span class="nc" id="L352">				throw new RuntimeException(&quot;[ChunkedList] exception raised by worker threads.&quot;);</span>
-<span class="fc" id="L353">			}</span>
-<span class="fc" id="L354">		}</span>
-<span class="fc" id="L355">		return result;</span>
+<span class="fc" id="L358">				f.get();</span>
+<span class="nc" id="L359">			} catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L360">				e.printStackTrace();</span>
+<span class="nc" id="L361">				throw new RuntimeException(&quot;[ChunkedList] exception raised by worker threads.&quot;);</span>
+<span class="fc" id="L362">			}</span>
+<span class="fc" id="L363">		}</span>
+<span class="fc" id="L364">		return result;</span>
 	}
 
 	public &lt;S&gt; ChunkedList&lt;S&gt; map(Function&lt;? super T, ? extends S&gt; func) {
-<span class="fc" id="L359">		ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
-<span class="fc" id="L360">		forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
-<span class="fc" id="L361">			RangedList&lt;S&gt; r = c.map(func);</span>
-<span class="fc" id="L362">			result.addChunk(r);</span>
-<span class="fc" id="L363">		});</span>
-<span class="fc" id="L364">		return result;</span>
+<span class="fc" id="L368">		ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
+<span class="fc" id="L369">		forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
+<span class="fc" id="L370">			RangedList&lt;S&gt; r = c.map(func);</span>
+<span class="fc" id="L371">			result.addChunk(r);</span>
+<span class="fc" id="L372">		});</span>
+<span class="fc" id="L373">		return result;</span>
 	}
 
 	private &lt;S&gt; List&lt;Future&lt;?&gt;&gt; mapParallelBody(ExecutorService pool, int nthreads,
 			Function&lt;? super T, ? extends S&gt; func, ChunkedList&lt;S&gt; result) {
-<span class="fc" id="L369">		forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
-<span class="fc" id="L370">			result.addChunk(new Chunk&lt;S&gt;(c.getRange()));</span>
-<span class="fc" id="L371">		});</span>
-<span class="fc" id="L372">		List&lt;ChunkedList&lt;T&gt;&gt; separatedIn = this.separate(nthreads);</span>
-<span class="fc" id="L373">		List&lt;ChunkedList&lt;S&gt;&gt; separatedOut = result.separate(nthreads);</span>
-<span class="fc" id="L374">		List&lt;Future&lt;?&gt;&gt; futures = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L375" title="All 2 branches covered.">		for (int i = 0; i &lt; nthreads; i++) {</span>
-<span class="fc" id="L376">			final int i0 = i;</span>
-<span class="fc" id="L377">			futures.add(pool.submit(() -&gt; {</span>
-<span class="fc" id="L378">				ChunkedList&lt;T&gt; from = separatedIn.get(i0);</span>
-<span class="fc" id="L379">				ChunkedList&lt;S&gt; to = separatedOut.get(i0);</span>
-<span class="fc" id="L380">				from.mapTo(to, func);</span>
-<span class="fc" id="L381">				return null;</span>
+<span class="fc" id="L378">		forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
+<span class="fc" id="L379">			result.addChunk(new Chunk&lt;S&gt;(c.getRange()));</span>
+<span class="fc" id="L380">		});</span>
+<span class="fc" id="L381">		List&lt;ChunkedList&lt;T&gt;&gt; separatedIn = this.separate(nthreads);</span>
+<span class="fc" id="L382">		List&lt;ChunkedList&lt;S&gt;&gt; separatedOut = result.separate(nthreads);</span>
+<span class="fc" id="L383">		List&lt;Future&lt;?&gt;&gt; futures = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L384" title="All 2 branches covered.">		for (int i = 0; i &lt; nthreads; i++) {</span>
+<span class="fc" id="L385">			final int i0 = i;</span>
+<span class="fc" id="L386">			futures.add(pool.submit(() -&gt; {</span>
+<span class="fc" id="L387">				ChunkedList&lt;T&gt; from = separatedIn.get(i0);</span>
+<span class="fc" id="L388">				ChunkedList&lt;S&gt; to = separatedOut.get(i0);</span>
+<span class="fc" id="L389">				from.mapTo(to, func);</span>
+<span class="fc" id="L390">				return null;</span>
 			}));
 		}
-<span class="fc" id="L384">		return futures;</span>
+<span class="fc" id="L393">		return futures;</span>
 	}
 
 	private &lt;S&gt; void mapTo(ChunkedList&lt;S&gt; to, Function&lt;? super T, ? extends S&gt; func) {
-<span class="fc" id="L388">		Iterator&lt;RangedList&lt;T&gt;&gt; fromIter = chunks.values().iterator();</span>
-<span class="fc" id="L389">		Iterator&lt;RangedList&lt;S&gt;&gt; toIter = to.chunks.values().iterator();</span>
-<span class="fc bfc" id="L390" title="All 2 branches covered.">		while (fromIter.hasNext()) {</span>
-<span class="pc bpc" id="L391" title="2 of 4 branches missed.">			assert (toIter.hasNext());</span>
-<span class="fc" id="L392">			RangedList&lt;T&gt; fromChunk = fromIter.next();</span>
-<span class="fc" id="L393">			RangedList&lt;S&gt; toChunk = toIter.next();</span>
-<span class="fc" id="L394">			toChunk.setupFrom(fromChunk, func);</span>
-<span class="fc" id="L395">		}</span>
-<span class="fc" id="L396">	}</span>
+<span class="fc" id="L397">		Iterator&lt;RangedList&lt;T&gt;&gt; fromIter = chunks.values().iterator();</span>
+<span class="fc" id="L398">		Iterator&lt;RangedList&lt;S&gt;&gt; toIter = to.chunks.values().iterator();</span>
+<span class="fc bfc" id="L399" title="All 2 branches covered.">		while (fromIter.hasNext()) {</span>
+<span class="pc bpc" id="L400" title="2 of 4 branches missed.">			assert (toIter.hasNext());</span>
+<span class="fc" id="L401">			RangedList&lt;T&gt; fromChunk = fromIter.next();</span>
+<span class="fc" id="L402">			RangedList&lt;S&gt; toChunk = toIter.next();</span>
+<span class="fc" id="L403">			toChunk.setupFrom(fromChunk, func);</span>
+<span class="fc" id="L404">		}</span>
+<span class="fc" id="L405">	}</span>
 
 	public int numChunks() {
-<span class="fc" id="L399">		return chunks.size();</span>
+<span class="fc" id="L408">		return chunks.size();</span>
 	}
 
 	/**
@@ -405,30 +414,30 @@ import handist.collections.function.LongTBiConsumer;
 	 * @return an instance of LongRange.
 	 */
 	public Collection&lt;LongRange&gt; ranges() {
-<span class="fc" id="L408">		return chunks.keySet();</span>
+<span class="fc" id="L417">		return chunks.keySet();</span>
 	}
 
 	@Override
 	public boolean remove(Object o) {
-<span class="fc" id="L413">		throw new UnsupportedOperationException();</span>
+<span class="fc" id="L422">		throw new UnsupportedOperationException();</span>
 	}
 
 	@Override
 	public boolean removeAll(Collection&lt;?&gt; c) {
-<span class="fc" id="L418">		throw new UnsupportedOperationException();</span>
+<span class="fc" id="L427">		throw new UnsupportedOperationException();</span>
 	}
 
 	public RangedList&lt;T&gt; removeChunk(RangedList&lt;T&gt; c) {
-<span class="fc" id="L422">		RangedList&lt;T&gt; removed = chunks.remove(c.getRange());</span>
-<span class="fc bfc" id="L423" title="All 2 branches covered.">		if (removed != null) {</span>
-<span class="fc" id="L424">			size -=removed.longSize();</span>
+<span class="fc" id="L431">		RangedList&lt;T&gt; removed = chunks.remove(c.getRange());</span>
+<span class="fc bfc" id="L432" title="All 2 branches covered.">		if (removed != null) {</span>
+<span class="fc" id="L433">			size -=removed.longSize();</span>
 		}
-<span class="fc" id="L426">		return removed;</span>
+<span class="fc" id="L435">		return removed;</span>
 	}
 
 	@Override
 	public boolean retainAll(Collection&lt;?&gt; c) {
-<span class="fc" id="L431">		throw new UnsupportedOperationException();</span>
+<span class="fc" id="L440">		throw new UnsupportedOperationException();</span>
 	}
 
 	/**
@@ -442,54 +451,54 @@ import handist.collections.function.LongTBiConsumer;
 	 * 	elements
 	 */
 	public List&lt;ChunkedList&lt;T&gt;&gt; separate(int n) {
-<span class="fc" id="L445">		long totalNum = size();</span>
-<span class="fc" id="L446">		long rem = totalNum % n;</span>
-<span class="fc" id="L447">		long quo = totalNum / n;</span>
-<span class="fc" id="L448">		List&lt;ChunkedList&lt;T&gt;&gt; result = new ArrayList&lt;ChunkedList&lt;T&gt;&gt;(n);</span>
-<span class="fc" id="L449">		RangedList&lt;T&gt; c = chunks.firstEntry().getValue();</span>
-<span class="fc" id="L450">		long used = 0;</span>
+<span class="fc" id="L454">		long totalNum = size();</span>
+<span class="fc" id="L455">		long rem = totalNum % n;</span>
+<span class="fc" id="L456">		long quo = totalNum / n;</span>
+<span class="fc" id="L457">		List&lt;ChunkedList&lt;T&gt;&gt; result = new ArrayList&lt;ChunkedList&lt;T&gt;&gt;(n);</span>
+<span class="fc" id="L458">		RangedList&lt;T&gt; c = chunks.firstEntry().getValue();</span>
+<span class="fc" id="L459">		long used = 0;</span>
 
-<span class="fc bfc" id="L452" title="All 2 branches covered.">		for (int i = 0; i &lt; n; i++) {</span>
-<span class="fc" id="L453">			ChunkedList&lt;T&gt; r = new ChunkedList&lt;&gt;();</span>
-<span class="fc" id="L454">			result.add(r);</span>
-<span class="fc bfc" id="L455" title="All 2 branches covered.">			long rest = quo + ((i &lt; rem) ? 1 : 0);</span>
-<span class="fc bfc" id="L456" title="All 2 branches covered.">			while (rest &gt; 0) {</span>
-<span class="fc" id="L457">				LongRange range = c.getRange();</span>
-<span class="fc bfc" id="L458" title="All 2 branches covered.">				if (c.longSize() - used &lt; rest) { // not enough</span>
-<span class="fc" id="L459">					long from = range.from + used;</span>
-<span class="fc bfc" id="L460" title="All 2 branches covered.">					if (from != range.to) {</span>
-<span class="fc" id="L461">						r.addChunk(c.subList(from, range.to));	</span>
-					}
-<span class="fc" id="L463">					rest -= c.longSize() - used;</span>
-<span class="fc" id="L464">					used = 0;</span>
-					// TODO should use iterator??
-<span class="fc" id="L466">					c = chunks.higherEntry(range).getValue();</span>
-<span class="fc" id="L467">				} else {</span>
+<span class="fc bfc" id="L461" title="All 2 branches covered.">		for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc" id="L462">			ChunkedList&lt;T&gt; r = new ChunkedList&lt;&gt;();</span>
+<span class="fc" id="L463">			result.add(r);</span>
+<span class="fc bfc" id="L464" title="All 2 branches covered.">			long rest = quo + ((i &lt; rem) ? 1 : 0);</span>
+<span class="fc bfc" id="L465" title="All 2 branches covered.">			while (rest &gt; 0) {</span>
+<span class="fc" id="L466">				LongRange range = c.getRange();</span>
+<span class="fc bfc" id="L467" title="All 2 branches covered.">				if (c.longSize() - used &lt; rest) { // not enough</span>
 <span class="fc" id="L468">					long from = range.from + used;</span>
-<span class="fc" id="L469">					long to = from + rest;</span>
-<span class="pc bpc" id="L470" title="1 of 2 branches missed.">					if (from != to) {</span>
-<span class="fc" id="L471">						r.addChunk(c.subList(from, to));	</span>
+<span class="fc bfc" id="L469" title="All 2 branches covered.">					if (from != range.to) {</span>
+<span class="fc" id="L470">						r.addChunk(c.subList(from, range.to));	</span>
 					}
-<span class="fc" id="L473">					used += rest;</span>
-<span class="fc" id="L474">					rest = 0;</span>
+<span class="fc" id="L472">					rest -= c.longSize() - used;</span>
+<span class="fc" id="L473">					used = 0;</span>
+					// TODO should use iterator??
+<span class="fc" id="L475">					c = chunks.higherEntry(range).getValue();</span>
+<span class="fc" id="L476">				} else {</span>
+<span class="fc" id="L477">					long from = range.from + used;</span>
+<span class="fc" id="L478">					long to = from + rest;</span>
+<span class="pc bpc" id="L479" title="1 of 2 branches missed.">					if (from != to) {</span>
+<span class="fc" id="L480">						r.addChunk(c.subList(from, to));	</span>
+					}
+<span class="fc" id="L482">					used += rest;</span>
+<span class="fc" id="L483">					rest = 0;</span>
 				}
 
-<span class="fc" id="L477">			}</span>
+<span class="fc" id="L486">			}</span>
 		}
-<span class="fc" id="L479">		return result;</span>
+<span class="fc" id="L488">		return result;</span>
 	}
 
 	public T set(long i, T value) {
-<span class="fc" id="L483">		LongRange r = new LongRange(i);</span>
-<span class="fc" id="L484">		Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
-<span class="fc bfc" id="L485" title="All 4 branches covered.">		if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L486">			entry = chunks.ceilingEntry(r);</span>
-<span class="pc bpc" id="L487" title="1 of 4 branches missed.">			if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L488">				throw new IndexOutOfBoundsException(&quot;ChunkedList: index &quot; + i + &quot; is out of range of &quot; + chunks);</span>
+<span class="fc" id="L492">		LongRange r = new LongRange(i);</span>
+<span class="fc" id="L493">		Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
+<span class="fc bfc" id="L494" title="All 4 branches covered.">		if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L495">			entry = chunks.ceilingEntry(r);</span>
+<span class="pc bpc" id="L496" title="1 of 4 branches missed.">			if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L497">				throw new IndexOutOfBoundsException(&quot;ChunkedList: index &quot; + i + &quot; is out of range of &quot; + chunks);</span>
 			}
 		}
-<span class="fc" id="L491">		RangedList&lt;T&gt; chunk = entry.getValue();</span>
-<span class="fc" id="L492">		return chunk.set(i, value);</span>
+<span class="fc" id="L500">		RangedList&lt;T&gt; chunk = entry.getValue();</span>
+<span class="fc" id="L501">		return chunk.set(i, value);</span>
 	}
 
 	/**
@@ -499,42 +508,42 @@ import handist.collections.function.LongTBiConsumer;
 	 */
 	@Override
 	public int size() {
-<span class="fc" id="L502">		return (int) longSize();</span>
+<span class="fc" id="L511">		return (int) longSize();</span>
 	}
 
 	@Override
 	public Object[] toArray() {
 		//        return new Object[0];
-<span class="fc" id="L508">		throw new UnsupportedOperationException();</span>
+<span class="fc" id="L517">		throw new UnsupportedOperationException();</span>
 	}
 
 	@Override
 	public &lt;T1&gt; T1[] toArray(T1[] a) {
 		//        return null;
-<span class="fc" id="L514">		throw new UnsupportedOperationException();</span>
+<span class="fc" id="L523">		throw new UnsupportedOperationException();</span>
 	}
 
 	@Override
 	public String toString() {
-<span class="fc" id="L519">		StringBuilder sb = new StringBuilder();</span>
-<span class="fc" id="L520">		sb.append(&quot;[ChunkedList(&quot; + chunks.size() + &quot;)&quot;);</span>
-<span class="fc bfc" id="L521" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc" id="L522">			sb.append(&quot;,&quot; + c);</span>
-<span class="fc" id="L523">		}</span>
-<span class="fc" id="L524">		sb.append(&quot;]&quot;);</span>
-<span class="fc" id="L525">		return sb.toString();</span>
+<span class="fc" id="L528">		StringBuilder sb = new StringBuilder();</span>
+<span class="fc" id="L529">		sb.append(&quot;[ChunkedList(&quot; + chunks.size() + &quot;)&quot;);</span>
+<span class="fc bfc" id="L530" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc" id="L531">			sb.append(&quot;,&quot; + c);</span>
+<span class="fc" id="L532">		}</span>
+<span class="fc" id="L533">		sb.append(&quot;]&quot;);</span>
+<span class="fc" id="L534">		return sb.toString();</span>
 	}
 	
 	private void waitNfutures(List&lt;Future&lt;?&gt;&gt; futures) {
-<span class="fc bfc" id="L529" title="All 2 branches covered.">		for (Future&lt;?&gt; f : futures) {</span>
+<span class="fc bfc" id="L538" title="All 2 branches covered.">		for (Future&lt;?&gt; f : futures) {</span>
 			try {
-<span class="fc" id="L531">				f.get();</span>
-<span class="nc" id="L532">			} catch (InterruptedException | ExecutionException e) {</span>
-<span class="nc" id="L533">				e.printStackTrace();</span>
-<span class="nc" id="L534">				throw new RuntimeException(&quot;[ChunkedList] exception raised by worker threads.&quot;);</span>
-<span class="fc" id="L535">			}</span>
-<span class="fc" id="L536">		}</span>
-<span class="fc" id="L537">	}</span>
+<span class="fc" id="L540">				f.get();</span>
+<span class="nc" id="L541">			} catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L542">				e.printStackTrace();</span>
+<span class="nc" id="L543">				throw new RuntimeException(&quot;[ChunkedList] exception raised by worker threads.&quot;);</span>
+<span class="fc" id="L544">			}</span>
+<span class="fc" id="L545">		}</span>
+<span class="fc" id="L546">	}</span>
 /*
 	public static void main(String[] args) {
 

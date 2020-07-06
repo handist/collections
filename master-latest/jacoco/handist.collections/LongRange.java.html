@@ -1,4 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LongRange.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">LongRange.java</span></div><h1>LongRange.java</h1><pre class="source lang-java linenums">package handist.collections;
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LongRange.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">LongRange.java</span></div><h1>LongRange.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
+package handist.collections;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -24,110 +33,110 @@ public class LongRange implements Comparable&lt;LongRange&gt;, Iterable&lt;Long&
 	 * @throws IllegalArgumentException if the lower bound is strictly superior
 	 * 	to the upper bound
 	 */ 
-<span class="fc" id="L27">	public LongRange(long from, long to) {</span>
-<span class="fc bfc" id="L28" title="All 2 branches covered.">		if (from &gt; to) {</span>
-<span class="fc" id="L29">			throw new IllegalArgumentException(&quot;Cannot create LongRange from &quot; +</span>
+<span class="fc" id="L36">	public LongRange(long from, long to) {</span>
+<span class="fc bfc" id="L37" title="All 2 branches covered.">		if (from &gt; to) {</span>
+<span class="fc" id="L38">			throw new IllegalArgumentException(&quot;Cannot create LongRange from &quot; +</span>
 					from + &quot; to &quot; + to);
 		}
-<span class="fc" id="L32">		this.from = from;</span>
-<span class="fc" id="L33">		this.to = to;</span>
-<span class="fc" id="L34">	}</span>
+<span class="fc" id="L41">		this.from = from;</span>
+<span class="fc" id="L42">		this.to = to;</span>
+<span class="fc" id="L43">	}</span>
 
 	/**
 	 * Constructs an empty LongRange using a single point for a bound.
 	 * Mainly used for comparison or search.
 	 * @param index the lower and upper bound of the LongRange to create. 
 	 */
-<span class="fc" id="L41">	public LongRange(long index) {</span>
-<span class="fc" id="L42">		this.from = this.to = index;</span>
-<span class="fc" id="L43">	}</span>
+<span class="fc" id="L50">	public LongRange(long index) {</span>
+<span class="fc" id="L51">		this.from = this.to = index;</span>
+<span class="fc" id="L52">	}</span>
 
 	public long size() {
-<span class="fc" id="L46">		return to - from;</span>
+<span class="fc" id="L55">		return to - from;</span>
 	}
 
 	public boolean contains(long index) {
-<span class="fc bfc" id="L50" title="All 4 branches covered.">		return (from &lt;= index) &amp;&amp; (index &lt; to);</span>
+<span class="fc bfc" id="L59" title="All 4 branches covered.">		return (from &lt;= index) &amp;&amp; (index &lt; to);</span>
 	}
 
 	public boolean contains(LongRange range) {
-<span class="fc bfc" id="L54" title="All 4 branches covered.">		return (this.from &lt;= range.from) &amp;&amp; (range.to &lt;= this.to);</span>
+<span class="fc bfc" id="L63" title="All 4 branches covered.">		return (this.from &lt;= range.from) &amp;&amp; (range.to &lt;= this.to);</span>
 	}
 
 	public boolean isOverlapped(LongRange range) {
-<span class="fc bfc" id="L58" title="All 2 branches covered.">		if (this.equals(range)) {</span>
-<span class="fc" id="L59">			return true;</span>
-<span class="fc bfc" id="L60" title="All 2 branches covered.">		} else if (from == to) {</span>
-<span class="fc bfc" id="L61" title="All 4 branches covered.">			return from &gt;= range.from &amp;&amp; from &lt; range.to;</span>
-<span class="fc bfc" id="L62" title="All 2 branches covered.">		} else if (range.from == range.to) {</span>
-<span class="fc bfc" id="L63" title="All 4 branches covered.">			return range.from &gt;= from &amp;&amp; range.from &lt; to;</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">		if (this.equals(range)) {</span>
+<span class="fc" id="L68">			return true;</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">		} else if (from == to) {</span>
+<span class="fc bfc" id="L70" title="All 4 branches covered.">			return from &gt;= range.from &amp;&amp; from &lt; range.to;</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">		} else if (range.from == range.to) {</span>
+<span class="fc bfc" id="L72" title="All 4 branches covered.">			return range.from &gt;= from &amp;&amp; range.from &lt; to;</span>
 		} else {
-<span class="fc bfc" id="L65" title="All 6 branches covered.">			return (from &lt; range.from)? (to &gt; range.from) : (from &lt; range.to);</span>
+<span class="fc bfc" id="L74" title="All 6 branches covered.">			return (from &lt; range.from)? (to &gt; range.from) : (from &lt; range.to);</span>
 		}
 	}
 
 	public void forEach(LongConsumer func) {
-<span class="fc bfc" id="L70" title="All 2 branches covered.">		for (long current = from; current &lt; to; current++) {</span>
-<span class="fc" id="L71">			func.accept(current);</span>
+<span class="fc bfc" id="L79" title="All 2 branches covered.">		for (long current = from; current &lt; to; current++) {</span>
+<span class="fc" id="L80">			func.accept(current);</span>
 		}
-<span class="fc" id="L73">	}</span>
+<span class="fc" id="L82">	}</span>
 
 	public LongStream stream() {
-<span class="fc" id="L76">		return LongStream.range(this.from, this.to);</span>
+<span class="fc" id="L85">		return LongStream.range(this.from, this.to);</span>
 	}
 
 	public int compareTo(LongRange r) {
-<span class="fc bfc" id="L80" title="All 4 branches covered.">		if (to &lt;= r.from &amp;&amp; from != to ) {</span>
-<span class="fc" id="L81">			return -1;</span>
-<span class="fc bfc" id="L82" title="All 4 branches covered.">		} else if (r.to &lt;= from &amp;&amp; from != to) {</span>
-<span class="fc" id="L83">			return 1;</span>
+<span class="fc bfc" id="L89" title="All 4 branches covered.">		if (to &lt;= r.from &amp;&amp; from != to ) {</span>
+<span class="fc" id="L90">			return -1;</span>
+<span class="fc bfc" id="L91" title="All 4 branches covered.">		} else if (r.to &lt;= from &amp;&amp; from != to) {</span>
+<span class="fc" id="L92">			return 1;</span>
 		} 
 		// The LongRange instances overlap,
 		// We order them based on &quot;from&quot; first and &quot;to&quot; second
-<span class="fc" id="L87">		int fromComparison = Long.compare(from, r.from);</span>
-<span class="fc bfc" id="L88" title="All 2 branches covered.">		return (fromComparison == 0) ? Long.compare(to, r.to) : fromComparison; </span>
+<span class="fc" id="L96">		int fromComparison = Long.compare(from, r.from);</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">		return (fromComparison == 0) ? Long.compare(to, r.to) : fromComparison; </span>
 	}
 
 
 	@Override
 	public String toString() {
-<span class="fc" id="L94">		return &quot;[&quot; + this.from + &quot;,&quot; + this.to + &quot;)&quot;;</span>
+<span class="fc" id="L103">		return &quot;[&quot; + this.from + &quot;,&quot; + this.to + &quot;)&quot;;</span>
 	}
 
 	@Override
 	public boolean equals(Object o) {
-<span class="fc bfc" id="L99" title="All 2 branches covered.">		if (!(o instanceof LongRange))</span>
-<span class="fc" id="L100">			return false;</span>
-<span class="fc" id="L101">		LongRange range2 = (LongRange) o;</span>
-<span class="fc bfc" id="L102" title="All 4 branches covered.">		return this.from == range2.from &amp;&amp; this.to == range2.to;</span>
+<span class="fc bfc" id="L108" title="All 2 branches covered.">		if (!(o instanceof LongRange))</span>
+<span class="fc" id="L109">			return false;</span>
+<span class="fc" id="L110">		LongRange range2 = (LongRange) o;</span>
+<span class="fc bfc" id="L111" title="All 4 branches covered.">		return this.from == range2.from &amp;&amp; this.to == range2.to;</span>
 	}
 
 	@Override
 	public int hashCode() {
-<span class="fc" id="L107">		return (int)((from &lt;&lt; 4) + (from&gt;&gt;16) + to);</span>
+<span class="fc" id="L116">		return (int)((from &lt;&lt; 4) + (from&gt;&gt;16) + to);</span>
 	}
 
 	class It implements Iterator&lt;Long&gt; {
 		long current;
 
-<span class="fc" id="L113">		It() {</span>
-<span class="fc" id="L114">			current = from;</span>
-<span class="fc" id="L115">		}</span>
+<span class="fc" id="L122">		It() {</span>
+<span class="fc" id="L123">			current = from;</span>
+<span class="fc" id="L124">		}</span>
 
 		@Override
 		public boolean hasNext() {
-<span class="fc bfc" id="L119" title="All 2 branches covered.">			return current &lt; to;</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">			return current &lt; to;</span>
 		}
 
 		@Override
 		public Long next() {
-<span class="fc" id="L124">			return current++;</span>
+<span class="fc" id="L133">			return current++;</span>
 		}
 	}
 
 	@Override
 	public Iterator&lt;Long&gt; iterator() {
-<span class="fc" id="L130">		return new It();</span>
+<span class="fc" id="L139">		return new It();</span>
 	}
 
 	/**
@@ -139,17 +148,17 @@ public class LongRange implements Comparable&lt;LongRange&gt;, Iterable&lt;Long&
 	 * @return a list of &lt;em&gt;n&lt;/em&gt; consecutive LongRange instances
 	 */
 	public List&lt;LongRange&gt; split(int n) {
-<span class="fc" id="L142">		ArrayList&lt;LongRange&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L143">		long rem = size() % n;</span>
-<span class="fc" id="L144">		long quo = size() / n;</span>
-<span class="fc" id="L145">		long c = this.from;</span>
+<span class="fc" id="L151">		ArrayList&lt;LongRange&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L152">		long rem = size() % n;</span>
+<span class="fc" id="L153">		long quo = size() / n;</span>
+<span class="fc" id="L154">		long c = this.from;</span>
 
-<span class="fc bfc" id="L147" title="All 2 branches covered.">		for (int i = 0; i &lt; n; i++) {</span>
-<span class="fc bfc" id="L148" title="All 2 branches covered.">			long given = quo + ((i &lt; rem) ? 1 : 0);</span>
-<span class="fc" id="L149">			result.add(new LongRange(c, c+given));</span>
-<span class="fc" id="L150">			c += given;</span>
+<span class="fc bfc" id="L156" title="All 2 branches covered.">		for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc bfc" id="L157" title="All 2 branches covered.">			long given = quo + ((i &lt; rem) ? 1 : 0);</span>
+<span class="fc" id="L158">			result.add(new LongRange(c, c+given));</span>
+<span class="fc" id="L159">			c += given;</span>
 		}
-<span class="fc" id="L152">		return result;</span>
+<span class="fc" id="L161">		return result;</span>
 	}
 
 	/**
@@ -168,43 +177,43 @@ public class LongRange implements Comparable&lt;LongRange&gt;, Iterable&lt;Long&
 	 * @return lists of {@link LongRange} instances of equivalent 
 	 */
 	public static List&lt;List&lt;LongRange&gt;&gt; splitList(int n, List&lt;LongRange&gt; longRanges) {
-<span class="fc" id="L171">		long totalNum = 0;</span>
-<span class="fc bfc" id="L172" title="All 2 branches covered.">		for (LongRange item : longRanges) {</span>
-<span class="fc" id="L173">			totalNum += item.size();</span>
-<span class="fc" id="L174">		}</span>
-<span class="fc" id="L175">		long rem = totalNum % n;</span>
-<span class="fc" id="L176">		long quo = totalNum / n;</span>
-<span class="fc" id="L177">		List&lt;List&lt;LongRange&gt;&gt; result = new ArrayList&lt;&gt;(n);</span>
-<span class="fc" id="L178">		Iterator&lt;LongRange&gt; iter = longRanges.iterator();</span>
-<span class="fc" id="L179">		LongRange c = iter.next();</span>
-<span class="fc" id="L180">		long used = 0;</span>
+<span class="fc" id="L180">		long totalNum = 0;</span>
+<span class="fc bfc" id="L181" title="All 2 branches covered.">		for (LongRange item : longRanges) {</span>
+<span class="fc" id="L182">			totalNum += item.size();</span>
+<span class="fc" id="L183">		}</span>
+<span class="fc" id="L184">		long rem = totalNum % n;</span>
+<span class="fc" id="L185">		long quo = totalNum / n;</span>
+<span class="fc" id="L186">		List&lt;List&lt;LongRange&gt;&gt; result = new ArrayList&lt;&gt;(n);</span>
+<span class="fc" id="L187">		Iterator&lt;LongRange&gt; iter = longRanges.iterator();</span>
+<span class="fc" id="L188">		LongRange c = iter.next();</span>
+<span class="fc" id="L189">		long used = 0;</span>
 
-<span class="fc bfc" id="L182" title="All 2 branches covered.">		for (int i = 0; i &lt; n; i++) {</span>
-<span class="fc" id="L183">			List&lt;LongRange&gt; r = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L184">			result.add(r);</span>
-<span class="fc bfc" id="L185" title="All 2 branches covered.">			long rest = quo + ((i &lt; rem) ? 1 : 0);</span>
-<span class="fc bfc" id="L186" title="All 2 branches covered.">			while (rest &gt; 0) {</span>
-<span class="fc bfc" id="L187" title="All 2 branches covered.">				if (c.size() - used &lt;= rest) {</span>
-<span class="fc" id="L188">					long from = c.from + used;</span>
-<span class="fc" id="L189">					r.add(new LongRange(from, c.to));</span>
-<span class="fc" id="L190">					rest -= c.size() - used;</span>
-<span class="fc" id="L191">					used = 0;</span>
-<span class="fc bfc" id="L192" title="All 2 branches covered.">					if (!iter.hasNext()) {</span>
+<span class="fc bfc" id="L191" title="All 2 branches covered.">		for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc" id="L192">			List&lt;LongRange&gt; r = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L193">			result.add(r);</span>
+<span class="fc bfc" id="L194" title="All 2 branches covered.">			long rest = quo + ((i &lt; rem) ? 1 : 0);</span>
+<span class="fc bfc" id="L195" title="All 2 branches covered.">			while (rest &gt; 0) {</span>
+<span class="fc bfc" id="L196" title="All 2 branches covered.">				if (c.size() - used &lt;= rest) {</span>
+<span class="fc" id="L197">					long from = c.from + used;</span>
+<span class="fc" id="L198">					r.add(new LongRange(from, c.to));</span>
+<span class="fc" id="L199">					rest -= c.size() - used;</span>
+<span class="fc" id="L200">					used = 0;</span>
+<span class="fc bfc" id="L201" title="All 2 branches covered.">					if (!iter.hasNext()) {</span>
 						// Avoids calling iter.next when the last LongRange has
 						// been used. Is necessary due to this &quot;border&quot;  case
-<span class="fc" id="L195">						break;</span>
+<span class="fc" id="L204">						break;</span>
 					}
-<span class="fc" id="L197">					c = iter.next();</span>
-<span class="fc" id="L198">				} else {</span>
-<span class="fc" id="L199">					long from = c.from + used;</span>
-<span class="fc" id="L200">					long to = from + rest;</span>
-<span class="fc" id="L201">					r.add(new LongRange(from, to));</span>
-<span class="fc" id="L202">					used += rest;</span>
-<span class="fc" id="L203">					rest = 0;</span>
-<span class="fc" id="L204">				}</span>
+<span class="fc" id="L206">					c = iter.next();</span>
+<span class="fc" id="L207">				} else {</span>
+<span class="fc" id="L208">					long from = c.from + used;</span>
+<span class="fc" id="L209">					long to = from + rest;</span>
+<span class="fc" id="L210">					r.add(new LongRange(from, to));</span>
+<span class="fc" id="L211">					used += rest;</span>
+<span class="fc" id="L212">					rest = 0;</span>
+<span class="fc" id="L213">				}</span>
 			}
 		}
-<span class="fc" id="L207">		return result;</span>
+<span class="fc" id="L216">		return result;</span>
 	}
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>

@@ -1,4 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistManager.java</span></div><h1>DistManager.java</h1><pre class="source lang-java linenums">package handist.collections.dist;
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistManager.java</span></div><h1>DistManager.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
+package handist.collections.dist;
 
 import static apgas.Constructs.*;
 
@@ -12,11 +21,11 @@ import java.util.Map;
 import apgas.Place;
 import handist.collections.LongRange;
 
-<span class="pc bpc" id="L15" title="1 of 2 branches missed.">public class DistManager&lt;T&gt; {</span>
+<span class="pc bpc" id="L24" title="1 of 2 branches missed.">public class DistManager&lt;T&gt; {</span>
 
-<span class="fc" id="L17">    public HashMap&lt;T, Place&gt; dist = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L18">    public HashMap&lt;T, Integer&gt; diff = new HashMap&lt;&gt;();;</span>
-<span class="fc" id="L19">    HashSet&lt;T&gt; importedDiffKeys = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L26">    public HashMap&lt;T, Place&gt; dist = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L27">    public HashMap&lt;T, Integer&gt; diff = new HashMap&lt;&gt;();;</span>
+<span class="fc" id="L28">    HashSet&lt;T&gt; importedDiffKeys = new HashSet&lt;&gt;();</span>
 
     public static final int DIST_ADDED = 1;
     public static final int DIST_REMOVED = 2;
@@ -26,249 +35,249 @@ import handist.collections.LongRange;
     public static final byte MOVE_NONE = 0;
 
     public boolean distHasKey(T key) {
-<span class="fc" id="L29">        return dist.containsKey(key);</span>
+<span class="fc" id="L38">        return dist.containsKey(key);</span>
     }
 
     public boolean distIsLocal(T key) {
-<span class="fc bfc" id="L33" title="All 2 branches covered.">        return dist.get(key) == here();</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        return dist.get(key) == here();</span>
     }
 
     public boolean diffHasKey(T key) {
-<span class="fc" id="L37">        return diff.containsKey(key);</span>
+<span class="fc" id="L46">        return diff.containsKey(key);</span>
     }
 
     public boolean diffOfKeyIs(T key, int operation) {
-<span class="fc bfc" id="L41" title="All 2 branches covered.">        return (diff.get(key) &amp; operation) != 0;</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        return (diff.get(key) &amp; operation) != 0;</span>
     }
 
     public void clear() {
-<span class="nc" id="L45">        dist.clear();</span>
-<span class="nc" id="L46">        diff.clear();</span>
-<span class="nc" id="L47">    }</span>
+<span class="nc" id="L54">        dist.clear();</span>
+<span class="nc" id="L55">        diff.clear();</span>
+<span class="nc" id="L56">    }</span>
     @Override
     public String toString() {
-<span class="nc" id="L50">	return &quot;[DistManager] + dist: &quot; + dist + &quot;,  diff: &quot; + diff + &quot;, imported: &quot; + importedDiffKeys + &quot;-----&quot;;</span>
+<span class="nc" id="L59">	return &quot;[DistManager] + dist: &quot; + dist + &quot;,  diff: &quot; + diff + &quot;, imported: &quot; + importedDiffKeys + &quot;-----&quot;;</span>
     }
 
     void reject(String method, int reason, T key) throws ParameterErrorException {
-<span class="nc" id="L54">        String msg = &quot;[&quot; + here() + &quot;] Error when calling &quot; + method + &quot; &quot; + key + &quot; on code &quot; + reason;</span>
-<span class="nc" id="L55">        System.err.println(msg);</span>
-<span class="nc bnc" id="L56" title="All 2 branches missed.">        if (reason &gt; 0)</span>
-<span class="nc" id="L57">            throw new ParameterErrorException(reason, msg);</span>
-<span class="nc" id="L58">        throw new ParameterErrorException(reason, msg);</span>
+<span class="nc" id="L63">        String msg = &quot;[&quot; + here() + &quot;] Error when calling &quot; + method + &quot; &quot; + key + &quot; on code &quot; + reason;</span>
+<span class="nc" id="L64">        System.err.println(msg);</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        if (reason &gt; 0)</span>
+<span class="nc" id="L66">            throw new ParameterErrorException(reason, msg);</span>
+<span class="nc" id="L67">        throw new ParameterErrorException(reason, msg);</span>
     }
 
     void systemError(String method, int reason, T key) throws SystemError {
-<span class="nc" id="L62">        String msg = &quot;[&quot; + here() + &quot;] System Error when calling &quot; + method + &quot; &quot; + key + &quot; on code &quot; + reason;</span>
-<span class="nc" id="L63">        System.err.println(msg);</span>
-<span class="nc bnc" id="L64" title="All 2 branches missed.">        if (reason &gt; 0)</span>
-<span class="nc" id="L65">            throw new SystemError(reason, msg);</span>
-<span class="nc" id="L66">        throw new SystemError(reason, msg);</span>
+<span class="nc" id="L71">        String msg = &quot;[&quot; + here() + &quot;] System Error when calling &quot; + method + &quot; &quot; + key + &quot; on code &quot; + reason;</span>
+<span class="nc" id="L72">        System.err.println(msg);</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        if (reason &gt; 0)</span>
+<span class="nc" id="L74">            throw new SystemError(reason, msg);</span>
+<span class="nc" id="L75">        throw new SystemError(reason, msg);</span>
     }
 
     public void add(T key) throws Exception {
-<span class="pc bpc" id="L70" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
-<span class="nc bnc" id="L71" title="All 2 branches missed.">            if (distIsLocal(key)) {</span>
-<span class="nc bnc" id="L72" title="All 2 branches missed.">                if (diffHasKey(key)) {</span>
-<span class="nc bnc" id="L73" title="All 2 branches missed.">                    if (diffOfKeyIs(key, (DIST_ADDED | DIST_MOVED_IN))) {</span>
-<span class="nc" id="L74">                        reject(&quot;add&quot;, 103, key);</span>
+<span class="pc bpc" id="L79" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">            if (distIsLocal(key)) {</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">                if (diffHasKey(key)) {</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">                    if (diffOfKeyIs(key, (DIST_ADDED | DIST_MOVED_IN))) {</span>
+<span class="nc" id="L83">                        reject(&quot;add&quot;, 103, key);</span>
                     } else {
-<span class="nc" id="L76">                        systemError(&quot;add&quot;, 104, key);</span>
+<span class="nc" id="L85">                        systemError(&quot;add&quot;, 104, key);</span>
                     }
                 } else {
-<span class="nc" id="L79">                    reject(&quot;add&quot;, 102, key);</span>
+<span class="nc" id="L88">                    reject(&quot;add&quot;, 102, key);</span>
                 }
             } else {
                 // !distIsLocal(key)
-<span class="nc" id="L83">                reject(&quot;add&quot;, 105, key);</span>
+<span class="nc" id="L92">                reject(&quot;add&quot;, 105, key);</span>
             }
         } else {
-<span class="pc bpc" id="L86" title="1 of 2 branches missed.">            if (diffHasKey(key)) {</span>
-<span class="nc bnc" id="L87" title="All 2 branches missed.">                if (diffOfKeyIs(key, DIST_REMOVED)) {</span>
-<span class="nc" id="L88">                    diff.remove(key);</span>
-<span class="nc" id="L89">                    dist.put(key, here());</span>
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">            if (diffHasKey(key)) {</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">                if (diffOfKeyIs(key, DIST_REMOVED)) {</span>
+<span class="nc" id="L97">                    diff.remove(key);</span>
+<span class="nc" id="L98">                    dist.put(key, here());</span>
                 } else {
-<span class="nc" id="L91">                    systemError(&quot;add&quot;, 101, key);</span>
+<span class="nc" id="L100">                    systemError(&quot;add&quot;, 101, key);</span>
                 }
             } else {
-<span class="fc" id="L94">                diff.put(key, DIST_ADDED);</span>
-<span class="fc" id="L95">                dist.put(key, here());</span>
+<span class="fc" id="L103">                diff.put(key, DIST_ADDED);</span>
+<span class="fc" id="L104">                dist.put(key, here());</span>
             }
         }
-<span class="fc" id="L98">    }</span>
+<span class="fc" id="L107">    }</span>
 
     public void remove(T key) {
-<span class="pc bpc" id="L101" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
-<span class="pc bpc" id="L102" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
-<span class="fc bfc" id="L103" title="All 2 branches covered.">                if (diffHasKey(key)) {</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">                if (diffHasKey(key)) {</span>
                     // System.out.println(&quot;[&quot; + here.id + &quot;] remove key &quot; + key);
-<span class="pc bpc" id="L105" title="1 of 2 branches missed.">                    if (diffOfKeyIs(key, DIST_ADDED)) {</span>
-<span class="fc" id="L106">                        diff.remove(key);</span>
-<span class="fc" id="L107">                        dist.remove(key);</span>
-<span class="nc bnc" id="L108" title="All 2 branches missed.">                    } else if (diffOfKeyIs(key, DIST_MOVED_IN)) {</span>
-<span class="nc" id="L109">                        diff.put(key, DIST_REMOVED);</span>
-<span class="nc" id="L110">                        dist.remove(key);</span>
+<span class="pc bpc" id="L114" title="1 of 2 branches missed.">                    if (diffOfKeyIs(key, DIST_ADDED)) {</span>
+<span class="fc" id="L115">                        diff.remove(key);</span>
+<span class="fc" id="L116">                        dist.remove(key);</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">                    } else if (diffOfKeyIs(key, DIST_MOVED_IN)) {</span>
+<span class="nc" id="L118">                        diff.put(key, DIST_REMOVED);</span>
+<span class="nc" id="L119">                        dist.remove(key);</span>
                     } else {
-<span class="nc" id="L112">                        systemError(&quot;remove&quot;, 202, key);</span>
+<span class="nc" id="L121">                        systemError(&quot;remove&quot;, 202, key);</span>
                     }
                 } else {
-<span class="fc" id="L115">                    diff.put(key, DIST_REMOVED);</span>
-<span class="fc" id="L116">                    dist.remove(key);</span>
+<span class="fc" id="L124">                    diff.put(key, DIST_REMOVED);</span>
+<span class="fc" id="L125">                    dist.remove(key);</span>
                 }
             } else {
                 // !distIsLocal(key)
-<span class="nc" id="L120">                reject(&quot;remove&quot;, 203, key);</span>
+<span class="nc" id="L129">                reject(&quot;remove&quot;, 203, key);</span>
             }
         } else {
             // !distHasKey(key)
-<span class="nc" id="L124">            reject(&quot;remove&quot;, 201, key);</span>
+<span class="nc" id="L133">            reject(&quot;remove&quot;, 201, key);</span>
         }
-<span class="fc" id="L126">    }</span>
+<span class="fc" id="L135">    }</span>
 
     public byte moveOut(T key, Place dest) {
-<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
             // System.out.println(&quot;&gt;&gt;&gt; distHasKey&quot;);
-<span class="pc bpc" id="L131" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
-<span class="fc bfc" id="L132" title="All 2 branches covered.">                if (diffHasKey(key)) {</span>
-<span class="fc bfc" id="L133" title="All 2 branches covered.">                    if (diffOfKeyIs(key, DIST_ADDED)) {</span>
-<span class="fc" id="L134">                        diff.remove(key);</span>
-<span class="fc" id="L135">                        dist.remove(key);</span>
-<span class="fc" id="L136">                        return MOVE_NEW;</span>
-<span class="pc bpc" id="L137" title="1 of 2 branches missed.">                    } else if (diffOfKeyIs(key, DIST_MOVED_IN)) {</span>
-<span class="fc" id="L138">                        diff.remove(key);</span>
-<span class="fc" id="L139">                        dist.put(key, dest);</span>
-<span class="fc" id="L140">                        return MOVE_OLD;</span>
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">                if (diffHasKey(key)) {</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">                    if (diffOfKeyIs(key, DIST_ADDED)) {</span>
+<span class="fc" id="L143">                        diff.remove(key);</span>
+<span class="fc" id="L144">                        dist.remove(key);</span>
+<span class="fc" id="L145">                        return MOVE_NEW;</span>
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">                    } else if (diffOfKeyIs(key, DIST_MOVED_IN)) {</span>
+<span class="fc" id="L147">                        diff.remove(key);</span>
+<span class="fc" id="L148">                        dist.put(key, dest);</span>
+<span class="fc" id="L149">                        return MOVE_OLD;</span>
                     } else {
-<span class="nc" id="L142">                        systemError(&quot;moveOut&quot;, 804, key);</span>
+<span class="nc" id="L151">                        systemError(&quot;moveOut&quot;, 804, key);</span>
                     }
                 } else {
-<span class="fc" id="L145">                    dist.put(key, dest);</span>
-<span class="fc" id="L146">                    return MOVE_OLD;</span>
+<span class="fc" id="L154">                    dist.put(key, dest);</span>
+<span class="fc" id="L155">                    return MOVE_OLD;</span>
                 }
             } else {
                 // !distIsLocal(key)
-<span class="nc" id="L150">                reject(&quot;moveOut&quot;, 805, key);</span>
+<span class="nc" id="L159">                reject(&quot;moveOut&quot;, 805, key);</span>
             }
         } else {
             // !distHasKey(key)
             // System.out.println(&quot;&gt;&gt;&gt; !distHasKey&quot;);
-<span class="nc bnc" id="L155" title="All 2 branches missed.">            if (diffHasKey(key)) {</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">            if (diffHasKey(key)) {</span>
                 // System.out.println(&quot;&gt;&gt;&gt; diffHasKey&quot;);
-<span class="nc bnc" id="L157" title="All 2 branches missed.">                if (diffOfKeyIs(key, DIST_REMOVED)) {</span>
-<span class="nc" id="L158">                    reject(&quot;moveOut&quot;, 802, key);</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">                if (diffOfKeyIs(key, DIST_REMOVED)) {</span>
+<span class="nc" id="L167">                    reject(&quot;moveOut&quot;, 802, key);</span>
                 } else {
-<span class="nc" id="L160">                    systemError(&quot;moveOut&quot;, 803, key);</span>
+<span class="nc" id="L169">                    systemError(&quot;moveOut&quot;, 803, key);</span>
                 }
             } else {
                 // System.out.println(&quot;&gt;&gt;&gt; !diffHasKey&quot;);
-<span class="nc" id="L164">                reject(&quot;moveOut&quot;, 801, key);</span>
+<span class="nc" id="L173">                reject(&quot;moveOut&quot;, 801, key);</span>
             }
         }
         // System.out.println(&quot;&gt;&gt;&gt; MOVE_NONE&quot;);
-<span class="nc" id="L168">        return MOVE_NONE;</span>
+<span class="nc" id="L177">        return MOVE_NONE;</span>
     }
 
     public void moveInNew(T key) throws Exception {
         // System.out.println(&quot;&gt;&gt;&gt; moveInNew &quot; + key + &quot; distHasKey: &quot; + distHasKey(key)
         // + &quot; diffHasKey: &quot; + diffHasKey(key));
 
-<span class="pc bpc" id="L175" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
-<span class="nc bnc" id="L176" title="All 2 branches missed.">            if (distIsLocal(key)) {</span>
-<span class="nc bnc" id="L177" title="All 4 branches missed.">                if (diffHasKey(key) &amp;&amp; diffOfKeyIs(key, DIST_ADDED)) {</span>
-<span class="nc" id="L178">                    reject(&quot;moveInNew&quot;, 402, key);</span>
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">            if (distIsLocal(key)) {</span>
+<span class="nc bnc" id="L186" title="All 4 branches missed.">                if (diffHasKey(key) &amp;&amp; diffOfKeyIs(key, DIST_ADDED)) {</span>
+<span class="nc" id="L187">                    reject(&quot;moveInNew&quot;, 402, key);</span>
                 } else {
-<span class="nc" id="L180">                    systemError(&quot;moveInNew&quot;, 403, key);</span>
+<span class="nc" id="L189">                    systemError(&quot;moveInNew&quot;, 403, key);</span>
                 }
             } else {
                 // !distIsLocal(key)
-<span class="nc bnc" id="L184" title="All 2 branches missed.">                if (diffHasKey(key)) {</span>
-<span class="nc" id="L185">                    systemError(&quot;moveInNew&quot;, 404, key);</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">                if (diffHasKey(key)) {</span>
+<span class="nc" id="L194">                    systemError(&quot;moveInNew&quot;, 404, key);</span>
                 } else {
                     // System.out.println(&quot;&gt;&gt;&gt; AAA&quot;);
-<span class="nc" id="L188">                    diff.put(key, DIST_ADDED);</span>
-<span class="nc" id="L189">                    dist.put(key, here());</span>
+<span class="nc" id="L197">                    diff.put(key, DIST_ADDED);</span>
+<span class="nc" id="L198">                    dist.put(key, here());</span>
                 }
             }
         } else {
             // !distHasKey(key)
-<span class="pc bpc" id="L194" title="1 of 2 branches missed.">            if (diffHasKey(key)) {</span>
-<span class="nc" id="L195">                systemError(&quot;moveInNew&quot;, 401, key);</span>
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">            if (diffHasKey(key)) {</span>
+<span class="nc" id="L204">                systemError(&quot;moveInNew&quot;, 401, key);</span>
             } else {
                 // System.out.println(&quot;&gt;&gt;&gt; BBB&quot;);
-<span class="fc" id="L198">                diff.put(key, DIST_ADDED);</span>
-<span class="fc" id="L199">                dist.put(key, here());</span>
+<span class="fc" id="L207">                diff.put(key, DIST_ADDED);</span>
+<span class="fc" id="L208">                dist.put(key, here());</span>
             }
         }
-<span class="fc" id="L202">    }</span>
+<span class="fc" id="L211">    }</span>
 
     public void moveInOld(T key) throws Exception {
-<span class="pc bpc" id="L205" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
-<span class="pc bpc" id="L206" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
-<span class="nc" id="L207">                systemError(&quot;moveInOld&quot;, 406, key);</span>
+<span class="pc bpc" id="L214" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
+<span class="pc bpc" id="L215" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
+<span class="nc" id="L216">                systemError(&quot;moveInOld&quot;, 406, key);</span>
             } else {
                 // !distIsLocal(key)
-<span class="pc bpc" id="L210" title="1 of 2 branches missed.">                if (diffHasKey(key)) {</span>
-<span class="nc" id="L211">                    systemError(&quot;moveInOld&quot;, 407, key);</span>
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">                if (diffHasKey(key)) {</span>
+<span class="nc" id="L220">                    systemError(&quot;moveInOld&quot;, 407, key);</span>
                 } else {
-<span class="fc" id="L213">                    diff.put(key, DIST_MOVED_IN);</span>
-<span class="fc" id="L214">                    dist.put(key, here());</span>
+<span class="fc" id="L222">                    diff.put(key, DIST_MOVED_IN);</span>
+<span class="fc" id="L223">                    dist.put(key, here());</span>
                 }
             }
         } else {
             // !distHasKey(key)
-<span class="nc" id="L219">            systemError(&quot;moveInOld&quot;, 405, key);</span>
+<span class="nc" id="L228">            systemError(&quot;moveInOld&quot;, 405, key);</span>
         }
-<span class="fc" id="L221">    }</span>
+<span class="fc" id="L230">    }</span>
 
     void applyDiff(T key, int operation, Place from) throws Exception {
         // System.out.println(&quot;[&quot; + here.id + &quot;] applyDiff &quot; + key + &quot; op: &quot; + operation
         // + &quot; from: &quot; + from.id);
-<span class="pc bpc" id="L226" title="2 of 4 branches missed.">        if (importedDiffKeys.contains(key) || diff.containsKey(key)) {</span>
-<span class="nc" id="L227">            reject(&quot;applyDiff with duplicate key &quot;, operation, key);</span>
+<span class="pc bpc" id="L235" title="2 of 4 branches missed.">        if (importedDiffKeys.contains(key) || diff.containsKey(key)) {</span>
+<span class="nc" id="L236">            reject(&quot;applyDiff with duplicate key &quot;, operation, key);</span>
         } else {
-<span class="fc" id="L229">            importedDiffKeys.add(key);</span>
-<span class="fc bfc" id="L230" title="All 2 branches covered.">            if ((operation &amp; (DIST_ADDED | DIST_MOVED_IN)) != 0) {</span>
-<span class="fc" id="L231">                dist.put(key, from);</span>
+<span class="fc" id="L238">            importedDiffKeys.add(key);</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">            if ((operation &amp; (DIST_ADDED | DIST_MOVED_IN)) != 0) {</span>
+<span class="fc" id="L240">                dist.put(key, from);</span>
             } else {
                 // operation == DIST_REMOVED
-<span class="fc" id="L234">                dist.remove(key);</span>
+<span class="fc" id="L243">                dist.remove(key);</span>
             }
         }
-<span class="fc" id="L237">    }</span>
+<span class="fc" id="L246">    }</span>
 
     void setup(Collection&lt;T&gt; keys) {
-<span class="pc bpc" id="L240" title="3 of 4 branches missed.">        assert (keys.isEmpty());</span>
+<span class="pc bpc" id="L249" title="3 of 4 branches missed.">        assert (keys.isEmpty());</span>
         try {
-<span class="pc bpc" id="L242" title="1 of 2 branches missed.">            for (T k : keys) {</span>
-<span class="nc" id="L243">                add(k);</span>
-<span class="nc" id="L244">            }</span>
-<span class="nc" id="L245">        } catch (Exception e) {</span>
-<span class="nc" id="L246">            throw new RuntimeException(&quot;[DistManager] Duplicate key in &quot; + keys);</span>
-<span class="fc" id="L247">        }</span>
-<span class="fc" id="L248">    }</span>
+<span class="pc bpc" id="L251" title="1 of 2 branches missed.">            for (T k : keys) {</span>
+<span class="nc" id="L252">                add(k);</span>
+<span class="nc" id="L253">            }</span>
+<span class="nc" id="L254">        } catch (Exception e) {</span>
+<span class="nc" id="L255">            throw new RuntimeException(&quot;[DistManager] Duplicate key in &quot; + keys);</span>
+<span class="fc" id="L256">        }</span>
+<span class="fc" id="L257">    }</span>
     
     @SuppressWarnings(&quot;unchecked&quot;)
     void updateDist(TeamedPlaceGroup pg) {
-<span class="fc" id="L252">        Serializer serProcess = (ObjectOutputStream ser) -&gt; {</span>
-<span class="fc" id="L253">            ser.writeObject(diff);</span>
-<span class="fc" id="L254">        };</span>
-<span class="fc" id="L255">        DeSerializerUsingPlace desProcess = (ObjectInputStream des, Place from) -&gt; {</span>
-<span class="fc" id="L256">            Map&lt;T, Integer&gt; importedDiff = (Map&lt;T, Integer&gt;) des.readObject();</span>
-<span class="fc bfc" id="L257" title="All 2 branches covered.">            for (Map.Entry&lt;T, Integer&gt; entry : importedDiff.entrySet()) {</span>
-<span class="fc" id="L258">                T k = entry.getKey();</span>
-<span class="fc" id="L259">                Integer v = entry.getValue();</span>
-<span class="fc" id="L260">                applyDiff(k, v, from);</span>
-<span class="fc" id="L261">            }</span>
-<span class="fc" id="L262">        };</span>
-<span class="fc" id="L263">        CollectiveRelocator.allgatherSer(pg, serProcess, desProcess);</span>
-<span class="fc" id="L264">        importedDiffKeys.clear();</span>
-<span class="fc" id="L265">        diff.clear();</span>
-<span class="fc" id="L266">    }</span>
+<span class="fc" id="L261">        Serializer serProcess = (ObjectOutputStream ser) -&gt; {</span>
+<span class="fc" id="L262">            ser.writeObject(diff);</span>
+<span class="fc" id="L263">        };</span>
+<span class="fc" id="L264">        DeSerializerUsingPlace desProcess = (ObjectInputStream des, Place from) -&gt; {</span>
+<span class="fc" id="L265">            Map&lt;T, Integer&gt; importedDiff = (Map&lt;T, Integer&gt;) des.readObject();</span>
+<span class="fc bfc" id="L266" title="All 2 branches covered.">            for (Map.Entry&lt;T, Integer&gt; entry : importedDiff.entrySet()) {</span>
+<span class="fc" id="L267">                T k = entry.getKey();</span>
+<span class="fc" id="L268">                Integer v = entry.getValue();</span>
+<span class="fc" id="L269">                applyDiff(k, v, from);</span>
+<span class="fc" id="L270">            }</span>
+<span class="fc" id="L271">        };</span>
+<span class="fc" id="L272">        CollectiveRelocator.allgatherSer(pg, serProcess, desProcess);</span>
+<span class="fc" id="L273">        importedDiffKeys.clear();</span>
+<span class="fc" id="L274">        diff.clear();</span>
+<span class="fc" id="L275">    }</span>
 
-<span class="fc" id="L268">    public static class Index extends DistManager&lt;Long&gt; {</span>
+<span class="fc" id="L277">    public static class Index extends DistManager&lt;Long&gt; {</span>
     }
 
-<span class="fc" id="L271">    public static class Range extends DistManager&lt;LongRange&gt; {</span>
+<span class="fc" id="L280">    public static class Range extends DistManager&lt;LongRange&gt; {</span>
     }
 
     static class SystemError extends Error {
@@ -279,9 +288,9 @@ import handist.collections.LongRange;
         public int reason;
 
         SystemError(int reason, String msg) {
-<span class="nc" id="L282">            super(msg);</span>
-<span class="nc" id="L283">            this.reason = reason;</span>
-<span class="nc" id="L284">        }</span>
+<span class="nc" id="L291">            super(msg);</span>
+<span class="nc" id="L292">            this.reason = reason;</span>
+<span class="nc" id="L293">        }</span>
     }
 
     static class ParameterErrorException extends RuntimeException {
@@ -292,9 +301,9 @@ import handist.collections.LongRange;
         public int reason;
 
         ParameterErrorException(int reason, String msg) {
-<span class="nc" id="L295">            super(msg);</span>
-<span class="nc" id="L296">            this.reason = reason;</span>
-<span class="nc" id="L297">        }</span>
+<span class="nc" id="L304">            super(msg);</span>
+<span class="nc" id="L305">            this.reason = reason;</span>
+<span class="nc" id="L306">        }</span>
     }
 
 }

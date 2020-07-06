@@ -1,4 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MoveManagerLocal.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">MoveManagerLocal.java</span></div><h1>MoveManagerLocal.java</h1><pre class="source lang-java linenums">package handist.collections.dist;
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MoveManagerLocal.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">MoveManagerLocal.java</span></div><h1>MoveManagerLocal.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under 
+ * the terms of the Eclipse Public License 1.0 which accompanies this 
+ * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ *******************************************************************************/
+package handist.collections.dist;
 
 import static apgas.Constructs.*;
 
@@ -32,30 +41,30 @@ public final class MoveManagerLocal {
      * 	themselves using this instance.
      */
 
-<span class="fc" id="L35">    public MoveManagerLocal(TeamedPlaceGroup placeGroup) {</span>
-<span class="fc" id="L36">        this.placeGroup = placeGroup;</span>
-<span class="fc" id="L37">        serializeListMap = new HashMap&lt;&gt;(placeGroup.size());</span>
-<span class="fc" id="L38">        builders = new HashMap&lt;&gt;(placeGroup.size());</span>
-<span class="fc bfc" id="L39" title="All 2 branches covered.">        for (Place place: placeGroup.places()) {</span>
-<span class="fc" id="L40">            serializeListMap.put(place, new ArrayList&lt;&gt;());</span>
-<span class="fc" id="L41">            builders.put(place, new ArrayList&lt;&gt;());</span>
-<span class="fc" id="L42">        }</span>
-<span class="fc" id="L43">    }</span>
+<span class="fc" id="L44">    public MoveManagerLocal(TeamedPlaceGroup placeGroup) {</span>
+<span class="fc" id="L45">        this.placeGroup = placeGroup;</span>
+<span class="fc" id="L46">        serializeListMap = new HashMap&lt;&gt;(placeGroup.size());</span>
+<span class="fc" id="L47">        builders = new HashMap&lt;&gt;(placeGroup.size());</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">        for (Place place: placeGroup.places()) {</span>
+<span class="fc" id="L49">            serializeListMap.put(place, new ArrayList&lt;&gt;());</span>
+<span class="fc" id="L50">            builders.put(place, new ArrayList&lt;&gt;());</span>
+<span class="fc" id="L51">        }</span>
+<span class="fc" id="L52">    }</span>
 
     public void request(Place pl, Serializer serializer,
             DeSerializer deserializer) {
-<span class="fc" id="L47">        serializeListMap.get(pl).add(serializer);</span>
-<span class="fc" id="L48">        builders.get(pl).add(deserializer);</span>
-<span class="fc" id="L49">    }</span>
+<span class="fc" id="L56">        serializeListMap.get(pl).add(serializer);</span>
+<span class="fc" id="L57">        builders.get(pl).add(deserializer);</span>
+<span class="fc" id="L58">    }</span>
 
     public void clear() {
-<span class="fc bfc" id="L52" title="All 2 branches covered.">        for (List&lt;Serializer&gt; list: serializeListMap.values()) {</span>
-<span class="fc" id="L53">            list.clear();</span>
-<span class="fc" id="L54">        }</span>
-<span class="fc bfc" id="L55" title="All 2 branches covered.">        for (List&lt;DeSerializer&gt; list: builders.values()) {</span>
-<span class="fc" id="L56">            list.clear();</span>
-<span class="fc" id="L57">        }</span>
-<span class="fc" id="L58">    }</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        for (List&lt;Serializer&gt; list: serializeListMap.values()) {</span>
+<span class="fc" id="L62">            list.clear();</span>
+<span class="fc" id="L63">        }</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        for (List&lt;DeSerializer&gt; list: builders.values()) {</span>
+<span class="fc" id="L65">            list.clear();</span>
+<span class="fc" id="L66">        }</span>
+<span class="fc" id="L67">    }</span>
 
     /**
      * Request to reset the Serializer at the specified place.
@@ -63,77 +72,77 @@ public final class MoveManagerLocal {
      * @param pl the target place.
      */
     public void reset(Place pl) {
-<span class="nc" id="L66">        serializeListMap.get(pl).add((ObjectOutputStream s) -&gt; {</span>
+<span class="nc" id="L75">        serializeListMap.get(pl).add((ObjectOutputStream s) -&gt; {</span>
             try {
-<span class="nc" id="L68">                s.reset();</span>
-<span class="nc" id="L69">            } catch (IOException e) {}</span>
-<span class="nc" id="L70">        });</span>
-<span class="nc" id="L71">    }</span>
+<span class="nc" id="L77">                s.reset();</span>
+<span class="nc" id="L78">            } catch (IOException e) {}</span>
+<span class="nc" id="L79">        });</span>
+<span class="nc" id="L80">    }</span>
 
     public byte[] executeSerialization(Place place) throws Exception {
-<span class="nc" id="L74">        ByteArrayOutputStream out = new ByteArrayOutputStream();</span>
-<span class="nc" id="L75">        ObjectOutputStream s = new ObjectOutputStream(out);</span>
-<span class="nc" id="L76">        s.writeObject(builders.get(place));</span>
-<span class="nc bnc" id="L77" title="All 2 branches missed.">        for (Serializer serializer: serializeListMap.get(place)) {</span>
-<span class="nc" id="L78">            serializer.accept(s);</span>
-<span class="nc" id="L79">        }</span>
-<span class="nc" id="L80">        s.close();</span>
-<span class="nc" id="L81">        return out.toByteArray();</span>
+<span class="nc" id="L83">        ByteArrayOutputStream out = new ByteArrayOutputStream();</span>
+<span class="nc" id="L84">        ObjectOutputStream s = new ObjectOutputStream(out);</span>
+<span class="nc" id="L85">        s.writeObject(builders.get(place));</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        for (Serializer serializer: serializeListMap.get(place)) {</span>
+<span class="nc" id="L87">            serializer.accept(s);</span>
+<span class="nc" id="L88">        }</span>
+<span class="nc" id="L89">        s.close();</span>
+<span class="nc" id="L90">        return out.toByteArray();</span>
     }
 
     @SuppressWarnings(&quot;unchecked&quot;)
     public void executeDeserialization(Map&lt;Place, byte[]&gt; map) throws Exception {
-<span class="nc bnc" id="L86" title="All 2 branches missed.">        for(Place p: placeGroup.places()) {</span>
-<span class="nc bnc" id="L87" title="All 2 branches missed.">        if(p.equals(here())) continue;</span>
-<span class="nc" id="L88">            byte[] buf = map.get(p);</span>
-<span class="nc" id="L89">            ObjectInputStream ds = new ObjectInputStream(new ByteArrayInputStream(buf));</span>
-<span class="nc" id="L90">            List&lt;Consumer&lt;ObjectInputStream&gt;&gt; deserializerList =</span>
-<span class="nc" id="L91">                    (List&lt;Consumer&lt;ObjectInputStream&gt;&gt;)ds.readObject();</span>
-<span class="nc bnc" id="L92" title="All 2 branches missed.">            for (Consumer&lt;ObjectInputStream&gt; deserialize: deserializerList) {</span>
-<span class="nc" id="L93">                deserialize.accept(ds);</span>
-<span class="nc" id="L94">            }</span>
-<span class="nc" id="L95">        }</span>
-<span class="nc" id="L96">    }</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        for(Place p: placeGroup.places()) {</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        if(p.equals(here())) continue;</span>
+<span class="nc" id="L97">            byte[] buf = map.get(p);</span>
+<span class="nc" id="L98">            ObjectInputStream ds = new ObjectInputStream(new ByteArrayInputStream(buf));</span>
+<span class="nc" id="L99">            List&lt;Consumer&lt;ObjectInputStream&gt;&gt; deserializerList =</span>
+<span class="nc" id="L100">                    (List&lt;Consumer&lt;ObjectInputStream&gt;&gt;)ds.readObject();</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">            for (Consumer&lt;ObjectInputStream&gt; deserialize: deserializerList) {</span>
+<span class="nc" id="L102">                deserialize.accept(ds);</span>
+<span class="nc" id="L103">            }</span>
+<span class="nc" id="L104">        }</span>
+<span class="nc" id="L105">    }</span>
 
     public void executeSerialization(TeamedPlaceGroup placeGroup2, ByteArrayOutputStream out, int[] offsets,
             int[] sizes) throws IOException {
-<span class="fc bfc" id="L100" title="All 2 branches covered.">        for (int i = 0; i &lt; placeGroup2.size(); i++) {</span>
-<span class="fc" id="L101">            Place place = placeGroup2.get(i);</span>
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        for (int i = 0; i &lt; placeGroup2.size(); i++) {</span>
+<span class="fc" id="L110">            Place place = placeGroup2.get(i);</span>
             // TODO is this correct??
-<span class="fc bfc" id="L103" title="All 2 branches covered.">            if (place.equals(here()))</span>
-<span class="fc" id="L104">                continue;</span>
-<span class="fc" id="L105">            offsets[i] = out.size();</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">            if (place.equals(here()))</span>
+<span class="fc" id="L113">                continue;</span>
+<span class="fc" id="L114">            offsets[i] = out.size();</span>
             // TODO should reopen ByteArray...
-<span class="fc" id="L107">            System.out.println(&quot;execSeri: &quot; + here() + &quot;-&gt;&quot; + place + &quot;:start:&quot; + out.size());</span>
-<span class="fc" id="L108">            ObjectOutputStream s = new ObjectOutputStream(out);</span>
-<span class="fc" id="L109">            s.writeObject(builders.get(place));</span>
-<span class="fc bfc" id="L110" title="All 2 branches covered.">            for (Serializer serializer : serializeListMap.get(place)) {</span>
-<span class="fc" id="L111">                serializer.accept(s);</span>
-<span class="fc" id="L112">            }</span>
-<span class="fc" id="L113">            s.close();</span>
-<span class="fc" id="L114">            System.out.println(&quot;execSeri: &quot; + here() + &quot;-&gt;&quot; + place + &quot;:finish:&quot; + out.size());</span>
-<span class="fc" id="L115">            sizes[i] = out.size() - offsets[i];</span>
+<span class="fc" id="L116">            System.out.println(&quot;execSeri: &quot; + here() + &quot;-&gt;&quot; + place + &quot;:start:&quot; + out.size());</span>
+<span class="fc" id="L117">            ObjectOutputStream s = new ObjectOutputStream(out);</span>
+<span class="fc" id="L118">            s.writeObject(builders.get(place));</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">            for (Serializer serializer : serializeListMap.get(place)) {</span>
+<span class="fc" id="L120">                serializer.accept(s);</span>
+<span class="fc" id="L121">            }</span>
+<span class="fc" id="L122">            s.close();</span>
+<span class="fc" id="L123">            System.out.println(&quot;execSeri: &quot; + here() + &quot;-&gt;&quot; + place + &quot;:finish:&quot; + out.size());</span>
+<span class="fc" id="L124">            sizes[i] = out.size() - offsets[i];</span>
         }
-<span class="fc" id="L117">    }</span>
+<span class="fc" id="L126">    }</span>
     
     @SuppressWarnings(&quot;unchecked&quot;)
     public void executeDeserialization(byte[] buf, int[] rcvOffset, int[] rcvSize) throws Exception {
-<span class="fc" id="L121">        int current = 0;</span>
-<span class="fc bfc" id="L122" title="All 2 branches covered.">        for(Place p: placeGroup.places()) {</span>
-<span class="fc" id="L123">            int size = rcvSize[current];</span>
-<span class="fc" id="L124">            int offset = rcvOffset[current];</span>
-<span class="fc" id="L125">		    	    current++;</span>
-<span class="fc bfc" id="L126" title="All 2 branches covered.">        if(p.equals(here())) continue;</span>
+<span class="fc" id="L130">        int current = 0;</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">        for(Place p: placeGroup.places()) {</span>
+<span class="fc" id="L132">            int size = rcvSize[current];</span>
+<span class="fc" id="L133">            int offset = rcvOffset[current];</span>
+<span class="fc" id="L134">		    	    current++;</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">        if(p.equals(here())) continue;</span>
 
-<span class="fc" id="L128">            ByteArrayInputStream in = new ByteArrayInputStream(buf, offset, size);</span>
-<span class="fc" id="L129">            ObjectInputStream ds = new ObjectInputStream(in);</span>
-<span class="fc" id="L130">            List&lt;DeSerializer&gt; deserializerList =</span>
-<span class="fc" id="L131">                    (List&lt;DeSerializer&gt;)ds.readObject();</span>
-<span class="fc bfc" id="L132" title="All 2 branches covered.">            for (DeSerializer deserialize: deserializerList) {</span>
-<span class="fc" id="L133">                deserialize.accept(ds);</span>
-<span class="fc" id="L134">            }</span>
-<span class="fc" id="L135">        }</span>
-<span class="fc" id="L136">    }</span>
+<span class="fc" id="L137">            ByteArrayInputStream in = new ByteArrayInputStream(buf, offset, size);</span>
+<span class="fc" id="L138">            ObjectInputStream ds = new ObjectInputStream(in);</span>
+<span class="fc" id="L139">            List&lt;DeSerializer&gt; deserializerList =</span>
+<span class="fc" id="L140">                    (List&lt;DeSerializer&gt;)ds.readObject();</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">            for (DeSerializer deserialize: deserializerList) {</span>
+<span class="fc" id="L142">                deserialize.accept(ds);</span>
+<span class="fc" id="L143">            }</span>
+<span class="fc" id="L144">        }</span>
+<span class="fc" id="L145">    }</span>
 
 
 
@@ -146,8 +155,8 @@ public final class MoveManagerLocal {
      *  the relocation
      */
     public void sync() throws Exception {
-<span class="fc" id="L149">        CollectiveRelocator.all2allser(placeGroup, this);</span>
-<span class="fc" id="L150">    }</span>
+<span class="fc" id="L158">        CollectiveRelocator.all2allser(placeGroup, this);</span>
+<span class="fc" id="L159">    }</span>
 
 
     /* 将来的に
