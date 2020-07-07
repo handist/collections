@@ -9,13 +9,12 @@
  *******************************************************************************/
 package handist.collections;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.LongConsumer;
 import java.util.stream.LongStream;
-
-import java.io.Serializable;
 
 public class LongRange implements Comparable<LongRange>, Iterable<Long>, Serializable {
 	/**
@@ -59,10 +58,23 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 		return (from <= index) && (index < to);
 	}
 
+	/**
+	 * Return whether the given range is included in this range.
+	 * If all the indices of the given range are contained in this range, return true, otherwise, return false.
+	 * 
+	 * @param range
+	 * @return
+	 */
 	public boolean contains(LongRange range) {
 		return (this.from <= range.from) && (range.to <= this.to);
 	}
 
+	 /**
+     * Return whether there is an index contained both in the given range and this range.
+     * 
+     * @param range
+     * @return
+     */
 	public boolean isOverlapped(LongRange range) {
 		if (this.equals(range)) {
 			return true;

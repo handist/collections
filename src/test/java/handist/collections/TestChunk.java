@@ -212,6 +212,16 @@ public class TestChunk implements Serializable {
 		assertEquals(includeNullChunk.get(0), null);
 	}
 	
+	@Test
+	public void testGetExceptionLong() {
+        long[] indices = { -1, 1L<<33 + 1,  -1L<< 34 + 1 };
+        for(long index: indices) {
+            assertThrows(IndexOutOfBoundsException.class, ()->{
+                chunk.get(index); 
+            });
+        }
+	}
+	
 	
 	@Test(expected = IndexOutOfBoundsException.class)
 	public void testGetError() {
@@ -227,8 +237,18 @@ public class TestChunk implements Serializable {
 		assertEquals(chunk.get(0), newElement);
 	}
 	
+	@Test
+	public void testSetExceptionLong() {
+        long[] indices = { -1, 1L<<33 + 1,  -1L<< 34 + 1 };
+          for(long index: indices) {
+              assertThrows(IndexOutOfBoundsException.class, ()->{
+                  chunk.set(index, elems[0]); 
+              });
+          }
+	}
 	
-	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	
+	@Test(expected = IndexOutOfBoundsException.class)
 	public void testSetError() {
 		chunk.set(6, new Element(0));
 	}

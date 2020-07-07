@@ -86,9 +86,7 @@ public interface RangedList<T> extends Iterable<T> {
         }
     }
 
-    T set(long index, T value);
-    
-
+    public T set(long index, T value);  
     
     abstract public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func);
     default public List<RangedList<T>> splitRange(long splitPoint) {

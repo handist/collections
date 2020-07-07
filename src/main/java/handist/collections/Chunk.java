@@ -9,6 +9,10 @@
  *******************************************************************************/
 package handist.collections;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
@@ -19,7 +23,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import java.io.*;
 import handist.collections.function.LongTBiConsumer;
 
 public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Serializable, List<T> {
@@ -105,21 +108,49 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         return new RangedListView<T>(this, new LongRange(begin, end));
     }
 
+    /**
+     * Get the element indexed by the {@code index}. 
+     * 
+     *  @throws IndexOutofBoundsException the given index is out of range.
+     *  
+     * @param index
+     * @return the element indexed by the {@code index}. 
+     */
     @Override
-    @SuppressWarnings("unchecked")
-    public T get(long i0) {
-        int i = (int) (i0 - range.from);
-        return (T) a[i];
+    public T get(long index) {
+        if(!getRange().contains(index))
+            throw new IndexOutOfBoundsException(rangeMsg(index));
+        return getUnsafe(index);
     }
-
+    @SuppressWarnings("unchecked")
+    final T getUnsafe(long index) {  // when range check was done
+        long offset = index - range.from; 
+        return (T) a[(int)offset];
+    }
+    String rangeMsg(long index) {
+         return "[Chunk] range "+ index + " is out of " + getRange();
+    }
+    
+    /**
+     * Set the given value at the given index. 
+     * 
+     *  @throws IndexOutofBoundsException the given index is out of range.
+     *  
+     * @param index
+     * @return the previous value stored at the index.
+     */
     @Override
-    public T set(long i0, T v) {
-        int i = (int) (i0 - range.from);
-        // System.out.println("set (" + i0 + ", " + v + ") range.begin=" + range.begin +
-        // ", i = " + i);
-        @SuppressWarnings("unchecked")
-        T prev = (T) a[i];
-        a[i] = v;
+    public T set(long index, T value) {
+        if(!getRange().contains(index))
+            throw new IndexOutOfBoundsException(rangeMsg(index));            
+        return setUnsafe(index,value);
+    }
+    
+    @SuppressWarnings("unchecked")
+    final T setUnsafe(long index, T v) { // when range check was done
+        long offset  = index - range.from;
+        T prev = (T) a[(int)offset];
+        a[(int)offset] = v;
         return prev;
     }
 
