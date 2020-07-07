@@ -9,12 +9,16 @@
  *******************************************************************************/
 package handist.collections;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.AbstractCollection;
 import java.util.Iterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.io.*;
+
 import handist.collections.function.LongTBiConsumer;
 
 
@@ -22,7 +26,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
     /** Serial Version UID */
 	private static final long serialVersionUID = 8258165981421352660L;
-	private RangedList<T> base;
+	private Chunk<T>  base;
     protected LongRange range;
 
     public static <T> RangedListView<T> emptyView() {
@@ -30,8 +34,20 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
     }
 
     public RangedListView(RangedList<T> base, LongRange range) {
-        this.base = base;
-        this.range = range;
+        this.range = range;        
+        if(base == null) {
+            this.base = null;
+            return;
+        }
+        if(base instanceof Chunk) {
+            this.base = (Chunk<T>)base;
+        } else if(base instanceof RangedListView) {
+            this.base = ((RangedListView<T>)base).base; //base;
+        } else {
+            throw new RuntimeException("not supported class: "+ base.getClass());
+        }
+        if(!base.getRange().contains(range)) 
+            throw new IndexOutOfBoundsException("[RangeListView] " + range + " is not contained in " + base.getRange());
     }
 
     @Override
@@ -80,13 +96,36 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         return base.toArray(newRange);
     }
 
+    private void checkRange(long index) {
+        if(!getRange().contains(index)) 
+            throw new IndexOutOfBoundsException("[RangedListView] "+ index + " is out of " + getRange());
+    }
+    
+    /**
+     * Get the element indexed by the {@code index}. 
+     * 
+     *  @throws IndexOutofBoundsException the given index is out of range.
+     *  
+     * @param index
+     */
     @Override
     public T get(long index) {
+        checkRange(index);
         return base.get(index);
     }
-
+    
+    /**
+     * Set the given value at the given index. 
+     * 
+     *  @throws IndexOutofBoundsException the given index is out of range.
+     *  
+     * @param index
+     * @param v
+     */
+    
     @Override
     public T set(long index, T v) {
+        checkRange(index); 
         return base.set(index, v);
     }
 

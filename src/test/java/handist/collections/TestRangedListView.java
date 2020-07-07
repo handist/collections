@@ -93,13 +93,14 @@ public class TestRangedListView {
 	 */
 	@Test
 	public void testGet() {
-		for (int i = 0; i < ELEMENTS_COUNT; i++) {
+		/*for (int i = 0; i < ELEMENTS_COUNT; i++)*/
+	    view.getRange().forEach((long i)-> {
 			if (i != 2) {
-				assertEquals(elems[i], view.get(i));				
+				assertEquals(elems[(int)i], view.get(i));				
 			} else {
 				assertEquals(null, view.get(i));
 			}
-		}
+	    });
 	}
 	
 	@Test
@@ -119,8 +120,28 @@ public class TestRangedListView {
 		Element e = new Element(42);
 		view.set(2, e);
 		assertEquals(e, view.get(2));
-	}
-	
+    }
+
+    @Test
+    public void testGetExceptionLong() {
+        long[] indices = { -1, 1L << 33 + 1, -1L << 34 + 1 };
+        for (long index : indices) {
+            assertThrows(IndexOutOfBoundsException.class, () -> {
+                chunk.get(index);
+            });
+        }
+    }
+
+    @Test
+    public void testSetExceptionLong() {
+        long[] indices = { -1, 1L << 33 + 1, -1L << 34 + 1 };
+        for (long index : indices) {
+            assertThrows(IndexOutOfBoundsException.class, () -> {
+                chunk.set(index, elems[0]);
+            });
+        }
+    }
+
 	@Test
 	public void testSetupFrom() {
 		//yet
@@ -166,7 +187,7 @@ public class TestRangedListView {
 		try {
 			chunk5to9.get(9);
 			fail("Accessing an index out of range should have thrown an error");
-		} catch (ArrayIndexOutOfBoundsException e) {
+		} catch (IndexOutOfBoundsException e) {
 		}
 	}
 	
