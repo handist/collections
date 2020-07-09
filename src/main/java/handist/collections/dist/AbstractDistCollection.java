@@ -70,14 +70,6 @@ public abstract class AbstractDistCollection implements Serializable {
         id.putHere(this);
     }
 
-    // TODO make(pg, init) 系も欲しい
-    /*
-     * private void readObject(java.io.ObjectInputStream in) throws IOException,
-     * ClassNotFoundException { in.defaultReadObject(); this.data = (T)id.getHere();
-     * if(data==null) { id.putHereIfAbsent(getInitData()); this.data =
-     * (T)id.getHere(); } } private void writeObject(java.io.ObjectOutputStream out)
-     * throws IOException { out.defaultWriteObject(); }
-     */
     /**
      * Return the PlaceGroup.
      *

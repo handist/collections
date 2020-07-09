@@ -44,7 +44,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         } else if(base instanceof RangedListView) {
             this.base = ((RangedListView<T>)base).base; //base;
         } else {
-            throw new RuntimeException("not supported class: "+ base.getClass());
+            throw new UnsupportedOperationException("not supported class: "+ base.getClass());
         }
         if(!base.getRange().contains(range)) 
             throw new IndexOutOfBoundsException("[RangeListView] " + range + " is not contained in " + base.getRange());
@@ -96,11 +96,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         return base.toArray(newRange);
     }
 
-    private void checkRange(long index) {
-        if(!getRange().contains(index)) 
-            throw new IndexOutOfBoundsException("[RangedListView] "+ index + " is out of " + getRange());
-    }
-    
+
     /**
      * Get the element indexed by the {@code index}. 
      * 
@@ -110,7 +106,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
      */
     @Override
     public T get(long index) {
-        checkRange(index);
+        rangeCheck(index);
         return base.get(index);
     }
     
@@ -125,7 +121,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
     
     @Override
     public T set(long index, T v) {
-        checkRange(index); 
+        rangeCheck(index); 
         return base.set(index, v);
     }
 
@@ -176,19 +172,6 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
     @Override
     public Iterator<T> iteratorFrom(long i) {
         return new It<T>(this, i);
-    }
-
-    @Override
-    public RangedList<T> subList(long begin, long end) {
-        long from = Math.max(begin, range.from);
-        long to = Math.min(end, range.to);
-        if (from > to) {
-            throw new ArrayIndexOutOfBoundsException();
-        }
-        if (begin == range.from && end == range.to) {
-            return this;
-        }
-        return new RangedListView<T>(base, new LongRange(from, to));
     }
 
     @Override
@@ -251,6 +234,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         // System.out.println("readChunk: " + this);
     }
 
+    /*
     public static void main(String[] args) {
         long i = 10;
         Chunk<Integer> c = new Chunk<>(new LongRange(10 * i, 11 * i));
@@ -270,7 +254,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         System.out.println("RangedListView: " + r3);
         System.out.println("RangedListView: " + r4);
     }
-
+    */
 
 
 

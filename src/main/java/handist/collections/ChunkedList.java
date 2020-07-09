@@ -102,7 +102,8 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		LongRange desired = c.getRange();
 		LongRange intersection = checkOverlap(desired);
 		if (intersection != null) {
-			throw new RuntimeException("LongRange " + desired + " "
+		    //TODO
+			throw new RangeOverlapException("LongRange " + desired + " "
 					+ "overlaps " + intersection + " which is already present in"
 					+ " this ChunkedList");
 		}
@@ -141,8 +142,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 			try {
 				f.get();
 			} catch (InterruptedException | ExecutionException e) {
-				e.printStackTrace();
-				throw new RuntimeException("[ChunkedList] exception raised by worker threads.");
+				throw new ParallelExecutionException("[ChunkedList] exception raised by worker threads.", e);
 			}
 		}
 		return new FutureN.ReturnGivenResult<ChunkedList<S>>(futures, result);
@@ -357,8 +357,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 			try {
 				f.get();
 			} catch (InterruptedException | ExecutionException e) {
-				e.printStackTrace();
-				throw new RuntimeException("[ChunkedList] exception raised by worker threads.");
+				throw new ParallelExecutionException("[ChunkedList] exception raised by worker threads.", e);
 			}
 		}
 		return result;
@@ -451,7 +450,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	 * 	elements
 	 */
 	public List<ChunkedList<T>> separate(int n) {
-		long totalNum = size();
+		long totalNum = longSize();
 		long rem = totalNum % n;
 		long quo = totalNum / n;
 		List<ChunkedList<T>> result = new ArrayList<ChunkedList<T>>(n);
@@ -507,6 +506,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	 * @return the number of local elements.
 	 */
 	@Override
+	@Deprecated
 	public int size() {
 		return (int) longSize();
 	}
@@ -539,8 +539,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 			try {
 				f.get();
 			} catch (InterruptedException | ExecutionException e) {
-				e.printStackTrace();
-				throw new RuntimeException("[ChunkedList] exception raised by worker threads.");
+				throw new ParallelExecutionException("[ChunkedList] exception raised by worker threads.", e);
 			}
 		}
 	}

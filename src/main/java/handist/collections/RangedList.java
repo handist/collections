@@ -79,13 +79,20 @@ public interface RangedList<T> extends Iterable<T> {
         return this.subList(range.from, range.to).map(func);
     }
 
-    default public void rangeCheck(LongRange target) {
+    default public void rangeCheck(long target) {
         if(!this.getRange().contains(target)) {
-            throw new ArrayIndexOutOfBoundsException(
-                "[Chunk] range missmatch:" + this.getRange() + " must includes " + target);
+            throw new IndexOutOfBoundsException(
+                "[RangedList] range missmatch:" + this.getRange() + " must includes " + target);
         }
     }
-
+    
+    default public void rangeCheck(LongRange target) {
+        if(!this.getRange().contains(target)) {
+            throw new IndexOutOfBoundsException(
+                "[RangedList] range missmatch:" + this.getRange() + " must includes " + target);
+        }
+    }
+    
     public T set(long index, T value);  
     
     abstract public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func);
@@ -118,8 +125,23 @@ public interface RangedList<T> extends Iterable<T> {
      * 	{@link RangedList} that fit in the provided range. 
      * @throws IllegalArgumentException if <em>begin</em> is superior to 
      * <em>end</em>.
+     * @throws IndexOutOfBoundsException if the provided range 
+     * has no intersection with the range of this instance. 
      */
-    public RangedList<T> subList(long begin, long end);
+    default public RangedList<T> subList(long begin, long end) {
+        if(begin > end) {
+            throw new IllegalArgumentException("Cannot obtain a sublist from " +
+                    begin + " to " + end);
+        }
+        long from = Math.max(begin, getRange().from);
+        long to = Math.min(end, getRange().to);
+        if(from>to) throw new IndexOutOfBoundsException("[RangedList] no intersection with ["+ begin +","+end+")");
+        LongRange newRange = new LongRange(from, to);
+        if (newRange.equals(getRange())) {
+            return this;
+        }
+        return new RangedListView<T>(this, newRange);
+    }
 
     default public RangedList<T> subList(LongRange range) {
         return subList(range.from, range.to);

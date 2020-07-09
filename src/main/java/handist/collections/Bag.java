@@ -9,6 +9,10 @@
  *******************************************************************************/
 package handist.collections;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -19,9 +23,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
-
-
-import java.io.*;
 
 public class Bag<T> extends AbstractCollection<T> implements Serializable, MultiReceiver<T> {
 
@@ -175,8 +176,7 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
             try {
                 f.get();
             } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
-                throw new RuntimeException("[Bag] exception raised by worker threads.");
+                throw new ParallelExecutionException("[Bag] exception raised by worker threads.", e);
             }
         }
     }

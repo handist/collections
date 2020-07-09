@@ -32,7 +32,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
 	private Object[] a;
 
-    public LongRange range;
+    private  LongRange range;
 
 
     @Override
@@ -87,25 +87,9 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
             return this;
         }
         if (newRail.length == 0) {
-        	throw new ArrayIndexOutOfBoundsException();
+        	throw new IllegalArgumentException("[Chunk] toChunk(emptyRange) is not permitted.");
         }
         return new Chunk<>(newRange, newRail);
-    }
-
-    @Override
-    public RangedList<T> subList(long begin, long end) {
-    	if(begin > end) {
-        	throw new IllegalArgumentException("Cannot obtain a sublist from " +
-        			begin + " to " + end);
-        }
-    	if(begin < range.from || range.to < end) {
-    		throw new IllegalArgumentException();
-    	}
-    	
-        if (begin == range.from && end == range.to) {
-            return this;
-        }
-        return new RangedListView<T>(this, new LongRange(begin, end));
     }
 
     /**
@@ -128,8 +112,11 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         return (T) a[(int)offset];
     }
     String rangeMsg(long index) {
-         return "[Chunk] range "+ index + " is out of " + getRange();
-    }
+        return "[Chunk] range "+ index + " is out of " + getRange();
+   }
+    String rangeMsg(LongRange range) {
+        return "[Chunk] range "+ range + " is not contained in  " + getRange();
+   }    
     
     /**
      * Set the given value at the given index. 
@@ -161,8 +148,6 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
     @Override
     public long longSize() {
-        if (range == null)
-            throw new Error("hxcdskcs");
         return range.to - range.from;
     }
 
@@ -174,7 +159,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     @Override
     public Object[] toArray(LongRange newRange) {
         if(!range.contains(newRange)) {
-        	throw new ArrayIndexOutOfBoundsException();
+        	throw new IndexOutOfBoundsException(rangeMsg(newRange));
         }
         if (newRange.from == range.from && newRange.to == range.to) {
             return a;
@@ -184,7 +169,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         }
         long newSize = (newRange.to - newRange.from);
         if (newSize > Config.maxChunkSize) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("[Chunk] the size of the result cannot exceed "+ Config.maxChunkSize);
         }
         Object[] newRail = new Object[(int) newSize];
         Arrays.fill(newRail, a[0]);
@@ -282,7 +267,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
         rangeCheck(from.getRange());
         if (range.size() > Integer.MAX_VALUE)
-            throw new RuntimeException("[Chunk] number of elements cannot exceed Integer.MAX_VALUE.");
+            throw new Error("[Chunk] the size of RangedList cannot exceed Integer.MAX_VALUE.");
         LongTBiConsumer<S> consumer = (long index, S s) -> {
             T r = func.apply(s);
             a[(int) (index - range.from)] = r;
@@ -302,7 +287,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
 
         public It(Chunk<T> chunk, long i0) {
             if (!chunk.range.contains(i0)) {
-                throw new ArrayIndexOutOfBoundsException();  
+                throw new IndexOutOfBoundsException();  
             }
             this.chunk = chunk;
             this.i = (int) (i0 - chunk.range.from - 1);

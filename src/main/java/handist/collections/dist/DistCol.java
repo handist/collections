@@ -130,7 +130,7 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
     this.proxy = proxy;
     }
     */
-
+    @Deprecated
     public int size() {
         return data.size();
     }

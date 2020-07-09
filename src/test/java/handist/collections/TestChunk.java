@@ -118,7 +118,7 @@ public class TestChunk implements Serializable {
 	@Test
 	public void testCloneRange() {
 		//same range
-		Chunk<Element> c = chunk.cloneRange(chunk.range);
+		Chunk<Element> c = chunk.cloneRange(chunk.getRange());
 		for(int i = 0; i < elems.length; i++) {
 			assertEquals(c.get(i), chunk.get(i));
 		}
@@ -149,19 +149,19 @@ public class TestChunk implements Serializable {
 	}
 	
 	
-	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	@Test(expected = IndexOutOfBoundsException.class)
 	public void testToChunkOverRange() {
 		chunk.toChunk(new LongRange(1, 6));
 	}
 	
 	
-	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	@Test(expected = IndexOutOfBoundsException.class)
 	public void testToChunkOutRange() {
 		chunk.toChunk(new LongRange(5, 10));
 	}
 	
 	
-	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	@Test(expected = IllegalArgumentException.class)
 	public void testToChunkZeroRange() {
 		chunk.toChunk(new LongRange(1, 1));
 	}
@@ -170,7 +170,7 @@ public class TestChunk implements Serializable {
 	@Test
 	public void testSubList() {
 		//same range
-		RangedList<Element> subList = chunk.subList(chunk.range.from, chunk.range.to);
+		RangedList<Element> subList = chunk.subList(chunk.getRange().from, chunk.getRange().to);
 		assertSame(subList.longSize(), chunk.longSize());
 		for(int i = 0; i < subList.longSize(); i++) {
 			assertEquals(subList.get(i), elems[i]);
@@ -186,15 +186,15 @@ public class TestChunk implements Serializable {
 	}
 	
 	
-	@Test(expected = IllegalArgumentException.class)
+	@Test(expected = IndexOutOfBoundsException.class)
 	public void testSubListOutRange() {
 		chunk.subList((long)10, (long)12);
 	}
 	
 	
-	@Test(expected = IllegalArgumentException.class)
+	@Test
 	public void testSubListOverRange() {
-		chunk.subList((long)-1, (long)1);
+	    assertEquals(chunk.subList((long)-1, (long)1).getRange(), new LongRange(0, 1));
 	}
 	
 	
@@ -266,13 +266,13 @@ public class TestChunk implements Serializable {
 		assertSame(chunk.longSize(), (long)5);
 	}
 	
-	
+	/*
 	@Test(expected = Error.class)
 	public void testLongSizeError() {
 		chunk.range = null;
 		chunk.longSize();
 	}
-	
+	*/
 	
 	@Test
 	public void testToArray() {
@@ -299,7 +299,7 @@ public class TestChunk implements Serializable {
 	}
 	
 	
-	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	@Test(expected = IndexOutOfBoundsException.class)
 	public void testToArrayOverRange() {
 		Object[] a = chunk.toArray(new LongRange(-1, 4));
 		for(int i = 0; i < 4; i++) {
@@ -308,7 +308,7 @@ public class TestChunk implements Serializable {
 	}
 	
 	
-	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	@Test(expected = IndexOutOfBoundsException.class)
 	public void testToArrayOutRange() {
 		chunk.toArray(new LongRange(-5, -4));
 	}
@@ -316,8 +316,7 @@ public class TestChunk implements Serializable {
 	
 	@Test(expected = IllegalArgumentException.class)
 	public void testToArrayHugeSize() {
-		chunk.range = new LongRange(0, Config.maxChunkSize + 10);
-		chunk.toArray(new LongRange(0, Config.maxChunkSize + 9));
+	    new Chunk(new LongRange(10L, 10L+Config.maxChunkSize+100)).toArray(new LongRange(20L, Config.maxChunkSize));
 	}
 	
 
@@ -371,14 +370,14 @@ public class TestChunk implements Serializable {
 		}
 	}
 	
-	
-	@Test(expected = RuntimeException.class)
+	/*
+	@Test(expected = IndexOutOfBoundsException.class)
 	public void testSetupFromError() {
 		// test setupFrom throw Exception
 		chunk.range = new LongRange(0, (long)Integer.MAX_VALUE + 10);
 		chunk.setupFrom(chunk, e -> new Element(e.n + 2));
 	}
-	
+	*/
 	
 	// -- test iterator functions region --
 	@Test
@@ -455,7 +454,7 @@ public class TestChunk implements Serializable {
 	}
 	
 	
-	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	@Test(expected = IndexOutOfBoundsException.class)
 	public void testIteratorFromError() {
 		chunk.iteratorFrom(100);
 	}
@@ -501,10 +500,10 @@ public class TestChunk implements Serializable {
 	@Test
 	public void testToString() {
 		assertEquals(chunk.toString(), "[[0,5)]:0,1,2,3,4");
-		
+		/*
 		chunk.range = null;
 		assertEquals(chunk.toString(), "[Chunk] in Construction");
-	
+	   */
 		// test omitElementsToString 
 		chunk = new Chunk<>(new LongRange(10, 100));
 		for(int i = 10; i < 100; i++) {
