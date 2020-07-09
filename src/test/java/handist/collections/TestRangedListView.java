@@ -192,10 +192,10 @@ public class TestRangedListView {
 	}
 	
 	/**
-	 * Checks that a ArrayIndexOutOfBoundsException is thrown
+	 * Checks that a IndexOutOfBoundsException is thrown
 	 * when a bad range is given as parameter.
 	 */
-	@Test(expected = ArrayIndexOutOfBoundsException.class)
+	@Test(expected = IndexOutOfBoundsException.class)
 	public void testToChunkBadRange() {
 		view.toChunk(new LongRange(-1, 6));
 	}
