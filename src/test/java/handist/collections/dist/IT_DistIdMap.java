@@ -31,20 +31,6 @@ public class IT_DistIdMap implements Serializable {
 
 	/** Serial Version UID */
 	private static final long serialVersionUID = -6870647874233619233L;
-	
-	TeamedPlaceGroup placeGroup;
-	// long numData = 10;
-	long numData = 200;
-
-	Random random;
-	private DistIdMap<String> distIdMap;
-
-	@Before
-	public void setup() {
-		this.placeGroup = TeamedPlaceGroup.getWorld();
-		this.random = new Random(12345);
-		this.distIdMap = new DistIdMap<String>(placeGroup);
-	}
 
 	public static void main(String[] args) {
 		IT_DistIdMap test = new IT_DistIdMap();
@@ -52,6 +38,13 @@ public class IT_DistIdMap implements Serializable {
 		test.run();
 		System.out.println("----finish");
 	}
+	private DistIdMap<String> distIdMap;
+
+	// long numData = 10;
+	long numData = 200;
+	TeamedPlaceGroup placeGroup;
+
+	Random random;
 
 	public String genRandStr(String header) {
 		long rand = random.nextLong();
@@ -420,6 +413,13 @@ public class IT_DistIdMap implements Serializable {
 		//	    Console.OUT.println("VALIDATE 6-2: FAIL");
 		//	}
 
+	}
+
+	@Before
+	public void setup() {
+		this.placeGroup = TeamedPlaceGroup.getWorld();
+		this.random = new Random(12345);
+		this.distIdMap = new DistIdMap<String>(placeGroup);
 	}
 }
 

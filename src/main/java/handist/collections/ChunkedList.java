@@ -93,7 +93,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		}
 
 	}
-	
+
 	/** 
 	 * Chunks contained by this instance. They are sorted using the 
 	 * {@link LongRange} ordering. 
@@ -161,7 +161,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		LongRange desired = c.getRange();
 		LongRange intersection = checkOverlap(desired);
 		if (intersection != null) {
-		    //TODO
+			//TODO
 			throw new RangeOverlapException("LongRange " + desired + " "
 					+ "overlaps " + intersection + " which is already present in"
 					+ " this ChunkedList");
@@ -171,44 +171,25 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	}
 
 	/**
-     * Performs the provided action on every element in the collection asynchronously using the provided
-     * executor service and the specified degree of parallelism. This method returns a 
-     * {@link FutureN.ReturnGivenResult} which will wait on every asynchronous task spawned to complete
-     * before returning this instance. 
-     * @param pool executor service in charge or performing the operation
-     * @param nthreads the degree of parallelism for this action, corresponds to the number of pieces in
-     * which this instance contents will be split to be handled by parallel threads
-     * @param action to action to perform on each individual element contained in this instance
-     * @return a {@link ReturnGivenResult} which waits on the completion of all asynchronous tasks before
-     * returning this instance
-     */
-	public Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
-		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
-			sub.forEach(action);
-		});
-		return new FutureN.ReturnGivenResult<ChunkedList<T>>(futures,  this);
-	}
-
-	/**
 	 * Performs the provided action on every element in the collection asynchronously using the provided
-     * executor service and the specified degree of parallelism. This method returns a 
-     * {@link FutureN.ReturnGivenResult} which will wait on every asynchronous task spawned to complete
-     * before returning this instance. The provided action may initialize or extract a type U from the data
-     * contained in individual elements and give this type U to its second parameter (a {@link Consumer} of U)
-     * which will in turn place these instances in {@code toStore}. Note that if you do not need to extract any
-     * information from the elements in this collection, you should use method 
-     * {@link #asyncForEach(ExecutorService, int, Consumer)} instead.
+	 * executor service and the specified degree of parallelism. This method returns a 
+	 * {@link FutureN.ReturnGivenResult} which will wait on every asynchronous task spawned to complete
+	 * before returning this instance. The provided action may initialize or extract a type U from the data
+	 * contained in individual elements and give this type U to its second parameter (a {@link Consumer} of U)
+	 * which will in turn place these instances in {@code toStore}. Note that if you do not need to extract any
+	 * information from the elements in this collection, you should use method 
+	 * {@link #asyncForEach(ExecutorService, int, Consumer)} instead.
 	 * @param <U> the type of the information to extract from the instances
 	 * @param pool executor service in charge or performing the operation
-     * @param nthreads the degree of parallelism for this action, corresponds to the number of pieces in
-     * which this instance contents will be split to be handled by parallel threads
-     * @param action to action to perform on each individual element contained in this instance, which may include placing
-     * a newly created instance of type U into the {@link Consumer} (second parameter of the lambda expression).
+	 * @param nthreads the degree of parallelism for this action, corresponds to the number of pieces in
+	 * which this instance contents will be split to be handled by parallel threads
+	 * @param action to action to perform on each individual element contained in this instance, which may include placing
+	 * a newly created instance of type U into the {@link Consumer} (second parameter of the lambda expression).
 	 * @param toStore instance which supplies the {@link Consumer} used the lambda expression to every parallel thread and
 	 * will collect all the U instances given to those {@link Consumer}s.  
 	 * @return a {@link ReturnGivenResult} which waits on the completion of all asynchronous tasks before
-     * returning this instance. Programmers should also wait on the completion of this {@link FutureN} to make sure that no
-     * more U instances are placed into {@code toStore}. 
+	 * returning this instance. Programmers should also wait on the completion of this {@link FutureN} to make sure that no
+	 * more U instances are placed into {@code toStore}. 
 	 */
 	public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<U>> action,
 			final ParallelReceiver<U> toStore) {
@@ -219,18 +200,37 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	}
 
 	/**
-     * Performs the provided action on every (long) key and (T) value in the collection asynchronously 
-     * using the provided executor service and the specified degree of parallelism. This method returns a 
-     * {@link FutureN.ReturnGivenResult} which will wait on every asynchronous task spawned to complete
-     * before returning this instance. 
-     * @param pool executor service in charge or performing the operation
-     * @param nthreads the degree of parallelism for this action, corresponds to the number of pieces in
-     * which this instance contents will be split to be handled by parallel threads
-     * @param action to action to perform on each pair of ({@code long} key and (T) element contained in 
-     * this instance
-     * @return a {@link ReturnGivenResult} which waits on the completion of all asynchronous tasks before
-     * returning this instance
-     */
+	 * Performs the provided action on every element in the collection asynchronously using the provided
+	 * executor service and the specified degree of parallelism. This method returns a 
+	 * {@link FutureN.ReturnGivenResult} which will wait on every asynchronous task spawned to complete
+	 * before returning this instance. 
+	 * @param pool executor service in charge or performing the operation
+	 * @param nthreads the degree of parallelism for this action, corresponds to the number of pieces in
+	 * which this instance contents will be split to be handled by parallel threads
+	 * @param action to action to perform on each individual element contained in this instance
+	 * @return a {@link ReturnGivenResult} which waits on the completion of all asynchronous tasks before
+	 * returning this instance
+	 */
+	public Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
+		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
+			sub.forEach(action);
+		});
+		return new FutureN.ReturnGivenResult<ChunkedList<T>>(futures,  this);
+	}
+
+	/**
+	 * Performs the provided action on every (long) key and (T) value in the collection asynchronously 
+	 * using the provided executor service and the specified degree of parallelism. This method returns a 
+	 * {@link FutureN.ReturnGivenResult} which will wait on every asynchronous task spawned to complete
+	 * before returning this instance. 
+	 * @param pool executor service in charge or performing the operation
+	 * @param nthreads the degree of parallelism for this action, corresponds to the number of pieces in
+	 * which this instance contents will be split to be handled by parallel threads
+	 * @param action to action to perform on each pair of ({@code long} key and (T) element contained in 
+	 * this instance
+	 * @return a {@link ReturnGivenResult} which waits on the completion of all asynchronous tasks before
+	 * returning this instance
+	 */
 	public Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, LongTBiConsumer<? super T> action) {
 		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
@@ -281,14 +281,9 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	 * there are no such intersecting {@link Chunk}s
 	 */
 	private LongRange checkOverlap(LongRange range) {
-	    return range.findOverlap(chunks);
+		return range.findOverlap(chunks);
 	}
 
-	public boolean containsRange(LongRange range) {
-	    return range.contained(chunks);
-	}
-	
-	
 	/**
 	 * Not supported. You can remove individual {@link Chunk}s with 
 	 * {@link #removeChunk(RangedList)}.
@@ -298,6 +293,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	public void clear() {
 		throw new UnsupportedOperationException();
 	}
+
 
 	/**
 	 * Returns a new {@link ChunkedList} which contains the same {@link Chunk}s
@@ -386,6 +382,10 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		return true;
 	}
 
+	public boolean containsRange(LongRange range) {
+		return range.contained(chunks);
+	}
+
 	/*
     public Map<LongRange, RangedList<T>> filterChunk0(Predicate<RangedList<? super T>> filter) {
         TreeMap<LongRange, RangedList<T>> map = new TreeMap<>();
@@ -396,7 +396,26 @@ public class ChunkedList<T> extends AbstractCollection<T> {
         }
         return map;
     }*/
-	
+
+	@Override
+	public boolean equals(Object o) {
+		if (o == null || !(o instanceof ChunkedList)) {
+			return false;
+		}
+		// TODO very slow
+		ChunkedList<?> target = (ChunkedList<?>) o;
+		if(longSize() != target.longSize()) return false;
+		for(LongRange range: chunks.keySet()) {
+			for(long index: range) {
+				T mine = get(index);
+				Object yours = target.get(index);
+				if(mine==null && yours!=null) return false;
+				if(mine!=null && !mine.equals(yours)) return false;
+			}
+		}
+		return true;
+	}
+
 	/**
 	 * Returns the list of {@link Chunk} that pass the provided filter. Chunks
 	 * are included if the filter returns {@code true}.
@@ -487,14 +506,14 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	}
 
 	/**
-     * Performs the provided action on every eleement in the collection in parallel using the
-     * provided {@link ExecutorService} and the set degree of parallelism. Returns when all operations have
-     * finished.
-     * @param pool executor service in charge or performing the operation
-     * @param nthreads the degree of parallelism for this action, corresponds to the number of pieces in
-     * which this instance contents will be split to be handled by parallel threads
-     * @param action to action to perform on element contained in this instance
-     */
+	 * Performs the provided action on every eleement in the collection in parallel using the
+	 * provided {@link ExecutorService} and the set degree of parallelism. Returns when all operations have
+	 * finished.
+	 * @param pool executor service in charge or performing the operation
+	 * @param nthreads the degree of parallelism for this action, corresponds to the number of pieces in
+	 * which this instance contents will be split to be handled by parallel threads
+	 * @param action to action to perform on element contained in this instance
+	 */
 	public void forEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
 		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
@@ -503,15 +522,15 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	}
 
 	/**
-     * Performs the provided action on every (long) key and (T) value in the collection in parallel using the
-     * provided {@link ExecutorService} and the set degree of parallelism. Returns when all operations have
-     * finished.
-     * @param pool executor service in charge or performing the operation
-     * @param nthreads the degree of parallelism for this action, corresponds to the number of pieces in
-     * which this instance contents will be split to be handled by parallel threads
-     * @param action to action to perform on each pair of ({@code long} key and (T) element contained in 
-     * this instance
-     */
+	 * Performs the provided action on every (long) key and (T) value in the collection in parallel using the
+	 * provided {@link ExecutorService} and the set degree of parallelism. Returns when all operations have
+	 * finished.
+	 * @param pool executor service in charge or performing the operation
+	 * @param nthreads the degree of parallelism for this action, corresponds to the number of pieces in
+	 * which this instance contents will be split to be handled by parallel threads
+	 * @param action to action to perform on each pair of ({@code long} key and (T) element contained in 
+	 * this instance
+	 */
 	public void forEach(ExecutorService pool, int nthreads, LongTBiConsumer<? super T> action) {
 		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
@@ -520,10 +539,10 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	}
 
 	/**
-     * Performs the provided action on every (long) key and (T) value in the collection serquentially and returns.
-     * @param action to action to perform on each pair of ({@code long} key and (T) element contained in 
-     * this instance
-     */
+	 * Performs the provided action on every (long) key and (T) value in the collection serquentially and returns.
+	 * @param action to action to perform on each pair of ({@code long} key and (T) element contained in 
+	 * this instance
+	 */
 	public void forEach(LongTBiConsumer<? super T> action) {
 		for (RangedList<T> c : chunks.values()) {
 			c.forEach(c.getRange(), action);
@@ -573,6 +592,16 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		return chunk.get(i);
 	}
 
+	@Override
+	public int hashCode() {
+		int hashCode = 1;
+		// code from JavaAPI doc of List
+		for(RangedList<?> c:  chunks.values()) {
+			hashCode = 31*hashCode + (c==null ? 0 : c.hashCode());
+		}
+		return hashCode;
+	}
+
 	/**
 	 * Returns {@code true} if this instance does not contain any chunk
 	 * @return {@code true} if this instance does not contain any chunk
@@ -590,7 +619,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	public Iterator<T> iterator() {
 		return new It<T>(chunks);
 	}
-	
+
 	/**
 	 * Return to total number of mappings contained in this instance, i.e. the
 	 * sum of the size of each individual {@link Chunk} this instance holds. 
@@ -831,7 +860,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		//        return new Object[0];
 		throw new UnsupportedOperationException();
 	}
-	
+
 	/**
 	 * Not Supported
 	 * @throws UnsupportedOperationException systematically
@@ -852,7 +881,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		sb.append("]");
 		return sb.toString();
 	}
-	
+
 	private void waitNfutures(List<Future<?>> futures) {
 		for (Future<?> f : futures) {
 			try {
@@ -861,39 +890,10 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 				throw new ParallelExecutionException("[ChunkedList] exception raised by worker threads.", e);
 			}
 		}
-    }
+	}
 
-    @Override
-    public boolean equals(Object o) {
-        if (o == null || !(o instanceof ChunkedList)) {
-            return false;
-        }
-        // TODO very slow
-        ChunkedList<?> target = (ChunkedList<?>) o;
-        if(longSize() != target.longSize()) return false;
-        for(LongRange range: chunks.keySet()) {
-            for(long index: range) {
-                T mine = get(index);
-                Object yours = target.get(index);
-                if(mine==null && yours!=null) return false;
-                if(mine!=null && !mine.equals(yours)) return false;
-            }
-        }
-        return true;
-    }
-	
-	@Override
-	 public int hashCode() {
-	        int hashCode = 1;
-	        // code from JavaAPI doc of List
-	        for(RangedList<?> c:  chunks.values()) {
-	            hashCode = 31*hashCode + (c==null ? 0 : c.hashCode());
-	        }
-	        return hashCode;
-	    }
 
-	
-/*
+	/*
 	public static void main(String[] args) {
 
 		ChunkedList<String> cl5 = new ChunkedList<>();
@@ -1027,5 +1027,5 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		System.out.println("--- OK ---");
 
 	}
-*/
+	 */
 }

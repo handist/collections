@@ -33,16 +33,16 @@ public class TestLauncher {
 				newArgs[newIndex++] = args[oldIndex++];
 			}
 		}
-		
+
 		newArgs[newIndex++] = DoJunitTest.class.getCanonicalName();
-		
+
 		while (oldIndex < args.length) {
 			newArgs[newIndex++] = args[oldIndex++];
 		}
-		
+
 		// Call TeamedPlaceGroup setup method to add its plugin to the MPILauncher
 		TeamedPlaceGroup.setup();
-		
+
 		// Call the MPILauncher with the modified arguments
 		MPILauncher.main(newArgs);
 	}

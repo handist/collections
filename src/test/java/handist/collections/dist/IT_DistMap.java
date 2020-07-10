@@ -30,12 +30,18 @@ public class IT_DistMap implements Serializable {
 	/** Serial Version UID */
 	private static final long serialVersionUID = -762013040337361823L;
 
-	TeamedPlaceGroup placeGroup;
-	long numData = 200;
-
-	Random random;
+	public static void main(String[] args) {
+		IT_DistMap test = new IT_DistMap();
+		test.setup();
+		test.run();
+	}
 	private DistMap<String, String> distMap;
 
+	long numData = 200;
+	TeamedPlaceGroup placeGroup;
+
+
+	Random random;
 
 	/**
 	 * Constructor used when this class is run as a Junit test class.
@@ -44,24 +50,11 @@ public class IT_DistMap implements Serializable {
 	public IT_DistMap() {
 	}
 
-	@Before
-	public void setup() {
-		placeGroup = TeamedPlaceGroup.getWorld();
-		random = new Random(12345);
-		distMap = new DistMap<String, String>(placeGroup);
-	}
-
-//	public ITDistMap(TeamedPlaceGroup placeGroup) {
-//		this.placeGroup = placeGroup;
-//		this.random = new Random(12345);
-//		this.distMap = new DistMap<String, String>(placeGroup);
-//	}
-
-	public static void main(String[] args) {
-		IT_DistMap test = new IT_DistMap();
-		test.setup();
-		test.run();
-	}
+	//	public ITDistMap(TeamedPlaceGroup placeGroup) {
+	//		this.placeGroup = placeGroup;
+	//		this.random = new Random(12345);
+	//		this.distMap = new DistMap<String, String>(placeGroup);
+	//	}
 
 	public String genRandStr(String header) {
 		long rand = random.nextLong();
@@ -238,6 +231,13 @@ public class IT_DistMap implements Serializable {
 		//	}
 		//
 		System.out.println("----finish");
+	}
+
+	@Before
+	public void setup() {
+		placeGroup = TeamedPlaceGroup.getWorld();
+		random = new Random(12345);
+		distMap = new DistMap<String, String>(placeGroup);
 	}
 }
 

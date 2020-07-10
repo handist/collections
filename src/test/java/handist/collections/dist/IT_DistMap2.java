@@ -29,8 +29,6 @@ import handist.mpijunit.launcher.TestLauncher;
 @MpiConfig(ranks=2, launcher=TestLauncher.class)
 public class IT_DistMap2 implements Serializable {
 
-	/** Serial Version UID */
-	private static final long serialVersionUID = 1L;
 	/**
 	 * Static members and constants. 
 	 * These are either final or initialized in method 
@@ -38,11 +36,10 @@ public class IT_DistMap2 implements Serializable {
 	 */
 	/** Size of the sata-set used for the tests **/
 	public static final long numData = 200;
-	/** PlaceGroup object representing the collaboration between processes */
-	TeamedPlaceGroup placeGroup;
 	/** Random object used to generate values */
 	static Random random;
-
+	/** Serial Version UID */
+	private static final long serialVersionUID = 1L;
 	/**
 	 * Helper method to generate Strings with the provided prefix.
 	 * <p>
@@ -72,6 +69,9 @@ public class IT_DistMap2 implements Serializable {
 	 */
 	DistMap<String,String> distMap;
 
+	/** PlaceGroup object representing the collaboration between processes */
+	TeamedPlaceGroup placeGroup;
+
 	@Before
 	public void setUp() throws Exception {
 		placeGroup = TeamedPlaceGroup.getWorld();
@@ -81,25 +81,6 @@ public class IT_DistMap2 implements Serializable {
 		for (long l=0; l<numData; l++) {
 			distMap.put(genRandStr("k"), genRandStr("v"));
 		}
-	}
-
-	/**
-	 * Checks that the initialization of the distMap was done correctly
-	 */
-	@Test
-	public void testSetUp() {
-		placeGroup.broadcastFlat(()-> {
-			if (placeGroup.myrank == 0) {
-				assertEquals(numData, distMap.size());
-			} else {
-				assertEquals(0l, distMap.size());
-			}
-		});
-	}
-
-	@Test
-	public void testToshiyukiDistMap() {
-		IT_DistMap.main(null);		
 	}
 
 	/**
@@ -123,5 +104,24 @@ public class IT_DistMap2 implements Serializable {
 			} else {
 				assertEquals(0l, distMap.size());			
 			}});
+	}
+
+	/**
+	 * Checks that the initialization of the distMap was done correctly
+	 */
+	@Test
+	public void testSetUp() {
+		placeGroup.broadcastFlat(()-> {
+			if (placeGroup.myrank == 0) {
+				assertEquals(numData, distMap.size());
+			} else {
+				assertEquals(0l, distMap.size());
+			}
+		});
+	}
+
+	@Test
+	public void testToshiyukiDistMap() {
+		IT_DistMap.main(null);		
 	}
 }

@@ -29,26 +29,9 @@ import handist.mpijunit.launcher.TestLauncher;
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks=2, launcher=TestLauncher.class)
 public class IT_DistMapList implements Serializable {
-	
+
 	/** Serial Version UID */
 	private static final long serialVersionUID = -699276324622147605L;
-	
-	TeamedPlaceGroup placeGroup;
-	long numData = 200;
-	long numKey = 20;
-	long NPLACES;
-	DistMapList<String, String> distMapList;
-	ArrayList<String> keyList;
-	Random random;
-
-	@Before
-	public void setup() {
-		placeGroup = TeamedPlaceGroup.getWorld();
-		NPLACES = placeGroup.size();
-		random = new Random(12345);
-		distMapList = new DistMapList<String, String>(placeGroup);
-		keyList = new ArrayList<String>();
-	}
 
 	public static void main(String[] args) {
 		IT_DistMapList test = new IT_DistMapList();
@@ -56,6 +39,14 @@ public class IT_DistMapList implements Serializable {
 		test.run();
 		System.out.println("----finish");
 	}
+	DistMapList<String, String> distMapList;
+	ArrayList<String> keyList;
+	long NPLACES;
+	long numData = 200;
+	long numKey = 20;
+	TeamedPlaceGroup placeGroup;
+
+	Random random;
 
 	public String genRandStr(String header) {
 		long rand = random.nextLong();
@@ -273,5 +264,14 @@ public class IT_DistMapList implements Serializable {
 		//	    System.out.println("VALIDATE: FAIL");
 		//	}
 
+	}
+
+	@Before
+	public void setup() {
+		placeGroup = TeamedPlaceGroup.getWorld();
+		NPLACES = placeGroup.size();
+		random = new Random(12345);
+		distMapList = new DistMapList<String, String>(placeGroup);
+		keyList = new ArrayList<String>();
 	}
 }

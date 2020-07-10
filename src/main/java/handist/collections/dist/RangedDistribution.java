@@ -16,5 +16,5 @@ import java.util.Map;
 import apgas.Place;
 
 interface RangedDistribution<R> {
-    public Map<R, Place> placeRanges(R range);
+	public Map<R, Place> placeRanges(R range);
 }
