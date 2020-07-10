@@ -34,6 +34,7 @@ import apgas.util.GlobalID;
 import handist.collections.ChunkedList;
 import handist.collections.LongRange;
 import handist.collections.ParallelReceiver;
+import handist.collections.ElementOverlapException;
 import handist.collections.RangedList;
 import handist.collections.function.LongTBiConsumer;
 
@@ -155,7 +156,7 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 		throw new UnsupportedOperationException();
 	}
 
-	public void addChunk(final RangedList<T> c) throws Exception {
+	public void addChunk(final RangedList<T> c) throws ElementOverlapException {
 		ldist.add(c.getRange());
 		data.addChunk(c);
 	}

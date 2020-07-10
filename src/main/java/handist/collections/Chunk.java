@@ -197,7 +197,28 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 		Arrays.fill(a, t); 
 	}
 
-
+    /**
+     * Builds a {@link Chunk} with the provided {@link LongRange}. 
+     * The provided initializer generates the initial value of the element for each index.
+     * The given LongRange should have a strictly positive size. Giving a 
+     * {@link LongRange} instance with identical lower and upper bounds will
+     * result in a {@link IllegalArgumentException} being thrown.
+     * <p>
+     * If the {@link LongRange} provided has a range that exceeds 
+     * {@value handist.collections.Config#maxChunkSize}, an {@link IllegalArgumentException} will be
+     * be thrown. 
+     *   
+     * @param range the range of the chunk to build
+     * @param initializer generates the initial value of the element for each index.
+     * @throws IllegalArgumentException if a {@link Chunk} cannot be built with
+     *  the provided range. 
+     */
+    public Chunk(LongRange range, Function<Long, T> initializer) {
+        this(range);
+        range.forEach((long index)->{
+           a[(int)(index-range.from)] = initializer.apply(index); 
+        });
+    }
 	/**
 	 * Not supported.
 	 * Users should use method {@link #set(int, Object)} instead

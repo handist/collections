@@ -162,7 +162,7 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 		LongRange intersection = checkOverlap(desired);
 		if (intersection != null) {
 			//TODO
-			throw new RangeOverlapException("LongRange " + desired + " "
+			throw new ElementOverlapException("LongRange " + desired + " "
 					+ "overlaps " + intersection + " which is already present in"
 					+ " this ChunkedList");
 		}
