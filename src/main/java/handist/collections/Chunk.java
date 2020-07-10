@@ -25,16 +25,24 @@ import java.util.function.Function;
 
 import handist.collections.function.LongTBiConsumer;
 
-public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Serializable, List<T> {
+/**
+ * Large collection that can contain objects mapped to long indices. 
+ *
+ * @param <T> type of the elements handled by this instance
+ */
+public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedList<T>, Serializable {
 
     /** Serial Version UID */
 	private static final long serialVersionUID = -7691832846457812518L;
-
+	/** Array containing the T objects */
 	private Object[] a;
 
-    private  LongRange range;
+	/** Range on which this instance is defined */
+    private LongRange range;
 
-
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public LongRange getRange() {
         return range;
@@ -50,11 +58,20 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         return false;
     }
 
+    /**
+     * Not supported
+     * @throws UnsupportedOperationException systematically
+     */
     @Override
     public void clear() {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Returns a new Chunk defined on the same {@link LongRange} and with the 
+     * same contents as this instance. 
+     * @return a copy of this instance
+     */
     @Override
     public Chunk<T> clone() {
         // Object[] aClone = a.clone();
@@ -75,6 +92,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         return new Chunk<T>(this.range, aClone);
     }
 
+    
     @Override
     public Chunk<T> cloneRange(LongRange newRange) {
         return range == newRange ? clone() : toChunk(newRange);
@@ -141,6 +159,9 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         return prev;
     }
 
+    /**
+     * Returns the number 
+     */
     @Override
     public int size() {
         return (int) longSize();
@@ -185,7 +206,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
      * result in a {@link IllegalArgumentException} being thrown.
      * <p>
      * If the {@link LongRange} provided has a range that exceeds 
-     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be
+     * {@value handist.collections.Config#maxChunkSize}, an {@link IllegalArgumentException} will be
      * be thrown. 
      *   
      * @param range the range of the chunk to build
@@ -214,7 +235,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
      * result in a {@link IllegalArgumentException} being thrown.
      * <p>
      * If the {@link LongRange} provided has a range that exceeds 
-     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be
+     * {@value handist.collections.Config#maxChunkSize}, an {@link IllegalArgumentException} will be
      * be thrown. 
      *   
      * @param range the range of the chunk to build
@@ -229,7 +250,6 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
     	// Don't we need a Generator<T> generator as argument and create an 
     	// instance for each key with Arrays.setAll(a, generator) ?
         Arrays.fill(a, t); 
-        
     }
 
     /**
@@ -243,7 +263,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
      * result in a {@link IllegalArgumentException} being thrown.
      * <p>
      * If the {@link LongRange} provided has a range that exceeds 
-     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be
+     * {@value handist.collections.Config#maxChunkSize}, an {@link IllegalArgumentException} will be
      * be thrown. 
      *   
      * @param range the range of the chunk to build
@@ -264,6 +284,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         this.a = a;
     }
 
+    @Override
     public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
         rangeCheck(from.getRange());
         if (range.size() > Integer.MAX_VALUE)
@@ -275,7 +296,10 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         from.forEach(consumer);
     }
 
-    // iterator
+    /**
+     * Iterator class for Chunk
+     * @param <T> type on which the iterator operates
+     */
     private static class It<T> implements ListIterator<T> {
         private int i; // offset inside the chunk
         private Chunk<T> chunk;
@@ -364,6 +388,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         }
     }
 
+    @Override
     public void forEach(LongRange range, final LongTBiConsumer<? super T> action) {
         rangeCheck(range);
         // IntStream.range(begin, end).forEach();
@@ -372,6 +397,7 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         }
     }
 
+    @Override
     public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
             Consumer<? super U> receiver) {
         rangeCheck(range);
@@ -417,9 +443,13 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         // System.out.println("readChunk:"+this);
     }
 
-    // TODO ...
+    /**
+     * Not supported.
+     * @throws UnsupportedOperationException systematically
+     */
     @Override
     public boolean addAll(int index, Collection<? extends T> c) {
+    	// TODO implement this method?
         throw new UnsupportedOperationException("[Chunk] does not support resize operation.");
     }
 
@@ -433,6 +463,11 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         return set((long) index, element);
     }
 
+    /**
+     * Not supported.
+     * Users should use method {@link #set(int, Object)} instead
+     * @throws UnsupportedOperationException systematically
+     */
     @Override
     public void add(int index, T element) {
         throw new UnsupportedOperationException("[Chunk] does not support resize operation.");
@@ -443,14 +478,22 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         throw new UnsupportedOperationException("[Chunk] does not support resize operation.");
     }
 
+    /**
+     * Not supported.
+     * @throws UnsupportedOperationException systematically
+     */
     @Override
     public int indexOf(Object o) {
         throw new UnsupportedOperationException("[Chunk] only support long index.");
     }
 
+    /**
+     * Not supported.
+     * @throws UnsupportedOperationException systematically
+     */
     @Override
     public int lastIndexOf(Object o) {
-        throw new UnsupportedOperationException("[Chunk] does not support resize operation.");
+    	throw new UnsupportedOperationException("[Chunk] only support long index.");
     }
 
     @Override
@@ -463,6 +506,10 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         return new It<T>(this, (long)index);
     }
 
+    /**
+     * Not supported.
+     * @throws UnsupportedOperationException systematically
+     */
     @Override
     public List<T> subList(int fromIndex, int toIndex) {
         throw new UnsupportedOperationException("[Chunk] does not support copy operation.");

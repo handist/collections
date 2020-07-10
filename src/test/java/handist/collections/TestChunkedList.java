@@ -26,7 +26,7 @@ import org.junit.Test;
 
 public class TestChunkedList {
 
-	public class MultiIntegerReceiver implements MultiReceiver<Integer> {
+	public class MultiIntegerReceiver implements ParallelReceiver<Integer> {
 
 		Object [] parallelAcceptors;
 		private int nextReceiver;

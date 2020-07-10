@@ -7,10 +7,8 @@
  *
  * SPDX-License-Identifier: EPL-1.0
  *******************************************************************************/
-package handist.collections;
-
-import java.util.function.Consumer;
-
-public interface MultiReceiver<T> {
-    Consumer<T> getReceiver();
-}
+/**
+ * Contains some interfaces that help in describing some operations on 
+ * distributed collections.
+ */
+package handist.collections.function;

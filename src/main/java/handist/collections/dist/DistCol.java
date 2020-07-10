@@ -33,7 +33,7 @@ import apgas.Place;
 import apgas.util.GlobalID;
 import handist.collections.ChunkedList;
 import handist.collections.LongRange;
-import handist.collections.MultiReceiver;
+import handist.collections.ParallelReceiver;
 import handist.collections.RangedList;
 import handist.collections.function.LongTBiConsumer;
 
@@ -525,7 +525,7 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
     }
 
     public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads,
-            BiConsumer<? super T, Consumer<U>> action, MultiReceiver<U> toStore) {
+            BiConsumer<? super T, Consumer<U>> action, ParallelReceiver<U> toStore) {
         return data.asyncForEach(pool, nthreads, action, toStore);
     }
 
@@ -546,7 +546,7 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
     }
 
     public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<U>> action,
-            MultiReceiver<U> toStore) {
+            ParallelReceiver<U> toStore) {
         data.forEach(pool, nthreads, action, toStore);
     }
 

@@ -24,11 +24,28 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
-public class Bag<T> extends AbstractCollection<T> implements Serializable, MultiReceiver<T> {
+import java.io.*;
+
+/**
+ * Container for user-defined types. 
+ * <p>
+ * This class implements the {@link ParallelReceiver} interface and as such, is 
+ * capable of concurrently receiving instances of type T from multiple threads. 
+ * Its use is therefore recommended in parallel implementations of 
+ * {@code forEach} methods.
+ *
+ * @param <T> type of the object handled
+ */
+public class Bag<T> extends AbstractCollection<T> implements  ParallelReceiver<T>, Serializable {
 
     /** Serial Version UID */
 	private static final long serialVersionUID = 5436363137856754303L;
-	ConcurrentLinkedDeque<List<T>> bags = new ConcurrentLinkedDeque<>();
+	
+	/**
+	 * Container of type T. The instances are split in multiple lists, one for
+	 * each of the calls made to {@link #getReceiver()}. 
+	 */
+	ConcurrentLinkedDeque<List<T>> bags;
 
     @Override
     public boolean contains(Object v) {
@@ -38,11 +55,19 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         return false;
     }
 
+    /**
+     * Removes all contents from this bag. 
+     */
     @Override
     public void clear() {
         bags.clear();
     }
 
+    /**
+     * Copies this {@link Bag}. The individual T elements contained in this 
+     * instance are not cloned, both this instance and the returned instance 
+     * will share the same objects.  
+     */
     @Override
     public Bag<T> clone() {
         Bag<T> result = new Bag<T>();
@@ -53,8 +78,13 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         return result;
     }
 
-    public void addBag(List<T> bag) {
-        bags.add(bag);
+    /**
+     * Adds a list of instances to this instance.
+     * 
+     * @param l list of T
+     */
+    public void addBag(List<T> l) {
+        bags.add(l);
     }
 
     @Override
@@ -74,6 +104,13 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         return true;
     }
 
+    /**
+     * Removes one element contained in this instance and returns it. If there 
+     * are no elements in this instance, returns {@code null}. 
+     * 
+     * @return the element removed from this collection, or {@code null} if this
+     * 	instance does not contain anything 
+     */
     public synchronized T remove() {
         while (true) {
             if (bags.isEmpty())
@@ -87,30 +124,49 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         }
     }
     
-    public synchronized List<T> removeN(int count) {
-        ArrayList<T> result = new ArrayList<T>(count);
-        while(count > 0) {
-        	if(bags.isEmpty())	return null;
+    /**
+     * Removes and returns {@code n} elements from this instance into a list. If 
+     * there are less than {@code n} elements contained in this instance, 
+     * removes and returns all the elements. If this instance is empty, returns 
+     * an empty list. 
+     * @param n the number of elements to remove from this instance
+     * @return a list containing at most {@code n} elements
+     */
+    public synchronized List<T> remove(int n) {
+        ArrayList<T> result = new ArrayList<T>(n);
+        while(n > 0) {
+        	if(bags.isEmpty())	return result;
         	List<T> bag = bags.getLast();
         	if(bag.isEmpty()) {
         		bags.removeLast();
         		continue;
         	}
         	result.add(bag.remove(bag.size() - 1)); 
-        	count--;
+        	n--;
         }        
         return result;
     }
 
-
+    /**
+     * Default constructor. 
+     */
     public Bag() {
-
+    	bags = new ConcurrentLinkedDeque<>();
     }
 
+    /**
+     * Iterator class for {@link Bag}
+     */
     private class It implements Iterator<T> {
+    	/** Iterator on {@link Bag#bags}, iterates on lists of T */
         Iterator<List<T>> oIter;
+        /** Iterator on the contents of a List<T> */
         Iterator<T> cIter;
 
+        /**
+         * Constructor. Initializes the two iterators used to iterate on the
+         * lists contained in {@link Bag#bags} and the iterator on these lists. 
+         */
         public It() {
             oIter = bags.iterator();
             if (oIter.hasNext()) {
@@ -148,6 +204,9 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
 
     }
 
+    /**
+     * Returns an iterator over the elements contained in this instance
+     */
     @Override
     public Iterator<T> iterator() {
         return new It();
@@ -170,6 +229,16 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         return futures;
     }
 
+    /**
+     * Launches a parallel forEach on the elements of this collection. The
+     * elements contained in the individual lists (created either through 
+     * {@link #addBag(List)} or {@link #getReceiver()}) are submitted to the 
+     * provided {@link ExecutorService}. This method than waits for the 
+     * completion of the tasks to return.   
+     * 
+     * @param pool the executor service in charge of processing this instance
+     * @param action the action to perform on individual elements
+     */
     public void forEach(ExecutorService pool, final Consumer<? super T> action) {
         List<Future<?>> futures = forEachConst(pool, action);
         for (Future<?> f : futures) {
@@ -181,7 +250,6 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         }
     }
 
-
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -192,20 +260,6 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         sb.append("end of Bag");
         return sb.toString();
     }
-
-    /*
-    public static void main(String[] args) {
-        long i = 5;
-        Chunk<Integer> c = new Chunk<>(new LongRange(10 * i, 11 * i));
-        System.out.println("prepare: " + c);
-        IntStream.range(0, (int) i).forEach(j -> {
-            int v = (int) (10 * i + j);
-            System.out.println("set@" + v);
-            c.set(10 * i + j, v);
-        });
-        System.out.println("Chunk :" + c);
-    }
-*/
     
     private void writeObject(ObjectOutputStream out) throws IOException {
         // System.out.println("writeChunk:"+this);
@@ -228,6 +282,11 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         bags.add(bag1);
     }
 
+    /**
+     * Adds a new list to this instance and returns a {@link Consumer} which 
+     * will place the T instances it receives into this dedicated list.
+     */
+    @Override
     public Consumer<T> getReceiver() {
         final ArrayList<T> bag = new ArrayList<>();
         bags.add(bag);
@@ -240,11 +299,11 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
     }
 
     /**
-     * Convert the bag into a list and clears the bag.
-     * @return the contents of the Bag as a list
+     * Converts the bag into a list and clears the bag.
+     * @return the contents of this instance as a list
      */
     public List<T> convertToList() {
-        // TODO: prepare more smart implementation
+        // TODO: prepare a smarter implementation
         ArrayList<T> result = new ArrayList<>(this.size());
         for (List<T> c : bags) {
             result.addAll(c);
@@ -252,5 +311,4 @@ public class Bag<T> extends AbstractCollection<T> implements Serializable, Multi
         bags.clear();
         return result;
     }
-
 }
