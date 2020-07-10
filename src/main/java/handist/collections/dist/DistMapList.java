@@ -33,157 +33,62 @@ import apgas.util.GlobalID;
 public class DistMapList<K,V> extends DistMap<K, List<V>> {
 
 
-    public Object writeReplace() throws ObjectStreamException {
-        final TeamedPlaceGroup pg1 = placeGroup;
-        final GlobalID id1 = id;
-            return new AbstractDistCollection.LazyObjectReference<DistMapList<K,V>>(pg1, id1, ()-> {
-                return new DistMapList<K,V>(pg1, id1);
-        });
-    }
+	/**
+	 * Construct a DistMapList.
+	 */
+	public DistMapList() {
+		this(TeamedPlaceGroup.getWorld());
+	}
 
-    /**
-     * Construct a DistMapList.
-     */
-    public DistMapList() {
-        this(TeamedPlaceGroup.getWorld());
-    }
+	/**
+	 * Construct a DistMapList with given argument.
+	 *
+	 * @param placeGroup PlaceGroup.
+	 */
+	public DistMapList(TeamedPlaceGroup placeGroup) {
+		super(placeGroup);
+	}
 
-    /**
-     * Construct a DistMapList with given argument.
-     *
-     * @param placeGroup PlaceGroup.
-     */
-    public DistMapList(TeamedPlaceGroup placeGroup) {
-        super(placeGroup);
-    }
+	/**
+	 * Construct a DistMapList with given arguments.
+	 *
+	 * @param placeGroup PlaceGroup
+	 * @param id the global ID used to identify this instance
+	 */
+	public DistMapList(TeamedPlaceGroup placeGroup, GlobalID id) {
+		super(placeGroup, id);
+	}
 
-    /**
-     * Construct a DistMapList with given arguments.
-     *
-     * @param placeGroup PlaceGroup
-     * @param id the global ID used to identify this instance
-     */
-    public DistMapList(TeamedPlaceGroup placeGroup, GlobalID id) {
-        super(placeGroup, id);
-    }
+	/**
+	 * Apply the same operation onto the all local entries.
+	 *
+	 * @param op the operation.
+	 */
+	public void forEach1(BiConsumer<K, V> op) {
+		for (Map.Entry<K, List<V>> entry: data.entrySet()) {
+			K key = entry.getKey();
+			for (V value: entry.getValue()) {
+				op.accept(key, value);
+			}
+		}
+	}
 
-    // TODO ...
-    //public void setupBranches(DistMap.Generator<T,List<U>> gen)
+	// TODO ...
+	//public void setupBranches(DistMap.Generator<T,List<U>> gen)
 
-    /**
-     * Puts a new value to the list of specified entry.
-     *
-     * @param key the key of the entry
-     * @param value the new value to be added to the mappings of {@code key}.
-     * @return {@code true} as the collection is modified as a result (as 
-     * 	specified by {@link Collection#add(Object)}. 
-     */
-    public boolean put1(K key, V value) {
-        List<V> list = data.get(key);
-        if (list == null) {
-            list = new ArrayList<V>();
-            data.put(key, list);
-        }
-        return list.add(value);
-    }
-
-    public boolean putForMove(K key, Collection<V> values) {
-        List<V> list = data.get(key);
-        if (list == null) {
-            list = new ArrayList<V>();
-            data.put(key, list);
-        }
-        // TODO we should check values!=null before transportation
-        if (values != null)
-            list.addAll(values);
-        return false;
-    }
-
-    /**
-     * Removes the entry corresponding to the specified key.
-     *
-     * @param key the key whose mapping need to be removed from this instance
-     * @return the list of all the mappings to the specified key. 
-     */
-    public List<V> removeForMove(K key) {
-        List<V> list = data.remove(key);
-        return list;
-    }
-
-    /**
-     * Request that the specified value be put in the list of the given key on 
-     * the specified place when the method {@link MoveManagerLocal#sync()} of 
-     * the specified {@link MoveManagerLocal} instance is called.
-     *
-     * @param key the key of the list.
-     * @param value the value to be added to the mapping of {@code key}
-     * @param pl the destination place
-     * @param mm MoveManagerLocal handling the data transfers
-     */
-    @SuppressWarnings("unchecked")
-    public void putAtSync(K key, V value, Place pl, MoveManagerLocal mm) {
-        DistMapList<K,V> toBranch = this; // using plh@AbstractCol
-        Serializer serialize = (ObjectOutputStream s) -> {
-            s.writeObject(key);
-            s.writeObject(value);
-        };
-        DeSerializer deserialize = (ObjectInputStream ds) -> {
-            K k = (K)ds.readObject();
-            V v = (V)ds.readObject();
-            toBranch.put1(k, v);
-        };
-        mm.request(pl, serialize, deserialize);
-    }
-
-    @SuppressWarnings("unchecked")
-    public void moveAtSync(K key, Place pl, MoveManagerLocal mm) {
-        if (pl.equals(here()))
-            return;
-        if (!containsKey(key))
-            throw new RuntimeException("DistMapList cannot move uncontained entry: " + key);
-        final DistMapList<K, V> toBranch = this; // using plh@AbstractCol
-        Serializer serialize = (ObjectOutputStream s) -> {
-            List<V> value = this.removeForMove(key);
-            // TODO we should check values!=null before transportation
-            s.writeObject(key);
-            s.writeObject(value);
-        };
-        DeSerializer deserialize = (ObjectInputStream ds) -> {
-            K k = (K) ds.readObject();
-            // TODO we should check values!=null before transportation
-            List<V> v = (List<V>) ds.readObject();
-            toBranch.putForMove(k, v);
-        };
-        mm.request(pl, serialize, deserialize);
-    }
-
-    /**
-     * Apply the same operation onto the all local entries.
-     *
-     * @param op the operation.
-     */
-    public void forEach1(BiConsumer<K, V> op) {
-        for (Map.Entry<K, List<V>> entry: data.entrySet()) {
-            K key = entry.getKey();
-            for (V value: entry.getValue()) {
-                op.accept(key, value);
-            }
-        }
-    }
-
-    /**
-     * Apply the same operation on each element including remote places and 
-     * creates a new {@link DistMapList} with the same keys as this instance and
-     * the result of the mapping operation as values.
-     * 
-     * @param <W> the type of the result of the map operation
-     * @param op the mapping operation from {@code V} to {@code W}
-     * @return a new DistMapList which consists of the result of the operation.
-     */
-    public <W> DistMapList<K,W> map(BiFunction<K, V, W> op) {
-        // TODO
-        throw new Error("not implemented yet");
-        /*return new DistMapList[T,S](placeGroup, team, () => {
+	/**
+	 * Apply the same operation on each element including remote places and 
+	 * creates a new {@link DistMapList} with the same keys as this instance and
+	 * the result of the mapping operation as values.
+	 * 
+	 * @param <W> the type of the result of the map operation
+	 * @param op the mapping operation from {@code V} to {@code W}
+	 * @return a new DistMapList which consists of the result of the operation.
+	 */
+	public <W> DistMapList<K,W> map(BiFunction<K, V, W> op) {
+		// TODO
+		throw new Error("not implemented yet");
+		/*return new DistMapList[T,S](placeGroup, team, () => {
             val dst = new HashMap[T,List[S]]();
             for (entry in data.entries()) {
                 val key = entry.getKey();
@@ -196,16 +101,111 @@ public class DistMapList<K,V> extends DistMap<K, List<V>> {
             }
             return dst;
         });*/
-    }
+	}
 
-    /**
-     * Reduce the all the local elements using given function.
-     *
-     * @param op the operation.
-     * @param unit the zero value of the reduction.
-     * @return the result of the reduction.
-     */
-    /*
+	@SuppressWarnings("unchecked")
+	public void moveAtSync(K key, Place pl, MoveManagerLocal mm) {
+		if (pl.equals(here()))
+			return;
+		if (!containsKey(key))
+			throw new RuntimeException("DistMapList cannot move uncontained entry: " + key);
+		final DistMapList<K, V> toBranch = this; // using plh@AbstractCol
+		Serializer serialize = (ObjectOutputStream s) -> {
+			List<V> value = this.removeForMove(key);
+			// TODO we should check values!=null before transportation
+			s.writeObject(key);
+			s.writeObject(value);
+		};
+		DeSerializer deserialize = (ObjectInputStream ds) -> {
+			K k = (K) ds.readObject();
+			// TODO we should check values!=null before transportation
+			List<V> v = (List<V>) ds.readObject();
+			toBranch.putForMove(k, v);
+		};
+		mm.request(pl, serialize, deserialize);
+	}
+
+	/**
+	 * Puts a new value to the list of specified entry.
+	 *
+	 * @param key the key of the entry
+	 * @param value the new value to be added to the mappings of {@code key}.
+	 * @return {@code true} as the collection is modified as a result (as 
+	 * 	specified by {@link Collection#add(Object)}. 
+	 */
+	public boolean put1(K key, V value) {
+		List<V> list = data.get(key);
+		if (list == null) {
+			list = new ArrayList<V>();
+			data.put(key, list);
+		}
+		return list.add(value);
+	}
+
+	/**
+	 * Request that the specified value be put in the list of the given key on 
+	 * the specified place when the method {@link MoveManagerLocal#sync()} of 
+	 * the specified {@link MoveManagerLocal} instance is called.
+	 *
+	 * @param key the key of the list.
+	 * @param value the value to be added to the mapping of {@code key}
+	 * @param pl the destination place
+	 * @param mm MoveManagerLocal handling the data transfers
+	 */
+	@SuppressWarnings("unchecked")
+	public void putAtSync(K key, V value, Place pl, MoveManagerLocal mm) {
+		DistMapList<K,V> toBranch = this; // using plh@AbstractCol
+		Serializer serialize = (ObjectOutputStream s) -> {
+			s.writeObject(key);
+			s.writeObject(value);
+		};
+		DeSerializer deserialize = (ObjectInputStream ds) -> {
+			K k = (K)ds.readObject();
+			V v = (V)ds.readObject();
+			toBranch.put1(k, v);
+		};
+		mm.request(pl, serialize, deserialize);
+	}
+
+	public boolean putForMove(K key, Collection<V> values) {
+		List<V> list = data.get(key);
+		if (list == null) {
+			list = new ArrayList<V>();
+			data.put(key, list);
+		}
+		// TODO we should check values!=null before transportation
+		if (values != null)
+			list.addAll(values);
+		return false;
+	}
+
+	/**
+	 * Removes the entry corresponding to the specified key.
+	 *
+	 * @param key the key whose mapping need to be removed from this instance
+	 * @return the list of all the mappings to the specified key. 
+	 */
+	public List<V> removeForMove(K key) {
+		List<V> list = data.remove(key);
+		return list;
+	}
+
+	public Object writeReplace() throws ObjectStreamException {
+		final TeamedPlaceGroup pg1 = placeGroup;
+		final GlobalID id1 = id;
+		return new AbstractDistCollection.LazyObjectReference<DistMapList<K,V>>(pg1, id1, ()-> {
+			return new DistMapList<K,V>(pg1, id1);
+		});
+	}
+
+	/**
+	 * Reduce the all the local elements using given function.
+	 *
+	 * @param op the operation.
+	 * @param unit the zero value of the reduction.
+	 * @return the result of the reduction.
+	 */
+	/*
     public def reduceLocal[S](op: (S,U)=>S, unit: S): S {
         var accum: S = unit;
         for (entry in data.entries()) {
@@ -215,17 +215,17 @@ public class DistMapList<K,V> extends DistMap<K, List<V>> {
         }
         return accum;
     }
-    
+
     def create(placeGroup: PlaceGroup, team: Team, init: ()=>Map[T, List[U]]){
         // return new DistMapList[T,U](placeGroup, init) as AbstractDistCollection[Map[T,List[U]]];
         return null as AbstractDistCollection[Map[T, List[U]]];
     }
-    
+
     public def versioningMapList(srcName : String){
         // return new BranchingManager[DistMapList[T,U], Map[T,List[U]]](srcName, this);
         return null as BranchingManager[DistMapList[T,U], Map[T,List[U]]];
     }*/
-    //TODO
-    //In the cunnrent implementation of balance(), 
-    // DistIdMap treat the number of key as the load of the PE, not using the number of elements in the value lists. 
+	//TODO
+	//In the cunnrent implementation of balance(), 
+	// DistIdMap treat the number of key as the load of the PE, not using the number of elements in the value lists. 
 }

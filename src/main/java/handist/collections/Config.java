@@ -13,21 +13,21 @@ package handist.collections;
  * Some configuration elements concerning the library
  */
 public interface Config {
+	/**
+	 * Determines the maximum size of a {@link Chunk}.
+	 */
+	public long maxChunkSize = Integer.MAX_VALUE;
 	/** 
 	 * When displaying the contents of a collection, determines how many 
 	 * elements should be shown. 
 	 */
-    public int maxNumElementsToString = 10; // 10 is default
-    /**
-     * Determines if elements contained in a collection should be omitted when
-     * displaying the contents with method {@code toString}. If set to 
-     * {@code true}, {@link #maxNumElementsToString} determines how many should
-     * should be shown.
-     */
-    public boolean omitElementsToString = true; // true is default
-    /**
-     * Determines the maximum size of a {@link Chunk}.
-     */
-    public long maxChunkSize = Integer.MAX_VALUE;
+	public int maxNumElementsToString = 10; // 10 is default
+	/**
+	 * Determines if elements contained in a collection should be omitted when
+	 * displaying the contents with method {@code toString}. If set to 
+	 * {@code true}, {@link #maxNumElementsToString} determines how many should
+	 * should be shown.
+	 */
+	public boolean omitElementsToString = true; // true is default
 }
 

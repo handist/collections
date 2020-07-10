@@ -31,15 +31,15 @@ public interface LongTBiConsumer<T> {
 	 * @param l index of the object in the {@link RangedList}
 	 * @param t object
 	 */
-    void accept(long l, T t);
+	void accept(long l, T t);
 
-    default LongTBiConsumer<T> andThen(LongTBiConsumer<? super T> after) {
-        return new LongTBiConsumer<T>() {
-            @Override
-            public void accept(long l, T t) {
-                this.accept(l, t);
-                after.accept(l, t);
-            }
-        };
-    }
+	default LongTBiConsumer<T> andThen(LongTBiConsumer<? super T> after) {
+		return new LongTBiConsumer<T>() {
+			@Override
+			public void accept(long l, T t) {
+				this.accept(l, t);
+				after.accept(l, t);
+			}
+		};
+	}
 }

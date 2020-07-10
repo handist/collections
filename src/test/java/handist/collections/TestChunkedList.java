@@ -26,31 +26,41 @@ import org.junit.Test;
 
 public class TestChunkedList {
 
+	public class Element {
+		public int n = 0;
+		public Element(int i) {
+			n = i;
+		}
+		public Element increase(int i) {
+			n += i;
+			return this;
+		}
+		@Override
+		public String toString() {
+			return String.valueOf(n);
+		}
+	}
+
 	public class MultiIntegerReceiver implements ParallelReceiver<Integer> {
 
-		Object [] parallelAcceptors;
-		private int nextReceiver;
-		
 		private class PConsumer implements Consumer<Integer> {
 
 			int number;
-			
+
+			PConsumer(int nb) {
+				number = nb;
+			}
+
 			@SuppressWarnings("unchecked")
 			@Override
 			public void accept(Integer t) {
 				((ArrayList<Integer>) parallelAcceptors[number]).add(t);
 			}
-			
-			PConsumer(int nb) {
-				number = nb;
-			}
-			
+
 		}
-		
-		@Override
-		public Consumer<Integer> getReceiver() {
-			return new PConsumer(nextReceiver++);
-		}
+		private int nextReceiver;
+
+		Object [] parallelAcceptors;
 
 		/**
 		 * Builds a Receiver of {@link Integer} that can accept objects
@@ -65,20 +75,10 @@ public class TestChunkedList {
 				parallelAcceptors[i] = new ArrayList<Integer>();
 			}
 		}
-	}
 
-	public class Element {
-		public int n = 0;
-		public Element(int i) {
-			n = i;
-		}
-		public Element increase(int i) {
-			n += i;
-			return this;
-		}
 		@Override
-		public String toString() {
-			return String.valueOf(n);
+		public Consumer<Integer> getReceiver() {
+			return new PConsumer(nextReceiver++);
 		}
 	}
 
@@ -176,13 +176,13 @@ public class TestChunkedList {
 	public void testAsyncForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 		chunkedList.set(4l, elems[4]);
-		
+
 		final MultiIntegerReceiver accumulator = new MultiIntegerReceiver(2);
-		
+
 		chunkedList.asyncForEach(	pool, 2, 
 				(t, consumer)-> consumer.accept(-t.n), 
 				accumulator).get();
-		
+
 		assertEquals(2, accumulator.parallelAcceptors.length);
 		assertEquals(3, ((ArrayList<Integer>) accumulator.parallelAcceptors[0]).size());
 		assertEquals(3, ((ArrayList<Integer>)accumulator.parallelAcceptors[1]).size());
@@ -312,21 +312,6 @@ public class TestChunkedList {
 		assertFalse(chunkedList.containsIndex(-1));
 	}
 
-	@SuppressWarnings("unused")
-	@Test
-	public void testItOnEmptyChunkedList() {
-		for (Element e : newlyCreatedChunkedList) {
-			fail("The ChunkedList iterator got an element from an empty ChunkedList");
-		}
-	}
-	
-	@Test(expected = IndexOutOfBoundsException.class)
-	public void testItOutOfBounds() {
-		Iterator<Element> it = newlyCreatedChunkedList.iterator();
-		assertFalse(it.hasNext());
-		it.next();
-	}
-	
 	@Test
 	public void testFilterChunk() {
 		List<RangedList<Element>> l = chunkedList.filterChunk(chunk -> chunk.isEmpty());
@@ -376,8 +361,8 @@ public class TestChunkedList {
 
 		// Compute an average of the members in the ChunkedList
 		Consumer<Integer> averageComputation = new Consumer<Integer>() {
-			public int sum = 0;
 			public int count = 0;
+			public int sum = 0;
 
 			@Override
 			public void accept(Integer t) {
@@ -404,6 +389,21 @@ public class TestChunkedList {
 		assertEquals(expectedOutput, averageComputation.toString());
 	}
 
+	@SuppressWarnings("unchecked")
+	@Test
+	public void testForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		chunkedList.set(4l, elems[4]);
+
+		final MultiIntegerReceiver accumulator = new MultiIntegerReceiver(2);
+
+		chunkedList.forEach(pool, 2, (t, consumer)-> consumer.accept(-t.n),	accumulator);
+
+		assertEquals(2, accumulator.parallelAcceptors.length);
+		assertEquals(3, ((ArrayList<Integer>) accumulator.parallelAcceptors[0]).size());
+		assertEquals(3, ((ArrayList<Integer>)accumulator.parallelAcceptors[1]).size());
+	}
+
 	@Test
 	public void testForEachConsumer() {
 		ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -421,21 +421,6 @@ public class TestChunkedList {
 		assertEquals(13, chunkedList.get(3).n);
 		assertEquals(null, chunkedList.get(4));
 		assertEquals(15, chunkedList.get(5).n);
-	}
-	
-	@SuppressWarnings("unchecked")
-	@Test
-	public void testForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
-		ExecutorService pool = Executors.newFixedThreadPool(2);
-		chunkedList.set(4l, elems[4]);
-		
-		final MultiIntegerReceiver accumulator = new MultiIntegerReceiver(2);
-		
-		chunkedList.forEach(pool, 2, (t, consumer)-> consumer.accept(-t.n),	accumulator);
-		
-		assertEquals(2, accumulator.parallelAcceptors.length);
-		assertEquals(3, ((ArrayList<Integer>) accumulator.parallelAcceptors[0]).size());
-		assertEquals(3, ((ArrayList<Integer>)accumulator.parallelAcceptors[1]).size());
 	}
 
 	@Test
@@ -497,6 +482,21 @@ public class TestChunkedList {
 	public void testIsEmpty() {
 		assertFalse(chunkedList.isEmpty());
 		assertTrue(newlyCreatedChunkedList.isEmpty());
+	}
+
+	@SuppressWarnings("unused")
+	@Test
+	public void testItOnEmptyChunkedList() {
+		for (Element e : newlyCreatedChunkedList) {
+			fail("The ChunkedList iterator got an element from an empty ChunkedList");
+		}
+	}
+
+	@Test(expected = IndexOutOfBoundsException.class)
+	public void testItOutOfBounds() {
+		Iterator<Element> it = newlyCreatedChunkedList.iterator();
+		assertFalse(it.hasNext());
+		it.next();
 	}
 
 

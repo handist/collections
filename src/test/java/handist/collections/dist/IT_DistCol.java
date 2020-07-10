@@ -34,23 +34,6 @@ public class IT_DistCol implements Serializable {
 
 	/** Serial Version UID */
 	private static final long serialVersionUID = -9076195681727813858L;
-	
-	TeamedPlaceGroup placeGroup;
-	long NPLACES0;
-	long rangeSize0 = 10;
-	long rangeSkip0 = 5;
-	long numChunk0 = 50;
-
-	DistCol<String> distCol0;
-	DistBag<List<String> > distBag0;
-
-	@Before
-	public void setup() {
-		placeGroup = TeamedPlaceGroup.world;
-		NPLACES0 = placeGroup.size();
-		distCol0 = new DistCol<String>(placeGroup);
-		distBag0 = new DistBag<List<String> >(placeGroup);
-	}
 
 	public static void main(String[] args) {
 		IT_DistCol test = new IT_DistCol();
@@ -58,6 +41,15 @@ public class IT_DistCol implements Serializable {
 		test.run();
 		System.out.println("----finish");
 	}
+	DistBag<List<String> > distBag0;
+	DistCol<String> distCol0;
+	long NPLACES0;
+	long numChunk0 = 50;
+
+	TeamedPlaceGroup placeGroup;
+	long rangeSize0 = 10;
+
+	long rangeSkip0 = 5;
 
 	@Test
 	public void run() {
@@ -651,5 +643,13 @@ public class IT_DistCol implements Serializable {
 		//	} else {
 		//	    System.out.println("VALIDATE 8-2: FAIL");
 		//	}
+	}
+
+	@Before
+	public void setup() {
+		placeGroup = TeamedPlaceGroup.world;
+		NPLACES0 = placeGroup.size();
+		distCol0 = new DistCol<String>(placeGroup);
+		distBag0 = new DistBag<List<String> >(placeGroup);
 	}
 }

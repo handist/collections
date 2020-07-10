@@ -30,5 +30,5 @@ public interface ParallelReceiver<T> {
 	 * 
 	 * @return a new {@link Consumer} accepting T objects 
 	 */
-    Consumer<T> getReceiver();
+	Consumer<T> getReceiver();
 }

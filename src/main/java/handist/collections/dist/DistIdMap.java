@@ -35,330 +35,330 @@ public class DistIdMap<V> extends DistMap<Long, V>
 /* implements ManagedDistribution[Long] */
 {
 
-    private static int _debug_level = 0;
-    transient DistManager.Index ldist;
-    transient float[] locality;
+	private static int _debug_level = 0;
+	transient DistManager.Index ldist;
+	transient float[] locality;
 
-    public Map<Long, Place> getDist() { return ldist.dist; }
-    Map<Long, Integer> getDiff() { return ldist.diff; }
-    public DistributionLong getDistributionLong() { return new DistributionLong(getDist()); }
+	/**
+	 * Construct a DistIdMap.
+	 * Place.places() is used as the PlaceGroup of the new instance.
+	 */
+	public DistIdMap() {
+		this(TeamedPlaceGroup.getWorld());
+	}
+	/**
+	 * Construct a DistIdMap with the given argument.
+	 * Team(placeGroup) is used as the PlaceGroup of the new instance.
+	 *
+	 * @param placeGroup the PlaceGroup.
+	 */
+	public DistIdMap(TeamedPlaceGroup placeGroup) {
+		super(placeGroup);
+		//TODO
+		this.ldist = new DistManager.Index();
+		ldist.setup(data.keySet());
+		locality = new float[placeGroup.size()];
+		Arrays.fill(locality, 1.0f);
+	}
+	protected DistIdMap(TeamedPlaceGroup placeGroup, GlobalID id) {
+		super(placeGroup, id);
+		//TODO
+		this.ldist = new DistManager.Index();
+		ldist.setup(data.keySet());
+		locality = new float[placeGroup.size()];
+		Arrays.fill(locality, 1.0f);
+	}
 
-    public Object writeReplace() throws ObjectStreamException {
-        final TeamedPlaceGroup pg1 = placeGroup;
-        final GlobalID id1 = id;
-            return new AbstractDistCollection.LazyObjectReference<DistIdMap<V>>(pg1, id1, ()-> {
-                return new DistIdMap<V>(pg1, id1);
-        });
-    }
+	/* Ensure calling updateDist() before balance()
+	 * balance() should be called in all places
+	 */
+	public void checkDistInfo(long[] result) {
+		for (Map.Entry<Long, Place> entry : ldist.dist.entrySet()) {
+			// val k = entry.getKey();
+			Place v = entry.getValue();
+			result[placeGroup.rank(v)] += 1;
+		}
+	}
 
-    /**
-     * Construct a DistIdMap.
-     * Place.places() is used as the PlaceGroup of the new instance.
-     */
-    public DistIdMap() {
-        this(TeamedPlaceGroup.getWorld());
-    }
+	/**
+	 * Remove the all local entries.
+	 */
+	public void clear() {
+		super.clear();
+		this.ldist.clear();
+		Arrays.fill(locality, 1.0f);
+	}
 
-    /**
-     * Construct a DistIdMap with the given argument.
-     * Team(placeGroup) is used as the PlaceGroup of the new instance.
-     *
-     * @param placeGroup the PlaceGroup.
-     */
-    public DistIdMap(TeamedPlaceGroup placeGroup) {
-        super(placeGroup);
-        //TODO
-        this.ldist = new DistManager.Index();
-        ldist.setup(data.keySet());
-        locality = new float[placeGroup.size()];
-        Arrays.fill(locality, 1.0f);
-    }
+	/*
+	 * Return true if the entry corresponding to the specified id is local.
+	 *
+	 * @return true or false.
+	 */
+	public boolean containsId(long id) {
+		return super.containsKey(id);
+	}
 
-    protected DistIdMap(TeamedPlaceGroup placeGroup, GlobalID id) {
-        super(placeGroup, id);
-        //TODO
-        this.ldist = new DistManager.Index();
-        ldist.setup(data.keySet());
-        locality = new float[placeGroup.size()];
-        Arrays.fill(locality, 1.0f);
-    }
+	public boolean delete(long id) {
+		ldist.remove(id);
+		return super.delete(id);
+	}
 
 
-    /**
-     * Remove the all local entries.
-     */
-    public void clear() {
-        super.clear();
-        this.ldist.clear();
-        Arrays.fill(locality, 1.0f);
-    }
+	/**
+	 * Execute the specified operation with the corresponding value of the specified id.
+	 * If the entry is stored at local, the operation is executed sequaltially.
+	 * If the entry is stored at a remote place, the operation is asynchronously executed at the place.
+	 *
+	 * @param id a Long type value.
+	 * @param op the operation.
+	 */
+	public void execAt(long id, SerializableConsumer<V> op) {
+		Place place = getPlace(id);
+		if (place.equals(here())) {
+			op.accept(data.get(id));
+			return;
+		}
+		asyncAt(place, ()->  {
+			op.accept(data.get(id));
+		});
+	}
 
-    /*
-     * Get the corresponding value of the specified id.
-     *
-     * @param id a Long type value.
-     * @return the corresponding value of the specified id.
-     */
-    public V get(long id) {
-        return data.get(id);
-    }
+	/*
+	 * Get the corresponding value of the specified id.
+	 *
+	 * @param id a Long type value.
+	 * @return the corresponding value of the specified id.
+	 */
+	public V get(long id) {
+		return data.get(id);
+	}
 
-    /*
-     * Put a new entry.
-     *
-     * @param id a Long type value.
-     * @param value a value.
-     */
-    public V put(long id, V value) throws Exception {
-        if (data.containsKey(id)) {
-            return data.put(id, value);
-        }
-        ldist.add(id);
-        return data.put(id, value);
-    }
+	Map<Long, Integer> getDiff() { return ldist.diff; }
 
-    private V putForMove(long key, byte mType, V value) throws Exception {
-        switch (mType) {
-        case DistManager.MOVE_NEW:
-            ldist.moveInNew(key);
-            break;
-        case DistManager.MOVE_OLD:
-            ldist.moveInOld(key);
-            break;
-        default:
-            throw new Exception("SystemError when calling putForMove " + key);
-        }
-        return data.put(key, value);
-    }
+	public Map<Long, Place> getDist() { return ldist.dist; }
 
-    public boolean delete(long id) {
-        ldist.remove(id);
-        return super.delete(id);
-    }
+	public DistributionLong getDistributionLong() { return new DistributionLong(getDist()); }
 
-    /*
-     * Remove the corresponding value of the specified id.
-     *
-     * @param id a Long type value.
-     */
-    public V remove(long id) {
-        ldist.remove(id);
-        return super.remove(id);
-    }
+	/*
+	 * Get a place where the the corresponding entry of the specified id is stored.
+	 * Return null when it doesn't exist.
+	 *
+	 * @param id a Long type value.
+	 * @return the Place.
+	 */
+	public Place getPlace(long id) {
+		return ldist.dist.get(id);
+	}
 
-    private V removeForMove(long id) {
-        return data.remove(id);
-    }
+	/*
+	 * Return the Set of local ids.
+	 *
+	 * @return the Set of local ids.
+	 */
+	public Set<Long> idSet() {
+		return keySet();
+	}
 
-    /*
-     * Return true if the entry corresponding to the specified id is local.
-     *
-     * @return true or false.
-     */
-    public boolean containsId(long id) {
-        return super.containsKey(id);
-    }
+	@Override 
+	@SuppressWarnings("unchecked")
+	public void moveAtSync(Collection<Long> keys, Place dest, MoveManagerLocal mm) {
+		if (dest.equals(here())) return;
+		final DistIdMap<V> collection = this;
+		Serializer serialize = (ObjectOutputStream s) -> {
+			int size = keys.size();
+			s.writeInt(size);
+			for (Long key: keys) {
+				V value = collection.removeForMove(key);
+				byte mType = ldist.moveOut(key, dest);
+				s.writeLong(key);
+				s.writeByte(mType);
+				s.writeObject(value);
+			}
+		};
+		DeSerializer deserialize = (ObjectInputStream ds) -> {
+			int size = ds.readInt();
+			for (int i =0; i<size; i++) {
+				long key = ds.readLong();
+				byte mType = ds.readByte();
+				V value = (V)ds.readObject();
+				collection.putForMove(key, mType, value);
+			}
+		};
+		mm.request(dest, serialize, deserialize);
+	}
 
-    /*
-     * Get a place where the the corresponding entry of the specified id is stored.
-     * Return null when it doesn't exist.
-     *
-     * @param id a Long type value.
-     * @return the Place.
-     */
-    public Place getPlace(long id) {
-        return ldist.dist.get(id);
-    }
+	@Override
+	public void moveAtSync(Distribution<Long> dist, MoveManagerLocal mm) {
+		Function<Long,Place> rule = (Long key) -> { return dist.place(key);};
+		moveAtSync(rule, mm);
+	}
 
-    /*
-     * Return the Set of local ids.
-     *
-     * @return the Set of local ids.
-     */
-    public Set<Long> idSet() {
-        return keySet();
-    }
+	@Override
+	public void moveAtSync(Function<Long, Place> rule, MoveManagerLocal mm) {
+		final DistIdMap<V> collection = this;
+		HashMap<Place, ArrayList<Long>> keysToMove = new HashMap<>();
+		collection.forEach((Long key, V value) -> {
+			Place destination = rule.apply(key);
+			if (!keysToMove.containsKey(destination)) {
+				keysToMove.put(destination, new ArrayList<Long>());
+			}
+			keysToMove.get(destination).add(key);
+		});
+		for (Place p: keysToMove.keySet()) {
+			moveAtSync(keysToMove.get(p), p, mm);
+		}
+	}
 
-    /**
-     * Execute the specified operation with the corresponding value of the specified id.
-     * If the entry is stored at local, the operation is executed sequaltially.
-     * If the entry is stored at a remote place, the operation is asynchronously executed at the place.
-     *
-     * @param id a Long type value.
-     * @param op the operation.
-     */
-    public void execAt(long id, SerializableConsumer<V> op) {
-        Place place = getPlace(id);
-        if (place.equals(here())) {
-            op.accept(data.get(id));
-            return;
-        }
-        asyncAt(place, ()->  {
-            op.accept(data.get(id));
-        });
-    }
-    @Override
-    public void moveAtSync(Long key, Place dest, MoveManagerLocal mm) {
-	moveAtSync(key.longValue(), dest, mm);
-    }
-    
-    @SuppressWarnings("unchecked")
-    public void moveAtSync(final long key, Place dest, MoveManagerLocal mm) {
-        if (dest.equals(here()))
-            return;
+	@SuppressWarnings("unchecked")
+	public void moveAtSync(final long key, Place dest, MoveManagerLocal mm) {
+		if (dest.equals(here()))
+			return;
 
-        final DistIdMap<V> toBranch = this;
-        Serializer serialize = (ObjectOutputStream s) -> {
-            V value = this.removeForMove(key);
-            byte mType = ldist.moveOut(key, dest);
-            s.writeLong(key);
-            s.writeByte(mType);
-            s.writeObject(value);
-        };
-        DeSerializer deserialize = (ObjectInputStream ds) -> {
-            long k = ds.readLong();
-            byte mType = ds.readByte();
-            V v = (V) ds.readObject();
-            if (_debug_level > 5) {
-                System.err.println("[" + here() + "] putForMove key: " + k + " keyType: " + mType + " value: " + v);
-            }
-            toBranch.putForMove(k, mType, v);
-        };
-        mm.request(dest, serialize, deserialize);
-    }
-    
-    @Override 
-    @SuppressWarnings("unchecked")
-    public void moveAtSync(Collection<Long> keys, Place dest, MoveManagerLocal mm) {
-        if (dest.equals(here())) return;
-        final DistIdMap<V> collection = this;
-        Serializer serialize = (ObjectOutputStream s) -> {
-            int size = keys.size();
-            s.writeInt(size);
-            for (Long key: keys) {
-                V value = collection.removeForMove(key);
-                byte mType = ldist.moveOut(key, dest);
-                s.writeLong(key);
-                s.writeByte(mType);
-                s.writeObject(value);
-            }
-        };
-        DeSerializer deserialize = (ObjectInputStream ds) -> {
-            int size = ds.readInt();
-            for (int i =0; i<size; i++) {
-                long key = ds.readLong();
-                byte mType = ds.readByte();
-                V value = (V)ds.readObject();
-                collection.putForMove(key, mType, value);
-            }
-        };
-        mm.request(dest, serialize, deserialize);
-    }
+		final DistIdMap<V> toBranch = this;
+		Serializer serialize = (ObjectOutputStream s) -> {
+			V value = this.removeForMove(key);
+			byte mType = ldist.moveOut(key, dest);
+			s.writeLong(key);
+			s.writeByte(mType);
+			s.writeObject(value);
+		};
+		DeSerializer deserialize = (ObjectInputStream ds) -> {
+			long k = ds.readLong();
+			byte mType = ds.readByte();
+			V v = (V) ds.readObject();
+			if (_debug_level > 5) {
+				System.err.println("[" + here() + "] putForMove key: " + k + " keyType: " + mType + " value: " + v);
+			}
+			toBranch.putForMove(k, mType, v);
+		};
+		mm.request(dest, serialize, deserialize);
+	}
+	@Override
+	public void moveAtSync(Long key, Place dest, MoveManagerLocal mm) {
+		moveAtSync(key.longValue(), dest, mm);
+	}
 
-    @SuppressWarnings("unchecked")
-    public void moveAtSyncCount(int count, Place dest, MoveManagerLocal mm) {
-        if (dest.equals(here())) return;
-        final DistIdMap<V> collection = this;
-        Serializer serialize = (ObjectOutputStream s) -> {
-            int size = count;
-            s.writeInt(size);
-            long[] keys = new long[size];
-            Object[] values = new Object[size];
+	@SuppressWarnings("unchecked")
+	public void moveAtSyncCount(int count, Place dest, MoveManagerLocal mm) {
+		if (dest.equals(here())) return;
+		final DistIdMap<V> collection = this;
+		Serializer serialize = (ObjectOutputStream s) -> {
+			int size = count;
+			s.writeInt(size);
+			long[] keys = new long[size];
+			Object[] values = new Object[size];
 
-            int i = 0;
-            for (Map.Entry<Long, V> entry: data.entrySet()) {
-                if (i == size) break;
-                keys[i] = entry.getKey();
-                values[i] = entry.getValue();
-                i += 1;
-            }
-            for (int j=0; j<size; j++) {
-                s.writeLong(keys[j]);
-            }
-            for (int j=0; j<size; j++) {
-                s.writeObject(values[j]);
-            }
-            for (int j=0; j<size; j++) {
-                long key = keys[j];
-                collection.removeForMove(key);
-                byte mType = ldist.moveOut(key, dest);
-                s.writeByte(mType);
-            }
-        };
-        DeSerializer deserialize = (ObjectInputStream ds) -> {
-            int size = ds.readInt();
-            long[] keys = new long[size];
-            Object[] values = new Object[size];
+			int i = 0;
+			for (Map.Entry<Long, V> entry: data.entrySet()) {
+				if (i == size) break;
+				keys[i] = entry.getKey();
+				values[i] = entry.getValue();
+				i += 1;
+			}
+			for (int j=0; j<size; j++) {
+				s.writeLong(keys[j]);
+			}
+			for (int j=0; j<size; j++) {
+				s.writeObject(values[j]);
+			}
+			for (int j=0; j<size; j++) {
+				long key = keys[j];
+				collection.removeForMove(key);
+				byte mType = ldist.moveOut(key, dest);
+				s.writeByte(mType);
+			}
+		};
+		DeSerializer deserialize = (ObjectInputStream ds) -> {
+			int size = ds.readInt();
+			long[] keys = new long[size];
+			Object[] values = new Object[size];
 
-            for (int j=0; j<size; j++) {
-                keys[j]= ds.readLong();
-            }
-            for (int j=0; j<size; j++) {
-                values[j] = ds.readObject();
-            }
-            for (int j=0; j<size; j++) {
-                byte mType = ds.readByte();
-                collection.putForMove(keys[j], mType, (V)values[j]);
-            }
-        };
-        mm.request(dest, serialize, deserialize);
-    }
-    @Override
-    public void moveAtSync(Function<Long, Place> rule, MoveManagerLocal mm) {
-        final DistIdMap<V> collection = this;
-        HashMap<Place, ArrayList<Long>> keysToMove = new HashMap<>();
-        collection.forEach((Long key, V value) -> {
-            Place destination = rule.apply(key);
-            if (!keysToMove.containsKey(destination)) {
-                keysToMove.put(destination, new ArrayList<Long>());
-            }
-            keysToMove.get(destination).add(key);
-        });
-        for (Place p: keysToMove.keySet()) {
-            moveAtSync(keysToMove.get(p), p, mm);
-        }
-    }
-    @Override
-    public void moveAtSync(Distribution<Long> dist, MoveManagerLocal mm) {
-        Function<Long,Place> rule = (Long key) -> { return dist.place(key);};
-        moveAtSync(rule, mm);
-    }
+			for (int j=0; j<size; j++) {
+				keys[j]= ds.readLong();
+			}
+			for (int j=0; j<size; j++) {
+				values[j] = ds.readObject();
+			}
+			for (int j=0; j<size; j++) {
+				byte mType = ds.readByte();
+				collection.putForMove(keys[j], mType, (V)values[j]);
+			}
+		};
+		mm.request(dest, serialize, deserialize);
+	}
 
-    /* will be implemented in Java using TreeMap
+	/*
+	 * Put a new entry.
+	 *
+	 * @param id a Long type value.
+	 * @param value a value.
+	 */
+	public V put(long id, V value) throws Exception {
+		if (data.containsKey(id)) {
+			return data.put(id, value);
+		}
+		ldist.add(id);
+		return data.put(id, value);
+	}
+
+	private V putForMove(long key, byte mType, V value) throws Exception {
+		switch (mType) {
+		case DistManager.MOVE_NEW:
+			ldist.moveInNew(key);
+			break;
+		case DistManager.MOVE_OLD:
+			ldist.moveInOld(key);
+			break;
+		default:
+			throw new Exception("SystemError when calling putForMove " + key);
+		}
+		return data.put(key, value);
+	}
+	/*
+	 * Remove the corresponding value of the specified id.
+	 *
+	 * @param id a Long type value.
+	 */
+	public V remove(long id) {
+		ldist.remove(id);
+		return super.remove(id);
+	}
+	private V removeForMove(long id) {
+		return data.remove(id);
+	}
+
+	/* will be implemented in Java using TreeMap
     public def moveAtSync(range: LongRange, place: Place, mm:MoveManagerLocal) {U haszero}: void {
 
     }
-    */
-    // TODO???
-    //public def moveAtSync(dist:Distribution[LongRange], mm:MoveManagerLocal): void {
-    // no need for sparse array
+	 */
+	// TODO???
+	//public def moveAtSync(dist:Distribution[LongRange], mm:MoveManagerLocal): void {
+	// no need for sparse array
 
 
-    /**
-     * Update the distribution information of the entries.
-     */
-    public void updateDist() {
-        ldist.updateDist(placeGroup);
-    }
+	/**
+	 * Update the distribution information of the entries.
+	 */
+	public void updateDist() {
+		ldist.updateDist(placeGroup);
+	}
 
-    /*
+	/*
     public def versioningIdMap(srcName : String){
         // return new BranchingManager[DistIdMap[T], Map[Long,T]](srcName, this);
         return null as BranchingManager[DistIdMap[T], Map[Long, T]];
     }*/
 
-    /* Ensure calling updateDist() before balance()
-     * balance() should be called in all places
-     */
-    public void checkDistInfo(long[] result) {
-        for (Map.Entry<Long, Place> entry : ldist.dist.entrySet()) {
-            // val k = entry.getKey();
-            Place v = entry.getValue();
-            result[placeGroup.rank(v)] += 1;
-        }
-    }
+	public Object writeReplace() throws ObjectStreamException {
+		final TeamedPlaceGroup pg1 = placeGroup;
+		final GlobalID id1 = id;
+		return new AbstractDistCollection.LazyObjectReference<DistIdMap<V>>(pg1, id1, ()-> {
+			return new DistIdMap<V>(pg1, id1);
+		});
+	}
 
-/*
+	/*
     //TODO different naming convention of balance methods with DistMap
     public void balance(MoveManagerLocal mm) throws Exception {
         int pgSize = placeGroup.size();
@@ -370,7 +370,7 @@ public class DistIdMap<V> extends DistMap<Long, V>
         for (int i = 0; i<locality.length; i++) {
             localitySum += locality[i];
         }
- 
+
 
         for (int i=0; i< pgSize; i++) {
             globalDataSize += localDataSize[i];
@@ -495,5 +495,5 @@ public class DistIdMap<V> extends DistMap<Long, V>
         System.arraycopy(newLocality, 0, locality, 0, placeGroup().size);
         balance(mm);
     }
-*/
+	 */
 }
