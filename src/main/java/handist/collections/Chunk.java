@@ -468,6 +468,15 @@ public class Chunk<T> extends AbstractCollection<T> implements RangedList<T>, Se
         throw new UnsupportedOperationException("[Chunk] does not support copy operation.");
     }
     
+    @Override
+    public boolean equals(Object o) {
+        return RangedList.equals(this, o);
+    }
+    @Override
+    public int hashCode() {
+        return RangedList.hashCode(this);
+    }
+    
     /*
     public static void main(String[] args) {
         long i = 5;
