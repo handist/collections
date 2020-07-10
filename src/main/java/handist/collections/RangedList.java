@@ -146,9 +146,30 @@ public interface RangedList<T> extends Iterable<T> {
     default public RangedList<T> subList(LongRange range) {
         return subList(range.from, range.to);
     };
-    Object[] toArray();
-    Object[] toArray(LongRange newRange);
+    public Object[] toArray();
+    public Object[] toArray(LongRange newRange);
 
-	Chunk<T> toChunk(LongRange newRange);
+	public Chunk<T> toChunk(LongRange newRange);
+	
+	public static boolean equals(RangedList<?> rlist1, Object o) {
+	    if(o==null) return (rlist1==null);
+	    if(!(o instanceof RangedList)) return false;
+	    RangedList<?> rlist2 = (RangedList<?>)o;
+	    // TODO this version is too slow,
+	    // setupFrom will be the good candidate for fast simul scanner.
+	    if(!rlist1.getRange().equals(rlist2.getRange())) return false;
+	    for(long index: rlist1.getRange()) {
+	        if(!rlist1.get(index).equals(rlist2.get(index))) return false;
+	    }
+	    return true;
+	}
+	public static int hashCode(RangedList<?> rlist) {
+	    int hashCode = 1;
+	    // code from JavaAPI doc of List
+	    for(Object o: rlist) {
+	        hashCode = 31*hashCode + (o==null ? 0 : o.hashCode());
+	    }
+	    return hashCode;
+	}
 
 }

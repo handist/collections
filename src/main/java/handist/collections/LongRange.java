@@ -13,6 +13,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.TreeMap;
+import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.stream.LongStream;
 
@@ -87,6 +89,22 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 		}
 	}
 
+	
+	/**
+	 * Return the intersection range of this instance ad the provided one.
+	 * If there is no index that belongs to both ranges, return null;
+	 * 
+	 * @param range
+	 * @return
+	 */
+	public LongRange intersection(LongRange range) {
+	    long from = Math.max(range.from, this.from);
+	    long to = Math.min(range.to, this.to);
+	    if(from>=to) return null;
+	    return new LongRange(from, to);
+	}
+	
+	
 	public void forEach(LongConsumer func) {
 		for (long current = from; current < to; current++) {
 			func.accept(current);
@@ -227,4 +245,83 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 		}
 		return result;
 	}
+	//TODO
+	// I cannot find a way to convert Treemap to TreeSet (or something having floor/ceiling).
+	// (I think TreeSet used TreeMap in its implementation.) 
+	// prepare TreeSet version of the following methods
+	// OR
+	// prepare LongRangeSet having such facilities 
+	/**
+     * Checks if this instance intersects with one of the keys
+     * contained by the provided {@code TreeMap<LongRange, S> rmap}.
+     * Returns one of the intersecting keys, or {@code null} if there are no such  intersecting key. 
+     * 
+     * @param rmap the TreeMap instance to check
+     * @return a LongRange key of the provided TreeMap instance that intersects this instance, or {@code null} if there are so such key.
+     */
+    public <S> LongRange findOverlap(TreeMap<LongRange, S> rmap) {
+        LongRange floorKey = rmap.floorKey(this);
+        if (floorKey != null && floorKey.isOverlapped(this)) {
+            return floorKey;
+        }
+        LongRange nextKey = rmap.higherKey(this);
+        if (nextKey != null && nextKey.isOverlapped(this)) {
+            return nextKey;
+        }
+        return null;
+    }
+    
+    /**
+     * Checks if all the index in this range in included in one of the keys
+     * contained by the provided {@code TreeMap<LongRange, S> rmap}.
+     * 
+     * @param rmap the TreeMap instance to check
+     * @return a LongRange key of the provided TreeMap instance that intersects this instance, or {@code null} if there are so such key.
+     */
+    public <S> boolean contained(TreeMap<LongRange, S> rmap) {
+        long current = this.from;
+        while(true) {
+            LongRange tmp = new LongRange(current, current);
+            LongRange result = tmp.findOverlap(rmap);
+            if(result==null) break;
+            if(result.to >= this.to) return true;
+            current = result.to;
+        }
+        return false;
+    }
+    
+    /**
+      * Scans intersections between this instance  and the key sets of the provided {@code TreeMap<LongRange, S> rmap}
+      * and apply {@code Consumer<LongRange> consumer} to each intersection range.
+      * 
+     * @param <S>
+     * @param rmap
+     * @param consumer
+     */
+    public <S> void computeOnOverlap(TreeMap<LongRange, S> rmap,  Consumer<LongRange> consumer) {
+        long current = this.from;
+        while(true) {
+            LongRange tmp = new LongRange(current, current);
+            LongRange result = tmp.findOverlap(rmap);
+            if(result==null) break;
+            LongRange inter = this.intersection(result);
+            consumer.accept(inter);
+            if(result.to >= this.to) return;
+            current = result.to;
+        }
+    }    
+    
+    /**
+     * Scans intersections between this instance  and the key sets of the provided {@code TreeMap<LongRange, S> rmap}
+     * and apply {@code LongConsumer consumer} to each index in the intersections.
+     * 
+    * @param <S>
+    * @param rmap
+    * @param consumer
+    */
+    public <S> void computeOnOverlap(TreeMap<LongRange, S> rmap,  LongConsumer consumer) {
+        computeOnOverlap(rmap, (LongRange range)->{
+           range.forEach(consumer);
+        });
+    }
 }

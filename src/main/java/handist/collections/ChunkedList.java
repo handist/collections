@@ -158,17 +158,14 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	 * 	{@link LongRange}, or {@code null} if there are so such key.
 	 */
 	private LongRange checkOverlap(LongRange range) {
-		LongRange floorKey = chunks.floorKey(range);
-		if (floorKey != null && floorKey.isOverlapped(range)) {
-			return floorKey;
-		}
-		LongRange nextKey = chunks.higherKey(range);
-		if (nextKey != null && nextKey.isOverlapped(range)) {
-			return nextKey;
-		}
-		return null;
+	    return range.findOverlap(chunks);
 	}
 
+	public boolean containsRange(LongRange range) {
+	    return range.contained(chunks);
+	}
+	
+	
 	/**
 	 * Clear the local elements
 	 */
@@ -542,7 +539,38 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 				throw new ParallelExecutionException("[ChunkedList] exception raised by worker threads.", e);
 			}
 		}
-	}
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || !(o instanceof ChunkedList)) {
+            return false;
+        }
+        // TODO very slow
+        ChunkedList<?> target = (ChunkedList<?>) o;
+        if(longSize() != target.longSize()) return false;
+        for(LongRange range: chunks.keySet()) {
+            for(long index: range) {
+                T mine = get(index);
+                Object yours = target.get(index);
+                if(mine==null && yours!=null) return false;
+                if(mine!=null && !mine.equals(yours)) return false;
+            }
+        }
+        return true;
+    }
+	
+	@Override
+	 public int hashCode() {
+	        int hashCode = 1;
+	        // code from JavaAPI doc of List
+	        for(RangedList<?> c:  chunks.values()) {
+	            hashCode = 31*hashCode + (c==null ? 0 : c.hashCode());
+	        }
+	        return hashCode;
+	    }
+
+	
 /*
 	public static void main(String[] args) {
 

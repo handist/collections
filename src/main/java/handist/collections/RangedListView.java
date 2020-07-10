@@ -219,7 +219,16 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         // sb.append("@" + range.begin + ".." + last() + "]");
         return sb.toString();
     }
+    
+    @Override
+    public boolean equals(Object o) {
+        return RangedList.equals(this, o);
+    }
 
+    @Override
+    public int hashCode() {
+        return RangedList.hashCode(this);
+    }
     // TODO this implement generates redundant RangedListView at receiver node.
     private void writeObject(ObjectOutputStream out) throws IOException {
         Chunk<T> chunk = this.toChunk(range);
