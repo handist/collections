@@ -21,18 +21,42 @@ import java.util.function.Function;
 
 import handist.collections.function.LongTBiConsumer;
 
-
+/**
+ * {@link RangedListView} provides an access to a {@link Chunk} restricted to a specific range. 
+ *
+ * @param <T> type handled by the {@link RangedListView} this instance provides access to
+ */
 public class RangedListView<T> extends AbstractCollection<T> implements RangedList<T>, Serializable {
 
     /** Serial Version UID */
 	private static final long serialVersionUID = 8258165981421352660L;
+	/** Chunk instance whose access is controlled by this instance */
 	private Chunk<T>  base;
+	
+	/**
+	 * The range of the {@link RangedList} which this object allows access to
+	 */
     protected LongRange range;
 
+    /**
+     * Creates a new {@link RangedListView} which does not allow access to
+     * any portion of any {@link RangedList}
+     * @param <T> type handled by this instance
+     * @return a newly created {@link RangedListView} which does not grant any access
+     */
     public static <T> RangedListView<T> emptyView() {
         return new RangedListView<>(null, new LongRange(0, 0));
     }
 
+    /**
+     * Creates a new {@link RangedListView} which grants access to the provided {@link RangedList}
+     * only on the specified range. 
+     * <p>
+     * The provided base can either be a {@link Chunk} or an existing {@link RangedListView}, in 
+     * which case the {@link Chunk} base of this {@link RangedListView} will be extracted.
+     * @param base {@link RangedList} this instance will control access to
+     * @param range the range of indices that the created instance allows access to
+     */
     public RangedListView(RangedList<T> base, LongRange range) {
         this.range = range;        
         if(base == null) {
@@ -50,11 +74,21 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
             throw new IndexOutOfBoundsException("[RangeListView] " + range + " is not contained in " + base.getRange());
     }
 
+    /**
+     * Returns the range this instance allows access to
+     */
     @Override
     public LongRange getRange() {
         return range;
     }
 
+    /**
+     * Checks if the provided object is contained in the {@link RangedList} this
+     * instance provided access to on the specific indices this instance allows
+     * access to. If the underlying {@link RangedList} contains the specified 
+     * object at an index that this {@link RangedListView} does not grant access
+     * to, this method will return false
+     */
     @Override
     public boolean contains(Object o) {
         for (long i = range.from; i < range.to; i++) {
@@ -71,6 +105,9 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Clones the range this {@link RangedListView} grants access to.
+     */
     @Override
     public RangedList<T> clone() {
         return cloneRange(range);
@@ -125,50 +162,68 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         return base.set(index, v);
     }
 
+    /**
+     * Returns the number of indices this {@link RangedListView} provides access to, cast to {@code int} 
+     * @see #longSize()
+     */
     @Override
     public int size() {
         return (int) longSize();
     }
 
+    /**
+     * Returns the number of indices this {@link RangedListView} provides access to
+     */
     @Override
     public long longSize() {
         return range.to - range.from;
     }
 
+    /**
+     * Iterator on the elements of {@link #base} this {@link RangedListView} provides access to
+     * @param <T> the type handled by the {@link RangedList} {@link #base}
+     */
     private static class It<T> implements Iterator<T> {
-        private long i;
-        private RangedListView<T> rangedListView;
-        private LongRange range;
+    	private long i;
+    	private RangedListView<T> rangedListView;
+    	private LongRange range;
 
-        public It(RangedListView<T> rangedListView) {
-            this.rangedListView = rangedListView;
-            this.range = rangedListView.getRange();
-            this.i = range.from - 1;
-        }
+    	public It(RangedListView<T> rangedListView) {
+    		this.rangedListView = rangedListView;
+    		this.range = rangedListView.getRange();
+    		this.i = range.from - 1;
+    	}
 
-        public It(RangedListView<T> rangedListView, long i0) {
-            this.rangedListView = rangedListView;
-            this.range = rangedListView.getRange();
-            this.i = i0 - 1;
-        }
+    	public It(RangedListView<T> rangedListView, long i0) {
+    		this.rangedListView = rangedListView;
+    		this.range = rangedListView.getRange();
+    		this.i = i0 - 1;
+    	}
 
-        @Override
-        public boolean hasNext() {
-            return i + 1 < range.to;
-        }
+    	@Override
+    	public boolean hasNext() {
+    		return i + 1 < range.to;
+    	}
 
-        @Override
-        public T next() {
-            return rangedListView.get(++i);
-        }
+    	@Override
+    	public T next() {
+    		return rangedListView.get(++i);
+    	}
 
     }
 
+    /**
+     * Returns a new iterator on the elements of the RangedList this instance provides
+     * access to. 
+     */
     @Override
     public Iterator<T> iterator() {
         return new It<T>(this);
     }
 
+    /**
+     * Returns a new iterator which starts 
+     */
     @Override
     public Iterator<T> iteratorFrom(long i) {
         return new It<T>(this, i);

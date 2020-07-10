@@ -121,8 +121,8 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
         return data.remove();
     }
 
-    public Collection<T> removeN(int count) {
-        return data.removeN(count);
+    public Collection<T> remove(int count) {
+        return data.remove(count);
     }
 
     /**
@@ -234,7 +234,7 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
             return;
         final DistBag<T> collection = this;
         Serializer serialize = (ObjectOutputStream s) -> {
-            s.writeObject(this.removeN(count));
+            s.writeObject(this.remove(count));
         };
         DeSerializer deserialize = (ObjectInputStream ds) -> {
             Collection<T> imported = (Collection<T>) ds.readObject();

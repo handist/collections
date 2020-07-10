@@ -18,20 +18,32 @@ import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.stream.LongStream;
 
+/**
+ * Class {@link LongRange} describes an interval over {@code long} values.
+ * <p>
+ * The lower bound is included and the upper bound is excluded from the interval, meaning that
+ * for two {@code long} values a and b (a<b), all the {@code long} values l such that a &lte; l &lt; b
+ * are contained within the {@link LongRange} [a,b).
+ * <p>
+ * It is possible to create "empty" {@link LongRange} instances where the lower bound is equal to the
+ * upper bound. In this case it is considered that there are no {@code long} values included in the 
+ * {@link LongRange}. 
+ */
 public class LongRange implements Comparable<LongRange>, Iterable<Long>, Serializable {
-	/**
-	 *
-	 */
+	/** Serial Version UID */
 	private static final long serialVersionUID = 6430187870603427655L;
-	public final long from; // INCLUSIVE
-	public final long to; // EXCLUSIVE
+	
+	/** Lower bound of the interval (included) */
+	public final long from; 
+	/** Upper bound of the interval (excluded) */
+	public final long to;
 
 	/**
 	 * Constructs a LongRange with the provided parameters. 
 	 * 
 	 * @param from lower bound of the range (inclusive)
 	 * @param to upper bound of the range (exclusive)
-	 * @throws IllegalArgumentException if the lower bound is strictly superior
+	 * @throws IllegalArgumentException if the provided lower bound is superior (striclty)
 	 * 	to the upper bound
 	 */ 
 	public LongRange(long from, long to) {
@@ -52,31 +64,59 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 		this.from = this.to = index;
 	}
 
+	/**
+	 * Returns the size of the LongRange, i.e. how many different indices are contained
+	 * between its lower bound and its upper bound. In practice, returns the difference
+	 * between {@link #to} and {@link #from}.
+	 * 
+	 * @return size of the {@link LongRange}
+	 */
 	public long size() {
 		return to - from;
 	}
 
+	/**
+	 * Indicates if the provided index is included in this instance. A {@code long}
+	 * l is contained in a {@link LongRange} [a,b) (a &lt; b) iff a &lte; l &lt; b.
+	 * If the {@link LongRange} has identical lower and upper bound, it does not contain any
+	 * index.
+	 * @param index the long value whose inclusion in this instance is to be checked 
+	 * @return {@code true} if the index is included within the bounds of this {@link LongRange},
+	 * {@code false} otherwise
+	 */
 	public boolean contains(long index) {
 		return (from <= index) && (index < to);
 	}
 
 	/**
-	 * Return whether the given range is included in this range.
-	 * If all the indices of the given range are contained in this range, return true, otherwise, return false.
-	 * 
-	 * @param range
-	 * @return
+	 * Indicates if the provided {@link LongRange} is included within this instance.
+	 * A LongRange is included inside this instance iff its lower bound is greater than or equal
+	 * to this instance lower bound, and if its upper bound is less than or equal to this instance
+	 * upper bound. 
+	 * @param range the range whose inclusion into this instance needs to be checked 
+	 * @return true if all the indices of the provided long range are present in this instance. 
 	 */
 	public boolean contains(LongRange range) {
 		return (this.from <= range.from) && (range.to <= this.to);
 	}
 
-	 /**
-     * Return whether there is an index contained both in the given range and this range.
-     * 
-     * @param range
-     * @return
-     */
+	/**
+	 * Returns true if the provided {@link LongRange} and this instance are overlapped. This operation is
+	 * symmetric, meaning that calling this method with two instances a and b, the result produced by 
+	 * {@code a.isOverlapped(b)} is the same as {@code b.isOverlapped(a)}.  
+	 * <p>
+	 * Two {@link LongRange} a and b are overlapped if they share some indices, that is if there exist a
+	 * {@code long} l such that a.contains(l) and b.contains(l) return true. 
+	 * <p> 
+	 * In cases where an empty {@link LongRange} and a non-empty {@link LongRange} are considered, this 
+	 * method returns true if the lower bound (or upper bound as it has the same value) of the empty 
+	 * instance is between the lower bound (included) and the upper bound (excluded) of the other
+	 * instance. 
+	 * <p>
+	 * If both considered {@link LongRange} are empty, returns true if they have the same bounds.  
+	 * @param range the range whose overlap with this instance is to be checked
+	 * @return true if the provided LongRange and this instance overlap
+	 */
 	public boolean isOverlapped(LongRange range) {
 		if (this.equals(range)) {
 			return true;
@@ -89,13 +129,13 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 		}
 	}
 
-	
 	/**
 	 * Return the intersection range of this instance ad the provided one.
 	 * If there is no index that belongs to both ranges, return null;
 	 * 
-	 * @param range
-	 * @return
+	 * @param range the range whose intersection with this instance is to be checked
+	 * @return a {@link LongRange} representing the instersection between this and
+	 * the provided instance, null if there is no intersection
 	 */
 	public LongRange intersection(LongRange range) {
 	    long from = Math.max(range.from, this.from);
@@ -104,35 +144,71 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 	    return new LongRange(from, to);
 	}
 	
-	
+	/**
+	 * Calls the provided function with every {@code long} index contained in this instance.
+	 * <p>
+	 * Calling this function on empty {@link LongRange} instances will not result in any 
+	 * call to the function. 
+	 * @param func the function to apply with every index of this instance
+	 */
 	public void forEach(LongConsumer func) {
 		for (long current = from; current < to; current++) {
 			func.accept(current);
 		}
 	}
 
+	/**
+	 * Streams every {@code long} index contained in this instance.
+	 * @return a {@link LongStream} of every index contained in this instance
+	 */
 	public LongStream stream() {
 		return LongStream.range(this.from, this.to);
 	}
 
+	/**
+	 * Compares the provided instance to this instance and returns an integer indicating
+	 * if the provided instance is less than, equal to, or greater than this instance. 
+	 * <p>
+	 * The implementation relies on ordering the lower bounds first before using the 
+	 * ordering of the upper bounds. The implemented ordering of {@link LongRange} is 
+	 * consistent with equals. To illustrate the ordering, consider the following examples:
+	 * <ul>
+	 * <li>[0,0) < [0,100) < [1,1) < [1,20) < [1,21)
+	 * <li>[0,0) == [0,0)
+	 * <li>[0,10) == [0,10)
+	 * </ul>
+	 * <p>
+	 * @param r the object to be compared
+	 * @return a negative integer, zero, or a positive integer as this object is less than, 
+	 * equal to, or greater than the specified object
+	 * @throws NullPointerException if the instance given as parameter is null
+	 */
 	public int compareTo(LongRange r) {
-		if (to <= r.from && from != to ) {
-			return -1;
-		} else if (r.to <= from && from != to) {
-			return 1;
-		} 
+//		if (to <= r.from && from != to ) {
+//			return -1;
+//		} else if (r.to <= from && from != to) {
+//			return 1;
+//		} 
 		// The LongRange instances overlap,
 		// We order them based on "from" first and "to" second
 		int fromComparison = Long.compare(from, r.from);
 		return (fromComparison == 0) ? Long.compare(to, r.to) : fromComparison; 
 	}
 
-
+	/**
+	 * Returns this LongRange printed in the following format: [lower_bound,upper_bound)
+	 * @return the range of this {@link LongRange} as "[lower_bound,upper_bound)"
+	 */
 	@Override
 	public String toString() {
 		return "[" + this.from + "," + this.to + ")";
 	}
 
+	/**
+	 * Checks whether the provided instance and this instance are equal. Two {@link LongRange} 
+	 * instances are equal if they share the same upper and lower bounds.
+	 * @return true if the provided instance and this instance are equal
+	 */
 	@Override
 	public boolean equals(Object o) {
 		if (!(o instanceof LongRange))
@@ -141,11 +217,20 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 		return this.from == range2.from && this.to == range2.to;
 	}
 
+	/**
+	 * Returns a hash code for the {@link LongRange}. 
+	 * The hash-code is generated based on some bit shift operations on the {@link #from lower} 
+	 * and {@link #to upper bound} of the {@link LongRange}.
+	 * @return hash-code for this instance
+	 */
 	@Override
 	public int hashCode() {
 		return (int)((from << 4) + (from>>16) + to);
 	}
 
+	/**
+	 * Iterator on the {@code long} indices contained in a {@link LongRange}
+	 */
 	class It implements Iterator<Long> {
 		long current;
 
@@ -164,6 +249,11 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 		}
 	}
 
+	/**
+	 * Returns an iterator on the {@code long} indices contained in this instance
+	 * @return a new iterator starting at {@link #from} and whose last value is the
+	 * long preceding {@link #to}
+	 */
 	@Override
 	public Iterator<Long> iterator() {
 		return new It();

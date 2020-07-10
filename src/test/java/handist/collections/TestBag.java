@@ -188,23 +188,29 @@ public class TestBag implements Serializable {
 	
 	@Test
 	public void testRemoveN() {
-		Bag<Element> b = bag.clone();
-		
-		List<Element> list = bag.removeN(4);
-		
+		List<Element> list = bag.remove(4);
 		assertSame(list.size(), 4);
 		assertSame(bag.size(), ELEMENTS_COUNT - 4);
-		for(int i = 0; i < 4; i++) {
-			assertEquals(list.get(i), elems[ELEMENTS_COUNT - 1 - i]);
+		for (Element e : list) {
+			assertFalse(bag.contains(e));
 		}
 		
-		assertNull(b.removeN(100));
+		// Trying to remove more than is contained in the bag returns everything
+		int size = bag.size();
+		assertTrue(size < 4);
+		assertFalse(bag.isEmpty());
+		list = bag.remove(4);
+		assertEquals(size, list.size());
+		assertTrue(bag.isEmpty());
 		
-		list = includeNullBag.removeN(4);
+		//Trying to remove from an empty bag returns an empty list
+		assertTrue(bag.remove(1).isEmpty());
+		
+		// Checking that having a null element does not bother the method. 
+		list = includeNullBag.remove(4);
 		assertSame(list.size(), 4);
 		assertSame(includeNullBag.size(), ELEMENTS_COUNT  - 4);
-		
-		assertNull(newlyCreatedBag.removeN(1));
+		assertTrue(newlyCreatedBag.remove(1).isEmpty());
 	}
 	
 	
