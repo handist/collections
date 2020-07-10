@@ -19,6 +19,7 @@ import java.util.HashSet;
 import java.util.Map;
 
 import apgas.Place;
+import handist.collections.ElementOverlapException;
 import handist.collections.LongRange;
 
 public class DistManager<T> {
@@ -66,7 +67,7 @@ public class DistManager<T> {
 
 	HashSet<T> importedDiffKeys = new HashSet<>();
 
-	public void add(T key) throws Exception {
+	public void add(T key) throws ElementOverlapException {
 		if (distHasKey(key)) {
 			if (distIsLocal(key)) {
 				if (diffHasKey(key)) {

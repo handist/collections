@@ -20,6 +20,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.ListIterator;
+import java.util.function.Function;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -142,23 +143,33 @@ public class TestChunk implements Serializable {
 		new Chunk<>(null, elems);
 	}
 
-
 	@Test
 	public void testConstructorWithParameter() {
-		Element e = new Element(1);
-		Chunk<Element> c = new Chunk<>(new LongRange(0, 5), e);
-		for(int i = 0; i < 5; i++) {
-			assertEquals(c.get(i), e);
-		}
+        Element e = new Element(1);
+        Chunk<Element> c = new Chunk<>(new LongRange(0, 5), e);
+        for(int i = 0; i < 5; i++) {
+            assertEquals(c.get(i), e);
+        }
 
-		e = null;
-		c = new Chunk<>(new LongRange(1, 5), e);
-		assertSame(c.size(), 4);
-		for(int i = 1; i < 5; i++) {
-			assertNull(c.get(i));
-		}
+        e = null;
+        c = new Chunk<>(new LongRange(1, 5), e);
+        assertSame(c.size(), 4);
+        for(int i = 1; i < 5; i++) {
+            assertNull(c.get(i));
+        }
 	}
-
+	
+   @Test
+   public void testConstructorWithInitializer() {
+       Function<Long,Element> init= (Long index)->{
+         return new Element(107 * index.intValue());
+       };
+       LongRange range = new LongRange(10, 100);
+       Chunk<Element> c = new Chunk<>(range, init);
+       c.forEach((long i, Element e) -> {
+           assertEquals(init.apply(i).n, e.n);
+       });
+   }
 
 	@Test(expected = IllegalArgumentException.class)
 	public void testConstructorZeroSize() {
