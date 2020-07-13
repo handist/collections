@@ -58,6 +58,8 @@ public class DistMap<K, V> extends AbstractDistCollection {
 	// TODO not public
 	public HashMap<K, V> data;
 
+    private Function<K, V> proxyGenerator;
+
 	/**
 	 * Construct a DistMap.
 	 */
@@ -137,16 +139,22 @@ public class DistMap<K, V> extends AbstractDistCollection {
 		if (!data.isEmpty())
 			data.forEach(op);
 	}
-
-	/**
-	 * Return the value corresponding to the specified key. If the specified entry
-	 * is not found, return the value of Zero.get[U]().
-	 *
-	 * @param key the key corresponding to the value.
-	 * @return the value corresponding to the specified key.
-	 */
+    /**
+     * Return the element for the provided key. If there is no element at the index, return null.
+     *
+     * When an agent generator is set on this instance and there is no element at the index, a proxy value for the index is generated as a return value.
+     *
+     * @param key
+     * @return the element associated with {@code key}.
+     */
 	public V get(K key) {
-		return data.get(key);
+	    V result = data.get(key);
+	    if(result != null) return result;
+	    if(proxyGenerator!=null && !data.containsKey(key)) {
+	        return proxyGenerator.apply(key);
+	    } else {
+	        return null;
+	    }
 	}
 
 	private Collection<K> getNKeys(int count) {
@@ -416,6 +424,17 @@ public class DistMap<K, V> extends AbstractDistCollection {
 
     }*/
 
+	 /**
+     * The proxy feature prepares a proxy when elements that do not reside the called site.
+     * It resembles `getOrDefault(key, defaultValue)`.
+     *  Instead of the default value provided by the call site,
+     *   the given proxy generator generates a proxy for the key.
+     *
+     * @param proxyGenerator
+     */
+    public void setProxyGenerator(Function<K, V> proxyGenerator) {
+        this.proxyGenerator = proxyGenerator;
+    }
 
 	// TODO different naming convention of balance methods with DistMap
 
