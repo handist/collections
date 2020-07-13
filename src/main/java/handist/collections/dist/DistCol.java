@@ -120,6 +120,8 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 
 	transient DistManager.Range ldist;
 
+    private Function<Long, T> proxyGenerator;
+
 	/**
 	 * Create a new DistCol. All the hosts participating in the distributed
 	 * computation are susceptible to handle the created instance. This
@@ -246,8 +248,27 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 		data.forEachChunk(op);
 	}
 
+    /**
+     * Return the value corresponding to the specified index.
+     * 
+     *  If the specified index is not assigned on the place and no proxyGenerator is set for this instance, IndexOutofBoundsException will be raised.
+     * When a proxy generator is set for this instance, it generates a proxy value for the index and return the value. as a result,
+     * even if the index is not assigned to any place.
+     * 
+     * @param key
+     * @throws IndexOutOfBoundsException
+     * @return the value corresponding to the provided index
+     */
 	public T get(long i) {
-		return data.get(i);
+	    if(proxyGenerator==null) {
+            return data.get(i);
+	    } else {
+	        try {
+	            return data.get(i);
+	        } catch (IndexOutOfBoundsException e) {
+	            return proxyGenerator.apply(i);
+	        }
+	    }
 	}
 
 	Map<LongRange, Integer> getDiff() {
@@ -568,6 +589,20 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 	public T set(long i, T value) {
 		return data.set(i, value);
 	}
+	
+
+    /**
+     * The proxy feature prepares a proxy when elements that do not reside the called site.
+     * It resembles `getOrDefault(key, defaultValue)`.
+     *  Instead of the default value provided by the call site,
+     *   the given proxy generator generates a proxy for the index.
+     *
+     * @param proxyGenerator
+     */
+    public void setProxyGenerator(Function<Long,T> proxyGenerator) {
+        this.proxyGenerator = proxyGenerator;
+    }
+	
 
 	// TODO ...
 	public void setupBranches(final Generator<T> gen) {
