@@ -9,6 +9,7 @@
  *******************************************************************************/
 package handist.collections;
 
+import java.io.Serializable;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,7 +39,7 @@ import handist.collections.function.LongTBiConsumer;
  * {@link ChunkedList} contains, and by extension, the type of elements handled
  * by the {@link ChunkedList}
  */
-public class ChunkedList<T> extends AbstractCollection<T> {
+public class ChunkedList<T> extends AbstractCollection<T> implements Serializable {
 
 	/**
 	 * Iterator class for {@link ChunkedList}. 

@@ -11,6 +11,12 @@ package handist.collections;
 
 import static org.junit.Assert.*;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -27,7 +33,7 @@ import org.junit.Test;
 
 public class TestChunkedList {
 
-	public class Element {
+	public static class Element implements Serializable {
 		public int n = 0;
 		public Element(int i) {
 			n = i;
@@ -697,5 +703,21 @@ public class TestChunkedList {
 	public void testToString() {
 		assertEquals("[ChunkedList(3),[[0,3)]:0,1,2,[[3,5)]:3,null,[[5,6)]:5]", chunkedList.toString());
 		assertEquals("[ChunkedList(0)]", newlyCreatedChunkedList.toString());
+	}
+	
+	@Test
+	public void testSerializable()  throws IOException, ClassNotFoundException {
+	    assertTrue(chunkedList instanceof Serializable);
+	    ByteArrayOutputStream out0 = new ByteArrayOutputStream();
+	    ObjectOutputStream out = new ObjectOutputStream(out0);
+	    out.writeObject(chunkedList);
+	    out.close();
+	    ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(out0.toByteArray()));
+	    ChunkedList<Element> c2 = (ChunkedList<Element>)in.readObject();
+	    assertEquals(c2.longSize(), chunkedList.longSize());
+        c2.forEach((long index, Element e)-> {
+            if(e==null) assertNull(chunkedList.get(index));
+            if(e!=null) assertEquals(chunkedList.get(index).n, e.n);  
+         });
 	}
 }
