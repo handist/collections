@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -505,6 +506,19 @@ public class TestChunkedList {
 		assertEquals(6l, chunkedList.longSize());
 		assertEquals(0, newlyCreatedChunkedList.longSize());
 	}
+	
+	
+	@Test
+	public void testConstructor() {
+		TreeMap<LongRange, RangedList<Element>> tMap = new TreeMap<>();
+		tMap.put(chunks[0].getRange(), chunks[0]);
+		tMap.put(chunks[1].getRange(), chunks[1]);
+		tMap.put(chunks[2].getRange(), chunks[2]);
+		ChunkedList<Element> cList = new ChunkedList<Element>(tMap);
+		
+		assertEquals(6l, cList.longSize());
+	}
+	
 
 	@Test
 	public void testMap() {
