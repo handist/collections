@@ -123,6 +123,8 @@ public class ChunkedList<T> extends AbstractCollection<T> {
 	 */
 	public ChunkedList(TreeMap<LongRange, RangedList<T>> chunks) {
 		this.chunks = chunks; //FIXME what about member size ?
+		size = 0;
+		chunks.forEach((r, c) -> size += c.longSize());
 	}
 
 	/**
