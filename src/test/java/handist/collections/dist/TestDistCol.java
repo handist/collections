@@ -17,29 +17,23 @@ import java.util.function.Function;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
 import handist.collections.Chunk;
 import handist.collections.LongRange;
-import handist.mpijunit.MpiConfig;
-import handist.mpijunit.MpiRunner;
-import handist.mpijunit.launcher.TestLauncher;
 
-@RunWith(MpiRunner.class)
-@MpiConfig(ranks=2, launcher=TestLauncher.class)
-public class IT_DistCol2 implements Serializable {
+public class TestDistCol implements Serializable {
 
-    TeamedPlaceGroup world;
+    SinglePlaceGroup world;
 
     @Before
     public void setup() {
-        world = TeamedPlaceGroup.getWorld();
+        world = SinglePlaceGroup.getWorld();
     }
     
     // TODO move to single node test after preparing world setup for single node.
     @Test
     public void proxyGenerator() {
-        DistCol<String> distCol = new DistCol<String>();
+        DistCol<String> distCol = new DistCol<String>(world);
         Function<Long,String> gen = (Long index)-> {
             return "xx"+ index.toString();
         };

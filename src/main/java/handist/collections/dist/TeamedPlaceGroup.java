@@ -195,6 +195,16 @@ public class TeamedPlaceGroup implements Serializable {
 		this.parent = parent;
 		id.putHere(this);
 	}
+	
+	 // used for SinglePlaceGroup only
+    protected TeamedPlaceGroup() {
+        this.id=null;
+        this.myrank = 0;
+        this.size=1;
+        this.places = new ArrayList<Place>(size);
+        this.comm = null;
+        places.add(here());
+    }
 
 	public void Alltoallv(Object byteArray, int soffset, int[] sendSize, int[] sendOffset, Datatype stype,
 			Object recvbuf, int roffset, int[] rcvSize, int[] rcvOffset, Datatype rtype) throws MPIException {
