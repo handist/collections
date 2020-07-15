@@ -11,9 +11,12 @@ package handist.collections;
 
 import static org.junit.Assert.*;
 
+import java.util.Iterator;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -38,10 +41,15 @@ public class TestRangedListView {
 		}
 	}
 
+	/** total number of elements in the Chunk */
 	private static final int ELEMENTS_COUNT = 10;
+	/** Chunl on which the RangedListView is created */
 	private Chunk<Element> chunk;
+	/** Elements contained in the Chunk */
 	private Element[] elems;
-	private LongRange range;
+	/** Range on which the View is created */
+	private LongRange viewRange;
+	/** instance of RangedListView under test */
 	private RangedListView<Element> view;
 
 	@Before
@@ -53,10 +61,8 @@ public class TestRangedListView {
 			chunk.set(i, elems[i]);
 		}
 
-		chunk.set(2, null);	//include null test
-
-		range = new LongRange(1, 5);
-		view = new RangedListView<>(chunk, range);
+		viewRange = new LongRange(1, 5);
+		view = new RangedListView<>(chunk, viewRange);
 	}
 
 	@After
@@ -72,6 +78,96 @@ public class TestRangedListView {
 	public void testClone() {
 		RangedList<Element> v = view.clone();
 		assertSame(v.longSize(), view.longSize());
+		for (long l = 1 ; l < 5; l++) {
+			assertTrue(chunk.get(l) == v.get(l));
+		}
+	}
+
+	@Test(expected = UnsupportedOperationException.class)
+	public void testConstructorNotSupportedClass() {
+		class NotASupportedClass<T> implements RangedList<T> {
+
+			@Override
+			public Iterator<T> iterator() {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public RangedList<T> cloneRange(LongRange range) {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public boolean contains(Object o) {
+				// TODO Auto-generated method stub
+				return false;
+			}
+
+			@Override
+			public T get(long index) {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public LongRange getRange() {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public Iterator<T> iteratorFrom(long i) {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public long longSize() {
+				// TODO Auto-generated method stub
+				return 0;
+			}
+
+			@Override
+			public T set(long index, T value) {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public Object[] toArray() {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public Object[] toArray(LongRange newRange) {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public Chunk<T> toChunk(LongRange newRange) {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+		}
+		NotASupportedClass<Integer> instance = new NotASupportedClass<>();
+
+		new RangedListView<>(instance, new LongRange(0,0));
+	}
+
+	@Test(expected = IndexOutOfBoundsException.class) 
+	public void testConstructorIndexOutOfBoundsException() {
+		new RangedListView<>(view, new LongRange(0, 5));
 	}
 
 	@Test
@@ -82,9 +178,53 @@ public class TestRangedListView {
 	}
 
 	@Test
-	@Ignore
 	public void testForEach() {
-		view.forEach(e -> System.out.println("forEach :" + e));
+		// Do something on the view part of the chunk
+		view.forEach(e -> e.n *= e.n);
+
+		// Check that only the view part was affected
+		for (long l = 0; l < chunk.getRange().to; l++) {
+			long value = chunk.get(l).n;
+			if (view.getRange().contains(l)) {
+				assertEquals(l*l, value);
+			} else {
+				assertEquals(l, value);
+			}
+		}
+	}
+
+	@Test
+	public void testForEachLongRangeBiConsumer() {
+		view.forEach((l,e)->e.n*=l);
+
+		// Check that only the view part was affected
+		for (long l = 0; l < chunk.getRange().to; l++) {
+			long value = chunk.get(l).n;
+			if (view.getRange().contains(l)) {
+				assertEquals(l*l, value);
+			} else {
+				assertEquals(l, value);
+			}
+		}
+	}
+
+	@Test
+	public void testForEachRangeBiConsumerConsumer() {
+		final Consumer<Integer> consumer = new Consumer<Integer>() {
+			public Integer sum = new Integer(0);
+			public void accept(Integer i) {
+				sum += i;
+			}
+
+			@Override
+			public String toString() {
+				return sum.toString();
+			}
+		};
+		view.forEach(new LongRange(2, 5), (t, consumerOfU)->consumerOfU.accept(new Integer(t.n)), consumer);
+
+		int expected = 2 + 3 + 4;
+		assertEquals(Integer.toString(expected), consumer.toString());
 	}
 
 	/**
@@ -95,11 +235,7 @@ public class TestRangedListView {
 	public void testGet() {
 		/*for (int i = 0; i < ELEMENTS_COUNT; i++)*/
 		view.getRange().forEach((long i)-> {
-			if (i != 2) {
-				assertEquals(elems[(int)i], view.get(i));				
-			} else {
-				assertEquals(null, view.get(i));
-			}
+			assertEquals(elems[(int)i], view.get(i));				
 		});
 	}
 
@@ -111,6 +247,83 @@ public class TestRangedListView {
 				chunk.get(index);
 			});
 		}
+	}
+	
+	@Test
+	public void testIsEmpty() {
+		assertTrue(RangedListView.emptyView().isEmpty());
+		assertFalse(view.isEmpty());
+		assertTrue(new RangedListView<>(view, new LongRange(1)).isEmpty());
+	}
+
+	@Test
+	public void testIterator() {
+		Iterator<Element> it = view.iterator();
+
+		// Do something on the elements of it
+		while (it.hasNext()) {
+			Element e = it.next();
+			e.n *= e.n;
+		}
+
+		assertThrows(IndexOutOfBoundsException.class, ()->it.next());
+
+		// Check only the view part of the chunk was affected
+		for (long l = 0; l < chunk.getRange().to; l++) {
+			long value = chunk.get(l).n;
+			if (view.getRange().contains(l)) {
+				assertEquals(l*l, value);
+			} else {
+				assertEquals(l, value);
+			}
+		}
+	}
+
+	@Test
+	public void testIteratorFrom() {
+		Iterator<Element> it = view.iteratorFrom(3l);
+
+		while (it.hasNext()) {
+			it.next().n = 0;
+		}
+
+		// Check only the "view" part of the chunk with index >3 iterator was
+		// affected
+		for (long l = 0; l < chunk.getRange().to; l++) {
+			long value = chunk.get(l).n;
+			if (view.getRange().contains(l) && l >=3) {
+				assertEquals(0, value);
+			} else {
+				assertEquals(l, value);
+			}
+		}
+	}
+
+	/**
+	 * Creating an iterator which starts with an index out of the Chunk range
+	 * should throw an exception
+	 */
+	@Test(expected = IndexOutOfBoundsException.class)
+	public void testIteratorFromOutOfChunkRange() {
+		view.iteratorFrom(-1l);
+	}
+
+	/**
+	 * Creating an iterator which starts outside the range allowed by the view
+	 * should throw an exception
+	 */
+	@Test(expected = IndexOutOfBoundsException.class)
+	public void testIteratorFromOutOfViewRange() {
+		view.iteratorFrom(0l);
+	}
+
+	/**
+	 * Checks that an iterator on an empty view can be created but has no 
+	 * elements
+	 */
+	@Test
+	public void testIteratorOnEmptyView() {
+		assertFalse(RangedListView.emptyView().iterator().hasNext());
 	}
 
 	@Test
@@ -126,10 +339,19 @@ public class TestRangedListView {
 	 */
 	@Test
 	public void testSet() {
+		view.set(2, null);
 		assertEquals(null, view.get(2));
 		Element e = new Element(42);
 		view.set(2, e);
 		assertEquals(e, view.get(2));
+	}
+
+	/**
+	 * Setting a value outside of the view's bounds should not be allowed
+	 */
+	@Test(expected=IndexOutOfBoundsException.class)
+	public void testSetOutOfBounds() {
+		view.set(0l, null);
 	}
 
 	@Test
@@ -168,35 +390,47 @@ public class TestRangedListView {
 	public void testToArray() {
 		Object[] o = view.toArray();
 		assertSame(o.length, 4);
-		assertEquals(o[0], elems[1]);
-		assertNull(o[1]);
+		for (int i=0; i < o.length; i++) {
+			assertSame(elems[i+1], o[i]);
+		}
 	}
 
 
 	@Test
 	public void testToChunk() {
+		// Reminder: the view range is [1.5)
 		Chunk<Element> chunk2to4 = view.toChunk(new LongRange(2, 4));
 		assertEquals(2, chunk2to4.size());
-		assertEquals(chunk2to4.get(3), elems[3]);
-
-		Chunk<Element> chunk5to9 = view.toChunk(new LongRange(5, 9));
-		assertEquals(4, chunk5to9.size());
-		for (int i = 5; i < 9; i ++) {
-			assertEquals(elems[i], chunk5to9.get(i));
-		}
-		try {
-			chunk5to9.get(9);
-			fail("Accessing an index out of range should have thrown an error");
-		} catch (IndexOutOfBoundsException e) {
+		for (int l = 2; l < 4; l++) {
+			assertEquals(chunk2to4.get(l), elems[l]);			
 		}
 	}
 
 	/**
 	 * Checks that a IndexOutOfBoundsException is thrown
-	 * when a bad range is given as parameter.
+	 * when a range that falls outside of the chunk is
+	 * given.
 	 */
 	@Test(expected = IndexOutOfBoundsException.class)
-	public void testToChunkBadRange() {
+	public void testToChunkOutOfChunkBounds() {
 		view.toChunk(new LongRange(-1, 6));
+	}
+
+	@Test(expected = IndexOutOfBoundsException.class)
+	public void testToChunkOutOfViewBounds() {
+		// Reminder: the view range is [1.5)
+		// The next call should throw an error
+		Chunk<Element> chunk5to9 = view.toChunk(new LongRange(5, 9));
+		// The code after here should not be run as a result of the exception
+		// thrown just above. 
+		assertEquals(4, chunk5to9.size());
+		for (int i = 5; i < 9; i ++) {
+			assertEquals(elems[i], chunk5to9.get(i));
+		}
+	}
+	
+	@Test
+	public void testToString() {
+		assertEquals("[[0,0)]", RangedListView.emptyView().toString());
 	}
 }
