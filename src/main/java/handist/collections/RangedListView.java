@@ -37,14 +37,15 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 		private LongRange range;
 		private RangedListView<T> rangedListView;
 
-		public It(RangedListView<T> rangedListView) {
-			this.rangedListView = rangedListView;
-			this.range = rangedListView.getRange();
+		public It(RangedListView<T> view) {
+			rangedListView = view;
+			range = rangedListView.getRange();
 			this.i = range.from - 1;
 		}
 
-		public It(RangedListView<T> rangedListView, long i0) {
-			this.rangedListView = rangedListView;
+		public It(RangedListView<T> view, long i0) {
+			view.rangeCheck(i0);
+			rangedListView = view;
 			this.range = rangedListView.getRange();
 			this.i = i0 - 1;
 		}
@@ -70,7 +71,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 	 * @return a newly created {@link RangedListView} which does not grant any access
 	 */
 	public static <T> RangedListView<T> emptyView() {
-		return new RangedListView<>(null, new LongRange(0, 0));
+		return new RangedListView<>((Chunk<T>)null, new LongRange(0, 0));
 	}
 
 	/** Chunk instance whose access is controlled by this instance */
@@ -113,16 +114,24 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 	}
 
 	/**
-	 * Clones the range this {@link RangedListView} grants access to.
+	 * Creates a new {@link RangedList} which contains clones of the elements this 
+	 * {@link RangedListView} grants access to. 
 	 */
 	@Override
 	public RangedList<T> clone() {
 		return cloneRange(range);
 	}
 
+	/**
+	 * Creates a new {@link RangedList} on the specified range containing clones
+	 * of the elements this view grants access to. The specified range must be 
+	 * included into this {@link RangedListView}'s range. 
+	 */
 	@Override
-	public RangedList<T> cloneRange(LongRange newRange) {
-		return toChunk(newRange);
+	public RangedList<T> cloneRange(LongRange range) {
+		rangeCheck(range);
+		if (range.equals(base.getRange())) return base.clone();
+		return base.cloneRange(range);
 	}
 
 	/**
@@ -169,11 +178,10 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 	}
 
 	/**
-	 * Get the element indexed by the {@code index}. 
+	 * Get the element at the provided {@code index}. 
 	 * 
-	 *  @throws IndexOutofBoundsException the given index is out of range.
-	 *  
-	 * @param index
+	 * @param index index of the element to retrieve
+	 * @return the value stored at the given index
 	 */
 	@Override
 	public T get(long index) {
@@ -193,7 +201,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 	public int hashCode() {
 		return RangedList.hashCode(this);
 	}
-
+	
 	/**
 	 * Returns a new iterator on the elements of the RangedList this instance provides
 	 * access to. 
@@ -204,7 +212,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 	}
 
 	/**
-	 * Returns a new iterator which starts 
+	 * Returns a new iterator which starts at the provided index
 	 */
 	@Override
 	public Iterator<T> iteratorFrom(long i) {
@@ -224,23 +232,24 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 		Chunk<T> chunk = (Chunk<T>) in.readObject();
 		this.base = chunk;
 		this.range = chunk.getRange();
-		// System.out.println("readChunk: " + this);
 	}
 
 	/**
-	 * Set the given value at the given index. 
-	 * 
-	 *  @throws IndexOutofBoundsException the given index is out of range.
+	 * Set the given value at the specified index. 
 	 *  
-	 * @param index
-	 * @param v
+	 * @param index index at which the value should be set
+	 * @param v value to set at the specified index
+	 * @return old value at the specified index, or {@code null} if there was no
+	 * previous vale or the previous value was {@code null}
+	 * @throws IndexOutOfBoundsException if the given index is out of the range allowed by the view
 	 */
-
 	@Override
 	public T set(long index, T v) {
 		rangeCheck(index); 
 		return base.set(index, v);
 	}
+	
+	
 	public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
 		rangeCheck(from.getRange());
 		base.setupFrom(from, func);
@@ -257,22 +266,24 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
 	@Override
 	public Object[] toArray() {
+		return toArray(range);
+	}
+
+	@Override
+	public Object[] toArray(LongRange range) {
+		rangeCheck(range);
 		return base.toArray(range);
 	}
 
 	@Override
-	public Object[] toArray(LongRange newRange) {
-		return base.toArray(newRange);
-	}
-
-	@Override
-	public Chunk<T> toChunk(LongRange newRange) {
-		return base.toChunk(newRange);
+	public Chunk<T> toChunk(LongRange range) {
+		rangeCheck(range);
+		return base.toChunk(range);
 	}
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		if(range==null) return "RangedListView in Underconstruction.";
+		if(range==null) return "RangedListView under construction";
 		sb.append("[" + range + "]");
 		int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
 		long c = 0;

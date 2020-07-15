@@ -67,7 +67,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @return {@code true} if the collection contains {@code o}, {@code false}
 	 * 	otherwise
 	 */
-	abstract boolean contains(Object o);;
+	abstract boolean contains(Object o);
 
 	/**
 	 * Performs the provided action on each element contained by this instance,
@@ -237,7 +237,7 @@ public interface RangedList<T> extends Iterable<T> {
 	default public void rangeCheck(long target) {
 		if(!this.getRange().contains(target)) {
 			throw new IndexOutOfBoundsException(
-					"[RangedList] range mismatch:" + this.getRange() + " must includes " + target);
+					"[RangedList] range mismatch: " + this.getRange() + " does not include " + target);
 		}
 	}
 
