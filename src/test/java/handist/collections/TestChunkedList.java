@@ -604,19 +604,19 @@ public class TestChunkedList {
 		Chunk<Element> chunkToRemove = new Chunk<>(new LongRange(-1l, 0l));
 		// Removes nothing, the indices do not intersect. 
 		RangedList<Element> removed = chunkedList.removeChunk(chunkToRemove);
-		assertEquals(6, chunkedList.size());
+		assertEquals(6L, chunkedList.longSize());
 		assertNull(removed);
 
 		// A Chunk that is included but not identical to a chunk of the
 		// chunked list is not removed
 		chunkToRemove = new Chunk<>(new LongRange(0l, 1l));
 		chunkedList.removeChunk(chunkToRemove);
-		assertEquals(6, chunkedList.size());
+		assertEquals(6L, chunkedList.longSize());
 
 		// A chunk with the same range will be removed
 		chunkToRemove = new Chunk<>(new LongRange(0l, 3l));
 		removed = chunkedList.removeChunk(chunkToRemove);
-		assertEquals(3, chunkedList.size());
+		assertEquals(3L, chunkedList.longSize());
 		assertEquals(3l, removed.longSize());
 		for (Element e : removed) {
 			assertTrue(removed.contains(e));
@@ -625,7 +625,7 @@ public class TestChunkedList {
 
 		// If the same object is given as parameter, also works
 		removed = chunkedList.removeChunk(chunks[1]);
-		assertEquals(1, chunkedList.size());
+		assertEquals(1L, chunkedList.longSize());
 		assertEquals(2l, removed.longSize());
 		for (Element e : removed) {
 			assertTrue(removed.contains(e));
@@ -643,8 +643,8 @@ public class TestChunkedList {
 		List<ChunkedList<Element>> cLists = chunkedList.separate(2);
 		assertSame(cLists.size(), 2);
 
-		assertSame(cLists.get(0).size(), 3);
-		assertSame(cLists.get(1).size(), 3);
+		assertSame(cLists.get(0).longSize(), 3L);
+		assertSame(cLists.get(1).longSize(), 3L);
 
 		assertEquals(cLists.get(0).get(0), elems[0]);
 		assertEquals(cLists.get(1).get(5), elems[5]);
@@ -653,10 +653,10 @@ public class TestChunkedList {
 		cLists = chunkedList.separate(4);
 		assertSame(4, cLists.size());
 
-		assertSame(2, cLists.get(0).size());
-		assertSame(2, cLists.get(1).size());
-		assertSame(1, cLists.get(2).size());
-		assertSame(1, cLists.get(3).size());
+		assertSame(2L, cLists.get(0).longSize());
+		assertSame(2L, cLists.get(1).longSize());
+		assertSame(1L, cLists.get(2).longSize());
+		assertSame(1L, cLists.get(3).longSize());
 
 		assertEquals(cLists.get(0).get(0), elems[0]);
 		assertEquals(cLists.get(1).get(2), elems[2]);
@@ -666,8 +666,8 @@ public class TestChunkedList {
 
 		cLists = chunkedList.separate((10));
 		assertSame(cLists.size(), 10);
-		assertSame(cLists.get(5).size(), 1);
-		assertSame(cLists.get(9).size(), 0);
+		assertSame(cLists.get(5).longSize(), 1L);
+		assertSame(cLists.get(9).longSize(), 0L);
 	}
 
 	@Test
@@ -684,8 +684,8 @@ public class TestChunkedList {
 
 	@Test
 	public void testSize() {
-		assertEquals(6, chunkedList.size());	
-		assertEquals(0, newlyCreatedChunkedList.size());
+		assertEquals(6L, chunkedList.longSize());	
+		assertEquals(0L, newlyCreatedChunkedList.longSize());
 	}
 
 
