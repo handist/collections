@@ -162,6 +162,21 @@ final public class MPILauncher implements Launcher {
 		// method is launched
 		System.setProperty(Config.APGAS_LAUNCHER, "handist.collections.mpi.MPILauncher");
 
+		// Sets the APGAS_VERBOSE_SERIALIZATION to "true"
+		// System.setProperty(Configuration.APGAS_VERBOSE_SERIALIZATION, "true");
+
+		// If "kryo==true", the program uses KryoSerializer instead of JavaSerializer.
+		boolean kryo = true;
+
+		if(!kryo) {
+		    // Sets the APGAS_SERIALIZATION to "java". This will make the apgas runtime
+		    // use the JavaSerializer for all classes, instead of using KryoSerializer.
+
+		    System.setProperty(Config.APGAS_SERIALIZATION, "java");
+		} else {
+		    apgas.impl.KryoSerializer.setInstantiatorStrategy(new apgas.impl.KryoSerializer.DefaultForColInstantiatorStrategy());
+		}
+		
 		/*
 		 * If this place is the "master", i.e. rank, launches the main method of the
 		 * class specified as parameter. If it is not the "master", sets up the
@@ -205,6 +220,7 @@ final public class MPILauncher implements Launcher {
 	}
 
 	public static void mpiCustomFinalize(int rank, Comm world) throws MPIException {
+	    java.util.Collections.reverse(plugins);
 		for(Plugin plugin: plugins) {
 			plugin.beforeFinalize(rank, world);
 		}
