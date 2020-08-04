@@ -28,6 +28,7 @@ import java.util.concurrent.CountDownLatch;
 import apgas.Place;
 import apgas.SerializableJob;
 import apgas.util.GlobalID;
+import apgas.util.SerializableWithReplace;
 import handist.collections.mpi.MPILauncher;
 import handist.collections.mpi.MPILauncher.Plugin;
 import mpi.Comm;
@@ -37,7 +38,7 @@ import mpi.MPI;
 import mpi.MPIException;
 
 // TODO merge with ResilientPlaceGroup, ..
-public class TeamedPlaceGroup implements Serializable {
+public class TeamedPlaceGroup implements SerializableWithReplace {
 	private static final class ObjectReference implements Serializable {
 		/**
 		 *

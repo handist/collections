@@ -31,6 +31,7 @@ import java.util.function.Function;
 import apgas.Constructs;
 import apgas.Place;
 import apgas.util.GlobalID;
+import apgas.util.SerializableWithReplace;
 import mpi.MPI;
 import mpi.MPIException;
 
@@ -40,7 +41,7 @@ import mpi.MPIException;
  * @param <K> type of the key used in the {@link DistMap}
  * @param <V> type of the value mapped to each key in the {@link DistMap}
  */
-public class DistMap<K, V> extends AbstractDistCollection {
+public class DistMap<K, V> extends AbstractDistCollection implements SerializableWithReplace {
 
 	public static interface Generator<K, V> extends BiConsumer<Place, DistMap<K, V>>, Serializable {
 	}
