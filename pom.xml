@@ -96,7 +96,7 @@
 		<dependency>
 			<groupId>com.github.handist</groupId> <!-- Corresponds to github.com/handist/apgas repository -->
 			<artifactId>apgas</artifactId>
-			<version>kamada~Kryo4.0.2TrialUse_1-SNAPSHOT</version>
+			<version>handist-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.handist</groupId>
