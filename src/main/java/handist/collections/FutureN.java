@@ -72,7 +72,7 @@ public abstract class FutureN<S>  {
 		 * consumer provided during construction
 		 * @return nothing
 		 * @throws InterruptedException if such an exception is thrown by one of the futures
-		 * @throws Execution Exception if such an exception is thrown by one of the futures 
+		 * @throws ExecutionException if such an exception is thrown by one of the futures 
 		 */
 		@Override
 		public Void get() throws InterruptedException, ExecutionException {
@@ -86,7 +86,7 @@ public abstract class FutureN<S>  {
 		 * consumer provided during construction
 		 * @return nothing
 		 * @throws InterruptedException if such an exception is thrown by one of the futures
-		 * @throws Execution Exception if such an exception is thrown by one of the futures 
+		 * @throws ExecutionException if such an exception is thrown by one of the futures 
 		 * @throws TimeoutException if one of the futures handled by this class exhausts the timeout
 		 */
 		@Override
@@ -140,7 +140,7 @@ public abstract class FutureN<S>  {
 		 * in a list.
 		 * @return the result produced by each future, in a list 
 		 * @throws InterruptedException if such an exception is thrown by one of the futures
-		 * @throws Execution Exception if such an exception is thrown by one of the futures 
+		 * @throws ExecutionException if such an exception is thrown by one of the futures 
 		 */
 		@Override
 		public List<R> get() throws InterruptedException, ExecutionException {
@@ -155,7 +155,7 @@ public abstract class FutureN<S>  {
 		 * @param unit time unit of the timeout
 		 * @return the result produced by each future, in a list
 		 * @throws InterruptedException if such an exception is thrown by one of the futures
-		 * @throws Execution Exception if such an exception is thrown by one of the futures 
+		 * @throws ExecutionException if such an exception is thrown by one of the futures 
 		 * @throws TimeoutException if one of the futures handled by this class exhausts the timeout
 		 */
 		@Override
@@ -216,8 +216,8 @@ public abstract class FutureN<S>  {
 
 		/**
 		 * Constructor which takes a list of futures and an object 
-		 * @param futures the list of futures whose completion 
-		 * @param r
+		 * @param futures the list of futures whose completion will be waited on
+		 * @param r object to return when all the futures have completed
 		 */
 		@SuppressWarnings("unchecked")
 		public ReturnGivenResult(List<Future<?>> futures, R r) {
@@ -242,7 +242,7 @@ public abstract class FutureN<S>  {
 		 * @param unit time unit of the timeout
 		 * @return the object this class was constructed with
 		 * @throws InterruptedException if such an exception is thrown by one of the futures
-		 * @throws Execution Exception if such an exception is thrown by one of the futures 
+		 * @throws ExecutionException if such an exception is thrown by one of the futures 
 		 * @throws TimeoutException if one of the futures handled by this class exhausts the timeout
 		 */
 		@Override
@@ -292,7 +292,7 @@ public abstract class FutureN<S>  {
 	/** 
 	 * Helper method for child classes, calls method {@link Future#get()} on each future handled
 	 * @throws InterruptedException if such an exception is thrown by one of the futures
-	 * @throws Execution Exception if such an exception is thrown by one of the futures  
+	 * @throws ExecutionException if such an exception is thrown by one of the futures  
 	 */ 
 	protected void get0() throws InterruptedException, ExecutionException {
 		synchronized (this) {
@@ -308,7 +308,7 @@ public abstract class FutureN<S>  {
 	 * @param timeout total timeout allowed for all the futures
 	 * @param unit unit of the timeout
 	 * @throws InterruptedException if such an exception is thrown by one of the futures
-	 * @throws Execution Exception if such an exception is thrown by one of the futures 
+	 * @throws ExecutionException if such an exception is thrown by one of the futures 
 	 * @throws TimeoutException if one of the futures handled by this class exhausts the timeout
 	 */ 
 	protected void get0(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {

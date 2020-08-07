@@ -39,7 +39,7 @@ public class IT_DistMapList implements Serializable {
 		test.run();
 		System.out.println("----finish");
 	}
-	DistMapList<String, String> distMapList;
+	DistMultiMap<String, String> distMapList;
 	ArrayList<String> keyList;
 	long NPLACES;
 	long numData = 200;
@@ -86,7 +86,7 @@ public class IT_DistMapList implements Serializable {
 		//	gather.setCurrentAsInit();
 
 		// Distribute all entries
-		final DistMapList<String,String> distMapList2 = this.distMapList;
+		final DistMultiMap<String,String> distMapList2 = this.distMapList;
 		final int NPLACES2 = pg.size;
 		System.out.println("");
 		System.out.println("### MoveAtSync // Distribute all entries");
@@ -271,7 +271,7 @@ public class IT_DistMapList implements Serializable {
 		placeGroup = TeamedPlaceGroup.getWorld();
 		NPLACES = placeGroup.size();
 		random = new Random(12345);
-		distMapList = new DistMapList<String, String>(placeGroup);
+		distMapList = new DistMultiMap<String, String>(placeGroup);
 		keyList = new ArrayList<String>();
 	}
 }

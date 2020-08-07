@@ -7,7 +7,7 @@
  *
  * SPDX-License-Identifier: EPL-1.0
  *******************************************************************************/
-package handist.collections.dist;
+package handist.collections.function;
 
 import java.io.ObjectInputStream;
 import java.io.Serializable;

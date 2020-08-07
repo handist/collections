@@ -11,7 +11,6 @@ package handist.collections.dist;
 
 import static apgas.Constructs.*;
 
-import java.util.List;
 import java.util.SortedMap;
 
 import apgas.Place;
@@ -57,18 +56,6 @@ public class SinglePlaceGroup extends TeamedPlaceGroup {
 	public Place get(int rank) {
 		return here();
 	}
-	@Override   
-	public List<Place> getPlaces() {
-		return places;
-	}
-	@Override   
-	public int myrank() {
-		return myrank;
-	}
-	@Override   
-	List<Place> places() {
-		return places;
-	}
 	@Override  
 	public int rank(Place place) {
 		if(place.equals(here())) return 0;
@@ -80,10 +67,6 @@ public class SinglePlaceGroup extends TeamedPlaceGroup {
 	@Override   
 	public void remove(GlobalID id) {
 		// TODO
-	}
-    @Override
-	public int size() {
-		return size;
 	}
     @Override
 	public TeamedPlaceGroup split(SortedMap<Integer, Integer> rank2color) {

@@ -15,9 +15,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.io.PrintWriter;
-import java.io.Serializable;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,7 +31,13 @@ import java.util.function.Function;
 import apgas.Constructs;
 import apgas.Place;
 import apgas.util.GlobalID;
+
 import apgas.util.SerializableWithReplace;
+
+import handist.collections.dist.util.IntLongPair;
+import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.Serializer;
 import mpi.MPI;
 import mpi.MPIException;
 
@@ -41,10 +47,40 @@ import mpi.MPIException;
  * @param <K> type of the key used in the {@link DistMap}
  * @param <V> type of the value mapped to each key in the {@link DistMap}
  */
-public class DistMap<K, V> extends AbstractDistCollection implements SerializableWithReplace {
+public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<K, V>>, SerializableWithReplace {
 
-	public static interface Generator<K, V> extends BiConsumer<Place, DistMap<K, V>>, Serializable {
+	public class DistMapGlobal extends GlobalOperations<DistMap<K,V>> {
+		DistMapGlobal(DistMap<K,V> handle) {
+			super(handle);
+		}
 	}
+	
+	public class DistMapTeam extends TeamOperations<DistMap<K,V>> {
+		public DistMapTeam(DistMap<K,V> handle) {
+			super(handle);
+		}
+
+		@Override
+		public void updateDist() {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void size(long[] result) {
+			TeamedPlaceGroup pg = handle.placeGroup;
+			long localSize = data.size(); // int->long
+			long[] sendbuf = new long[] { localSize };
+			// team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
+			try {
+				pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
+			} catch (MPIException e) {
+				e.printStackTrace();
+				throw new Error("[DistMap] network error in balance()");
+			}
+		}
+	}
+	
 	// TODO
 	/*
 	 * public void setupBranches(Generator<T,U> gen) { final DistMap<T,U> handle =
@@ -56,46 +92,60 @@ public class DistMap<K, V> extends AbstractDistCollection implements Serializabl
 
 	private static int _debug_level = 5;
 
-	// TODO not public
-	public HashMap<K, V> data;
+	final GlobalID id;
+	public transient float[] locality;
+	public final TeamedPlaceGroup placeGroup;
 
-    private Function<K, V> proxyGenerator;
 
 	/**
-	 * Construct a DistMap.
+	 * Implementation of the local Map collection 
+	 */
+	protected Map<K, V> data;
+
+	private Function<K, V> proxyGenerator;
+
+	/**
+	 * Construct an empty DistMap which can have local handles on all the hosts
+	 * in the computation. 
 	 */
 	public DistMap() {
 		this(TeamedPlaceGroup.world);
 	}
 
 	/**
-	 * Construct a DistMap with the given argument.
+	 * Construct a DistMap which can have local handles on the hosts of the 
+	 * specified {@link TeamedPlaceGroup}.
 	 *
 	 * @param pg the group of hosts that are susceptible to manipulate this
 	 *  {@link DistMap}
 	 */
 	public DistMap(TeamedPlaceGroup pg) {
-		super(pg);
+		this(pg,new GlobalID());
+	}
+
+	public DistMap(TeamedPlaceGroup pg, GlobalID globalId) {
+		//super(pg, id);
+		placeGroup = pg;
+		id = globalId;
+		locality = new float[pg.size];
+		Arrays.fill(locality, 1.0f);
 		this.data = new HashMap<>();
 	}
 
-	public DistMap(TeamedPlaceGroup pg, GlobalID id) {
-		super(pg, id);
-		this.data = new HashMap<>();
-	}
-
-	public void checkDistInfo(long[] result) {
-		TeamedPlaceGroup pg = this.placeGroup;
-		long localSize = data.size(); // int->long
-		long[] sendbuf = new long[] { localSize };
-		// team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
-		try {
-			pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
-		} catch (MPIException e) {
-			e.printStackTrace();
-			throw new Error("[DistMap] network error in balance()");
-		}
-	}
+//	Method moved to TEAM and GLOBAL operations
+//	@Override
+//	public void distSize(long[] result) {
+//		TeamedPlaceGroup pg = this.placeGroup;
+//		long localSize = data.size(); // int->long
+//		long[] sendbuf = new long[] { localSize };
+//		// team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
+//		try {
+//			pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
+//		} catch (MPIException e) {
+//			e.printStackTrace();
+//			throw new Error("[DistMap] network error in balance()");
+//		}
+//	}
 
 	/**
 	 * Remove the all local entries.
@@ -104,19 +154,26 @@ public class DistMap<K, V> extends AbstractDistCollection implements Serializabl
 		this.data.clear();
 	}
 
-	/*
-	 * Return true if the specified entry is exist at local.
+	/**
+	 * Return true if the specified entry is exist in the local collection.
 	 *
 	 * @param key a key.
-	 *
-	 * @return true or false.
+	 * @return true is the specified object is a key present in the local map, 
 	 */
-	public boolean containsKey(K key) {
+	public boolean containsKey(Object key) {
 		return data.containsKey(key);
 	}
 
 	boolean debugPrint() { return true; }
 
+	/**
+	 * Removes the provided key from the local map, returns {@code true} if 
+	 * there was a previous obejct mapped to this key, {@code false} if there 
+	 * were no mapping with this key or if the mapping was a {@code null} object
+	 * @param key the key to remove from this local map
+	 * @return true if a mapping was removed as a result of this operation, 
+	 * false otherwise
+	 */
 	public boolean delete(K key) {
 		V result = data.remove(key);
 		return (result != null);
@@ -132,35 +189,46 @@ public class DistMap<K, V> extends AbstractDistCollection implements Serializabl
 	}
 
 	/**
-	 * Apply the same operation onto the all local entries.
-	 *
-	 * @param op the operation.
+	 * Apply the specified operation with each Key/Value pair contained in the
+	 * local collection.
+	 * @param action the operation to perform
 	 */
-	public void forEach(BiConsumer<K, V> op) {
+	public void forEach(BiConsumer<? super K, ? super V> action) {
 		if (!data.isEmpty())
-			data.forEach(op);
+			data.forEach(action);
 	}
-    /**
-     * Return the element for the provided key. If there is no element at the index, return null.
-     *
-     * When an agent generator is set on this instance and there is no element at the index, a proxy value for the index is generated as a return value.
-     *
-     * @param key
-     * @return the element associated with {@code key}.
-     */
-	public V get(K key) {
-	    V result = data.get(key);
-	    if(result != null) return result;
-	    if(proxyGenerator!=null && !data.containsKey(key)) {
-	        return proxyGenerator.apply(key);
-	    } else {
-	        return null;
-	    }
+	/**
+	 * Return the element for the provided key. If there is no element at the index, return null.
+	 *
+	 * When an agent generator is set on this instance and there is no element at the index, a proxy value for the index is generated as a return value.
+	 *
+	 * @param key the index of the value to retrieve
+	 * @return the element associated with {@code key}.
+	 */
+	@SuppressWarnings("unchecked")
+	public V get(Object key) {
+		V result = data.get(key);
+		if(result != null) return result;
+		if(proxyGenerator!=null && !data.containsKey(key)) {
+			return proxyGenerator.apply((K)key);
+		} else {
+			return null;
+		}
 	}
 
+	/**
+	 * Returns a subset of the keys contained in the local map. If the specified
+	 * number of keys is greater than the number of keys actually contained in
+	 * the local map, the entire keyset is returned. If a nil or negative number
+	 * of keys is asked for, an empty collection is returned.
+	 * @param count number of keys desired
+	 * @return a collection containing the specified number of keys, or less if
+	 * the local map contains fewer keys than the specified parameter
+	 */
 	private Collection<K> getNKeys(int count) {
-		if (count == 0)
+		if (count <= 0) {
 			return Collections.emptySet();
+		}
 		ArrayList<K> keys = new ArrayList<>();
 		for (K key : data.keySet()) {
 			keys.add(key);
@@ -171,6 +239,7 @@ public class DistMap<K, V> extends AbstractDistCollection implements Serializabl
 		return data.keySet();
 	}
 
+	// TODO remove this method, we already have #putAll
 	public void integrate(Map<K, V> src) {
 		for(Map.Entry<K,V> e: src.entrySet()) {
 			put(e.getKey(), e.getValue());
@@ -278,8 +347,8 @@ public class DistMap<K, V> extends AbstractDistCollection implements Serializabl
 		mm.request(pl, serialize, deserialize);
 	}
 
-	protected void moveAtSyncCount(final ArrayList<ILPair> moveList, final MoveManagerLocal mm) throws Exception {
-		for (ILPair pair : moveList) {
+	public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm) throws Exception {
+		for (IntLongPair pair : moveList) {
 			if (_debug_level > 5) {
 				System.out.println("MOVE src: " + here() + " dest: " + pair.first + " size: " + pair.second);
 			}
@@ -345,7 +414,7 @@ public class DistMap<K, V> extends AbstractDistCollection implements Serializabl
 	 * Reduce the all elements including other place using the given operation.
 	 *
 	 * @param op   the operation.
-	 * @param unit the zero value of the reduction.
+	 * @param unit the neutral element of the reduction.
 	 * @return the result of the reduction.
 	 */
 	public V reduce(BiFunction<V, V, V> op, V unit) {
@@ -393,13 +462,13 @@ public class DistMap<K, V> extends AbstractDistCollection implements Serializabl
 	}
 
 	/**
-	 * Remove the entry corresponding to the specified key.
+	 * Remove the entry corresponding to the specified key in the local map.
 	 *
 	 * @param key the key corresponding to the value.
 	 * @return the previous value associated with the key, or {@code null} if
 	 * 	there was no existing mapping (or the key was mapped to {@code null})
 	 */
-	public V remove(K key) {
+	public V remove(Object key) {
 		return data.remove(key);
 	}
 
@@ -425,17 +494,24 @@ public class DistMap<K, V> extends AbstractDistCollection implements Serializabl
 
     }*/
 
-	 /**
-     * The proxy feature prepares a proxy when elements that do not reside the called site.
-     * It resembles `getOrDefault(key, defaultValue)`.
-     *  Instead of the default value provided by the call site,
-     *   the given proxy generator generates a proxy for the key.
-     *
-     * @param proxyGenerator
-     */
-    public void setProxyGenerator(Function<K, V> proxyGenerator) {
-        this.proxyGenerator = proxyGenerator;
-    }
+	/**
+	 * Sets the proxy generator for this instance. 
+	 * <p>
+	 * The proxy will be used to generate values when accesses to a key not 
+	 * contained in this instance is made. Instead of throwing an exception, the
+	 * proxy will be called with the attempted index and the program will 
+	 * continue with the value returned by the proxy.
+	 * <p>
+	 * This feature is similar to {@link Map#getOrDefault(Object, Object)}  
+	 * operation, the difference being that instead of returning a predetermined
+	 * default value, the provided function is called with the key.
+	 *
+	 * @param proxy function which takes a key "K" as parameter and returns a 
+	 * "V", or {@code null} to remove any previously set proxy 
+	 */
+	public void setProxyGenerator(Function<K, V> proxy) {
+		proxyGenerator = proxy;
+	}
 
 	// TODO different naming convention of balance methods with DistMap
 
@@ -448,7 +524,7 @@ public class DistMap<K, V> extends AbstractDistCollection implements Serializabl
 		return data.size();
 	}
 
-	/*    Abstractovdef create(placeGroup: PlaceGroup, team: Team, init: ()=>Map[T, U]){
+	/*    Abstractovdef create(placeGroup: PlaceGroup, team: TeamOperations, init: ()=>Map[T, U]){
         // return new DistMap[T,U](placeGroup, init) as AbstractDistCollection[Map[T,U]];
         return null as AbstractDistCollection[Map[T,U]];
     }*/
@@ -469,12 +545,70 @@ public class DistMap<K, V> extends AbstractDistCollection implements Serializabl
 		return out0.toString();
 	}
 
+	@Override
 	public Object writeReplace() throws ObjectStreamException {
 		final TeamedPlaceGroup pg1 = placeGroup;
 		final GlobalID id1 = id;
-		return new AbstractDistCollection.LazyObjectReference<DistMap<K, V>>(pg1, id1, () -> {
+		return new LazyObjectReference<DistMap<K, V>>(pg1, id1, () -> {
 			return new DistMap<K, V>(pg1, id1);
 		});
 	}
 
+	@Override
+	public float[] locality() {
+		return locality;
+	}
+
+	@Override
+	public GlobalID id() {
+		return id;
+	}
+	
+	/**
+	 * Indicates if the local distributed map is empty or not
+	 * @return {@code true} if there are no mappings in the local map
+	 */
+	@Override
+	public boolean isEmpty() {
+		return data.isEmpty();
+	}
+
+	@Override
+	public TeamOperations<DistMap<K,V>> team() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public GlobalOperations<DistMap<K,V>> global() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public TeamedPlaceGroup placeGroup() {
+		return placeGroup;
+	}
+
+	/**
+	 * Indicates if the provided value is contained in the local map.
+	 */
+	public boolean containsValue(Object value) {
+		return data.containsValue(value);
+	}
+
+	/**
+	 * Adds all the mappings contained in the specified map into this local map.
+	 */
+	@Override
+	public void putAll(Map<? extends K, ? extends V> m) {
+		data.putAll(m);
+	}
+
+	/**
+	 * Returns all the values of this local map in a collection.
+	 */
+	public Collection<V> values() {
+		return data.values();
+	}
 }

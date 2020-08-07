@@ -34,6 +34,8 @@ import org.junit.Test;
 public class TestChunkedList {
 
 	public static class Element implements Serializable {
+		/** Serial Version UID */
+		private static final long serialVersionUID = 5318079351127834274L;
 		public int n = 0;
 		public Element(int i) {
 			n = i;
@@ -124,58 +126,58 @@ public class TestChunkedList {
 		chunks[2].set(5, elems[5]);
 
 		chunkedList = new ChunkedList<>();
-		chunkedList.addChunk(chunks[0]);
-		chunkedList.addChunk(chunks[1]);
-		chunkedList.addChunk(chunks[2]);
+		chunkedList.add(chunks[0]);
+		chunkedList.add(chunks[1]);
+		chunkedList.add(chunks[2]);
 		chunkedList.set(4, null);	// include value for a null test
 	}
 
-	@Test(expected = UnsupportedOperationException.class)
-	public void testAdd() {
-		chunkedList.add(null);
-	}
-
-	@Test(expected = UnsupportedOperationException.class)
-	public void testAddAll() {
-		chunkedList.addAll(null);
-	}
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testAdd() {
+//		chunkedList.add(null);
+//	}
+//
+//	@Test
+//	public void testAddAll() {
+//		chunkedList.addAll();
+//	}
 
 	@Test
 	public void testAddChunk() {
 		assertEquals(0, newlyCreatedChunkedList.numChunks());
-		newlyCreatedChunkedList.addChunk(chunks[1]);
-		assertEquals(2l, newlyCreatedChunkedList.longSize());
+		newlyCreatedChunkedList.add(chunks[1]);
+		assertEquals(2l, newlyCreatedChunkedList.size());
 		assertEquals(1, newlyCreatedChunkedList.numChunks());
 	}
 
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorIdenticalChunk() {
-		chunkedList.addChunk(chunks[1]);
+		chunkedList.add(chunks[1]);
 	}
 
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorOverlapChunk1() {
-		chunkedList.addChunk(new Chunk<>(new LongRange(0)));
+		chunkedList.add(new Chunk<>(new LongRange(0)));
 	}
 
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorOverlapChunk2() {
-		chunkedList.addChunk(new Chunk<>(new LongRange(2,3)));
+		chunkedList.add(new Chunk<>(new LongRange(2,3)));
 	}
 
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorOverlapChunk3() {
-		chunkedList.addChunk(new Chunk<>(new LongRange(3,4)));
+		chunkedList.add(new Chunk<>(new LongRange(3,4)));
 	}
 
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorOverlapChunk4() {
-		chunkedList.addChunk(new Chunk<>(new LongRange(-1,7)));
+		chunkedList.add(new Chunk<>(new LongRange(-1,7)));
 	}
 
 	@Test(expected = NullPointerException.class)
 	public void testAddChunkNullArg() {
-		newlyCreatedChunkedList.addChunk(null);
+		newlyCreatedChunkedList.add(null);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -215,7 +217,7 @@ public class TestChunkedList {
 			e1.printStackTrace();
 			fail();
 		}
-		assertEquals(6l, result.longSize());
+		assertEquals(6l, result.size());
 		assertEquals(3, result.numChunks());
 		assertEquals(10, result.get(0).n);
 		assertEquals(11, result.get(1).n);
@@ -270,8 +272,8 @@ public class TestChunkedList {
 		}
 
 		assertNotSame(chunkedList, result);
-		assertEquals(6, chunkedList.longSize());
-		assertSame(chunkedList.longSize(), result.longSize());
+		assertEquals(6, chunkedList.size());
+		assertSame(chunkedList.size(), result.size());
 		Iterator<Element> originalIterator = chunkedList.iterator();
 		Iterator<Integer> integerIterator = result.iterator();
 		while (integerIterator.hasNext()) {
@@ -279,9 +281,19 @@ public class TestChunkedList {
 		}
 	}
 
-	@Test(expected = UnsupportedOperationException.class)
+	@Test
 	public void testClear() {
+		assertFalse(chunkedList.isEmpty());
+		assertTrue(chunkedList.size() > 0l);
 		chunkedList.clear();
+		assertTrue(chunkedList.isEmpty());
+		assertEquals(0l, chunkedList.size());
+		
+		// Check that calling clean on an empty ChunkedList does not cause 
+		// any problem
+		newlyCreatedChunkedList.clear();
+		assertTrue(newlyCreatedChunkedList.isEmpty());
+		assertEquals(0l, newlyCreatedChunkedList.size());
 	}
 
 	@Test
@@ -420,7 +432,7 @@ public class TestChunkedList {
 			}
 		});
 
-		assertEquals(6l, chunkedList.longSize());
+		assertEquals(6l, chunkedList.size());
 		assertEquals(3, chunkedList.numChunks());
 		assertEquals(10, chunkedList.get(0).n);
 		assertEquals(11, chunkedList.get(1).n);
@@ -509,8 +521,8 @@ public class TestChunkedList {
 
 	@Test
 	public void testLongSize() {
-		assertEquals(6l, chunkedList.longSize());
-		assertEquals(0, newlyCreatedChunkedList.longSize());
+		assertEquals(6l, chunkedList.size());
+		assertEquals(0, newlyCreatedChunkedList.size());
 	}
 	
 	
@@ -522,7 +534,7 @@ public class TestChunkedList {
 		tMap.put(chunks[2].getRange(), chunks[2]);
 		ChunkedList<Element> cList = new ChunkedList<Element>(tMap);
 		
-		assertEquals(6l, cList.longSize());
+		assertEquals(6l, cList.size());
 	}
 	
 
@@ -536,8 +548,8 @@ public class TestChunkedList {
 		// the same number of elements and that the values held by the 
 		// result are indeed the ones we expect
 		assertNotSame(chunkedList, integerChunkedList);
-		assertEquals(6, chunkedList.longSize());
-		assertSame(chunkedList.longSize(), integerChunkedList.longSize());
+		assertEquals(6, chunkedList.size());
+		assertSame(chunkedList.size(), integerChunkedList.size());
 		Iterator<Element> originalIterator = chunkedList.iterator();
 		Iterator<Integer> integerIterator = integerChunkedList.iterator();
 		while (integerIterator.hasNext()) {
@@ -554,8 +566,8 @@ public class TestChunkedList {
 		ChunkedList<Integer> result = chunkedList.map(pool, 2, e-> e.n + 5);
 
 		assertNotSame(chunkedList, result);
-		assertEquals(6, chunkedList.longSize());
-		assertSame(chunkedList.longSize(), result.longSize());
+		assertEquals(6, chunkedList.size());
+		assertSame(chunkedList.size(), result.size());
 		Iterator<Element> originalIterator = chunkedList.iterator();
 		Iterator<Integer> integerIterator = result.iterator();
 		while (integerIterator.hasNext()) {
@@ -573,7 +585,7 @@ public class TestChunkedList {
 	public void testNumChunks() {
 		assertSame(chunkedList.numChunks(), 3);
 
-		chunkedList.addChunk(new Chunk<Element>(new LongRange(6, 9)));
+		chunkedList.add(new Chunk<Element>(new LongRange(6, 9)));
 		assertSame(chunkedList.numChunks(), 4);
 
 		chunkedList = new ChunkedList<Element>();
@@ -589,53 +601,38 @@ public class TestChunkedList {
 		}
 	}
 
-	@Test(expected = UnsupportedOperationException.class)
-	public void testRemove() {
-		chunkedList.remove(null);
-	}
-
-	@Test(expected = UnsupportedOperationException.class)
-	public void testRemoveAll() {
-		chunkedList.removeAll(null);
-	}
-
 	@Test
 	public void testRemoveChunk() {
 		Chunk<Element> chunkToRemove = new Chunk<>(new LongRange(-1l, 0l));
 		// Removes nothing, the indices do not intersect. 
-		RangedList<Element> removed = chunkedList.removeChunk(chunkToRemove);
-		assertEquals(6L, chunkedList.longSize());
+		RangedList<Element> removed = chunkedList.remove(chunkToRemove);
+		assertEquals(6L, chunkedList.size());
 		assertNull(removed);
 
 		// A Chunk that is included but not identical to a chunk of the
 		// chunked list is not removed
 		chunkToRemove = new Chunk<>(new LongRange(0l, 1l));
-		chunkedList.removeChunk(chunkToRemove);
-		assertEquals(6L, chunkedList.longSize());
+		chunkedList.remove(chunkToRemove);
+		assertEquals(6L, chunkedList.size());
 
 		// A chunk with the same range will be removed
 		chunkToRemove = new Chunk<>(new LongRange(0l, 3l));
-		removed = chunkedList.removeChunk(chunkToRemove);
-		assertEquals(3L, chunkedList.longSize());
-		assertEquals(3l, removed.longSize());
+		removed = chunkedList.remove(chunkToRemove);
+		assertEquals(3L, chunkedList.size());
+		assertEquals(3l, removed.size());
 		for (Element e : removed) {
 			assertTrue(removed.contains(e));
 			assertFalse(chunkedList.contains(e));
 		}
 
 		// If the same object is given as parameter, also works
-		removed = chunkedList.removeChunk(chunks[1]);
-		assertEquals(1L, chunkedList.longSize());
-		assertEquals(2l, removed.longSize());
+		removed = chunkedList.remove(chunks[1]);
+		assertEquals(1L, chunkedList.size());
+		assertEquals(2l, removed.size());
 		for (Element e : removed) {
 			assertTrue(removed.contains(e));
 			assertFalse(chunkedList.contains(e));
 		}
-	}
-
-	@Test(expected = UnsupportedOperationException.class)
-	public void testRetainAll() {
-		chunkedList.retainAll(null);
 	}
 
 	@Test
@@ -643,8 +640,8 @@ public class TestChunkedList {
 		List<ChunkedList<Element>> cLists = chunkedList.separate(2);
 		assertSame(cLists.size(), 2);
 
-		assertSame(cLists.get(0).longSize(), 3L);
-		assertSame(cLists.get(1).longSize(), 3L);
+		assertSame(cLists.get(0).size(), 3L);
+		assertSame(cLists.get(1).size(), 3L);
 
 		assertEquals(cLists.get(0).get(0), elems[0]);
 		assertEquals(cLists.get(1).get(5), elems[5]);
@@ -653,10 +650,10 @@ public class TestChunkedList {
 		cLists = chunkedList.separate(4);
 		assertSame(4, cLists.size());
 
-		assertSame(2L, cLists.get(0).longSize());
-		assertSame(2L, cLists.get(1).longSize());
-		assertSame(1L, cLists.get(2).longSize());
-		assertSame(1L, cLists.get(3).longSize());
+		assertSame(2L, cLists.get(0).size());
+		assertSame(2L, cLists.get(1).size());
+		assertSame(1L, cLists.get(2).size());
+		assertSame(1L, cLists.get(3).size());
 
 		assertEquals(cLists.get(0).get(0), elems[0]);
 		assertEquals(cLists.get(1).get(2), elems[2]);
@@ -666,8 +663,8 @@ public class TestChunkedList {
 
 		cLists = chunkedList.separate((10));
 		assertSame(cLists.size(), 10);
-		assertSame(cLists.get(5).longSize(), 1L);
-		assertSame(cLists.get(9).longSize(), 0L);
+		assertSame(cLists.get(5).size(), 1L);
+		assertSame(cLists.get(9).size(), 0L);
 	}
 
 	@Test
@@ -684,20 +681,20 @@ public class TestChunkedList {
 
 	@Test
 	public void testSize() {
-		assertEquals(6L, chunkedList.longSize());	
-		assertEquals(0L, newlyCreatedChunkedList.longSize());
+		assertEquals(6L, chunkedList.size());	
+		assertEquals(0L, newlyCreatedChunkedList.size());
 	}
 
-
-	@Test(expected = UnsupportedOperationException.class)
-	public void testToArray() {
-		chunkedList.toArray();
-	}
-
-	@Test(expected = UnsupportedOperationException.class)
-	public void testToArrayWithParameters() {
-		chunkedList.toArray(new Object[2]);
-	}
+//
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testToArray() {
+//		chunkedList.toArray();
+//	}
+//
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testToArrayWithParameters() {
+//		chunkedList.toArray(new Object[2]);
+//	}
 
 	@Test
 	public void testToString() {
@@ -713,8 +710,9 @@ public class TestChunkedList {
 	    out.writeObject(chunkedList);
 	    out.close();
 	    ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(out0.toByteArray()));
-	    ChunkedList<Element> c2 = (ChunkedList<Element>)in.readObject();
-	    assertEquals(c2.longSize(), chunkedList.longSize());
+	    @SuppressWarnings("unchecked")
+		ChunkedList<Element> c2 = (ChunkedList<Element>)in.readObject();
+	    assertEquals(c2.size(), chunkedList.size());
         c2.forEach((long index, Element e)-> {
             if(e==null) assertNull(chunkedList.get(index));
             if(e!=null) assertEquals(chunkedList.get(index).n, e.n);  

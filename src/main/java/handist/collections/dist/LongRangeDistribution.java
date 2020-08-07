@@ -15,20 +15,28 @@ import java.util.Map;
 import apgas.Place;
 import handist.collections.LongRange;
 
-public class RangedDistributionLong implements RangedDistribution<LongRange> {
+public class LongRangeDistribution implements RangedDistribution<LongRange> {
 
 	private HashMap<LongRange, Place> dist;
 
-	public RangedDistributionLong(Map<LongRange, Place> originalHashMap) {
+	public LongRangeDistribution(Map<LongRange, Place> originalHashMap) {
 		dist = new HashMap<>(originalHashMap);
 	}
 
-	public RangedDistributionLong(RangedDistributionLong distribution) {
-		dist = new HashMap<LongRange, Place>(distribution.getHashMap());
+	/**
+	 * Copy constructor
+	 * @param distribution instance to copy
+	 */
+	public LongRangeDistribution(LongRangeDistribution distribution) {
+		dist = new HashMap<LongRange, Place>(distribution.dist);
 	}
 
-	public RangedDistributionLong clone() {
-		return new RangedDistributionLong(this);
+	/**
+	 * Returns a copy of this instance using the copy constructor 
+	 * {@link #LongRangeDistribution(LongRangeDistribution)}.
+	 */
+	public LongRangeDistribution clone() {
+		return new LongRangeDistribution(this);
 	}
 
 	public HashMap<LongRange, Place> getHashMap() {

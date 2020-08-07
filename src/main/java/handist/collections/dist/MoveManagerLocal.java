@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import apgas.Place;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.Serializer;
 
 /**
  * This class is used for relocating elements of DistCollections.

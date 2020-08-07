@@ -17,9 +17,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.ListIterator;
 import java.util.function.Function;
 
 import org.junit.Before;
@@ -73,24 +71,24 @@ public class TestChunk implements Serializable {
 		includeNullChunk.set(0, null);
 	}
 
+//
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testAdd() {
+//		chunk.add(1, new Element(-1));
+//	}
 
-	@Test(expected = UnsupportedOperationException.class)
-	public void testAdd() {
-		chunk.add(1, new Element(-1));
-	}
-
-
-	// Unsupported Functions
-	@Test(expected = UnsupportedOperationException.class)
-	public void testAddAll() {
-		chunk.addAll(1, new ArrayList<Element>());
-	}
-
-
-	@Test(expected = UnsupportedOperationException.class)
-	public void testClear() {
-		chunk.clear();
-	}
+//
+//	// Unsupported Functions
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testAddAll() {
+//		chunk.addAll(1, new ArrayList<Element>());
+//	}
+//
+//
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testClear() {
+//		chunk.clear();
+//	}
 
 
 	@Test
@@ -118,7 +116,7 @@ public class TestChunk implements Serializable {
 
 		//inner range
 		c = chunk.cloneRange(new LongRange(0, 3));
-		assertSame(c.longSize(), (long)3);
+		assertSame(c.size(), (long)3);
 		for(int i = 0; i < 3; i++) {
 			assertEquals(c.get(i), chunk.get(i));
 		}
@@ -153,7 +151,7 @@ public class TestChunk implements Serializable {
 
         e = null;
         c = new Chunk<>(new LongRange(1, 5), e);
-        assertSame(c.size(), 4);
+        assertSame(c.size(), 4l);
         for(int i = 1; i < 5; i++) {
             assertNull(c.get(i));
         }
@@ -256,23 +254,23 @@ public class TestChunk implements Serializable {
 		assertSame(newRange.to, (long)elems.length);
 	}
 
+//
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testIndexOf() {
+//		chunk.indexOf(elems[1]);
+//	}
 
-	@Test(expected = UnsupportedOperationException.class)
-	public void testIndexOf() {
-		chunk.indexOf(elems[1]);
-	}
-
-
-	@Test(expected = UnsupportedOperationException.class)
-	public void testIteratorAdd() {
-		ListIterator<Element> it = chunk.listIterator();
-		it.add(new Element(0));
-	}
+//
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testIteratorAdd() {
+//		ListIterator<Element> it = chunk.listIterator();
+//		it.add(new Element(0));
+//	}
 
 
 	@Test(expected = IndexOutOfBoundsException.class)
-	public void testIteratorFromError() {
-		chunk.iteratorFrom(100);
+	public void testIteratorErrorIndex() {
+		chunk.rangedListIterator(100l);
 	}
 
 	/*
@@ -283,7 +281,6 @@ public class TestChunk implements Serializable {
 	}
 	 */
 
-	// -- test iterator functions region --
 	@Test
 	public void testIteratorHasNext() {
 		Iterator<Element> it = chunk.iterator();
@@ -293,7 +290,7 @@ public class TestChunk implements Serializable {
 		}
 		assertFalse(it.hasNext());
 
-		it = chunk.iteratorFrom(3);
+		it = chunk.rangedListIterator(3l);
 		for(int i = 2; i < elems.length - 1; i++) {
 			assertTrue(it.hasNext());
 			it.next();
@@ -304,11 +301,11 @@ public class TestChunk implements Serializable {
 
 	@Test
 	public void testIteratorHasPrevious() {
-		ListIterator<Element> it = chunk.listIterator();
+		RangedListIterator<Element> it = chunk.rangedListIterator();
 		assertFalse(it.hasPrevious());
-		it = chunk.listIterator(2);
+		it = chunk.rangedListIterator(2l);
 		assertTrue(it.hasPrevious());
-		assertEquals(it.previous(), elems[0]);
+		assertEquals(it.previous(), elems[1]);
 	}
 
 
@@ -320,46 +317,62 @@ public class TestChunk implements Serializable {
 		}
 	}
 
-
-	@Test(expected = UnsupportedOperationException.class)
+	@Test
 	public void testIteratorNextIndex() {
-		ListIterator<Element> it = chunk.listIterator();
-		it.nextIndex();
+		RangedListIterator<Element> it = chunk.rangedListIterator();
+		assertEquals(0l, it.nextIndex());
 	}
 
-
-	@Test(expected = UnsupportedOperationException.class)
+	@Test
 	public void testIteratorPreviousIndex() {
-		ListIterator<Element> it = chunk.listIterator();
-		it.previousIndex();
+		RangedListIterator<Element> it = chunk.rangedListIterator();
+		assertEquals(-1l, it.previousIndex());
 	}
 
-
-	@Test(expected = UnsupportedOperationException.class)
-	public void testIteratorRemove() {
-		ListIterator<Element> it = chunk.listIterator();
-		it.remove();
-	}
+//
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testIteratorRemove() {
+//		ListIterator<Element> it = chunk.listIterator();
+//		it.remove();
+//	}
 
 
 	@Test
 	public void testIteratorSet() {
-		ListIterator<Element> it = chunk.listIterator(1);
+		// FIXME this is not good, we need to check the IllegalStateException
+		// Check the fact the "last object returned" by either previous or next
+		// is modified
 		Element e = new Element(-1);
-		it.set(e);
-		assertEquals(chunk.get(0), e);
+		RangedListIterator<Element> it = chunk.rangedListIterator(1l);
+		Element oldValue = it.next();
+		assertEquals(elems[1], oldValue);
+		it.set(e); //Replace oldValue with e
+		assertEquals(e, chunk.get(1l));
+		
+		// Call previous to check the same element is given back (in between 
+		// values implementation of iterator)
+		assertEquals(e, it.previous());
+		it.set(oldValue);
+		assertEquals(oldValue, chunk.get(1l));
+	}
+	
+	
+	@Test(expected = IllegalStateException.class)
+	public void testIteratorIllegalState() {
+		chunk.rangedListIterator().set(null);
 	}
 
-
-	@Test(expected = UnsupportedOperationException.class)
-	public void testLastIndexOf() {
-		chunk.lastIndexOf(elems[1]);
-	}
+//
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testLastIndexOf() {
+//		chunk.lastIndexOf(elems[1]);
+//	}
 
 
 	@Test
-	public void testLongSize() {
-		assertSame(chunk.longSize(), (long)5);
+	public void testSize() {
+		assertSame(chunk.size(), 5l);
+		assertSame(includeNullChunk.size(), 5l);
 	}
 
 
@@ -379,11 +392,11 @@ public class TestChunk implements Serializable {
 		chunk.setupFrom(chunk, e -> new Element(e.n + 2));
 	}
 	 */
-
-	@Test(expected = UnsupportedOperationException.class)
-	public void testRemove() {
-		chunk.remove(0);
-	}
+//
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testRemove() {
+//		chunk.remove(0);
+//	}
 
 
 	@Test
@@ -413,24 +426,17 @@ public class TestChunk implements Serializable {
 
 
 	@Test
-	public void testSize() {
-		assertSame(chunk.size(), 5);
-		assertSame(includeNullChunk.size(), 5);
-	}
-
-
-	@Test
 	public void testSubList() {
 		//same range
 		RangedList<Element> subList = chunk.subList(chunk.getRange().from, chunk.getRange().to);
-		assertSame(subList.longSize(), chunk.longSize());
-		for(int i = 0; i < subList.longSize(); i++) {
+		assertSame(subList.size(), chunk.size());
+		for(int i = 0; i < subList.size(); i++) {
 			assertEquals(subList.get(i), elems[i]);
 		}
 
 		//inner range
-		subList = chunk.subList((long)1, (long)3);
-		assertSame(subList.longSize(), (long)2);
+		subList = chunk.subList(1l, 3l);
+		assertSame(subList.size(), 2l);
 		for(int i = 1; i < 3; i++) {
 			assertEquals(subList.get(i), elems[i]);
 		}
@@ -443,20 +449,17 @@ public class TestChunk implements Serializable {
 		chunk.subList((long)5, (long)4);
 	}
 
-
-	@Test(expected = UnsupportedOperationException.class)
-	public void testSubListInt() {
-		chunk.subList(1, 3);
-	}
+//
+//	@Test(expected = UnsupportedOperationException.class)
+//	public void testSubListInt() {
+//		chunk.subList(1, 3);
+//	}
 
 
 	@Test(expected = IndexOutOfBoundsException.class)
 	public void testSubListOutRange() {
-		chunk.subList((long)10, (long)12);
+		chunk.subList(10l, 12l);
 	}
-
-	// -- end iterator region --
-
 
 	@Test
 	public void testSubListOverRange() {
@@ -489,6 +492,7 @@ public class TestChunk implements Serializable {
 	}
 
 
+	@SuppressWarnings("rawtypes")
 	@Test(expected = IllegalArgumentException.class)
 	public void testToArrayHugeSize() {
 		new Chunk(new LongRange(10L, 10L+Config.maxChunkSize+100)).toArray(new LongRange(20L, Config.maxChunkSize));
@@ -520,7 +524,7 @@ public class TestChunk implements Serializable {
 
 		// inner size
 		c = chunk.toChunk(new LongRange(1, 3));
-		assertSame(c.size(), 2);
+		assertSame(c.size(), 2l);
 		for(int i = 1; i < 3; i++) {
 			assertEquals(c.get(i), elems[i]);
 		}

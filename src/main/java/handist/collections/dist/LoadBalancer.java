@@ -278,14 +278,14 @@ class Main {
 
     def run(): void {
         val pg = Place.places();
-        val team = Team(pg);
+        val team = TeamOperations(pg);
         pg.broadcastFlat(() => {
             val executor = new Executor(pg, team);
             executor.start();
         });
     }
 
-    static class Executor(pg: PlaceGroup, team: Team) {
+    static class Executor(pg: PlaceGroup, team: TeamOperations) {
 
         transient var map: x10.util.Map[Long, String];
 

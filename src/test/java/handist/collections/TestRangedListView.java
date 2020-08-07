@@ -12,6 +12,7 @@ package handist.collections;
 import static org.junit.Assert.*;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -69,15 +70,15 @@ public class TestRangedListView {
 	public void tearDown() throws Exception {
 	}
 
-	@Test(expected = java.lang.UnsupportedOperationException.class)
-	public void testClear() {
-		view.clear();
-	}
+//	@Test(expected = java.lang.UnsupportedOperationException.class)
+//	public void testClear() {
+//		view.clear();
+//	}
 
 	@Test
 	public void testClone() {
 		RangedList<Element> v = view.clone();
-		assertSame(v.longSize(), view.longSize());
+		assertSame(v.size(), view.size());
 		for (long l = 1 ; l < 5; l++) {
 			assertTrue(chunk.get(l) == v.get(l));
 		}
@@ -85,7 +86,7 @@ public class TestRangedListView {
 
 	@Test(expected = UnsupportedOperationException.class)
 	public void testConstructorNotSupportedClass() {
-		class NotASupportedClass<T> implements RangedList<T> {
+		class NotASupportedClass<T> extends RangedList<T> {
 
 			@Override
 			public Iterator<T> iterator() {
@@ -118,18 +119,6 @@ public class TestRangedListView {
 			}
 
 			@Override
-			public Iterator<T> iteratorFrom(long i) {
-				// TODO Auto-generated method stub
-				return null;
-			}
-
-			@Override
-			public long longSize() {
-				// TODO Auto-generated method stub
-				return 0;
-			}
-
-			@Override
 			public T set(long index, T value) {
 				// TODO Auto-generated method stub
 				return null;
@@ -155,6 +144,12 @@ public class TestRangedListView {
 
 			@Override
 			public Chunk<T> toChunk(LongRange newRange) {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public List<T> toList(LongRange r) {
 				// TODO Auto-generated method stub
 				return null;
 			}
@@ -281,7 +276,7 @@ public class TestRangedListView {
 
 	@Test
 	public void testIteratorFrom() {
-		Iterator<Element> it = view.iteratorFrom(3l);
+		Iterator<Element> it = view.iterator(3l);
 
 		while (it.hasNext()) {
 			it.next().n = 0;
@@ -305,7 +300,7 @@ public class TestRangedListView {
 	 */
 	@Test(expected = IndexOutOfBoundsException.class)
 	public void testIteratorFromOutOfChunkRange() {
-		view.iteratorFrom(-1l);
+		view.iterator(-1l);
 	}
 
 	/**
@@ -314,7 +309,7 @@ public class TestRangedListView {
 	 */
 	@Test(expected = IndexOutOfBoundsException.class)
 	public void testIteratorFromOutOfViewRange() {
-		view.iteratorFrom(0l);
+		view.iterator(0l);
 	}
 
 	/**
@@ -328,9 +323,9 @@ public class TestRangedListView {
 
 	@Test
 	public void testLongSize() {
-		assertEquals(4l, view.longSize());
+		assertEquals(4l, view.size());
 		RangedListView<Element> emptyView = RangedListView.emptyView();
-		assertEquals(0l, emptyView.longSize());
+		assertEquals(0l, emptyView.size());
 	}
 
 	/**
@@ -381,7 +376,7 @@ public class TestRangedListView {
 	@Test
 	public void testSubList() {
 		RangedList<Element> sub = view.subList(new LongRange(2, 4));
-		assertSame(sub.longSize(), (long)2);
+		assertSame(sub.size(), (long)2);
 		assertEquals(sub.get(2), view.get(2));
 	}
 

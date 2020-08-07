@@ -14,17 +14,21 @@ import static apgas.Constructs.*;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
-import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import apgas.Constructs;
 import apgas.Place;
 import apgas.util.GlobalID;
+import apgas.util.SerializableWithReplace;
 import handist.collections.Bag;
+import handist.collections.dist.util.IntLongPair;
+import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.DeSerializerUsingPlace;
+import handist.collections.function.SerializableBiConsumer;
+import handist.collections.function.Serializer;
 import mpi.MPI;
 import mpi.MPIException;
 
@@ -41,12 +45,53 @@ import mpi.MPIException;
  * 
  * @param <T> type of the elements handled by the {@link DistBag}.
  */
-public class DistBag<T> extends AbstractDistCollection /* implements Container[T], ReceiverHolder[T] */{
-	public static interface Generator<V> extends BiConsumer<Place, DistBag<V>>, Serializable {
+public class DistBag<T> extends Bag<T> implements AbstractDistCollection<DistBag<T>>, SerializableWithReplace {
+	/* implements Container[T], ReceiverHolder[T] */
+	
+	public class DistBagGlobal extends GlobalOperations<DistBag<T>> {
+		DistBagGlobal(DistBag<T> handle) {
+			super(handle);
+		}
 	}
+	
+	public class DistBagTeam extends TeamOperations<DistBag<T>> {
+		
+		DistBagTeam(DistBag<T> handle) {
+			super(handle);
+		}
+
+		@Override
+		public void updateDist() {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void size(long[] result) {
+			TeamedPlaceGroup pg = handle.placeGroup();
+			long localSize = handle.size(); // cast from int to long here
+			long[] sendbuf = new long[]{ localSize };
+			// team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
+			try {
+				pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
+			} catch (MPIException e) {
+				e.printStackTrace();
+				throw new Error("[DistMap] network error in team().size()");
+			}
+		}
+		
+	}
+
 	private static int _debug_level = 5;
 
-	transient public Bag<T> data;
+	final GlobalID id;
+	public transient float[] locality;
+	public final TeamedPlaceGroup placeGroup;
+
+	/** Handle to Global operations on the DistBag instance */
+	public DistBag<T>.DistBagGlobal GLOBAL;
+	/** Handle to TEAM operations on the DistBag instance */
+	public DistBag<T>.DistBagTeam TEAM;
 
 	/**
 	 * Create a new DistBag.
@@ -59,78 +104,37 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
 	/**
 	 * Create a new DistBag using the given arguments.
 	 *
-	 * @param placeGroup the places susceptible to interact with this instance.
+	 * @param pg the places susceptible to interact with this instance.
 	 */
-	public DistBag(TeamedPlaceGroup placeGroup) {
-		super(placeGroup);
-		this.data = new Bag<T>();
+	public DistBag(TeamedPlaceGroup pg) {
+		this(pg, new GlobalID());
 	}
 
-	protected DistBag(TeamedPlaceGroup placeGroup, GlobalID id) {
-		super(placeGroup, id);
-		this.data = new Bag<T>();
-	}
-	/**
-	 * Add new element.
-	 *
-	 * @param v a new element.
-	 * @return {@code true} if the instance changed as a result of the call
-	 */
-	public boolean add(T v) {
-		return data.add(v);
+	protected DistBag(TeamedPlaceGroup pg, GlobalID globalId) {
+		super();
+		id = globalId;
+		placeGroup = pg;
+		locality = new float[pg.size];
+		Arrays.fill(locality, 1.0f);
+		id.putHere(this);
+		GLOBAL = new DistBagGlobal(this);
+		TEAM = new DistBagTeam(this);
 	}
 
-	/**
-	 * Add all the elements to this instance.
-	 *
-	 * @param elements the elements to add to te {@link DistBag}
-	 * @return {@code true} if the instance changed as a result of the call
-	 */
-	public boolean addAll(Collection<T> elements) {
-		return data.addAll(elements);
-	}
-
-	public void checkDistInfo(long[] result) {
-		TeamedPlaceGroup pg = this.placeGroup;
-		long localSize = size(); // int->long
-		long[] sendbuf = new long[]{ localSize };
-		// team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
-		try {
-			pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
-		} catch (MPIException e) {
-			e.printStackTrace();
-			throw new Error("[DistMap] network error in balance()");
-		}
-	}
-
-	/**
-	 * Clear the local elements.
-	 */
-	public void clear() {
-		data.clear();
-	}
-
-	/**
-	 * Return whether the DistBag contains the given value.
-	 * This method uses the T#equals to evaluate the equality.
-	 *
-	 * @param v a value of type T.
-	 * @return true or false.
-	 */
-	public boolean contains(T v) {
-		return data.contains(v);
-	}
-
-	/**
-	 * Return whether the DistBag contains all the values of the given Container.
-	 * This method used the T#equals to evaluate the equality.
-	 *
-	 * @param container a Container[T].
-	 * @return true if DistBag contains the all given values.
-	 */
-	public boolean containsAll(Collection<T> container) {
-		return data.containsAll(container);
-	}
+	//  Method was moved to TEAM and GLOBAL handles
+//	@Override
+//	public void distSize(long[] result) {
+//		TeamedPlaceGroup pg = this.placeGroup;
+//		long localSize = size(); // int->long
+//		long[] sendbuf = new long[]{ localSize };
+//		// team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
+//		try {
+//			pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
+//		} catch (MPIException e) {
+//			e.printStackTrace();
+//			throw new Error("[DistMap] network error in checkDistInfo()");
+//		}
+//	}
 
 	/**
 	 * gather all place-local elements to the root Place.
@@ -140,11 +144,11 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
 	@SuppressWarnings("unchecked")
 	public void gather(Place root) {
 		Serializer serProcess = (ObjectOutputStream ser) -> {
-			ser.writeObject(this.data);
+			ser.writeObject(this); // was ser.writeObject(this.data)
 		};
 		DeSerializerUsingPlace desProcess = (ObjectInputStream des, Place place) -> {
 			Collection<T> imported = (Collection<T>) des.readObject();
-			this.data.addAll(imported);
+			addAll(imported);
 		};
 		CollectiveRelocator.gatherSer(placeGroup, root, serProcess, desProcess);
 		if (!here().equals(root)) {
@@ -152,30 +156,8 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
 		}
 	}
 
-	public Consumer<T> getReceiver() {
-		return data.getReceiver();
-	}
-
-	/**
-	 * Return whether DistBag's local storage has no value.
-	 *
-	 * @return true if DistBag's local storage has no value.
-	 */
-	public boolean isEmpty() {
-		return data.isEmpty();
-	}
-
-	/**
-	 * Return the iterator for the local elements.
-	 *
-	 * @return the iterator.
-	 */
-	public Iterator<T> iterator() {
-		return this.data.iterator();
-	}
-
-	protected void moveAtSyncCount(final ArrayList<ILPair> moveList, final MoveManagerLocal mm) throws Exception {
-		for (ILPair pair : moveList) {
+	public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm) throws Exception {
+		for (IntLongPair pair : moveList) {
 			if (_debug_level > 5) {
 				System.out.println("MOVE src: " + here() + " dest: " + pair.first + " size: " + pair.second);
 			}
@@ -201,9 +183,24 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
         return data.clone();
     }*/
 
+	/**
+	 * Removes the specified number of entries from the local Bag and prepares
+	 * them to be transfered to the specified place when the 
+	 * {@link MoveManagerLocal#sync()} method of the {@link MoveManagerLocal} is
+	 * called.
+	 * <p>
+	 * The objects are not removed from the local collection until method 
+	 * {@link MoveManagerLocal#sync()} is called.
+	 * If the {@code destination} is the local placce, this method has no 
+	 * effects.
+	 * 
+	 * @param count number of objects to move from this instance
+	 * @param destination the destination of the objects
+	 * @param mm move manager in charge of making the transfer
+	 */
 	@SuppressWarnings("unchecked")
-	public void moveAtSyncCount(final int count, Place pl, MoveManagerLocal mm) {
-		if (pl.equals(Constructs.here()))
+	public void moveAtSyncCount(final int count, Place destination, MoveManagerLocal mm) {
+		if (destination.equals(Constructs.here()))
 			return;
 		final DistBag<T> collection = this;
 		Serializer serialize = (ObjectOutputStream s) -> {
@@ -213,18 +210,8 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
 			Collection<T> imported = (Collection<T>) ds.readObject();
 			collection.addAll(imported);
 		};
-		mm.request(pl, serialize, deserialize);
+		mm.request(destination, serialize, deserialize);
 	}
-
-	public T remove() {
-		return data.remove();
-	}
-
-
-	public Collection<T> remove(int count) {
-		return data.remove(count);
-	}
-
 
 
 	/*
@@ -234,7 +221,7 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
     }*/
 
 	// TODO ...
-	public void setupBranches(Generator<T> gen) {
+	public void setupBranches(SerializableBiConsumer<Place,DistBag<T>> gen) {
 		final DistBag<T> handle = this;
 		finish(()->{
 			placeGroup.broadcastFlat(()->{
@@ -242,21 +229,38 @@ public class DistBag<T> extends AbstractDistCollection /* implements Container[T
 			});
 		});
 	}
-	/**
-	 * Return the number of local elements.
-	 *
-	 * @return the number of local elements.
-	 */
-	public int size() {
-		return data.size();
-	}
 
 	public Object writeReplace() throws ObjectStreamException {
 		final TeamedPlaceGroup pg1 = placeGroup;
 		final GlobalID id1 = id;
-		return new AbstractDistCollection.LazyObjectReference<DistBag<T>>(pg1, id1, ()-> {
+		return new LazyObjectReference<DistBag<T>>(pg1, id1, ()-> {
 			return new DistBag<T>(pg1, id1);
 		});
+	}
+
+	@Override
+	public float[] locality() {
+		return locality;
+	}
+
+	@Override
+	public GlobalID id() {
+		return id;
+	}
+
+	@Override
+	public TeamOperations<DistBag<T>> team() {
+		return TEAM;
+	}
+
+	@Override
+	public GlobalOperations<DistBag<T>> global() {
+		return GLOBAL;
+	}
+
+	@Override
+	public TeamedPlaceGroup placeGroup() {
+		return placeGroup;
 	}
 
 }

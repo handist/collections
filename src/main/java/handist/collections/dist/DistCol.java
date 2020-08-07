@@ -17,26 +17,28 @@ import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
+
+import com.esotericsoftware.kryo.DefaultSerializer;
+import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
 import apgas.Place;
 import apgas.util.GlobalID;
+import apgas.util.SerializableWithReplace;
 import handist.collections.ChunkedList;
-import handist.collections.LongRange;
-import handist.collections.ParallelReceiver;
 import handist.collections.ElementOverlapException;
+import handist.collections.LongRange;
 import handist.collections.RangedList;
-import handist.collections.function.LongTBiConsumer;
+import handist.collections.dist.util.IntLongPair;
+import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.dist.util.Pair;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.SerializableBiConsumer;
+import handist.collections.function.Serializer;
 
 /**
  * A class for handling objects at multiple places. It is allowed to add new
@@ -50,8 +52,9 @@ import handist.collections.function.LongTBiConsumer;
  *
  * @param <T> the type of elements handled by this {@link DistCol}
  */
-public class DistCol<T> extends AbstractDistCollection /* implements List[T], ManagedDistribution[LongRange] */ {
-
+@DefaultSerializer(JavaSerializer.class)
+public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection<DistCol<T>>, SerializableWithReplace {
+	/*AbstractDistCollection *//* implements List[T], ManagedDistribution[LongRange] */
 	static class ChunkExtractLeft<T> {
 		public RangedList<T> original;
 		public long splitPoint;
@@ -95,33 +98,94 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 		}
 	}
 
-	public static interface Generator<V> extends BiConsumer<Place, DistCol<V>>, Serializable {
+	public class DistColGlobal extends GlobalOperations<DistCol<T>> {
+	    public DistColGlobal(DistCol<T> handle) {
+			super(handle);
+		}
+
+		public void setupBranches(final SerializableBiConsumer<Place, DistCol<T>> gen) {
+	    	global_setupBranches(gen); 
+	    }
+
+		@Override
+		public void onLocalHandleDo(SerializableBiConsumer<Place, DistCol<T>> action) {
+			global_setupBranches(action);
+		}
+	    
+	    
 	}
 
-	static class Pair<F, S> {
-		F first;
-		S second;
+	static class DistributionManager<T> extends GeneralDistManager<DistCol<T>> implements Serializable {
+		
+		/** Serial Version UID */
+		private static final long serialVersionUID = 456677767130722164L;
 
-		Pair(F first, S second) {
-			this.first = first;
-			this.second = second;
+		public DistributionManager(TeamedPlaceGroup placeGroup, GlobalID id, DistCol<T> branch) {
+            super(placeGroup, id, branch);
+        }
+		
+        @Override
+        public void checkDistInfo(long[] result) {
+            for (final Map.Entry<LongRange, Place> entry : branch.ldist.dist.entrySet()) {
+                final LongRange k = entry.getKey();
+                final Place p = entry.getValue();
+                result[this.placeGroup.rank(p)] += k.size();
+            }
+        }
+
+        @Override
+        protected void moveAtSyncCount(ArrayList<IntLongPair> moveList, MoveManagerLocal mm) throws Exception {
+            branch.moveAtSyncCount(moveList, mm);
+        }
+
+	}
+
+	public class DistColTeam extends TeamOperations<DistCol<T>> {
+		
+		DistColTeam(DistCol<T> handle) {
+			super(handle);
+		}
+		
+		@Override
+	    public void updateDist() { team_updateDist(); }
+
+		@Override
+		public void size(long[] result) {
+			for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
+				final LongRange k = entry.getKey();
+				final Place p = entry.getValue();
+				result[manager.placeGroup.rank(p)] += k.size();
+			}
 		}
 	}
 
 	private static int _debug_level = 5;
-
+	
 	private static float[] initialLocality(final int size) {
 		final float[] result = new float[size];
 		Arrays.fill(result, 1.0f);
 		return result;
 	}
 
-	public transient ChunkedList<T> data;
+	/**
+	 * Handle to Global Operations implemented by {@link DistCol}.
+	 */
+    public final transient DistColGlobal GLOBAL;
 
-	transient DistManager.Range ldist;
+    /**
+     * Internal class that handles distribution-related operations.
+     */
+	protected final transient DistManager<LongRange> ldist;
 
-    private Function<Long, T> proxyGenerator;
+	protected transient DistributionManager<T> manager;
 
+	private Function<Long, T> proxyGenerator;
+	
+	/**
+	 * Handle to Team Operations implemented by {@link DistCol}.
+	 */
+	public final transient DistColTeam TEAM;
+	
 	/**
 	 * Create a new DistCol. All the hosts participating in the distributed
 	 * computation are susceptible to handle the created instance. This
@@ -131,142 +195,58 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 	public DistCol() {
 		this(TeamedPlaceGroup.getWorld());
 	}
-
-	public DistCol(final TeamedPlaceGroup placeGroup) {
-		super(placeGroup);
-		this.ldist = new DistManager.Range();
-		this.data = new ChunkedList<T>();
-		locality = initialLocality(placeGroup.size);
+	
+    public DistCol(final TeamedPlaceGroup placeGroup) {
+		this(placeGroup,new GlobalID());
 	}
 
 	public DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id) {
-		super(placeGroup, id);
-		this.ldist = new DistManager.Range();
-		this.data = new ChunkedList<T>();
-		locality = initialLocality(placeGroup.size);
-	}
-
-	public boolean add(final T v) {
-		throw new UnsupportedOperationException();
-	}
-
-	public boolean addAll(final Collection<T> elems) {
-		throw new UnsupportedOperationException();
-	}
-
-	public void addBefore(final long i, final T v) {
-		throw new UnsupportedOperationException();
-	}
-
-	public void addChunk(final RangedList<T> c) throws ElementOverlapException {
-		ldist.add(c.getRange());
-		data.addChunk(c);
-	}
-
-	public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads,
-			BiConsumer<? super T, Consumer<U>> action, ParallelReceiver<U> toStore) {
-		return data.asyncForEach(pool, nthreads, action, toStore);
-	}
-
-	public Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
-		return data.asyncForEach(pool, nthreads, action);
-	}
-
-	public Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, LongTBiConsumer<? super T> action) {
-		return data.asyncForEach(pool, nthreads, action);
+	    super();
+	    manager=new DistributionManager<>(placeGroup, id, this);
+	    manager.locality = initialLocality(placeGroup.size);
+	    ldist = new DistManager<>(); 
+		TEAM = new DistColTeam(this);
+		GLOBAL = new DistColGlobal(this);
 	}
 
 	@Override
-	public void checkDistInfo(long[] result) {
-		for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
-			final LongRange k = entry.getKey();
-			final Place p = entry.getValue();
-			result[placeGroup.rank(p)] += k.size();
-		}
+	public void add(final RangedList<T> c) throws ElementOverlapException {
+		ldist.add(c.getRange());
+		super.add(c);
 	}
 
+	@Override
 	public void clear() {
-		data.clear();
+		super.clear();
 		ldist.clear();
-		Arrays.fill(locality, 1.0f);
+		Arrays.fill(manager.locality, 1.0f);
 	}
 
-	public boolean contains(final T v) {
-		return data.contains(v);
-	}
-
-	public boolean containsAll(final Collection<T> vs) {
-		return data.containsAll(vs);
-	}
-	/*
-	 * public def clone(): DistCol[T] { throw new
-	 * UnsupportedOperationException("DistCol does not support clone because it is missleading."
-	 * ); }
-	 */
-
-	public boolean containsChunk(RangedList<T> c) {
-		return data.containsChunk(c);
-	}
-
-	public boolean containsIndex(long i) {
-		return data.containsIndex(i);
-	}
-
-	public List<RangedList<T>> filterChunk(final Predicate<RangedList<? super T>> op) {
-		return data.filterChunk(op);
-	}
-
-	public <U> void forEach(BiConsumer<? super T, Consumer<U>> action, Collection<? super U> toStore) {
-		data.forEach(action, toStore);
-	}
-
-	public <U> void forEach(BiConsumer<? super T, Consumer<U>> action, Consumer<U> receiver) {
-		data.forEach(action, receiver);
-	}
-
-	public void forEach(Consumer<? super T> action) {
-		data.forEach(action);
-	}
-
-	public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<U>> action,
-			ParallelReceiver<U> toStore) {
-		data.forEach(pool, nthreads, action, toStore);
-	}
-	public void forEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
-		data.forEach(pool, nthreads, action);
-	}
-
-	public void forEach(ExecutorService pool, int nthreads, LongTBiConsumer<? super T> action) {
-		data.forEach(pool, nthreads, action);
-	}
-
-	public void forEach(LongTBiConsumer<? super T> action) {
-		data.forEach(action);
-	}
-
-	public void forEachChunk(Consumer<RangedList<T>> op) {
-		data.forEachChunk(op);
-	}
-
-    /**
+	/**
      * Return the value corresponding to the specified index.
      * 
-     *  If the specified index is not assigned on the place and no proxyGenerator is set for this instance, IndexOutofBoundsException will be raised.
-     * When a proxy generator is set for this instance, it generates a proxy value for the index and return the value. as a result,
-     * even if the index is not assigned to any place.
+     * If the specified index is not located on this place, a 
+     * {@link IndexOutOfBoundsException} will be raised, except if a proxy 
+     * generator was set for this instance, in which case the value generated by 
+     * the proxy is returned.
      * 
-     * @param key
-     * @throws IndexOutOfBoundsException
-     * @return the value corresponding to the provided index
+     * @param index index whose value needs to be retrieved
+     * @throws IndexOutOfBoundsException if the specified index is not contained
+     * in this local collection and no proxy was defined
+     * @return the value corresponding to the provided index, or the value 
+     * generated by the proxy if it was defined and the specified index is 
+     * outside the range of indices of this local instance
+     * @see #setProxyGenerator(Function)
      */
-	public T get(long i) {
+	@Override
+	public T get(long index) {
 	    if(proxyGenerator==null) {
-            return data.get(i);
+            return super.get(index);
 	    } else {
 	        try {
-	            return data.get(i);
+	            return super.get(index);
 	        } catch (IndexOutOfBoundsException e) {
-	            return proxyGenerator.apply(i);
+	            return proxyGenerator.apply(index);
 	        }
 	    }
 	}
@@ -279,35 +259,24 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 		return ldist.dist;
 	}
 
-	public DistributionLong getDistributionLong() {
-		return DistributionLong.convert(getDist());
+	public LongDistribution getDistributionLong() {
+		return LongDistribution.convert(getDist());
 	}
 
-	public RangedDistributionLong getRangedDistributionLong() {
-		return new RangedDistributionLong(getDist());
+	public LongRangeDistribution getRangedDistributionLong() {
+		return new LongRangeDistribution(getDist());
 	}
 
-	public List<Long> indices() {
-		throw new UnsupportedOperationException();
+	// TODO global ope. (not teamed).
+	//TODO make private to force the use of global op
+    private void global_setupBranches(final SerializableBiConsumer<Place, DistCol<T>> gen) {
+		final DistCol<T> handle = this;
+		finish(() -> {
+			handle.manager.placeGroup.broadcastFlat(() -> {
+				gen.accept(here(), handle);
+			});
+		});
 	}
-
-	public boolean isEmpty() {
-		return data.isEmpty();
-	}
-
-	/*
-	 * public def relocate(dist:RangedDistribution) { val mm = new
-	 * MoveManagerLocal(placeGroup,team); moveAtSync(dist, mm); mm.sync(); }
-	 */
-
-	public Iterator<T> iterator() {
-		return data.iterator();
-	}
-
-	public long longSize() {
-		return data.longSize();
-	}
-
 
 	public void moveAtSync(final Distribution<Long> dist, final MoveManagerLocal mm) throws Exception {
 		moveAtSync((LongRange range) -> {
@@ -382,7 +351,7 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 		mm.request(dest, serialize, deserialize);
 	}
 
-	public void moveAtSync(final LongRange range, final Place dest, final MoveManagerLocal mm) throws Exception {
+    public void moveAtSync(final LongRange range, final Place dest, final MoveManagerLocal mm) throws Exception {
 		if (_debug_level > 5) {
 			System.out.println("[" + here().id + "] moveAtSync range: " + range + " dest: " + dest.id);
 		}
@@ -390,7 +359,7 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 		final ArrayList<ChunkExtractLeft<T>> chunksToExtractLeft = new ArrayList<>();
 		final ArrayList<ChunkExtractMiddle<T>> chunksToExtractMiddle = new ArrayList<>();
 		final ArrayList<ChunkExtractRight<T>> chunksToExtractRight = new ArrayList<>();
-		data.forEachChunk((RangedList<T> c) -> {
+		forEachChunk((RangedList<T> c) -> {
 			final LongRange cRange = c.getRange();
 			if (cRange.from <= range.from) {
 				if (cRange.to <= range.from) { //cRange.max < range.min) {
@@ -444,11 +413,11 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 			final RangedList<T> original = chunkToExtractLeft.original;
 			final List<RangedList<T>> splits = chunkToExtractLeft.extract();
 			//	    System.out.println("[" + here.id + "] removeChunk " + original.getRange());
-			removeChunk(original);
+			remove(original);
 			//	    System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-			addChunk(splits.get(0)/*first*/);
+			add(splits.get(0)/*first*/);
 			//	    System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-			addChunk(splits.get(1)/*second*/);
+			add(splits.get(1)/*second*/);
 			chunksToMove.add(splits.get(0)/*first*/);
 		}
 
@@ -456,13 +425,13 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 			final RangedList<T> original = chunkToExtractMiddle.original;
 			final List<RangedList<T>> splits = chunkToExtractMiddle.extract();
 			//	    System.out.println("[" + here.id + "] removeChunk " + original.getRange());
-			removeChunk(original);
+			remove(original);
 			//	    System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-			addChunk(splits.get(0)/*first*/);
+			add(splits.get(0)/*first*/);
 			//	    System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-			addChunk(splits.get(1)/*second*/);
+			add(splits.get(1)/*second*/);
 			//	    System.out.println("[" + here.id + "] putChunk " + splits.third.getRange());
-			addChunk(splits.get(2)/*third*/);
+			add(splits.get(2)/*third*/);
 			chunksToMove.add(splits.get(1)/*second*/);
 		}
 
@@ -470,16 +439,17 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 			final RangedList<T> original = chunkToExtractRight.original;
 			final List<RangedList<T>> splits = chunkToExtractRight.extract();
 			//	    System.out.println("[" + here.id + "] removeChunk " + original.getRange());
-			removeChunk(original);
+			remove(original);
 			//	    System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-			addChunk(splits.get(0)/*first*/);
+			add(splits.get(0)/*first*/);
 			//	    System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-			addChunk(splits.get(1)/*second*/);
+			add(splits.get(1)/*second*/);
 			chunksToMove.add(splits.get(1)/*second*/);
 		}
 
 		moveAtSync(chunksToMove, dest, mm);
 	}
+	
 
 	public void moveAtSync(final RangedDistribution<LongRange> dist, final MoveManagerLocal mm) throws Exception {
 		moveAtSync((LongRange range) -> {
@@ -487,7 +457,7 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 		}, mm);
 	}
 
-	protected void moveAtSyncCount(final ArrayList<ILPair> moveList, final MoveManagerLocal mm) throws Exception {
+	public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm) throws Exception {
 		// TODO ->LinkedList? sort??
 		final ArrayList<LongRange> localKeys = new ArrayList<>();
 		localKeys.addAll(ranges());
@@ -503,9 +473,9 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 			}
 			System.out.println();
 		}
-		for (final ILPair moveinfo : moveList) {
+		for (final IntLongPair moveinfo : moveList) {
 			final long count = moveinfo.second;
-			final Place dest = placeGroup.get(moveinfo.first);
+			final Place dest = manager.placeGroup.get(moveinfo.first);
 			if (_debug_level > 5) {
 				System.out.println("[" + here() + "] move count=" + count + " to dest " + dest.id);
 			}
@@ -527,10 +497,6 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 		}
 	}
 
-	public int numChunks() {
-		return data.numChunks();
-	}
-
 	private void putForMove(final RangedList<T> c, final byte mType) throws Exception {
 		final LongRange key = c.getRange();
 		switch (mType) {
@@ -543,98 +509,83 @@ public class DistCol<T> extends AbstractDistCollection /* implements List[T], Ma
 		default:
 			throw new Exception("SystemError when calling putForMove " + key);
 		}
-		data.addChunk(c);
+		super.add(c);
 	}
-
-	// TODO
-	public Collection<LongRange> ranges() {
-		return data.ranges();
-	}
-
-	public boolean remove(final T v) {
-		throw new UnsupportedOperationException();
-	}
-
-	public boolean removeAll(final Collection<T> vs) {
-		throw new UnsupportedOperationException();
-	}
-
-	public void removeChunk(final RangedList<T> c) throws Exception {
+	
+	@Override
+	public RangedList<T> remove(final RangedList<T> c) {
 		ldist.remove(c.getRange());
-		data.removeChunk(c);
+		return super.remove(c);
 	}
-
+	
+	
 	private void removeForMove(final RangedList<T> c) {
-		if (data.removeChunk(c) == null) {
+		if (super.remove(c) == null) {
 			throw new RuntimeException("DistCol#removeForMove");
 		}
 	}
-	/*
-	 * public void integrate(ChunkedList<T> c) { //TODO throw new
-	 * UnsupportedOperationException(); }
-	 */
-	/*
-	 * def create(placeGroup: PlaceGroup, team: Team, init: ()=>ChunkedList[T]){
-	 * //TODO return null as AbstractDistCollection[ChunkedList[T]]; }
-	 */
-
-	public boolean retainAll(final Collection<T> vs) {
-		throw new UnsupportedOperationException();
-	}
-
-	public void reverse() {
-		throw new UnsupportedOperationException();
-	}
-
-	public T set(long i, T value) {
-		return data.set(i, value);
-	}
-	
-
-    /**
-     * The proxy feature prepares a proxy when elements that do not reside the called site.
-     * It resembles `getOrDefault(key, defaultValue)`.
-     *  Instead of the default value provided by the call site,
-     *   the given proxy generator generates a proxy for the index.
+	/**
+     * Sets this instance's proxy generator.
+     * 
+     * The proxy feature is used to prepare an element when access to an index
+     * that is not contained in the local range. Instead of throwing an 
+     * {@link IndexOutOfBoundsException}, the value generated by the proxy will
+     * be used. It resembles `getOrDefault(key, defaultValue)`.
      *
-     * @param proxyGenerator
+     * @param proxyGenerator function that takes a {@link Long} index as 
+     * parameter and returns a T
      */
     public void setProxyGenerator(Function<Long,T> proxyGenerator) {
         this.proxyGenerator = proxyGenerator;
     }
 	
-
-	// TODO ...
-	public void setupBranches(final Generator<T> gen) {
-		final DistCol<T> handle = this;
-		finish(() -> {
-			handle.placeGroup.broadcastFlat(() -> {
-				gen.accept(here(), handle);
-			});
-		});
+    // TODO make private
+	private void team_updateDist() {
+		ldist.updateDist(manager.placeGroup);
 	}
-
-	/*
-    // var proxy:(Long)=>T = null;
-
-    public def setProxy(proxy:(Long)=>T) {
-    this.proxy = proxy;
-    }
-	 */
-	@Deprecated
-	public int size() {
-		return data.size();
-	}
-
-	public void updateDist() {
-		ldist.updateDist(placeGroup);
-	}
-
+	
+	@Override
 	public Object writeReplace() throws ObjectStreamException {
-		final TeamedPlaceGroup pg1 = placeGroup;
-		final GlobalID id1 = id;
-		return new AbstractDistCollection.LazyObjectReference<DistCol<T>>(pg1, id1, () -> {
+		final TeamedPlaceGroup pg1 = manager.placeGroup;
+		final GlobalID id1 = manager.id;
+		return new LazyObjectReference<DistCol<T>>(pg1, id1, () -> {
 			return new DistCol<T>(pg1, id1);
 		});
+	}
+
+	@Override
+	public float[] locality() {
+		// TODO check if this is correct
+		return manager.locality;
+	}
+
+	@Override
+	public GlobalID id() {
+		return manager.id;
+	}
+
+	@Override
+	public TeamOperations<DistCol<T>> team() {
+		return TEAM;
+	}
+
+	@Override
+	public GlobalOperations<DistCol<T>> global() {
+		return GLOBAL;
+	}
+
+//	Method moved to GLOBAL and TEAM operations 
+//	@Override
+//	public void distSize(long[] result) {
+//		for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
+//			final LongRange k = entry.getKey();
+//			final Place p = entry.getValue();
+//			result[manager.placeGroup.rank(p)] += k.size();
+//		}
+//	}
+
+	@Override
+	public TeamedPlaceGroup placeGroup() {
+		return manager.placeGroup;
 	}
 }

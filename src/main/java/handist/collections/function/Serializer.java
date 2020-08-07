@@ -7,13 +7,12 @@
  *
  * SPDX-License-Identifier: EPL-1.0
  *******************************************************************************/
-package handist.collections.dist;
+package handist.collections.function;
 
-import java.io.ObjectInputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
-import apgas.Place;
-
-public interface DeSerializerUsingPlace extends Serializable{
-	void accept(ObjectInputStream in, Place p) throws Exception;
+public interface Serializer extends Serializable {
+	void accept(ObjectOutputStream out) throws IOException;
 }

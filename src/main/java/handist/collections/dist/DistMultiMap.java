@@ -23,39 +23,43 @@ import java.util.function.BiFunction;
 
 import apgas.Place;
 import apgas.util.GlobalID;
+import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.Serializer;
 
 /**
  * A Map data structure spread over the multiple places.
- * This class allows multiple values for one key.
- * @param <K> type of the key used in the {@link DistMapList}
+ * This class allows multiple values for one key, those values being stored in
+ * a list.
+ * @param <K> type of the key used in the {@link DistMultiMap}
  * @param <V> type of the elements contained in the lists to which the keys map
  */
-public class DistMapList<K,V> extends DistMap<K, List<V>> {
+public class DistMultiMap<K,V> extends DistMap<K, List<V>> {
 
 
 	/**
-	 * Construct a DistMapList.
+	 * Construct a DistMultiMap.
 	 */
-	public DistMapList() {
+	public DistMultiMap() {
 		this(TeamedPlaceGroup.getWorld());
 	}
 
 	/**
-	 * Construct a DistMapList with given argument.
+	 * Construct a DistMultiMap with given argument.
 	 *
 	 * @param placeGroup PlaceGroup.
 	 */
-	public DistMapList(TeamedPlaceGroup placeGroup) {
+	public DistMultiMap(TeamedPlaceGroup placeGroup) {
 		super(placeGroup);
 	}
 
 	/**
-	 * Construct a DistMapList with given arguments.
+	 * Construct a DistMultiMap with given arguments.
 	 *
 	 * @param placeGroup PlaceGroup
 	 * @param id the global ID used to identify this instance
 	 */
-	public DistMapList(TeamedPlaceGroup placeGroup, GlobalID id) {
+	public DistMultiMap(TeamedPlaceGroup placeGroup, GlobalID id) {
 		super(placeGroup, id);
 	}
 
@@ -78,17 +82,17 @@ public class DistMapList<K,V> extends DistMap<K, List<V>> {
 
 	/**
 	 * Apply the same operation on each element including remote places and 
-	 * creates a new {@link DistMapList} with the same keys as this instance and
+	 * creates a new {@link DistMultiMap} with the same keys as this instance and
 	 * the result of the mapping operation as values.
 	 * 
 	 * @param <W> the type of the result of the map operation
 	 * @param op the mapping operation from {@code V} to {@code W}
-	 * @return a new DistMapList which consists of the result of the operation.
+	 * @return a new DistMultiMap which consists of the result of the operation.
 	 */
-	public <W> DistMapList<K,W> map(BiFunction<K, V, W> op) {
+	public <W> DistMultiMap<K,W> map(BiFunction<K, V, W> op) {
 		// TODO
 		throw new Error("not implemented yet");
-		/*return new DistMapList[T,S](placeGroup, team, () => {
+		/*return new DistMultiMap[T,S](placeGroup, team, () => {
             val dst = new HashMap[T,List[S]]();
             for (entry in data.entries()) {
                 val key = entry.getKey();
@@ -108,8 +112,8 @@ public class DistMapList<K,V> extends DistMap<K, List<V>> {
 		if (pl.equals(here()))
 			return;
 		if (!containsKey(key))
-			throw new RuntimeException("DistMapList cannot move uncontained entry: " + key);
-		final DistMapList<K, V> toBranch = this; // using plh@AbstractCol
+			throw new RuntimeException("DistMultiMap cannot move uncontained entry: " + key);
+		final DistMultiMap<K, V> toBranch = this; // using plh@AbstractCol
 		Serializer serialize = (ObjectOutputStream s) -> {
 			List<V> value = this.removeForMove(key);
 			// TODO we should check values!=null before transportation
@@ -154,7 +158,7 @@ public class DistMapList<K,V> extends DistMap<K, List<V>> {
 	 */
 	@SuppressWarnings("unchecked")
 	public void putAtSync(K key, V value, Place pl, MoveManagerLocal mm) {
-		DistMapList<K,V> toBranch = this; // using plh@AbstractCol
+		DistMultiMap<K,V> toBranch = this; // using plh@AbstractCol
 		Serializer serialize = (ObjectOutputStream s) -> {
 			s.writeObject(key);
 			s.writeObject(value);
@@ -193,8 +197,8 @@ public class DistMapList<K,V> extends DistMap<K, List<V>> {
 	public Object writeReplace() throws ObjectStreamException {
 		final TeamedPlaceGroup pg1 = placeGroup;
 		final GlobalID id1 = id;
-		return new AbstractDistCollection.LazyObjectReference<DistMapList<K,V>>(pg1, id1, ()-> {
-			return new DistMapList<K,V>(pg1, id1);
+		return new LazyObjectReference<DistMultiMap<K,V>>(pg1, id1, ()-> {
+			return new DistMultiMap<K,V>(pg1, id1);
 		});
 	}
 
@@ -216,14 +220,14 @@ public class DistMapList<K,V> extends DistMap<K, List<V>> {
         return accum;
     }
 
-    def create(placeGroup: PlaceGroup, team: Team, init: ()=>Map[T, List[U]]){
-        // return new DistMapList[T,U](placeGroup, init) as AbstractDistCollection[Map[T,List[U]]];
+    def create(placeGroup: PlaceGroup, team: TeamOperations, init: ()=>Map[T, List[U]]){
+        // return new DistMultiMap[T,U](placeGroup, init) as AbstractDistCollection[Map[T,List[U]]];
         return null as AbstractDistCollection[Map[T, List[U]]];
     }
 
     public def versioningMapList(srcName : String){
-        // return new BranchingManager[DistMapList[T,U], Map[T,List[U]]](srcName, this);
-        return null as BranchingManager[DistMapList[T,U], Map[T,List[U]]];
+        // return new BranchingManager[DistMultiMap[T,U], Map[T,List[U]]](srcName, this);
+        return null as BranchingManager[DistMultiMap[T,U], Map[T,List[U]]];
     }*/
 	//TODO
 	//In the cunnrent implementation of balance(), 

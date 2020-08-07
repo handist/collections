@@ -22,7 +22,7 @@ import java.util.stream.LongStream;
  * Class {@link LongRange} describes an interval over {@code long} values.
  * <p>
  * The lower bound is included and the upper bound is excluded from the interval, meaning that
- * for two {@code long} values a and b (a<b), all the {@code long} values l such that a &lte; l &lt; b
+ * for two {@code long} values a and b (a&lt;b), all the {@code long} values l such that a &le; l &lt; b
  * are contained within the {@link LongRange} [a,b).
  * <p>
  * It is possible to create "empty" {@link LongRange} instances where the lower bound is equal to the
@@ -148,7 +148,7 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 	 * ordering of the upper bounds. The implemented ordering of {@link LongRange} is 
 	 * consistent with equals. To illustrate the ordering, consider the following examples:
 	 * <ul>
-	 * <li>[0,0) < [0,100) < [1,1) < [1,20) < [1,21)
+	 * <li>[0,0) &lt; [0,100) &lt; [1,1) &lt; [1,20) &lt; [1,21)
 	 * <li>[0,0) == [0,0)
 	 * <li>[0,10) == [0,10)
 	 * </ul>
@@ -172,13 +172,12 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 
 	/**
 	 * Scans intersections between this instance  and the key sets of the provided {@code TreeMap<LongRange, S> rmap}
-	 * and apply {@code Consumer<LongRange> consumer} to each intersection range.
+	 * and applies {@code Consumer<LongRange> consumer} to each intersection range.
 	 * 
-	 * @param <S>
-	 * @param rmap
-	 * @param consumer
+	 * @param rmap tree map whose intersection with this instance will be processed
+	 * @param consumer the action to perform on the {@link LongRange} index instersections
 	 */
-	public <S> void computeOnOverlap(TreeMap<LongRange, S> rmap,  Consumer<LongRange> consumer) {
+	public void computeOnOverlap(TreeMap<LongRange, ?> rmap,  Consumer<LongRange> consumer) {
 		long current = this.from;
 		while(true) {
 			LongRange tmp = new LongRange(current, current);
@@ -194,25 +193,24 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 	/**
 	 * Scans intersections between this instance  and the key sets of the provided {@code TreeMap<LongRange, S> rmap}
 	 * and apply {@code LongConsumer consumer} to each index in the intersections.
-	 * 
-	 * @param <S>
-	 * @param rmap
-	 * @param consumer
+	 *
+	 * @param rmap tree map whose intersection with this instance will be processed
+	 * @param consumer the action to perform on each index in the intersection between
+	 * the this instance and provided key {@code rmap} keys
 	 */
-	public <S> void computeOnOverlap(TreeMap<LongRange, S> rmap,  LongConsumer consumer) {
+	public void computeOnOverlap(TreeMap<LongRange, ?> rmap,  LongConsumer consumer) {
 		computeOnOverlap(rmap, (LongRange range)->{
 			range.forEach(consumer);
 		});
 	}
 
 	/**
-	 * Checks if all the index in this range in included in one of the keys
-	 * contained by the provided {@code TreeMap<LongRange, S> rmap}.
-	 * 
+	 * Checks if all the indices in this range are included in one of the keys
+	 * contained by the provided {@code TreeMap}.
 	 * @param rmap the TreeMap instance to check
 	 * @return a LongRange key of the provided TreeMap instance that intersects this instance, or {@code null} if there are so such key.
 	 */
-	public <S> boolean contained(TreeMap<LongRange, S> rmap) {
+	public boolean contained(TreeMap<LongRange, ?> rmap) {
 		long current = this.from;
 		while(true) {
 			LongRange tmp = new LongRange(current, current);
@@ -226,7 +224,7 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 
 	/**
 	 * Indicates if the provided index is included in this instance. A {@code long}
-	 * l is contained in a {@link LongRange} [a,b) (a &lt; b) iff a &lte; l &lt; b.
+	 * l is contained in a {@link LongRange} [a,b) (a &lt; b) iff a &le; l &lt; b.
 	 * If the {@link LongRange} has identical lower and upper bound, it does not contain any
 	 * index.
 	 * @param index the long value whose inclusion in this instance is to be checked 
@@ -276,7 +274,7 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 	 * @param rmap the TreeMap instance to check
 	 * @return a LongRange key of the provided TreeMap instance that intersects this instance, or {@code null} if there are so such key.
 	 */
-	public <S> LongRange findOverlap(TreeMap<LongRange, S> rmap) {
+	public LongRange findOverlap(TreeMap<LongRange, ?> rmap) {
 		LongRange floorKey = rmap.floorKey(this);
 		if (floorKey != null && floorKey.isOverlapped(this)) {
 			return floorKey;
