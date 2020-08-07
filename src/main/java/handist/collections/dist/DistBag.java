@@ -144,11 +144,11 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<DistBag
 	@SuppressWarnings("unchecked")
 	public void gather(Place root) {
 		Serializer serProcess = (ObjectOutputStream ser) -> {
-			ser.writeObject(this); // was ser.writeObject(this.data)
+			ser.writeObject(new Bag(this));
 		};
 		DeSerializerUsingPlace desProcess = (ObjectInputStream des, Place place) -> {
-			Collection<T> imported = (Collection<T>) des.readObject();
-			addAll(imported);
+			Bag<T> imported = (Bag<T>) des.readObject();
+			addBag(imported);
 		};
 		CollectiveRelocator.gatherSer(placeGroup, root, serProcess, desProcess);
 		if (!here().equals(root)) {
