@@ -58,4 +58,8 @@ public class LongDistribution implements Distribution<Long> {
 	public Place place(Long key) {
 		return dist.get(key);
 	}
+	@Override
+	public String toString() {
+		return "[LongDistribution]" + dist;
+	}
 }

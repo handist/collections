@@ -25,6 +25,7 @@ import mpi.MPIException;
 
 public class CollectiveRelocator {
 
+	private static final boolean DEBUG = false;
 	public static void all2allser(TeamedPlaceGroup placeGroup, MoveManagerLocal mm) throws Exception {
 		int[] sendOffset = new int[placeGroup.size()];
 		int[] sendSize = new int[placeGroup.size()];
@@ -125,7 +126,7 @@ public class CollectiveRelocator {
 	static byte[] executeRelocation(TeamedPlaceGroup placeGroup, byte[] byteArray, int[] sendOffset, int[] sendSize,
 			int[] rcvOffset, int[] rcvSize) throws MPIException {
 		placeGroup.comm.Alltoall(sendSize, 0, 1, MPI.INT, rcvSize, 0, 1, MPI.INT);
-		{
+		if(DEBUG) {
 			StringBuffer buf = new StringBuffer();
 			buf.append(Constructs.here() + "::");
 			for (int j = 0; j < rcvSize.length; j++) {

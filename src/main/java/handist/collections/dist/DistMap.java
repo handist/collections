@@ -445,6 +445,8 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 	public void relocate(Distribution<K> rule, MoveManagerLocal mm) throws Exception {
 		for (K key: data.keySet()) {
 			Place place = rule.place(key);
+			// TODO
+			// if(place==null) throw SomeException();
 			moveAtSync(key, place, mm);
 		}
 		mm.sync();

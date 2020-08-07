@@ -30,6 +30,7 @@ import handist.collections.function.Serializer;
  * This class is used for relocating elements of DistCollections.
  */
 public final class MoveManagerLocal {
+	private static final boolean DEBUG = false;
 	final Map<Place, List<DeSerializer>> builders;
 	// TODO TeamedPlaceGroup or PlaceGroup<PlaceInTeam>
 	final TeamedPlaceGroup placeGroup;
@@ -115,14 +116,14 @@ public final class MoveManagerLocal {
 				continue;
 			offsets[i] = out.size();
 			// TODO should reopen ByteArray...
-			System.out.println("execSeri: " + here() + "->" + place + ":start:" + out.size());
+			if(DEBUG) System.out.println("execSeri: " + here() + "->" + place + ":start:" + out.size());
 			ObjectOutputStream s = new ObjectOutputStream(out);
 			s.writeObject(builders.get(place));
 			for (Serializer serializer : serializeListMap.get(place)) {
 				serializer.accept(s);
 			}
 			s.close();
-			System.out.println("execSeri: " + here() + "->" + place + ":finish:" + out.size());
+			if(DEBUG) System.out.println("execSeri: " + here() + "->" + place + ":finish:" + out.size());
 			sizes[i] = out.size() - offsets[i];
 		}
 	}

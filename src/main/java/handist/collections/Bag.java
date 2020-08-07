@@ -103,12 +103,28 @@ public class Bag<T> extends AbstractCollection<T> implements  ParallelReceiver<T
 	}
 
 	/**
+	 * Constructor to create a Bag that contains the same contents with another Bag or DistBag.
+	 */
+	public Bag(Bag<T> bag) {
+		bags = bag.bags;
+	}
+
+	/**
 	 * Adds a list of instances to this instance.
 	 * 
 	 * @param l list of T
 	 */
 	public void addBag(List<T> l) {
 		bags.add(l);
+	}
+
+	/**
+	 * Adds a list of instances to this instance.
+	 *
+	 * @param bag Bag of T
+	 */
+	public void addBag(Bag<T> bag) {
+		bags.addAll(bag.bags);
 	}
 
 	/**
