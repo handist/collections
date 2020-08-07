@@ -15,9 +15,9 @@ import java.util.Map;
 import apgas.Place;
 import handist.collections.LongRange;
 
-public class DistributionLong implements Distribution<Long> {
+public class LongDistribution implements Distribution<Long> {
 
-	public static DistributionLong convert(Map<LongRange,Place> rangedHashMap) {
+	public static LongDistribution convert(Map<LongRange,Place> rangedHashMap) {
 		HashMap<Long,Place> newHashMap = new HashMap<>();
 		for (Map.Entry<LongRange, Place> entry: rangedHashMap.entrySet()) {
 			LongRange range = entry.getKey();
@@ -26,21 +26,21 @@ public class DistributionLong implements Distribution<Long> {
 				newHashMap.put(i, place);
 			}
 		}
-		return new DistributionLong(newHashMap);
+		return new LongDistribution(newHashMap);
 	}
 
 	private HashMap<Long, Place> dist;
 
-	public DistributionLong(DistributionLong distribution) {
+	public LongDistribution(LongDistribution distribution) {
 		dist = cloneHashMap(distribution.getHashMap());
 	}
 
-	public DistributionLong(Map<Long,Place> originalHashMap) {
+	public LongDistribution(Map<Long,Place> originalHashMap) {
 		dist = cloneHashMap(originalHashMap);
 	}
 
-	public DistributionLong clone() {
-		return new DistributionLong(this);
+	public LongDistribution clone() {
+		return new LongDistribution(this);
 	}
 
 	private HashMap<Long,Place> cloneHashMap(Map<Long,Place> originalHashMap) {

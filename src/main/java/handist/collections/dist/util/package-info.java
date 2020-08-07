@@ -7,10 +7,8 @@
  *
  * SPDX-License-Identifier: EPL-1.0
  *******************************************************************************/
-package handist.collections.dist;
-
-import java.io.Serializable;
-import java.util.function.Consumer;
-
-public interface SerializableConsumer<T> extends Consumer<T>, Serializable {
-}
+/**
+ * Package containing a few utility classes that help in some specific internal
+ * operations.
+ */
+package handist.collections.dist.util;

@@ -11,6 +11,20 @@ package handist.collections.dist;
 
 import apgas.Place;
 
+/**
+ * Represents the mapping of a key to a place for a distributed collection. 
+ * This interface proposes a single method which assigns a {@link Place} to a 
+ * key. Distributed collection facilities will use implementations of this 
+ * interface by interrogating the {@link #place(Object)} method with the keys
+ * they are manipulating to identify on which host the associated value should 
+ * be located.
+ * <p>
+ * For a distribution created from objects that represent a range of keys, refer
+ * to interface {@link RangedDistribution}.  
+ *
+ * @param <K> the type used as key of a distributed collection
+ * @see RangedDistribution
+ */
 public interface Distribution<K> /* implements Map[K,Place] */{
 
 	public Place place(K key);

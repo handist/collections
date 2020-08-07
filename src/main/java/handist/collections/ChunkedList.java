@@ -10,7 +10,6 @@
 package handist.collections;
 
 import java.io.Serializable;
-import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -39,7 +38,10 @@ import handist.collections.function.LongTBiConsumer;
  * {@link ChunkedList} contains, and by extension, the type of elements handled
  * by the {@link ChunkedList}
  */
-public class ChunkedList<T> extends AbstractCollection<T> implements Serializable {
+public class ChunkedList<T> implements Iterable<T>, Serializable {
+
+	/** Serial Version UID */
+	private static final long serialVersionUID = 6899796587031337979L;
 
 	/**
 	 * Iterator class for {@link ChunkedList}. 
@@ -125,30 +127,7 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	public ChunkedList(TreeMap<LongRange, RangedList<T>> chunks) {
 		this.chunks = chunks; //FIXME what about member size ?
 		size = 0;
-		chunks.forEach((r, c) -> size += c.longSize());
-	}
-
-	/**
-	 * Not supported. Individual elements cannot be added to a 
-	 * {@link ChunkedList}. You can either add an entire {@link Chunk} with 
-	 * {@link #addChunk(RangedList)} or set a value of a particular index with 
-	 * {@link #set(long, Object)}
-	 * @throws UnsupportedOperationException systematically
-	 */
-	@Override
-	public boolean add(T element) {
-		throw new UnsupportedOperationException();
-	}
-
-	/**
-	 * Not supported. Elements cannot be added to a {@link ChunkedList}. You can
-	 * add an entire {@link Chunk} with {@link #addChunk(RangedList)} or set
-	 * individual values with {@link #set(long, Object)}.
-	 * @throws UnsupportedOperationException systematically
-	 */
-	@Override
-	public boolean addAll(Collection<? extends T> c) {
-		throw new UnsupportedOperationException();
+		chunks.forEach((r, c) -> size += c.size());
 	}
 
 	/**
@@ -160,17 +139,17 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	 * is defined intersects with another {@link Chunk} already present in this
 	 * instance
 	 */
-	public void addChunk(RangedList<T> c) {
+	public void add(RangedList<T> c) {
 		LongRange desired = c.getRange();
 		LongRange intersection = checkOverlap(desired);
 		if (intersection != null) {
 			//TODO
-			throw new ElementOverlapException("LongRange " + desired + " "
-					+ "overlaps " + intersection + " which is already present in"
+			throw new ElementOverlapException("LongRange " + desired + " overla"
+					+ "ps " + intersection + " which is already present in"
 					+ " this ChunkedList");
 		}
 		chunks.put(desired, c);
-		size += c.longSize();
+		size += c.size();
 	}
 
 	/**
@@ -288,15 +267,14 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	}
 
 	/**
-	 * Not supported. You can remove individual {@link Chunk}s with 
-	 * {@link #removeChunk(RangedList)}.
-	 * @throws UnsupportedOperationException systematically
+	 * Removes all the chunks contained in this instance. This instance is 
+	 * effectively empty as a result and a subsequent call to {@link #isEmpty()}
+	 * will return {@code true}, calling {@link #size()} will return {@code 0l}.
 	 */
-	@Override
 	public void clear() {
-		throw new UnsupportedOperationException();
+		size = 0l;
+		chunks.clear();
 	}
-
 
 	/**
 	 * Returns a new {@link ChunkedList} which contains the same {@link Chunk}s
@@ -323,7 +301,6 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	 * @return true if the provided object is contained in at least one of the
 	 * chunks contained in this instance
 	 */
-	@Override
 	public boolean contains(Object o) {
 		for (RangedList<T> chunk : chunks.values()) {
 			if (chunk.contains(o)) {
@@ -346,11 +323,12 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	 * If programmer can place the elements that are more likely to be absent 
 	 * from this instance at the beginning of the collection (in the order used
 	 * by the {@link Iterator}, it may save considerable execution time. 
+	 * @param c elements whose presence in this instance is to be checked
+	 * @return true if every instance in the provided collection is present in
+	 *  this collection
 	 */
-	@Override
 	public boolean containsAll(Collection<?> c) {
-		// cf.
-		// https://stackoverflow.com/questions/10199772/what-is-the-cost-of-containsall-in-java
+		// cf https://stackoverflow.com/questions/10199772/what-is-the-cost-of-containsall-in-java
 		Iterator<?> e = c.iterator();
 		while (e.hasNext()) {
 			if (!this.contains(e.next())) {
@@ -405,9 +383,9 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 		if (o == null || !(o instanceof ChunkedList)) {
 			return false;
 		}
-		// TODO very slow
+		// FIXME very slow
 		ChunkedList<?> target = (ChunkedList<?>) o;
-		if(longSize() != target.longSize()) return false;
+		if(size() != target.size()) return false;
 		for(LongRange range: chunks.keySet()) {
 			for(long index: range) {
 				T mine = get(index);
@@ -478,7 +456,10 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	}
 
 	/**
-	 * Performs the provided action on every element contained in this collection.
+	 * Performs the provided action on every element contained in this 
+	 * collection.
+	 * @param action action to perform on each element contained in this 
+	 * 	instance
 	 */
 	public void forEach(Consumer<? super T> action) {
 		for (RangedList<T> c : chunks.values()) {
@@ -606,19 +587,18 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	}
 
 	/**
-	 * Returns {@code true} if this instance does not contain any chunk
+	 * Indicates if this instance does not contain any chunk
 	 * @return {@code true} if this instance does not contain any chunk
 	 */
-	@Override
 	public boolean isEmpty() {
 		return size == 0;
 	}
 
 	/**
 	 * Returns an iterator on the values contained by every chunk in this 
-	 * instance.  
+	 * instance.
+	 * @return an iterator on the elements contained in this {@link ChunkedList}  
 	 */
-	@Override
 	public Iterator<T> iterator() {
 		return new It<T>(chunks);
 	}
@@ -628,7 +608,7 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	 * sum of the size of each individual {@link Chunk} this instance holds. 
 	 * @return size of this instance as a {@code long}
 	 */
-	public long longSize() {
+	public long size() {
 		return size;
 	}
 
@@ -673,7 +653,7 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 		ChunkedList<S> result = new ChunkedList<>();
 		forEachChunk((RangedList<T> c) -> {
 			RangedList<S> r = c.map(func);
-			result.addChunk(r);
+			result.add(r);
 		});
 		return result;
 	}
@@ -681,7 +661,7 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	private <S> List<Future<?>> mapParallelBody(ExecutorService pool, int nthreads,
 			Function<? super T, ? extends S> func, ChunkedList<S> result) {
 		forEachChunk((RangedList<T> c) -> {
-			result.addChunk(new Chunk<S>(c.getRange()));
+			result.add(new Chunk<S>(c.getRange()));
 		});
 		List<ChunkedList<T>> separatedIn = this.separate(nthreads);
 		List<ChunkedList<S>> separatedOut = result.separate(nthreads);
@@ -729,26 +709,6 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	}
 
 	/**
-	 * Not supported. You cannot remove individual objects but you can remove
-	 * entire chunks using {@link #removeChunk(RangedList)}.
-	 * @throws UnsupportedOperationException always 
-	 */
-	@Override
-	public boolean remove(Object o) {
-		throw new UnsupportedOperationException();
-	}
-
-	/**
-	 * Not supported. You cannot remove individual objects but you can remove
-	 * entire chunks using {@link #removeChunk(RangedList)}.
-	 * @throws UnsupportedOperationException always 
-	 */
-	@Override
-	public boolean removeAll(Collection<?> c) {
-		throw new UnsupportedOperationException();
-	}
-
-	/**
 	 * Removes and returns a chunk whose {@link LongRange} on which it is 
 	 * defined matches the one on which the provided {@link RangedList} is 
 	 * defined.  
@@ -756,21 +716,12 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	 * @return the removed chunk, or null if there was no such chunk contained
 	 * in this instance
 	 */
-	public RangedList<T> removeChunk(RangedList<T> c) {
+	public RangedList<T> remove(RangedList<T> c) {
 		RangedList<T> removed = chunks.remove(c.getRange());
 		if (removed != null) {
-			size -=removed.longSize();
+			size -=removed.size();
 		}
 		return removed;
-	}
-
-	/**
-	 * Not supported.
-	 * @throws UnsupportedOperationException systematically
-	 */
-	@Override
-	public boolean retainAll(Collection<?> c) {
-		throw new UnsupportedOperationException();
 	}
 
 	/**
@@ -784,7 +735,7 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 	 * 	elements
 	 */
 	public List<ChunkedList<T>> separate(int n) {
-		long totalNum = longSize();
+		long totalNum = size();
 		long rem = totalNum % n;
 		long quo = totalNum / n;
 		List<ChunkedList<T>> result = new ArrayList<ChunkedList<T>>(n);
@@ -797,20 +748,20 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 			long rest = quo + ((i < rem) ? 1 : 0);
 			while (rest > 0) {
 				LongRange range = c.getRange();
-				if (c.longSize() - used < rest) { // not enough
+				if (c.size() - used < rest) { // not enough
 					long from = range.from + used;
 					if (from != range.to) {
-						r.addChunk(c.subList(from, range.to));	
+						r.add(c.subList(from, range.to));	
 					}
-					rest -= c.longSize() - used;
+					rest -= c.size() - used;
 					used = 0;
-					// TODO should use iterator??
+					// TODO should we use iterator instead ?
 					c = chunks.higherEntry(range).getValue();
 				} else {
 					long from = range.from + used;
 					long to = from + rest;
 					if (from != to) {
-						r.addChunk(c.subList(from, to));	
+						r.add(c.subList(from, to));	
 					}
 					used += rest;
 					rest = 0;
@@ -840,38 +791,6 @@ public class ChunkedList<T> extends AbstractCollection<T> implements Serializabl
 		}
 		RangedList<T> chunk = entry.getValue();
 		return chunk.set(i, value);
-	}
-
-	/**
-	 * Return the total number of indices contained by all the chunks in this 
-	 * instance as an {@code int}
-	 *
-	 * @return the number of elements in this instance
-	 */
-	@Override
-	@Deprecated
-	public int size() {
-		return (int) longSize();
-	}
-
-	/**
-	 * Not Supported
-	 * @throws UnsupportedOperationException systematically
-	 */
-	@Override
-	public Object[] toArray() {
-		//        return new Object[0];
-		throw new UnsupportedOperationException();
-	}
-
-	/**
-	 * Not Supported
-	 * @throws UnsupportedOperationException systematically
-	 */
-	@Override
-	public <T1> T1[] toArray(T1[] a) {
-		//        return null;
-		throw new UnsupportedOperationException();
 	}
 
 	@Override

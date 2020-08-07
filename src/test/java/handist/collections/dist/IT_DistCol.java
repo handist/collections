@@ -11,18 +11,17 @@ package handist.collections.dist;
 
 import static apgas.Constructs.*;
 
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-
 import apgas.Place;
-import handist.collections.LongRange;
 import handist.collections.Chunk;
+import handist.collections.LongRange;
 import handist.collections.RangedList;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -51,7 +50,7 @@ public class IT_DistCol implements Serializable {
 
 	long rangeSkip0 = 5;
 
-	@Test
+	@Test(timeout=100000)
 	public void run() {
 		TeamedPlaceGroup pg = this.placeGroup;
 		long NPLACES =  NPLACES0;
@@ -74,7 +73,7 @@ public class IT_DistCol implements Serializable {
 				for (long j = rangeBegin; j < rangeEnd; j++) {
 					c.set(j, "" + j + "/" + i);
 				}
-				distCol.addChunk(c);
+				distCol.add(c);
 				rangeBegin = rangeBegin + rangeSize + rangeSkip;
 			}
 		} catch (Exception e) {
@@ -133,7 +132,7 @@ public class IT_DistCol implements Serializable {
 		System.out.println("### Update dist // Distribute all entries");
 		pg.broadcastFlat(() -> {
 			try {
-				distCol.updateDist();
+				distCol.team().updateDist();
 			} catch (Exception e) {
 				System.err.println("Error on " + here());
 				e.printStackTrace();
@@ -200,7 +199,7 @@ public class IT_DistCol implements Serializable {
 		pg.broadcastFlat(() -> {
 			try {
 				// System.out.println("BeforeUpdateDist: "+distCol.ldist.toString() +"@"+here());		    
-				distCol.updateDist();
+				distCol.team().updateDist();
 				// System.out.println("AfterUpdateDist: "+distCol.ldist.toString() +"@"+here());
 
 			} catch (Exception e) {
@@ -280,7 +279,7 @@ public class IT_DistCol implements Serializable {
 		System.out.println("### Update dist // Move all entries to the next to next place");
 		pg.broadcastFlat(() -> {
 			try {
-				distCol.updateDist();
+				distCol.team().updateDist();
 			} catch (Exception e) {
 				System.err.println("Error on " + here());
 				e.printStackTrace();
@@ -346,7 +345,7 @@ public class IT_DistCol implements Serializable {
 		System.out.println("### Update dist // Move all entries to the NPLACES times next place");
 		pg.broadcastFlat(() -> {
 			try {
-				distCol.updateDist();
+				distCol.team().updateDist();
 			} catch (Exception e) {
 				System.err.println("Error on " + here());
 				e.printStackTrace();
@@ -408,7 +407,7 @@ public class IT_DistCol implements Serializable {
 		System.out.println("### Update dist // Move all entries to place 0");
 		pg.broadcastFlat(() -> {
 			try {
-				distCol.updateDist();
+				distCol.team().updateDist();
 			} catch (Exception e) {
 				System.err.println("Error on " + here());
 				e.printStackTrace();
@@ -434,7 +433,7 @@ public class IT_DistCol implements Serializable {
 				for (long j = rangeBegin; j < rangeEnd; j++) {
 					c.set(j, "" + j + "/" + i);
 				}
-				distCol.addChunk(c);
+				distCol.add(c);
 				rangeBegin = rangeBegin + rangeSize + rangeSkip;
 			}
 		} catch (Exception e) {
@@ -484,7 +483,7 @@ public class IT_DistCol implements Serializable {
 					}
 				});	    
 				for (RangedList<String> chunk : chunkList) {
-					distCol.removeChunk(chunk);
+					distCol.remove(chunk);
 				}
 			} catch (Exception e) {
 				System.err.println("Error on " + here());
@@ -510,7 +509,7 @@ public class IT_DistCol implements Serializable {
 		System.out.println("### Update dist // Distribute all entries again and remove additional data");
 		pg.broadcastFlat(() -> {
 			try {
-				distCol.updateDist();
+				distCol.team().updateDist();
 			} catch (Exception e) {
 				System.err.println("Error on " + here());
 				e.printStackTrace();
@@ -573,7 +572,7 @@ public class IT_DistCol implements Serializable {
 		System.out.println("### Update dist // Split range into large pieces");
 		pg.broadcastFlat(() -> {
 			try {
-				distCol.updateDist();
+				distCol.team().updateDist();
 			} catch (Exception e) {
 				System.err.println("Error on " + here());
 				e.printStackTrace();
@@ -628,7 +627,7 @@ public class IT_DistCol implements Serializable {
 		System.out.println("### Update dist // Split range into small pieces");
 		pg.broadcastFlat(() -> {
 			try {
-				distCol.updateDist();
+				distCol.team().updateDist();
 			} catch (Exception e) {
 				System.err.println("Error on " + here());
 				e.printStackTrace();

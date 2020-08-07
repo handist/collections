@@ -202,7 +202,7 @@ final public class MPILauncher implements Launcher {
 				e.printStackTrace();
 			}
 		} else {
-			Class<?> mainClass = Class.forName(args[isMPJ? 3:0]);
+			//Class<?> mainClass = Class.forName(args[isMPJ? 3:0]);
 			slave();
 			mpiCustomSetup(commRank,MPI.COMM_WORLD);
 		}

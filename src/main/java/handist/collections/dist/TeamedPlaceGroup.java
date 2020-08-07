@@ -37,12 +37,25 @@ import mpi.Intracomm;
 import mpi.MPI;
 import mpi.MPIException;
 
-// TODO merge with ResilientPlaceGroup, ..
+/**
+ * Represents a group of hosts and provides communication facilities between
+ * hosts. 
+ * <p> 
+ * There is always one {@link TeamedPlaceGroup} initialized which contains all 
+ * the hosts involved in the computation. This instance can be obtained with 
+ * method {@link #getWorld()}.
+ * <p>
+ * When creating distributed collections, the hosts that will handle the 
+ * collections need to be specified with a {@link TeamedPlaceGroup} instance. 
+ * Such distributed collections can either operate with all the hosts involved 
+ * in the computation by using the the {@link TeamedPlaceGroup} returned by 
+ * {@link #getWorld()}, or with a subset of the hosts gathered in a new 
+ * {@link TeamedPlaceGroup} instance.  
+ */
 public class TeamedPlaceGroup implements SerializableWithReplace {
+	// TODO merge with ResilientPlaceGroup ?
 	private static final class ObjectReference implements Serializable {
-		/**
-		 *
-		 */
+		/** Serial Version UID */
 		private static final long serialVersionUID = -1948016251753684732L;
 		private final GlobalID id;
 
@@ -62,13 +75,13 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 
 	static boolean isRegistered = false;
 
-	static volatile CountDownLatch readyToCloseWorld;
+	static private volatile CountDownLatch readyToCloseWorld;
 
 	static TeamedPlaceGroup world;
 	public static TeamedPlaceGroup getWorld() {
 		return world;
 	}
-	public static void readyToClose(boolean master) {
+	private static void readyToClose(boolean master) {
 		if (master) {
 			finish(() -> {
 				world.broadcastFlat(() -> {
@@ -79,12 +92,19 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 			try {
 				readyToCloseWorld.await();
 			} catch (InterruptedException e) {
-				System.err.println(
-						"[TeamedPlaceGroup#readyToApgasMPILauncher] Error: readyToClose is interrupt at rank + "
-								+ world.myrank + ".");
+				System.err.println("[TeamedPlaceGroup#readyToClose] Error: readyToClose was interrupted at rank ["
+								+ world.myrank + "]");
 			}
 		}
 	}
+	
+	/**
+	 * Method that needs to be called on every host participating in the 
+	 * computation before the {@link MPILauncher} is started. This method 
+	 * registers a "plugin" with {@link MPILauncher#registerPlugins(Plugin)} 
+	 * which handles specific setup needed by the distributed collection 
+	 * library.  
+	 */
 	public static void setup() {
 		if (isRegistered)
 			return;
@@ -107,7 +127,12 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 		isRegistered = true;
 	}
 
-	static void worldSetup() throws MPIException { // called by plugin setup routines
+	/**
+	 * Called by {@link MPILauncher} through the plugin submitted in method 
+	 * {@link #setup()}.
+	 * @throws MPIException if such an exception is thrown during setup
+	 */
+	private static void worldSetup() throws MPIException { 
 		int myrank = MPI.COMM_WORLD.Rank();
 		int size = MPI.COMM_WORLD.Size();
 		int[] rank2place = new int[size];
@@ -121,7 +146,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 				System.out.println("ws: " + i + ":" + rank2place[i] + "@" + myrank);
 		}
 		GlobalID id;
-		if (myrank == 0) { // TODO or here()
+		if (myrank == 0) { // we could use here() as an alternative
 			id = new GlobalID();
 			try {
 				ByteArrayOutputStream out0 = new ByteArrayOutputStream();
@@ -171,6 +196,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 	//int[] place2rank;
 	int size;
 
+	/**
+	 * Constructor that builds a {@link TeamedPlaceGroup} instance which 
+	 * contains all the hosts that participate in the computation
+	 * @param id a global id for this handle
+	 * @param myrank the rank of this host in the world
+	 * @param size number of hosts in the world
+	 * @param rank2place correspondance array between {@link Place} number and 
+	 * MPI rank 
+	 */
 	protected TeamedPlaceGroup(GlobalID id, int myrank, int size, int[] rank2place) { // for whole_world
 		this.id = id;
 		this.size = size;
@@ -197,7 +231,13 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 		id.putHere(this);
 	}
 	
-	 // used for SinglePlaceGroup only
+	/**
+	 * Proctected constructor used by class {@link SinglePlaceGroup} exclusively
+	 * <p>
+	 * This constructor initializes the members of {@link TeamedPlaceGroup} such
+	 * that a single place (the place on which this method is called) is 
+	 * contained in the group.
+	 */
     protected TeamedPlaceGroup() {
         this.id=null;
         this.myrank = 0;
@@ -229,14 +269,20 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 		}
 	}
 
-	public void broadcastFlat(SerializableJob run) {
+	/**
+	 * Makes the specified job run on all the hosts of this 
+	 * {@link TeamedPlaceGroup} and returns when this it has terminated on all 
+	 * the hosts.
+	 * @param job the job to run
+	 */
+	public void broadcastFlat(SerializableJob job) {
 		// TODO
 		finish(() -> {
 			for (Place p : this.places()) {
 				if (!p.equals(here()))
-					asyncAt(p, run);
+					asyncAt(p, job);
 			}
-			run.run();
+			job.run();
 		});
 	}
 
@@ -244,11 +290,24 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 		return places.get(rank);
 	}
 
-	public List<Place> getPlaces() {
+	public List<Place> places() {
 		return places;
 	}
+	
+	/**
+	 * Returns the "parent" of this {@link TeamedPlaceGroup}, or {@code null} if 
+	 * there is no such parent
+	 * @return the parent of this {@link TeamedPlaceGroup}
+	 */
+	public TeamedPlaceGroup getParent() {
+		return parent;
+	}
 
-	protected TeamedPlaceGroup init() {
+	/**
+	 * TODO is this method redundant? should we delete it?
+	 * @return this
+	 */
+	protected TeamedPlaceGroup init() { 
 		//TODO
 		// setup MPI
 		/*  if(!MPI.Initialized()) {
@@ -261,18 +320,28 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 		return this;
 	}
 
-	public int myrank() {
+	/**
+	 * Returns the rank of the calling host in the {@link TeamedPlaceGroup}.
+	 * @return rank of this host within the {@link TeamedPlaceGroup}
+	 */
+	public int myRank() {
 		return myrank;
 	}
 
-	List<Place> places() {
-		return places;
-	}
-
+	/**
+	 * Returns the rank of the specified place host in the 
+	 * {@link TeamedPlaceGroup}.
+	 * If the specified place is not a member of this {@link TeamedPlaceGroup},
+	 * throws a {@link RuntimeException}.
+	 * @param place place whose rank is to be returned
+	 * @return rank of this host within the {@link TeamedPlaceGroup}
+	 * @throws RuntimeException if the specified place is not a member of this
+	 * group
+	 */
 	public int rank(Place place) {
 		int result = places.indexOf(place);
 		if (result < 0)
-			throw new RuntimeException("[TeamedPlaceGroup] " + place + " is not a member of " + this + ".");
+			throw new RuntimeException("[TeamedPlaceGroup] " + place + " is not a member of " + this);
 		return result;
 	}
 
@@ -283,6 +352,11 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 
 	}
 
+	/**
+	 * Returns the number of hosts that are members of this 
+	 * {@link TeamedPlaceGroup}.
+	 * @return number of hosts in the group
+	 */
 	public int size() {
 		return size;
 	}
@@ -351,7 +425,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 	public TeamedPlaceGroup splitHalf() {
 		TreeMap<Integer, Integer> rank2color = new TreeMap<>();
 		if (size() == 1) {
-			throw new RuntimeException("[TeamedPlaceGroup] TeamedPlaceGroup with size == 1 cannnot be split.");
+			throw new RuntimeException("[TeamedPlaceGroup] TeamedPlaceGroup with size == 1 cannnot be split any further");
 		}
 		int half = size() / 2;
 		for (int i = 0; i < half; i++)
@@ -362,7 +436,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 	}
 
 	public String toString() {
-		return "TeamedPlaceGroup[" + id + ", myrank" + myrank + ", places" + places();
+		return "TeamedPlaceGroup[" + id + ", myrank:" + myrank + ", places:" + places() + "]";
 	}
 
 	public Object writeReplace() throws ObjectStreamException {

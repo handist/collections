@@ -13,12 +13,10 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.AbstractCollection;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -30,15 +28,16 @@ import handist.collections.function.LongTBiConsumer;
  *
  * @param <T> type of the elements handled by this instance
  */
-public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedList<T>, Serializable {
+public class Chunk<T> extends RangedList<T> implements Serializable {
 
 	/**
 	 * Iterator class for Chunk
 	 * @param <T> type on which the iterator operates
 	 */
-	private static class It<T> implements ListIterator<T> {
+	private static class It<T> implements RangedListIterator<T> {
 		private Chunk<T> chunk;
 		private int i; // offset inside the chunk
+		private int lastReturnedShift = -1;
 
 		public It(Chunk<T> chunk) {
 			this.chunk = chunk;
@@ -54,11 +53,6 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 		}
 
 		@Override
-		public void add(T e) {
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
 		public boolean hasNext() {
 			return i + 1 < chunk.size();
 		}
@@ -71,37 +65,38 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 		@Override
 		@SuppressWarnings("unchecked")
 		public T next() {
+			lastReturnedShift = 0;
 			return (T) chunk.a[++i];
 		}
 
 		@Override
-		public int nextIndex() {
-			// TODO index may become long..
-			throw new UnsupportedOperationException();
+		public long nextIndex() {
+			return chunk.range.from + i + 1;
 		}
 
-		@Override @SuppressWarnings("unchecked")
+		@Override 
+		@SuppressWarnings("unchecked")
 		public T previous() {
-			return (T) chunk.a[--i];
+			lastReturnedShift = 1;
+			return (T) chunk.a[i--];
 		}
 
 		@Override
-		public int previousIndex() {
-			// TODO index may become long..
-			throw new UnsupportedOperationException();
-		}
-
-		@Override
-		public void remove() {
-			throw new UnsupportedOperationException();
+		public long previousIndex() {
+			return chunk.range.from + i;
 		}
 
 		@Override
 		public void set(T e) {
-			chunk.a[i] = e;
+			if (lastReturnedShift == -1) {
+				throw new IllegalStateException("[Chunk.It] Either method " + 
+						"previous or next needs to be called before method set"
+						+ " can be used");
+			}
+			chunk.a[i+lastReturnedShift] = e; //FIXME THIS IS NOT CORRECT !!!
 		}
-
 	}
+	
 	/** Serial Version UID */
 	private static final long serialVersionUID = -7691832846457812518L;
 
@@ -219,34 +214,7 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
            a[(int)(index-range.from)] = initializer.apply(index); 
         });
     }
-	/**
-	 * Not supported.
-	 * Users should use method {@link #set(int, Object)} instead
-	 * @throws UnsupportedOperationException systematically
-	 */
-	@Override
-	public void add(int index, T element) {
-		throw new UnsupportedOperationException("[Chunk] does not support resize operation.");
-	}
 
-	/**
-	 * Not supported.
-	 * @throws UnsupportedOperationException systematically
-	 */
-	@Override
-	public boolean addAll(int index, Collection<? extends T> c) {
-		// TODO implement this method?
-		throw new UnsupportedOperationException("[Chunk] does not support resize operation.");
-	}
-
-	/**
-	 * Not supported
-	 * @throws UnsupportedOperationException systematically
-	 */
-	@Override
-	public void clear() {
-		throw new UnsupportedOperationException();
-	}
 	/**
 	 * Returns a new Chunk defined on the same {@link LongRange} and with the 
 	 * same contents as this instance. 
@@ -320,18 +288,8 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 		}
 	}
 
-	@Override
-	public T get(int index) {
-		return get((long) index);
-	}
-
 	/**
-	 * Get the element indexed by the {@code index}. 
-	 * 
-	 *  @throws IndexOutofBoundsException the given index is out of range.
-	 *  
-	 * @param index
-	 * @return the element indexed by the {@code index}. 
+	 * {@inheritDoc}
 	 */
 	@Override
 	public T get(long index) {
@@ -354,60 +312,48 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 		return (T) a[(int)offset];
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public int hashCode() {
 		return RangedList.hashCode(this);
 	}
 
 	/**
-	 * Not supported.
-	 * @throws UnsupportedOperationException systematically
+	 * {@inheritDoc}
 	 */
-	@Override
-	public int indexOf(Object o) {
-		throw new UnsupportedOperationException("[Chunk] only support long index.");
-	}
-
 	@Override
 	public Iterator<T> iterator() {
 		return new It<T>(this);
 	}
 
-	@Override
-	public Iterator<T> iteratorFrom(long i) {
-		return new It<T>(this, i);
-	}
-
 	/**
-	 * Not supported.
-	 * @throws UnsupportedOperationException systematically
+	 * Creates and returns a new {@link RangedListIterator} on the elements
+	 * contained by this instance
+	 * @return a new {@link RangedListIterator}
 	 */
-	@Override
-	public int lastIndexOf(Object o) {
-		throw new UnsupportedOperationException("[Chunk] only support long index.");
-	}
-
-	@Override
-	public ListIterator<T> listIterator() {
+	public RangedListIterator<T> rangedListIterator() {
 		return new It<T>(this);
 	}
 
-	@Override
-	public ListIterator<T> listIterator(int index) {
-		return new It<T>(this, (long)index);
+	/**
+	 * Creates and returns a new {@link RangedListIterator} starting at the
+	 * specified index on the elements contained by this instance 
+	 * @param index the index of the first element to be returned by calling 
+	 *  method {@link RangedListIterator#next()}
+	 * @return a new {@link RangedListIterator} starting at the specified index
+	 */
+	public RangedListIterator<T> rangedListIterator(long index) {
+		return new It<T>(this, index);
 	}
 
-	@Override
-	public long longSize() {
-		return range.to - range.from;
-	}
-
-	String rangeMsg(long index) {
+	private String rangeMsg(long index) {
 		return "[Chunk] range "+ index + " is out of " + getRange();
 	}
 
-	String rangeMsg(LongRange range) {
-		return "[Chunk] range "+ range + " is not contained in  " + getRange();
+	private String rangeMsg(LongRange range) {
+		return "[Chunk] range "+ range + " is not contained in " + getRange();
 	}
 
 	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
@@ -416,23 +362,8 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 		// System.out.println("readChunk:"+this);
 	}
 
-	@Override
-	public T remove(int index) {
-		throw new UnsupportedOperationException("[Chunk] does not support resize operation.");
-	}
-
-	@Override
-	public T set(int index, T element) {
-		return set((long) index, element);
-	}
-
 	/**
-	 * Set the given value at the given index. 
-	 * 
-	 *  @throws IndexOutofBoundsException the given index is out of range.
-	 *  
-	 * @param index
-	 * @return the previous value stored at the index.
+	 * {@inheritDoc}
 	 */
 	@Override
 	public T set(long index, T value) {
@@ -442,13 +373,16 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 	}
 
 	@SuppressWarnings("unchecked")
-	final T setUnsafe(long index, T v) { // when range check was done
+	private final T setUnsafe(long index, T v) { // when range check was done
 		long offset  = index - range.from;
 		T prev = (T) a[(int)offset];
 		a[(int)offset] = v;
 		return prev;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
 		rangeCheck(from.getRange());
@@ -462,27 +396,16 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 	}
 
 	/**
-	 * Returns the number 
+	 * {@inheritDoc}
 	 */
-	@Override
-	public int size() {
-		return (int) longSize();
-	}
-
-	/**
-	 * Not supported.
-	 * @throws UnsupportedOperationException systematically
-	 */
-	@Override
-	public List<T> subList(int fromIndex, int toIndex) {
-		throw new UnsupportedOperationException("[Chunk] does not support copy operation.");
-	}
-
 	@Override
 	public Object[] toArray() {
 		return a;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public Object[] toArray(LongRange newRange) {
 		if(!range.contains(newRange)) {
@@ -504,6 +427,9 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 		return newRail;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public Chunk<T> toChunk(LongRange newRange) {
 		Object[] newRail = toArray(newRange);
@@ -516,6 +442,9 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 		return new Chunk<>(newRange, newRail);
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public String toString() {
 		if (range == null) {
@@ -523,7 +452,7 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 		}
 		StringBuilder sb = new StringBuilder();
 		sb.append("[" + range + "]:");
-		int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
+		long sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
 
 		for (long i = range.from, c = 0; i < range.to && c < sz; i++, c++) {
 			if (c > 0) {
@@ -539,10 +468,21 @@ public class Chunk<T> extends AbstractCollection<T> implements List<T>, RangedLi
 		}
 		return sb.toString();
 	}
+	
 	private void writeObject(ObjectOutputStream out) throws IOException {
 		// System.out.println("writeChunk:"+this);
 		out.writeObject(range);
 		out.writeObject(a);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public List<T> toList(LongRange r) {
+		final ArrayList<T> list = new ArrayList<>((int)r.size());
+		forEach(r, (t)->list.add(t));
+		return list;
 	}
 
 	/*

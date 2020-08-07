@@ -24,19 +24,24 @@ import java.util.function.Function;
 
 import apgas.Place;
 import apgas.util.GlobalID;
+import handist.collections.LongRange;
+import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.SerializableConsumer;
+import handist.collections.function.Serializer;
 
 /**
  * Distributed Map using {@link Long} as key and type <code>V</code> as value. 
  * 
  *  @param <V> the type of the value mappings of this instance 
  */
-public class DistIdMap<V> extends DistMap<Long, V>
+public class DistIdMap<V> extends DistMap<Long, V> {
 //TODO
 /* implements ManagedDistribution[Long] */
-{
+
 
 	private static int _debug_level = 0;
-	transient DistManager.Index ldist;
+	transient DistManager<Long> ldist;
 	transient float[] locality;
 
 	/**
@@ -48,14 +53,14 @@ public class DistIdMap<V> extends DistMap<Long, V>
 	}
 	/**
 	 * Construct a DistIdMap with the given argument.
-	 * Team(placeGroup) is used as the PlaceGroup of the new instance.
+	 * TeamOperations(placeGroup) is used as the PlaceGroup of the new instance.
 	 *
 	 * @param placeGroup the PlaceGroup.
 	 */
 	public DistIdMap(TeamedPlaceGroup placeGroup) {
 		super(placeGroup);
 		//TODO
-		this.ldist = new DistManager.Index();
+		this.ldist = new DistManager<>();
 		ldist.setup(data.keySet());
 		locality = new float[placeGroup.size()];
 		Arrays.fill(locality, 1.0f);
@@ -63,7 +68,7 @@ public class DistIdMap<V> extends DistMap<Long, V>
 	protected DistIdMap(TeamedPlaceGroup placeGroup, GlobalID id) {
 		super(placeGroup, id);
 		//TODO
-		this.ldist = new DistManager.Index();
+		this.ldist = new DistManager<>();
 		ldist.setup(data.keySet());
 		locality = new float[placeGroup.size()];
 		Arrays.fill(locality, 1.0f);
@@ -72,7 +77,7 @@ public class DistIdMap<V> extends DistMap<Long, V>
 	/* Ensure calling updateDist() before balance()
 	 * balance() should be called in all places
 	 */
-	public void checkDistInfo(long[] result) {
+	public void distSize(long[] result) {
 		for (Map.Entry<Long, Place> entry : ldist.dist.entrySet()) {
 			// val k = entry.getKey();
 			Place v = entry.getValue();
@@ -137,7 +142,7 @@ public class DistIdMap<V> extends DistMap<Long, V>
 
 	public Map<Long, Place> getDist() { return ldist.dist; }
 
-	public DistributionLong getDistributionLong() { return new DistributionLong(getDist()); }
+	public LongDistribution getDistributionLong() { return new LongDistribution(getDist()); }
 
 	/*
 	 * Get a place where the the corresponding entry of the specified id is stored.
@@ -353,7 +358,7 @@ public class DistIdMap<V> extends DistMap<Long, V>
 	public Object writeReplace() throws ObjectStreamException {
 		final TeamedPlaceGroup pg1 = placeGroup;
 		final GlobalID id1 = id;
-		return new AbstractDistCollection.LazyObjectReference<DistIdMap<V>>(pg1, id1, ()-> {
+		return new LazyObjectReference<DistIdMap<V>>(pg1, id1, ()-> {
 			return new DistIdMap<V>(pg1, id1);
 		});
 	}
@@ -362,7 +367,7 @@ public class DistIdMap<V> extends DistMap<Long, V>
     //TODO different naming convention of balance methods with DistMap
     public void balance(MoveManagerLocal mm) throws Exception {
         int pgSize = placeGroup.size();
-        ArrayList<IFPair> listPlaceLocality = new ArrayList<>();
+        ArrayList<IntFloatPair> listPlaceLocality = new ArrayList<>();
         float localitySum = 0.0f;
         long globalDataSize =0;
         long[] localDataSize = new long[pgSize];
@@ -375,44 +380,44 @@ public class DistIdMap<V> extends DistMap<Long, V>
         for (int i=0; i< pgSize; i++) {
             globalDataSize += localDataSize[i];
             float normalizeLocality = locality[i] / localitySum;
-            listPlaceLocality.add(new IFPair(i, normalizeLocality));
+            listPlaceLocality.add(new IntFloatPair(i, normalizeLocality));
         }
 
-        listPlaceLocality.sort((IFPair a1, IFPair a2)->{
+        listPlaceLocality.sort((IntFloatPair a1, IntFloatPair a2)->{
             return (a1.second < a2.second) ? -1 : (a1.second > a1.second) ? 1 : 0;
         });
 
         if (_debug_level > 5) {
-            for (IFPair pair: listPlaceLocality) {
+            for (IntFloatPair pair: listPlaceLocality) {
                 System.out.print("(" + pair.first + ", " + pair.second + ") ");
             }
             System.out.println();
             placeGroup.barrier(); // for debug print
         }
 
-        IFPair[] cumulativeLocality = new IFPair[pgSize];
+        IntFloatPair[] cumulativeLocality = new IntFloatPair[pgSize];
         float sumLocality = 0.0f;
         for (int i=0; i<pgSize; i++) {
             sumLocality += listPlaceLocality.get(i).second;
-            cumulativeLocality[i] = new IFPair(listPlaceLocality.get(i).first, sumLocality);
+            cumulativeLocality[i] = new IntFloatPair(listPlaceLocality.get(i).first, sumLocality);
         }
-        cumulativeLocality[pgSize - 1] = new IFPair(listPlaceLocality.get(pgSize - 1).first, 1.0f);
+        cumulativeLocality[pgSize - 1] = new IntFloatPair(listPlaceLocality.get(pgSize - 1).first, 1.0f);
 
         if (_debug_level > 5) {
             for (int i=0; i<pgSize; i++) {
-                IFPair pair = cumulativeLocality[i];
+                IntFloatPair pair = cumulativeLocality[i];
                 System.out.print("(" + pair.first + ", " + pair.second + ", " + localDataSize[pair.first] + "/" + globalDataSize + ") ");
             }
             System.out.println();
             placeGroup.barrier(); // for debug print
         }
 
-        ArrayList<ArrayList<ILPair>> moveList = new ArrayList<>(pgSize); // ArrayList(index of dest Place, num data to export)
-        LinkedList<ILPair> stagedData = new LinkedList<>(); // ArrayList(index of src, num data to export)
+        ArrayList<ArrayList<IntLongPair>> moveList = new ArrayList<>(pgSize); // ArrayList(index of dest Place, num data to export)
+        LinkedList<IntLongPair> stagedData = new LinkedList<>(); // ArrayList(index of src, num data to export)
         long previousCumuNumData = 0;
 
         for (int i=0; i<pgSize; i++) {
-            moveList.add(new ArrayList<ILPair>());
+            moveList.add(new ArrayList<IntLongPair>());
         }
 
         for (int i=0; i<pgSize; i++) {
@@ -421,7 +426,7 @@ public class DistIdMap<V> extends DistMap<Long, V>
             long cumuNumData = (long) (((float)globalDataSize) * placeLocality);
             long targetNumData = cumuNumData - previousCumuNumData;
             if (localDataSize[placeIdx] > targetNumData) {
-                stagedData.add(new ILPair(placeIdx, localDataSize[placeIdx] - targetNumData));
+                stagedData.add(new IntLongPair(placeIdx, localDataSize[placeIdx] - targetNumData));
                 if (_debug_level > 5) {
                     System.out.print("stage src: " + placeIdx + " num: " + (localDataSize[placeIdx] - targetNumData) + ", ");
                 }
@@ -442,13 +447,13 @@ public class DistIdMap<V> extends DistMap<Long, V>
             if (targetNumData > localDataSize[placeIdx]) {
                 long numToImport = targetNumData - localDataSize[placeIdx];
                 while (numToImport > 0) {
-                    ILPair pair = stagedData.removeFirst();
+                    IntLongPair pair = stagedData.removeFirst();
                     if (pair.second > numToImport) {
-                        moveList.get(pair.first).add(new ILPair(placeIdx, numToImport));
-                        stagedData.add(new ILPair(pair.first, pair.second - numToImport));
+                        moveList.get(pair.first).add(new IntLongPair(placeIdx, numToImport));
+                        stagedData.add(new IntLongPair(pair.first, pair.second - numToImport));
                         numToImport = 0;
                     } else {
-                        moveList.get(pair.first).add(new ILPair(placeIdx, pair.second));
+                        moveList.get(pair.first).add(new IntLongPair(placeIdx, pair.second));
                         numToImport -= pair.second;
                     }
                 }
@@ -458,7 +463,7 @@ public class DistIdMap<V> extends DistMap<Long, V>
 
         if (_debug_level > 5) {
             for (int i=0; i<pgSize; i++) {
-                for (ILPair pair: moveList.get(i)) {
+                for (IntLongPair pair: moveList.get(i)) {
                     System.out.print("src: " + i + " dest: " + pair.first + " size: " + pair.second + ", ");
                 }
             }
@@ -470,12 +475,12 @@ public class DistIdMap<V> extends DistMap<Long, V>
         if (_debug_level > 5) {
             long[] diffNumData = new long[pgSize];
             for (int i=0; i<pgSize; i++) {
-                for (ILPair pair: moveList.get(i)) {
+                for (IntLongPair pair: moveList.get(i)) {
                     diffNumData[i] -= pair.second;
                     diffNumData[pair.first] += pair.second;
                 }
             }
-            for (IFPair pair: listPlaceLocality) {
+            for (IntFloatPair pair: listPlaceLocality) {
                 System.out.print("(" + pair.first + ", " + pair.second + ", " + (localDataSize[pair.first] + diffNumData[pair.first]) + "/" + globalDataSize + ") ");
             }
             System.out.println();

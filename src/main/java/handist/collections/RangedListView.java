@@ -13,8 +13,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.AbstractCollection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -26,7 +26,7 @@ import handist.collections.function.LongTBiConsumer;
  *
  * @param <T> type handled by the {@link RangedListView} this instance provides access to
  */
-public class RangedListView<T> extends AbstractCollection<T> implements RangedList<T>, Serializable {
+public class RangedListView<T> extends RangedList<T> implements Serializable {
 
 	/**
 	 * Iterator on the elements of {@link #base} this {@link RangedListView} provides access to
@@ -107,11 +107,11 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 		if(!base.getRange().contains(range)) 
 			throw new IndexOutOfBoundsException("[RangeListView] " + range + " is not contained in " + base.getRange());
 	}
-
-	@Override
-	public void clear() {
-		throw new UnsupportedOperationException();
-	}
+//
+//	@Override
+//	public void clear() {
+//		throw new UnsupportedOperationException();
+//	}
 
 	/**
 	 * Creates a new {@link RangedList} which contains clones of the elements this 
@@ -213,18 +213,21 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 
 	/**
 	 * Returns a new iterator which starts at the provided index
+	 * @param l starting index of the iterator
+	 * @return iterator on the elements this {@link RangedListView} grants 
+	 * access to starting at the specified index
 	 */
-	@Override
-	public Iterator<T> iteratorFrom(long i) {
-		return new It<T>(this, i);
+	public Iterator<T> iterator(long l) {
+		return new It<T>(this, l);
 	}
 
 	/**
-	 * Returns the number of indices this {@link RangedListView} provides access to
+	 * Returns the number of indices this {@link RangedListView} provides access
+	 * to
 	 */
 	@Override
-	public long longSize() {
-		return range.to - range.from;
+	public long size() {
+		return super.size();
 	}
 
 	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
@@ -249,32 +252,35 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 		return base.set(index, v);
 	}
 	
-	
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
 	public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
 		rangeCheck(from.getRange());
 		base.setupFrom(from, func);
 	}
 
 	/**
-	 * Returns the number of indices this {@link RangedListView} provides access to, cast to {@code int} 
-	 * @see #longSize()
+	 * {@inheritDoc}
 	 */
-	@Override
-	public int size() {
-		return (int) longSize();
-	}
-
 	@Override
 	public Object[] toArray() {
 		return toArray(range);
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public Object[] toArray(LongRange range) {
 		rangeCheck(range);
 		return base.toArray(range);
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public Chunk<T> toChunk(LongRange range) {
 		rangeCheck(range);
@@ -285,7 +291,7 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 		StringBuilder sb = new StringBuilder();
 		if(range==null) return "RangedListView under construction";
 		sb.append("[" + range + "]");
-		int sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
+		long sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();
 		long c = 0;
 		for (long i = range.from; i < range.to; i++) {
 			if (c++ > 0) {
@@ -309,6 +315,12 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
 		out.writeObject(chunk);
 	}
 
+	@Override
+	public List<T> toList(LongRange r) {
+		rangeCheck(r);
+		return base.toList(r);
+	}
+
 	/*
     public static void main(String[] args) {
         long i = 10;
@@ -330,7 +342,4 @@ public class RangedListView<T> extends AbstractCollection<T> implements RangedLi
         System.out.println("RangedListView: " + r4);
     }
 	 */
-
-
-
 }

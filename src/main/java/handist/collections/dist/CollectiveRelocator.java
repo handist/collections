@@ -17,6 +17,9 @@ import java.io.ObjectOutputStream;
 
 import apgas.Constructs;
 import apgas.Place;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.DeSerializerUsingPlace;
+import handist.collections.function.Serializer;
 import mpi.MPI;
 import mpi.MPIException;
 

@@ -10,7 +10,7 @@
 package handist.collections;
 
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -19,13 +19,13 @@ import java.util.function.Function;
 import handist.collections.function.LongTBiConsumer;
 
 /**
- * Interface describing a list defined on long indices. Entries can be defined 
- * on any index contained within the {@link LongRange} used to initialize the
- * collection.
+ * Abstract class describing a list defined on long indices. Entries can be 
+ * defined on any index contained within the {@link LongRange} used to 
+ * initialize the collection.
  *  
  * @param <T> type handled by the collection
  */
-public interface RangedList<T> extends Iterable<T> {
+public abstract class RangedList<T> implements Iterable<T> {
 
 	public static boolean equals(RangedList<?> rlist1, Object o) {
 		if(o==null) return (rlist1==null);
@@ -48,7 +48,7 @@ public interface RangedList<T> extends Iterable<T> {
 		}
 		return hashCode;
 	}
-
+	
 	/**
 	 * Returns a copy of this instance, restricted to the contents that are 
 	 * included in the specified range.  
@@ -56,7 +56,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @return a new RangedList which contains the entries of this instance on
 	 * 	provided range
 	 */
-	RangedList<T> cloneRange(LongRange range);
+	public abstract RangedList<T> cloneRange(LongRange range);
 
 	/**
 	 * Indicates if this list contains the provided object. More formally if the
@@ -67,7 +67,24 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @return {@code true} if the collection contains {@code o}, {@code false}
 	 * 	otherwise
 	 */
-	abstract boolean contains(Object o);
+	public abstract boolean contains(Object o);
+	
+	/**
+	 * Checks if all the elements provided in the collection are present in this
+	 * instance. 
+	 * @param c collection of all the elements whose presence in the RangedList
+	 * is to be checked
+	 * @return {@code true} if all the elements in the provided collection can
+	 * be found in this instance, {@code false} otherwise
+	 */
+	public boolean containsAll(Collection<? extends T> c) {
+		for (T t : c) {
+			if (!contains(t)) {
+				 return false;
+			}
+		}
+		return true;
+	}
 
 	/**
 	 * Performs the provided action on each element contained by this instance,
@@ -88,14 +105,14 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @param action action to perform on each element, potentially  
 	 * @param receiver collector of information extracted 
 	 */
-	default public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
+	public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
 		forEach(getRange(), action, receiver);
 	}
 
 	/**
 	 * Performs the provided action on every element in the collection
 	 */
-	default public void forEach(Consumer<? super T> action) {
+	public void forEach(Consumer<? super T> action) {
 		forEach(getRange(), action);
 	}
 
@@ -123,7 +140,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @param receiver collector of information extracted 
 	 * @see #forEach(LongRange, BiConsumer, Consumer)
 	 */
-	default public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+	public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
 			Consumer<? super U> receiver) {
 		for (long i = range.from; i < range.to; i++) {
 			action.accept(get(i), receiver);
@@ -139,7 +156,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @param range range of application of the action
 	 * @param action action to perform on individual elements
 	 */
-	default public void forEach(LongRange range, Consumer<? super T> action) {
+	public void forEach(LongRange range, Consumer<? super T> action) {
 		for (long i = range.from; i < range.to; i++) {
 			action.accept(get(i));
 		}   
@@ -155,7 +172,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @param range range of indices on which to apply the action
 	 * @param action action to perform taking a long and a T as parameter
 	 */
-	default public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
+	public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
 		for (long i = range.from; i < range.to; i++) {
 			action.accept(i, get(i));
 		}   
@@ -166,7 +183,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * collection
 	 * @param action action to perform taking a long and a T as parameter
 	 */
-	default public void forEach(LongTBiConsumer<? super T> action) {
+	public void forEach(LongTBiConsumer<? super T> action) {
 		forEach(getRange(), action);
 	}
 
@@ -175,13 +192,13 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @param index index of the value to return. 
 	 * @return the value associated with this index
 	 */
-	T get(long index);
+	public abstract T get(long index);
 
 	/**
 	 * Obtain the {@link LongRange} on which this instance is defined.
 	 * @return the {@link LongRange} object representing the 
 	 */
-	LongRange getRange();
+	public abstract LongRange getRange();
 
 	/**
 	 * Indicates if this RangedList is empty, i.e. if it cannot contain any 
@@ -189,22 +206,18 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @return {@code true} is the instance is defined on an empty 
 	 * {@link LongRange}, {@code false} otherwise. 
 	 */
-	default public boolean isEmpty() {
+	public boolean isEmpty() {
 		return getRange().size() == 0;
 	}
-
-	/**
-	 * Returns an iterator that starts from the specified index
-	 * @param i starting index of the iterator
-	 * @return an Iterator on the elements of this {@link RangedList} 
-	 */
-	public Iterator<T> iteratorFrom(long i);
 
 	/**
 	 * Returns the number of entries in this collection as a {@code long}
 	 * @return size of the collection
 	 */
-	long longSize();
+	public long size() {
+		LongRange r = getRange();
+		return r.to - r.from;
+	}
 
 	/**
 	 * Creates a new collection from the elements contained in this instance by
@@ -214,7 +227,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @return a newly created collection which contains the mapping of the
 	 *  elements contained by this instance to type U 
 	 */
-	default public <U> RangedList<U> map(Function<? super T, ? extends U> func) {
+	public <U> RangedList<U> map(Function<? super T, ? extends U> func) {
 		Chunk<U> result = new Chunk<>(this.getRange());
 		result.setupFrom(this, func);
 		return result;
@@ -230,11 +243,19 @@ public interface RangedList<T> extends Iterable<T> {
 	 *  elements contained by this instance (restricted to the specified range) 
 	 *  to type U 
 	 */
-	default public <U> RangedList<U> map(LongRange range, Function<? super T, ? extends U> func) {
+	public <U> RangedList<U> map(LongRange range, Function<? super T, ? extends U> func) {
 		return this.subList(range.from, range.to).map(func);
 	}
 
-	default public void rangeCheck(long target) {
+	/**
+	 * Checks if the provided {@code long index} is included in the range this
+	 * instance is defined on, i.e. if method {@link #get(long)}, or 
+	 * {@link #set(long,Object)} can be safely called with the provided parameter. 
+	 * @param target the index to check
+	 * @throws IndexOutOfBoundsException if the provided index is outside the
+	 * range this instance is defined on
+	 */
+	public void rangeCheck(long target) {
 		if(!this.getRange().contains(target)) {
 			throw new IndexOutOfBoundsException(
 					"[RangedList] range mismatch: " + this.getRange() + " does not include " + target);
@@ -248,13 +269,13 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @throws ArrayIndexOutOfBoundsException if the provided {@link LongRange}
 	 * 	is not included in this instance 
 	 */
-	default public void rangeCheck(LongRange target) {
+	public void rangeCheck(LongRange target) {
 		if(!this.getRange().contains(target)) {
 			throw new ArrayIndexOutOfBoundsException(
-					"[Chunk] range mismatch:" + this.getRange() + " must include " + target);
+					"[RangedList] range mismatch:" + this.getRange() + " must include " + target);
 		}
 	}
-
+	
 	/**
 	 * Sets the provided value at the specified index
 	 * @param index index at which the value should be stored
@@ -262,7 +283,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @return previous value that was stored at this index, {@code null} if
 	 * there was no previous value or the previous value stored was {@code null}
 	 */
-	T set(long index, T value);
+	public abstract T set(long index, T value);
 
 	/**
 	 * Initializes the values in this instance by applying the provided function
@@ -274,7 +295,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @param func function that takes an object of type S as parameter and
 	 * 	returns a type T
 	 */
-	abstract public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func);
+	public abstract <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func);
 
 	/**
 	 * Separates this instance into multiple {@link RangedList}s using the 
@@ -290,7 +311,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @param splitPoints the points at which this instance needs to be cut
 	 * @return this instance entries split into several {@link RangedList} 
 	 */
-	default public List<RangedList<T>> splitRange(long ... splitPoints) {
+	public List<RangedList<T>> splitRange(long ... splitPoints) {
 		ArrayList<RangedList<T>> toReturn = new ArrayList<>(splitPoints.length + 1);
 		LongRange range = getRange();
 		long start = range.from;
@@ -321,7 +342,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @throws IndexOutOfBoundsException if the provided range 
 	 * has no intersection with the range of this instance. 
 	 */
-	default public RangedList<T> subList(long begin, long end) {
+	public RangedList<T> subList(long begin, long end) {
 		if(begin > end) {
 			throw new IllegalArgumentException("Cannot obtain a sublist from " +
 					begin + " to " + end);
@@ -352,7 +373,7 @@ public interface RangedList<T> extends Iterable<T> {
 	 * @throws IllegalArgumentException if <em>begin</em> is superior to 
 	 * <em>end</em>.
 	 */
-	default public RangedList<T> subList(LongRange range) {
+	public RangedList<T> subList(LongRange range) {
 		return subList(range.from, range.to);
 	}
 
@@ -360,23 +381,54 @@ public interface RangedList<T> extends Iterable<T> {
 	 * Returns the elements contained in this instance in an array
 	 * @return array containing the objects contained in this instance
 	 */
-	Object[] toArray();
+	public abstract Object[] toArray();
 
 	/**
 	 * Returns the elements contained in this instance in an array
-	 * @param newRange the range of elements to take 
+	 * @param r the range of elements to take 
 	 * @return an object array containing the elements of this instance within 
 	 * 	the specified range
 	 */
-	Object[] toArray(LongRange newRange);
+	public abstract Object[] toArray(LongRange r);
+	
+	/**
+	 * Creates a Chunk containing all the elements of this instance  
+	 * @return a new {@link Chunk} with the same range as this instance 
+	 * containing all the elements of this instance
+	 */
+	public Chunk<T> toChunk() {
+		return toChunk(getRange());
+	}
 
 	/**
-	 * Creates a Chunk containing the elements of this instance contained in the
+	 * Creates a Chunk containing the elements of this instance included in the
 	 * specified range
-	 * @param newRange the range of elements to create a {@link Chunk} with. 
+	 * @param r the range of elements to create a {@link Chunk} with. 
 	 * @return a new {@link Chunk} with the specified range containing the
 	 * elements of this instance
 	 */
-	Chunk<T> toChunk(LongRange newRange);
+	public abstract Chunk<T> toChunk(LongRange r);
+	
+	/**
+	 * Returns the elements contained in this instance in a {@link List}. 
+	 * Note that the indices of the returned list do not reflect the long 
+	 * indices used in this implementation. 
+	 * @return a list containing the elements of this instance within the 
+	 * 	specified range
+	 */
+	public List<T> toList() {
+		return toList(getRange());
+	}
+	
+	/**
+	 * Returns the elements contained in this instance within the specified 
+	 * range in a {@link List}. Note that the indices of the returned list do 
+	 * not reflect the long indices used in this implementation. 
+	 * @param r the range of indices of this instance to include in the returned
+	 * 	list
+	 * @return a list containing the elements of this instance within the 
+	 * 	specified range
+	 */
+	public abstract List<T> toList(LongRange r);
 
 }

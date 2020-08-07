@@ -20,12 +20,11 @@ import java.util.Map;
 
 import apgas.Place;
 import handist.collections.ElementOverlapException;
-import handist.collections.LongRange;
+import handist.collections.function.DeSerializerUsingPlace;
+import handist.collections.function.Serializer;
 
 public class DistManager<T> {
 
-	public static class Index extends DistManager<Long> {
-	}
 	static class ParameterErrorException extends RuntimeException {
 		/**
 		 *
@@ -38,8 +37,9 @@ public class DistManager<T> {
 			this.reason = reason;
 		}
 	};
-	public static class Range extends DistManager<LongRange> {
-	}
+	
+	/*public static class Range extends DistManager<LongRange> {
+	}*/
 
 	static class SystemError extends Error {
 		/**
@@ -56,9 +56,9 @@ public class DistManager<T> {
 	public static final int DIST_ADDED = 1;
 	public static final int DIST_MOVED_IN = 4;
 	public static final int DIST_REMOVED = 2;
+	
 	public static final byte MOVE_NEW = 1;
 	public static final byte MOVE_NONE = 0;
-
 	public static final byte MOVE_OLD = 2;
 
 	public HashMap<T, Integer> diff = new HashMap<>();

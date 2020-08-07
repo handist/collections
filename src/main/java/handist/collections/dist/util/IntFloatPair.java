@@ -7,15 +7,14 @@
  *
  * SPDX-License-Identifier: EPL-1.0
  *******************************************************************************/
-package handist.collections;
+package handist.collections.dist.util;
 
-public class ElementOverlapException extends RuntimeException {
+public class IntFloatPair {
+	public int first;
+	public float second;
 
-	/** Serial Version UID */
-	private static final long serialVersionUID = 1951402648541521436L;
-
-	public ElementOverlapException(String msg) {
-		super(msg);
+	public IntFloatPair(int first, float second) {
+		this.first = first;
+		this.second = second;
 	}
-
 }
