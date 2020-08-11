@@ -9,7 +9,7 @@
  *******************************************************************************/
 package handist.mpijunit.launcher;
 
-import handist.collections.mpi.MPILauncher;
+import apgas.mpi.MPILauncher;
 import handist.collections.dist.TeamedPlaceGroup;
 
 /**
