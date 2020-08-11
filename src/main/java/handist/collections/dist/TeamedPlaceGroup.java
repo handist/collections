@@ -29,8 +29,8 @@ import apgas.Place;
 import apgas.SerializableJob;
 import apgas.util.GlobalID;
 import apgas.util.SerializableWithReplace;
-import handist.collections.mpi.MPILauncher;
-import handist.collections.mpi.MPILauncher.Plugin;
+import apgas.mpi.MPILauncher;
+import apgas.mpi.MPILauncher.Plugin;
 import mpi.Comm;
 import mpi.Datatype;
 import mpi.Intracomm;
@@ -108,7 +108,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 	public static void setup() {
 		if (isRegistered)
 			return;
-		MPILauncher.registerPlugins(new Plugin() {
+		MPILauncher.registerPlugin(new Plugin() {
 			@Override
 			public void beforeFinalize(int rank, Comm comm) {
 				readyToClose(rank == 0);
