@@ -9,12 +9,14 @@
  *******************************************************************************/
 package handist.mpijunit.launcher;
 
-import apgas.mpi.MPILauncher;
 import handist.collections.dist.TeamedPlaceGroup;
+import apgas.mpi.MPILauncher;
 
 /**
- * This class is used to transparently call the regular {@link MPILauncher} with the main class
- * as {@link DoJunitTest} and the arguments received. 
+ * This class is used to transparently call the regular {@link MPILauncher} with
+ * the main class as {@link DoJunitTest} and the arguments received. It is also
+ * responsible for adding the library's plugin to the {@link MPILauncher} before
+ * calling it.  
  * 
  * @author Patrick Finnerty
  *
@@ -27,20 +29,22 @@ public class TestLauncher {
 		int newIndex = 0;
 		int oldIndex = 0;
 
-		// If using MPJ, we put the first three arguments
+		// If using MPJ, we put the first three arguments first
 		if (args.length > 2) { 
 			while(newIndex < 3) {
 				newArgs[newIndex++] = args[oldIndex++];
 			}
 		}
 
+		// Place the class whose main we actually want to run
 		newArgs[newIndex++] = DoJunitTest.class.getCanonicalName();
 
+		// Put the rest of the arguments
 		while (oldIndex < args.length) {
 			newArgs[newIndex++] = args[oldIndex++];
 		}
 
-		// Call TeamedPlaceGroup setup method to add its plugin to the MPILauncher
+		// Call TeamedPlaceGroup setup method to add its plugin to MPILauncher
 		TeamedPlaceGroup.setup();
 
 		// Call the MPILauncher with the modified arguments
