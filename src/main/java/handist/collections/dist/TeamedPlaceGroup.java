@@ -101,7 +101,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 	/**
 	 * Method that needs to be called on every host participating in the 
 	 * computation before the {@link MPILauncher} is started. This method 
-	 * registers a "plugin" with {@link MPILauncher#registerPlugins(Plugin)} 
+	 * registers a "plugin" with {@link MPILauncher#registerPlugin(Plugin)} 
 	 * which handles specific setup needed by the distributed collection 
 	 * library.  
 	 */

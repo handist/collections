@@ -10,4 +10,4 @@
 /**
  * Contains a launcher for programs that run with this library.
  */
-package handist.collections.mpi;
+package handist.collections.launcher;
