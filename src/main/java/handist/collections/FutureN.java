@@ -187,13 +187,38 @@ public abstract class FutureN<S>  {
 	/**
 	 * {@link OnlyWait} waits for the termination of all its given futures.
 	 */
-	public static class OnlyWait extends ReturnGivenResult<Void> {
+	public static class OnlyWait extends FutureN<Void> {
 		/**
 		 * Constructor with a list of futures.
 		 * @param futures futures on which to wait for completion
 		 */
-		public OnlyWait(List<Future<?>> futures) {
-			super(futures, null);
+		public OnlyWait(List<Future<Void>> futures) {
+			super(futures);
+		}
+		
+		/**
+		 * Waits for all futures to terminate and returns
+		 * @return {@code null}
+		 * @throws InterruptedException if such an exception is thrown by one of the futures
+		 * @throws ExecutionException if such an exception is thrown by one of the futures 
+		 */
+		public Void get() throws InterruptedException, ExecutionException {
+			get0();
+			return null;
+		}
+		
+		/**
+		 * Waits for all futures to terminate in the specified allocated time and returns
+		 * @param timeout the total time allowed for all the futures to complete
+		 * @param unit time unit of the timeout
+		 * @return {@code null}
+		 * @throws InterruptedException if such an exception is thrown by one of the futures
+		 * @throws ExecutionException if such an exception is thrown by one of the futures 
+		 * @throws TimeoutException if one of the futures handled by this class exhausts the timeout
+		 */
+		public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+			get0(timeout, unit);
+			return null;
 		}
 	}
 
