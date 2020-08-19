@@ -603,21 +603,22 @@ public class TestChunkedList {
 
 	@Test
 	public void testRemoveChunk() {
-		Chunk<Element> chunkToRemove = new Chunk<>(new LongRange(-1l, 0l));
+		//Chunk<Element> chunkToRemove = new Chunk<>(new LongRange(-1l, 0l));
+		LongRange rangeToRemove = new LongRange(-1l,  0l);
 		// Removes nothing, the indices do not intersect. 
-		RangedList<Element> removed = chunkedList.remove(chunkToRemove);
+		RangedList<Element> removed = chunkedList.remove(rangeToRemove);
 		assertEquals(6L, chunkedList.size());
 		assertNull(removed);
 
 		// A Chunk that is included but not identical to a chunk of the
 		// chunked list is not removed
-		chunkToRemove = new Chunk<>(new LongRange(0l, 1l));
-		chunkedList.remove(chunkToRemove);
+		rangeToRemove = new LongRange(0l, 1l);
+		chunkedList.remove(rangeToRemove);
 		assertEquals(6L, chunkedList.size());
 
 		// A chunk with the same range will be removed
-		chunkToRemove = new Chunk<>(new LongRange(0l, 3l));
-		removed = chunkedList.remove(chunkToRemove);
+		rangeToRemove = new LongRange(0l, 3l);
+		removed = chunkedList.remove(rangeToRemove);
 		assertEquals(3L, chunkedList.size());
 		assertEquals(3l, removed.size());
 		for (Element e : removed) {
@@ -626,7 +627,7 @@ public class TestChunkedList {
 		}
 
 		// If the same object is given as parameter, also works
-		removed = chunkedList.remove(chunks[1]);
+		removed = chunkedList.remove(chunks[1].getRange());
 		assertEquals(1L, chunkedList.size());
 		assertEquals(2l, removed.size());
 		for (Element e : removed) {

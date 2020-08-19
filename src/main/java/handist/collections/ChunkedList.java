@@ -709,6 +709,23 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 	}
 
 	/**
+	 * Removes and returns the chunk contained in this instance which is 
+	 * defined the range provided as parameter. The specified range must match the exact
+	 * bounds of a chunk contained in this instance. If there are no chunks defined 
+	 * on the specified range contained in this instance, returns null. 
+	 * @param range the range needs to be removed
+	 * @return the removed chunk, or null if there was no such chunk contained
+	 * in this instance
+	 */
+	public RangedList<T> remove(LongRange range) {
+		RangedList<T> removed = chunks.remove(range);
+		if (removed != null) {
+			size -=removed.size();
+		}
+		return removed;
+	}
+	
+	/**
 	 * Removes and returns a chunk whose {@link LongRange} on which it is 
 	 * defined matches the one on which the provided {@link RangedList} is 
 	 * defined.  
@@ -716,6 +733,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 	 * @return the removed chunk, or null if there was no such chunk contained
 	 * in this instance
 	 */
+	@Deprecated
 	public RangedList<T> remove(RangedList<T> c) {
 		RangedList<T> removed = chunks.remove(c.getRange());
 		if (removed != null) {
