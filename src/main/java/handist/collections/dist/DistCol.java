@@ -17,6 +17,7 @@ import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -53,7 +54,7 @@ import handist.collections.function.Serializer;
  * @param <T> the type of elements handled by this {@link DistCol}
  */
 @DefaultSerializer(JavaSerializer.class)
-public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection<DistCol<T>>, SerializableWithReplace {
+public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection<DistCol<T>>, RangeRelocatable<LongRange>, SerializableWithReplace {
 	/*AbstractDistCollection *//* implements List[T], ManagedDistribution[LongRange] */
 	static class ChunkExtractLeft<T> {
 		public RangedList<T> original;
@@ -103,16 +104,35 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 			super(handle);
 		}
 
-		public void setupBranches(final SerializableBiConsumer<Place, DistCol<T>> gen) {
-	    	global_setupBranches(gen); 
-	    }
-
 		@Override
 		public void onLocalHandleDo(SerializableBiConsumer<Place, DistCol<T>> action) {
 			global_setupBranches(action);
 		}
+
+		public void setupBranches(final SerializableBiConsumer<Place, DistCol<T>> gen) {
+	    	global_setupBranches(gen); 
+	    }
 	    
 	    
+	}
+
+	public class DistColTeam extends TeamOperations<DistCol<T>> {
+		
+		DistColTeam(DistCol<T> handle) {
+			super(handle);
+		}
+		
+		@Override
+		public void size(long[] result) {
+			for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
+				final LongRange k = entry.getKey();
+				final Place p = entry.getValue();
+				result[manager.placeGroup.rank(p)] += k.size();
+			}
+		}
+
+		@Override
+	    public void updateDist() { team_updateDist(); }
 	}
 
 	static class DistributionManager<T> extends GeneralDistManager<DistCol<T>> implements Serializable {
@@ -138,25 +158,6 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
             branch.moveAtSyncCount(moveList, mm);
         }
 
-	}
-
-	public class DistColTeam extends TeamOperations<DistCol<T>> {
-		
-		DistColTeam(DistCol<T> handle) {
-			super(handle);
-		}
-		
-		@Override
-	    public void updateDist() { team_updateDist(); }
-
-		@Override
-		public void size(long[] result) {
-			for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
-				final LongRange k = entry.getKey();
-				final Place p = entry.getValue();
-				result[manager.placeGroup.rank(p)] += k.size();
-			}
-		}
 	}
 
 	private static int _debug_level = 5;
@@ -251,6 +252,11 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 	    }
 	}
 
+	@Override
+	public Collection<LongRange> getAllRanges() {
+		return ranges();
+	}
+
 	Map<LongRange, Integer> getDiff() {
 		return ldist.diff;
 	}
@@ -263,8 +269,13 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 		return LongDistribution.convert(getDist());
 	}
 
-	public LongRangeDistribution getRangedDistributionLong() {
+    public LongRangeDistribution getRangedDistributionLong() {
 		return new LongRangeDistribution(getDist());
+	}
+
+	@Override
+	public GlobalOperations<DistCol<T>> global() {
+		return GLOBAL;
 	}
 
 	// TODO global ope. (not teamed).
@@ -278,42 +289,21 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 		});
 	}
 
-	public void moveAtSync(final Distribution<Long> dist, final MoveManagerLocal mm) throws Exception {
-		moveAtSync((LongRange range) -> {
-			ArrayList<Pair<Place, LongRange>> listPlaceRange = new ArrayList<>();
-			for (final Long key : range) {
-				listPlaceRange.add(new Pair<Place, LongRange>(dist.place(key), new LongRange(key, key + 1)));
-			}
-			return listPlaceRange;
-		}, mm);
+	@Override
+	public GlobalID id() {
+		return manager.id;
+	}
+	
+
+	@Override
+	public float[] locality() {
+		// TODO check if this is correct
+		return manager.locality;
 	}
 
-	public void moveAtSync(Function<LongRange, List<Pair<Place, LongRange>>> rule, MoveManagerLocal mm)
-			throws Exception {
-		final DistCol<T> collection = this;
-		final HashMap<Place, ArrayList<LongRange>> rangesToMove = new HashMap<>();
-
-		collection.forEachChunk((RangedList<T> c) -> {
-			final List<Pair<Place, LongRange>> destinationList = rule.apply(c.getRange());
-			for (final Pair<Place, LongRange> destination : destinationList) {
-				final Place destinationPlace = destination.first;
-				final LongRange destinationRange = destination.second;
-				if (!rangesToMove.containsKey(destinationPlace)) {
-					rangesToMove.put(destinationPlace, new ArrayList<LongRange>());
-
-				}
-				rangesToMove.get(destinationPlace).add(destinationRange);
-			}
-		});
-		for (final Place place : rangesToMove.keySet()) {
-			for (final LongRange range : rangesToMove.get(place)) {
-				moveAtSync(range, place, mm);
-			}
-		}
-	}
-
+	@Deprecated
 	@SuppressWarnings("unchecked")
-	public void moveAtSync(final List<RangedList<T>> cs, final Place dest, final MoveManagerLocal mm) throws Exception {
+	public void moveAtSync(final List<RangedList<T>> cs, final Place dest, final MoveManagerLocal mm) {
 		if (_debug_level > 5) {
 			System.out.print("[" + here().id + "] moveAtSync List[RangedList[T]]: ");
 			for (final RangedList<T> rl : cs) {
@@ -350,8 +340,82 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 		};
 		mm.request(dest, serialize, deserialize);
 	}
+	
+	public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm) throws Exception {
+		// TODO ->LinkedList? sort??
+		final ArrayList<LongRange> localKeys = new ArrayList<>();
+		localKeys.addAll(ranges());
+		localKeys.sort((LongRange range1, LongRange range2) -> {
+			long len1 = range1.to - range1.from;
+			long len2 = range2.to - range2.from;
+			return (int) (len1 - len2);
+		});
+		if (_debug_level > 5) {
+			System.out.print("[" + here() + "] ");
+			for (int i = 0; i < localKeys.size(); i++) {
+				System.out.print("" + localKeys.get(i).from + ".." + localKeys.get(i).to + ", ");
+			}
+			System.out.println();
+		}
+		for (final IntLongPair moveinfo : moveList) {
+			final long count = moveinfo.second;
+			final Place dest = manager.placeGroup.get(moveinfo.first);
+			if (_debug_level > 5) {
+				System.out.println("[" + here() + "] move count=" + count + " to dest " + dest.id);
+			}
+			if (dest.equals(here()))
+				continue;
+			long sizeToSend = count;
+			while (sizeToSend > 0) {
+				final LongRange lk = localKeys.remove(0);
+				final long len = lk.to - lk.from;
+				if (len > sizeToSend) {
+					moveRangeAtSync(new LongRange(lk.from, lk.from + sizeToSend), dest, mm);
+					localKeys.add(0, new LongRange(lk.from + sizeToSend, lk.to));
+					break;
+				} else {
+					moveRangeAtSync(lk, dest, mm);
+					sizeToSend -= len;
+				}
+			}
+		}
+	}
+	
+	
+	public void moveRangeAtSync(final Distribution<Long> dist, final MoveManagerLocal mm) {
+		moveRangeAtSync((LongRange range) -> {
+			ArrayList<Pair<Place, LongRange>> listPlaceRange = new ArrayList<>();
+			for (final Long key : range) {
+				listPlaceRange.add(new Pair<Place, LongRange>(dist.place(key), new LongRange(key, key + 1)));
+			}
+			return listPlaceRange;
+		}, mm);
+	}
+	public void moveRangeAtSync(Function<LongRange, List<Pair<Place, LongRange>>> rule, MoveManagerLocal mm) {
+		final DistCol<T> collection = this;
+		final HashMap<Place, ArrayList<LongRange>> rangesToMove = new HashMap<>();
 
-    public void moveAtSync(final LongRange range, final Place dest, final MoveManagerLocal mm) throws Exception {
+		collection.forEachChunk((RangedList<T> c) -> {
+			final List<Pair<Place, LongRange>> destinationList = rule.apply(c.getRange());
+			for (final Pair<Place, LongRange> destination : destinationList) {
+				final Place destinationPlace = destination.first;
+				final LongRange destinationRange = destination.second;
+				if (!rangesToMove.containsKey(destinationPlace)) {
+					rangesToMove.put(destinationPlace, new ArrayList<LongRange>());
+
+				}
+				rangesToMove.get(destinationPlace).add(destinationRange);
+			}
+		});
+		for (final Place place : rangesToMove.keySet()) {
+			for (final LongRange range : rangesToMove.get(place)) {
+				moveRangeAtSync(range, place, mm);
+			}
+		}
+	}
+	
+	@Override
+    public void moveRangeAtSync(final LongRange range, final Place dest, final MoveManagerLocal mm) {
 		if (_debug_level > 5) {
 			System.out.println("[" + here().id + "] moveAtSync range: " + range + " dest: " + dest.id);
 		}
@@ -449,52 +513,16 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 
 		moveAtSync(chunksToMove, dest, mm);
 	}
-	
 
-	public void moveAtSync(final RangedDistribution<LongRange> dist, final MoveManagerLocal mm) throws Exception {
-		moveAtSync((LongRange range) -> {
+	public void moveRangeAtSync(final RangedDistribution<LongRange> dist, final MoveManagerLocal mm) throws Exception {
+		moveRangeAtSync((LongRange range) -> {
 			return dist.placeRanges(range);
 		}, mm);
 	}
 
-	public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm) throws Exception {
-		// TODO ->LinkedList? sort??
-		final ArrayList<LongRange> localKeys = new ArrayList<>();
-		localKeys.addAll(ranges());
-		localKeys.sort((LongRange range1, LongRange range2) -> {
-			long len1 = range1.to - range1.from;
-			long len2 = range2.to - range2.from;
-			return (int) (len1 - len2);
-		});
-		if (_debug_level > 5) {
-			System.out.print("[" + here() + "] ");
-			for (int i = 0; i < localKeys.size(); i++) {
-				System.out.print("" + localKeys.get(i).from + ".." + localKeys.get(i).to + ", ");
-			}
-			System.out.println();
-		}
-		for (final IntLongPair moveinfo : moveList) {
-			final long count = moveinfo.second;
-			final Place dest = manager.placeGroup.get(moveinfo.first);
-			if (_debug_level > 5) {
-				System.out.println("[" + here() + "] move count=" + count + " to dest " + dest.id);
-			}
-			if (dest.equals(here()))
-				continue;
-			long sizeToSend = count;
-			while (sizeToSend > 0) {
-				final LongRange lk = localKeys.remove(0);
-				final long len = lk.to - lk.from;
-				if (len > sizeToSend) {
-					moveAtSync(new LongRange(lk.from, lk.from + sizeToSend), dest, mm);
-					localKeys.add(0, new LongRange(lk.from + sizeToSend, lk.to));
-					break;
-				} else {
-					moveAtSync(lk, dest, mm);
-					sizeToSend -= len;
-				}
-			}
-		}
+	@Override
+	public TeamedPlaceGroup placeGroup() {
+		return manager.placeGroup;
 	}
 
 	private void putForMove(final RangedList<T> c, final byte mType) throws Exception {
@@ -511,19 +539,29 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 		}
 		super.add(c);
 	}
-	
+
 	@Override
 	public RangedList<T> remove(final RangedList<T> c) {
 		ldist.remove(c.getRange());
 		return super.remove(c);
 	}
-	
-	
+
+//	Method moved to GLOBAL and TEAM operations 
+//	@Override
+//	public void distSize(long[] result) {
+//		for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
+//			final LongRange k = entry.getKey();
+//			final Place p = entry.getValue();
+//			result[manager.placeGroup.rank(p)] += k.size();
+//		}
+//	}
+
 	private void removeForMove(final RangedList<T> c) {
 		if (super.remove(c) == null) {
 			throw new RuntimeException("DistCol#removeForMove");
 		}
 	}
+
 	/**
      * Sets this instance's proxy generator.
      * 
@@ -538,8 +576,13 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
     public void setProxyGenerator(Function<Long,T> proxyGenerator) {
         this.proxyGenerator = proxyGenerator;
     }
-	
-    // TODO make private
+
+	@Override
+	public TeamOperations<DistCol<T>> team() {
+		return TEAM;
+	}
+
+	// TODO make private
 	private void team_updateDist() {
 		ldist.updateDist(manager.placeGroup);
 	}
@@ -551,41 +594,5 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 		return new LazyObjectReference<DistCol<T>>(pg1, id1, () -> {
 			return new DistCol<T>(pg1, id1);
 		});
-	}
-
-	@Override
-	public float[] locality() {
-		// TODO check if this is correct
-		return manager.locality;
-	}
-
-	@Override
-	public GlobalID id() {
-		return manager.id;
-	}
-
-	@Override
-	public TeamOperations<DistCol<T>> team() {
-		return TEAM;
-	}
-
-	@Override
-	public GlobalOperations<DistCol<T>> global() {
-		return GLOBAL;
-	}
-
-//	Method moved to GLOBAL and TEAM operations 
-//	@Override
-//	public void distSize(long[] result) {
-//		for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
-//			final LongRange k = entry.getKey();
-//			final Place p = entry.getValue();
-//			result[manager.placeGroup.rank(p)] += k.size();
-//		}
-//	}
-
-	@Override
-	public TeamedPlaceGroup placeGroup() {
-		return manager.placeGroup;
 	}
 }

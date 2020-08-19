@@ -25,7 +25,7 @@ import apgas.Place;
  * @param <K> the type used as key of a distributed collection
  * @see RangedDistribution
  */
-public interface Distribution<K> /* implements Map[K,Place] */{
+public interface Distribution<K> {
 
 	public Place place(K key);
 

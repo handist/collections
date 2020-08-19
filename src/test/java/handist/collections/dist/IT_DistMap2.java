@@ -15,6 +15,7 @@ import static apgas.Constructs.*;
 import java.io.Serializable;
 import java.util.Random;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -83,6 +84,11 @@ public class IT_DistMap2 implements Serializable {
 		}
 	}
 
+	@After
+	public void tearDown() throws Exception {
+		distMap.destroy();
+	}
+	
 	/**
 	 * Moves all the entries contained in host 0 to host 1
 	 * @throws Exception if an exception is thrown during the test
@@ -118,10 +124,5 @@ public class IT_DistMap2 implements Serializable {
 				assertEquals(0l, distMap.size());
 			}
 		});
-	}
-
-	@Test
-	public void testToshiyukiDistMap() {
-		IT_DistMap.main(null);		
 	}
 }

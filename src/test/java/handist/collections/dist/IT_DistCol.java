@@ -543,7 +543,7 @@ public class IT_DistCol implements Serializable {
 				LongRange range = new LongRange(0, splitSizeLarge);
 				long dest = 0;
 				while (range.from < AllRange.to) {
-					distCol.moveAtSync(range, pg.get((int)dest), mm);
+					distCol.moveRangeAtSync(range, pg.get((int)dest), mm);
 					range = new LongRange(range.from + splitSizeLarge, range.to + splitSizeLarge);
 					dest = (dest + 1) % NPLACES;
 				}
@@ -600,7 +600,7 @@ public class IT_DistCol implements Serializable {
 				LongRange range = new LongRange(0, splitSizeSmall);
 				long dest = 0;
 				while (range.from < AllRange.to) {
-					distCol.moveAtSync(range, pg.get((int)dest), mm);
+					distCol.moveRangeAtSync(range, pg.get((int)dest), mm);
 					range = new LongRange(range.from + splitSizeSmall, range.to + splitSizeSmall);
 					dest = (dest + 1) % NPLACES;
 				}
