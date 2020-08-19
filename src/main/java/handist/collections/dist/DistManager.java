@@ -54,15 +54,21 @@ public class DistManager<T> {
 		}
 	}
 	public static final int DIST_ADDED = 1;
+	/** Code for key received from remote place to this local handle */
 	public static final int DIST_MOVED_IN = 4;
 	public static final int DIST_REMOVED = 2;
 	
-	public static final byte MOVE_NEW = 1;
+	public static final byte MOVE_NEW = 1; //New range created on local handle
 	public static final byte MOVE_NONE = 0;
 	public static final byte MOVE_OLD = 2;
 
+	/** 
+	 * Changes since that last time updateDist was called that will need to be
+	 * notified to remote places. There may be other changes that occurred on 
+	 * remote places that this local handle is not yet aware of. 
+	 */
 	public HashMap<T, Integer> diff = new HashMap<>();
-
+	/** Current knowledge of the key-holding information on local & remote places */
 	public HashMap<T, Place> dist = new HashMap<>();
 
 	HashSet<T> importedDiffKeys = new HashSet<>();

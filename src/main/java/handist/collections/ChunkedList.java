@@ -125,7 +125,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 	 * @param chunks initial mappings of {@link LongRange} and {@link Chunk}s
 	 */
 	public ChunkedList(TreeMap<LongRange, RangedList<T>> chunks) {
-		this.chunks = chunks; //FIXME what about member size ?
+		this.chunks = chunks;
 		size = 0;
 		chunks.forEach((r, c) -> size += c.size());
 	}

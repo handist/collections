@@ -27,6 +27,9 @@ public abstract class TeamOperations<C extends AbstractDistCollection<C>> {
 	
 	protected final C handle;
 	
+	/**
+	 * Updates the distribution information of all local handles. 
+	 */
 	public abstract void updateDist();
 	
 	/**

@@ -47,7 +47,7 @@ import mpi.MPIException;
  * @param <K> type of the key used in the {@link DistMap}
  * @param <V> type of the value mapped to each key in the {@link DistMap}
  */
-public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<K, V>>, SerializableWithReplace {
+public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<K, V>>, KeyRelocatable<K>,SerializableWithReplace {
 
 	public class DistMapGlobal extends GlobalOperations<DistMap<K,V>> {
 		DistMapGlobal(DistMap<K,V> handle) {
@@ -58,12 +58,6 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 	public class DistMapTeam extends TeamOperations<DistMap<K,V>> {
 		public DistMapTeam(DistMap<K,V> handle) {
 			super(handle);
-		}
-
-		@Override
-		public void updateDist() {
-			// TODO Auto-generated method stub
-			
 		}
 
 		@Override
@@ -79,6 +73,12 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 				throw new Error("[DistMap] network error in balance()");
 			}
 		}
+
+		@Override
+		public void updateDist() {
+			// TODO Auto-generated method stub
+			
+		}
 	}
 	
 	// TODO
@@ -92,15 +92,15 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 
 	private static int _debug_level = 5;
 
-	final GlobalID id;
-	public transient float[] locality;
-	public final TeamedPlaceGroup placeGroup;
-
-
 	/**
 	 * Implementation of the local Map collection 
 	 */
 	protected Map<K, V> data;
+	final GlobalID id;
+	public transient float[] locality;
+
+
+	public final TeamedPlaceGroup placeGroup;
 
 	private Function<K, V> proxyGenerator;
 
@@ -164,6 +164,13 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		return data.containsKey(key);
 	}
 
+	/**
+	 * Indicates if the provided value is contained in the local map.
+	 */
+	public boolean containsValue(Object value) {
+		return data.containsValue(value);
+	}
+
 	boolean debugPrint() { return true; }
 
 	/**
@@ -187,7 +194,6 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 	public Set<Map.Entry<K, V>> entrySet() {
 		return data.entrySet();
 	}
-
 	/**
 	 * Apply the specified operation with each Key/Value pair contained in the
 	 * local collection.
@@ -197,6 +203,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		if (!data.isEmpty())
 			data.forEach(action);
 	}
+
 	/**
 	 * Return the element for the provided key. If there is no element at the index, return null.
 	 *
@@ -214,6 +221,11 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		} else {
 			return null;
 		}
+	}
+
+	@Override
+	public Collection<K> getAllKeys() {
+		return keySet();
 	}
 
 	/**
@@ -239,11 +251,31 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		return data.keySet();
 	}
 
+	@Override
+	public GlobalOperations<DistMap<K,V>> global() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public GlobalID id() {
+		return id;
+	}
+
 	// TODO remove this method, we already have #putAll
 	public void integrate(Map<K, V> src) {
 		for(Map.Entry<K,V> e: src.entrySet()) {
 			put(e.getKey(), e.getValue());
 		}
+	}
+
+	/**
+	 * Indicates if the local distributed map is empty or not
+	 * @return {@code true} if there are no mappings in the local map
+	 */
+	@Override
+	public boolean isEmpty() {
+		return data.isEmpty();
 	}
 
 	/**
@@ -253,6 +285,11 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 	 */
 	public Set<K> keySet() {
 		return data.keySet();
+	}
+
+	@Override
+	public float[] locality() {
+		return locality;
 	}
 
 	/**
@@ -275,6 +312,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		 */
 	}
 
+	@Override
 	@SuppressWarnings("unchecked")
 	public void moveAtSync(Collection<K> keys, Place pl, MoveManagerLocal mm) {
 		if (pl.equals(Constructs.here()))
@@ -300,13 +338,13 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		mm.request(pl, serialize, deserialize);
 	}
 
+	@Override
 	public void moveAtSync(Distribution<K> dist, MoveManagerLocal mm) {
 		Function<K, Place> rule = (K key) -> {
 			return dist.place(key);
 		};
 		moveAtSync(rule, mm);
 	}
-
 	public void moveAtSync(Function<K, Place> rule, MoveManagerLocal mm) {
 		DistMap<K, V> collection = this;
 		HashMap<Place, List<K>> keysToMove = new HashMap<>();
@@ -322,6 +360,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		}
 	}
 
+
 	/**
 	 * Request that the specified element is relocated when #sync is called.
 	 *
@@ -329,6 +368,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 	 * @param pl  the destination place.
 	 * @param mm  MoveManagerLocal
 	 */
+	@Override
 	@SuppressWarnings("unchecked")
 	public void moveAtSync(K key, Place pl, MoveManagerLocal mm) {
 		if (pl.equals(Constructs.here()))
@@ -347,6 +387,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		mm.request(pl, serialize, deserialize);
 	}
 
+	@Override
 	public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm) throws Exception {
 		for (IntLongPair pair : moveList) {
 			if (_debug_level > 5) {
@@ -362,6 +403,11 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		if (count == 0)
 			return;
 		moveAtSync(getNKeys(count), dest, mm);
+	}
+
+	@Override
+	public TeamedPlaceGroup placeGroup() {
+		return placeGroup;
 	}
 
 	void printLocalData(){
@@ -381,6 +427,14 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 	public V put(K key, V value) {
 		return data.put(key, value);
 	}
+	/**
+	 * Adds all the mappings contained in the specified map into this local map.
+	 */
+	@Override
+	public void putAll(Map<? extends K, ? extends V> m) {
+		data.putAll(m);
+	}
+
 	private V putForMove(K key, V value) {
 		if (data.containsKey(key)) {
 			throw new RuntimeException("DistMap cannot override existing entry: " + key);
@@ -388,6 +442,27 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		return data.put(key, value);
 	}
 
+	/*
+    void teamedBalance() {
+        LoadBalancer.MapBalancer<T, U> balance = new LoadBalancer.MapBalancer<>(this.data, placeGroup);
+        balance.execute();
+        if(debugPrint()) System.out.println(here() + " balance.check1");
+        clear();
+        if(debugPrint()) {
+            System.out.println(here() + " balance.check2");
+            System.out.println(here() + " balance.ArrayList.size() : " + data.size());
+        }
+        long time = - System.nanoTime();
+        time += System.nanoTime();
+        if(debugPrint()) {
+    //        	System.out.println(here() + " count : " + (count) + " ms");
+    //        	System.out.println(here() + " put : " + (total/(1000000)) + " ms");
+            System.out.println(here() + " for : " + (time/(1000000)) + " ms");
+            System.out.println(here() + " data.size() : " + size());
+            System.out.println(here() + " balance.check3");
+        }
+
+    }*/
 
 	/**
 	 * Reduce the all elements including other place using the given operation.
@@ -410,6 +485,8 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 
 	}
 
+	// TODO different naming convention of balance methods with DistMap
+
 	/**
 	 * Reduce the all elements including other place using the given operation.
 	 *
@@ -420,6 +497,16 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 	public V reduce(BiFunction<V, V, V> op, V unit) {
 		return reduce(op, op, unit);
 	}
+
+	/*    Abstractovdef create(placeGroup: PlaceGroup, team: TeamOperations, init: ()=>Map[T, U]){
+        // return new DistMap[T,U](placeGroup, init) as AbstractDistCollection[Map[T,U]];
+        return null as AbstractDistCollection[Map[T,U]];
+    }*/
+	/*
+    public def versioningMap(srcName : String){
+        // return new BranchingManager[DistMap[T,U], Map[T,U]](srcName, this);
+        return null as BranchingManager[DistMap[T,U], Map[T,U]];
+    }*/
 
 	/**
 	 * Reduce the all local elements using the given operation.
@@ -455,6 +542,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 	public void relocate(Function<K,Place> rule) throws Exception {
 		relocate(rule, new MoveManagerLocal(placeGroup));
 	}
+	
 	public void relocate(Function<K, Place> rule, MoveManagerLocal mm) throws Exception {
 		for (K key: data.keySet()) {
 			Place place = rule.apply(key);
@@ -473,28 +561,6 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 	public V remove(Object key) {
 		return data.remove(key);
 	}
-
-	/*
-    void teamedBalance() {
-        LoadBalancer.MapBalancer<T, U> balance = new LoadBalancer.MapBalancer<>(this.data, placeGroup);
-        balance.execute();
-        if(debugPrint()) System.out.println(here() + " balance.check1");
-        clear();
-        if(debugPrint()) {
-            System.out.println(here() + " balance.check2");
-            System.out.println(here() + " balance.ArrayList.size() : " + data.size());
-        }
-        long time = - System.nanoTime();
-        time += System.nanoTime();
-        if(debugPrint()) {
-    //        	System.out.println(here() + " count : " + (count) + " ms");
-    //        	System.out.println(here() + " put : " + (total/(1000000)) + " ms");
-            System.out.println(here() + " for : " + (time/(1000000)) + " ms");
-            System.out.println(here() + " data.size() : " + size());
-            System.out.println(here() + " balance.check3");
-        }
-
-    }*/
 
 	/**
 	 * Sets the proxy generator for this instance. 
@@ -515,8 +581,6 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		proxyGenerator = proxy;
 	}
 
-	// TODO different naming convention of balance methods with DistMap
-
 	/**
 	 * Return the number of the local entries.
 	 *
@@ -526,15 +590,11 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		return data.size();
 	}
 
-	/*    Abstractovdef create(placeGroup: PlaceGroup, team: TeamOperations, init: ()=>Map[T, U]){
-        // return new DistMap[T,U](placeGroup, init) as AbstractDistCollection[Map[T,U]];
-        return null as AbstractDistCollection[Map[T,U]];
-    }*/
-	/*
-    public def versioningMap(srcName : String){
-        // return new BranchingManager[DistMap[T,U], Map[T,U]](srcName, this);
-        return null as BranchingManager[DistMap[T,U], Map[T,U]];
-    }*/
+	@Override
+	public TeamOperations<DistMap<K,V>> team() {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
 	public String toString() {
 		StringWriter out0 = new StringWriter();
@@ -547,6 +607,13 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		return out0.toString();
 	}
 
+	/**
+	 * Returns all the values of this local map in a collection.
+	 */
+	public Collection<V> values() {
+		return data.values();
+	}
+
 	@Override
 	public Object writeReplace() throws ObjectStreamException {
 		final TeamedPlaceGroup pg1 = placeGroup;
@@ -554,63 +621,5 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		return new LazyObjectReference<DistMap<K, V>>(pg1, id1, () -> {
 			return new DistMap<K, V>(pg1, id1);
 		});
-	}
-
-	@Override
-	public float[] locality() {
-		return locality;
-	}
-
-	@Override
-	public GlobalID id() {
-		return id;
-	}
-	
-	/**
-	 * Indicates if the local distributed map is empty or not
-	 * @return {@code true} if there are no mappings in the local map
-	 */
-	@Override
-	public boolean isEmpty() {
-		return data.isEmpty();
-	}
-
-	@Override
-	public TeamOperations<DistMap<K,V>> team() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public GlobalOperations<DistMap<K,V>> global() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public TeamedPlaceGroup placeGroup() {
-		return placeGroup;
-	}
-
-	/**
-	 * Indicates if the provided value is contained in the local map.
-	 */
-	public boolean containsValue(Object value) {
-		return data.containsValue(value);
-	}
-
-	/**
-	 * Adds all the mappings contained in the specified map into this local map.
-	 */
-	@Override
-	public void putAll(Map<? extends K, ? extends V> m) {
-		data.putAll(m);
-	}
-
-	/**
-	 * Returns all the values of this local map in a collection.
-	 */
-	public Collection<V> values() {
-		return data.values();
 	}
 }
