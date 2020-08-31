@@ -483,7 +483,7 @@ public class IT_DistCol implements Serializable {
 					}
 				});	    
 				for (RangedList<String> chunk : chunkList) {
-					distCol.remove(chunk);
+					distCol.remove(chunk.getRange());
 				}
 			} catch (Exception e) {
 				System.err.println("Error on " + here());

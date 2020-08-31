@@ -36,7 +36,9 @@ import apgas.util.SerializableWithReplace;
 
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.function.DeSerializer;
+import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
 import mpi.MPI;
 import mpi.MPIException;
@@ -47,15 +49,27 @@ import mpi.MPIException;
  * @param <K> type of the key used in the {@link DistMap}
  * @param <V> type of the value mapped to each key in the {@link DistMap}
  */
-public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<K, V>>, KeyRelocatable<K>,SerializableWithReplace {
+public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistMap<K, V>>, KeyRelocatable<K>,SerializableWithReplace {
 
-	public class DistMapGlobal extends GlobalOperations<DistMap<K,V>> {
+	public class DistMapGlobal extends GlobalOperations<V, DistMap<K,V>> {
 		DistMapGlobal(DistMap<K,V> handle) {
 			super(handle);
 		}
+
+		@Override
+		public Object writeReplace() throws ObjectStreamException {
+			final TeamedPlaceGroup pg1 = localHandle.placeGroup();
+			final GlobalID id1 = localHandle.id();
+			return new MemberOfLazyObjectReference<DistMap<K,V>,DistMap<K,V>.DistMapGlobal>(
+					pg1, 
+					id1, 
+					()-> {return new DistMap<K,V> (pg1,id1);}, 
+					(handle)->{return handle.GLOBAL;}
+				);
+		}
 	}
 	
-	public class DistMapTeam extends TeamOperations<DistMap<K,V>> {
+	public class DistMapTeam extends TeamOperations<V, DistMap<K,V>> {
 		public DistMapTeam(DistMap<K,V> handle) {
 			super(handle);
 		}
@@ -104,6 +118,8 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 
 	private Function<K, V> proxyGenerator;
 
+	public final DistMap<K, V>.DistMapGlobal GLOBAL;
+
 	/**
 	 * Construct an empty DistMap which can have local handles on all the hosts
 	 * in the computation. 
@@ -130,6 +146,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		locality = new float[pg.size];
 		Arrays.fill(locality, 1.0f);
 		this.data = new HashMap<>();
+		GLOBAL = new DistMapGlobal(this);
 	}
 
 //	Method moved to TEAM and GLOBAL operations
@@ -252,9 +269,8 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 	}
 
 	@Override
-	public GlobalOperations<DistMap<K,V>> global() {
-		// TODO Auto-generated method stub
-		return null;
+	public GlobalOperations<V, DistMap<K,V>> global() {
+		return GLOBAL;
 	}
 
 	@Override
@@ -591,7 +607,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 	}
 
 	@Override
-	public TeamOperations<DistMap<K,V>> team() {
+	public TeamOperations<V, DistMap<K,V>> team() {
 		// TODO Auto-generated method stub
 		return null;
 	}
@@ -621,5 +637,10 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<DistMap<
 		return new LazyObjectReference<DistMap<K, V>>(pg1, id1, () -> {
 			return new DistMap<K, V>(pg1, id1);
 		});
+	}
+
+	@Override
+	public void forEach(SerializableConsumer<V> action) {
+		data.values().forEach(action);
 	}
 }

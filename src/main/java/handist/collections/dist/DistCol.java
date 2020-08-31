@@ -36,9 +36,11 @@ import handist.collections.LongRange;
 import handist.collections.RangedList;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.dist.util.Pair;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.SerializableBiConsumer;
+import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
 
 /**
@@ -54,7 +56,7 @@ import handist.collections.function.Serializer;
  * @param <T> the type of elements handled by this {@link DistCol}
  */
 @DefaultSerializer(JavaSerializer.class)
-public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection<DistCol<T>>, RangeRelocatable<LongRange>, SerializableWithReplace {
+public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection<T, DistCol<T>>, RangeRelocatable<LongRange>, SerializableWithReplace {
 	/*AbstractDistCollection *//* implements List[T], ManagedDistribution[LongRange] */
 	static class ChunkExtractLeft<T> {
 		public RangedList<T> original;
@@ -99,8 +101,11 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 		}
 	}
 
-	public class DistColGlobal extends GlobalOperations<DistCol<T>> {
-	    public DistColGlobal(DistCol<T> handle) {
+	public class DistColGlobal extends GlobalOperations<T, DistCol<T>> implements Serializable {
+		/** Serial Version UID */
+		private static final long serialVersionUID = 4584810477237588857L;
+
+		public DistColGlobal(DistCol<T> handle) {
 			super(handle);
 		}
 
@@ -112,12 +117,24 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 		public void setupBranches(final SerializableBiConsumer<Place, DistCol<T>> gen) {
 	    	global_setupBranches(gen); 
 	    }
+
+		@Override
+		public Object writeReplace() throws ObjectStreamException {
+			final TeamedPlaceGroup pg1 = localHandle.placeGroup();
+			final GlobalID id1 = localHandle.id();
+			return new MemberOfLazyObjectReference<DistCol<T>, DistCol<T>.DistColGlobal>(pg1, id1, 
+					() -> {return new DistCol<T>(pg1, id1);},
+					(instanceOfDistCol) -> {return instanceOfDistCol.GLOBAL;});
+		}
 	    
 	    
 	}
 
-	public class DistColTeam extends TeamOperations<DistCol<T>> {
+	public class DistColTeam extends TeamOperations<T, DistCol<T>> implements Serializable {
 		
+		/** Serial Version UID */
+		private static final long serialVersionUID = -5392694230295904290L;
+
 		DistColTeam(DistCol<T> handle) {
 			super(handle);
 		}
@@ -171,7 +188,7 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 	/**
 	 * Handle to Global Operations implemented by {@link DistCol}.
 	 */
-    public final transient DistColGlobal GLOBAL;
+    public transient final DistColGlobal GLOBAL;
 
     /**
      * Internal class that handles distribution-related operations.
@@ -274,7 +291,7 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 	}
 
 	@Override
-	public GlobalOperations<DistCol<T>> global() {
+	public GlobalOperations<T, DistCol<T>> global() {
 		return GLOBAL;
 	}
 
@@ -320,7 +337,7 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 			final ArrayList<Byte> keyTypeList = new ArrayList<>();
 			for (final RangedList<T> c : cs) {
 				keyTypeList.add(ldist.moveOut(c.getRange(), dest));
-				this.removeForMove(c);
+				this.removeForMove(c.getRange());
 			}
 			s.writeObject(keyTypeList);
 			s.writeObject(cs);
@@ -540,10 +557,17 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 		super.add(c);
 	}
 
+	@Deprecated
 	@Override
 	public RangedList<T> remove(final RangedList<T> c) {
 		ldist.remove(c.getRange());
 		return super.remove(c);
+	}
+	
+	@Override
+	public RangedList<T> remove(final LongRange r) {
+		ldist.remove(r);
+		return super.remove(r);
 	}
 
 //	Method moved to GLOBAL and TEAM operations 
@@ -556,8 +580,8 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 //		}
 //	}
 
-	private void removeForMove(final RangedList<T> c) {
-		if (super.remove(c) == null) {
+	private void removeForMove(final LongRange r) {
+		if (super.remove(r) == null) {
 			throw new RuntimeException("DistCol#removeForMove");
 		}
 	}
@@ -578,7 +602,7 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
     }
 
 	@Override
-	public TeamOperations<DistCol<T>> team() {
+	public TeamOperations<T, DistCol<T>> team() {
 		return TEAM;
 	}
 
@@ -594,5 +618,10 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 		return new LazyObjectReference<DistCol<T>>(pg1, id1, () -> {
 			return new DistCol<T>(pg1, id1);
 		});
+	}
+
+	@Override
+	public void forEach(SerializableConsumer<T> action) {
+		super.forEach(action);
 	}
 }

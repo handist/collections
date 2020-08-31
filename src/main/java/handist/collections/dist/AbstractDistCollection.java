@@ -14,9 +14,10 @@ import java.util.ArrayList;
 
 import apgas.util.GlobalID;
 import handist.collections.dist.util.IntLongPair;
+import handist.collections.function.SerializableConsumer;
 
 
-public interface AbstractDistCollection<C extends AbstractDistCollection<C>> {
+public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C>> {
 
 	static int _debug_level = 5;
 
@@ -57,12 +58,12 @@ public interface AbstractDistCollection<C extends AbstractDistCollection<C>> {
 	 * Returns a handle to teamed operations of a distributed collection
 	 * @return handle to "teamed" operations
 	 */
-	public TeamOperations<C> team();
+	public TeamOperations<T, C> team();
 	/**
 	 * Returns a handle to global operations of a distributed collection
 	 * @return handle to "global" operations
 	 */
-	public GlobalOperations<C> global();
+	public GlobalOperations<T, C> global();
 
 	/**
 	 * Places the local size of each local handle of the distributed object
@@ -89,16 +90,33 @@ public interface AbstractDistCollection<C extends AbstractDistCollection<C>> {
 	 *
 	 * @return PlaceGroup.
 	 */
-	public TeamedPlaceGroup placeGroup(); /*{
-		return placeGroup;
-	}*/
+	public TeamedPlaceGroup placeGroup(); 
 
 	// TODO
 	// public abstract void integrate(T src);
 	
-
+	/**
+	 * Method used to create an object which will be transferred to a remote 
+	 * place. 
+	 * <p>
+	 * This method is prsent in interface {@link AbstractDistCollection} to 
+	 * force the implementation in implementing classes. 
+	 * Implementation should return a {@link LazyObjectReference}
+	 * instance capable of initializing the local handle of the implementing
+	 * class on the remote place 
+	 * @return a {@link LazyObjectReference} of the implementing class (left to programmer's 
+	 * 	good-will) 
+	 * @throws ObjectStreamException if such an exception is thrown during the
+	 *  process
+	 */
 	abstract public Object writeReplace() throws ObjectStreamException;
-	// return new LaObjectReference(id, ()->{ new AbstractDistCollection<>());
+
+	/**
+	 * Performs the specified action on every instance contained by the local 
+	 * handle of this distributed collection.
+	 * @param action action to perform on each instance
+	 */
+	public void forEach(SerializableConsumer<T> action);
 
 	/*
     public final def printAllData(){

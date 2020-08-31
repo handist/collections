@@ -60,7 +60,6 @@ public class TestChunkedList {
 				number = nb;
 			}
 
-			@SuppressWarnings("unchecked")
 			@Override
 			public void accept(Integer t) {
 				((ArrayList<Integer>) parallelAcceptors[number]).add(t);
@@ -69,7 +68,7 @@ public class TestChunkedList {
 		}
 		private int nextReceiver;
 
-		Object [] parallelAcceptors;
+		ArrayList<Integer> [] parallelAcceptors;
 
 		/**
 		 * Builds a Receiver of {@link Integer} that can accept objects
@@ -77,9 +76,10 @@ public class TestChunkedList {
 		 * 
 		 * @param parallelism the number of threads susceptible to send {@link Integer}s to be accepted by this object
 		 */
+		@SuppressWarnings("unchecked")
 		public MultiIntegerReceiver (int parallelism) {
 			nextReceiver = 0;
-			parallelAcceptors = new Object[parallelism];
+			parallelAcceptors = new ArrayList[parallelism];
 			for(int i=0; i<parallelism; i++) {
 				parallelAcceptors[i] = new ArrayList<Integer>();
 			}
@@ -180,7 +180,6 @@ public class TestChunkedList {
 		newlyCreatedChunkedList.add(null);
 	}
 
-	@SuppressWarnings("unchecked")
 	@Test
 	public void testAsyncForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
 		ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -193,8 +192,15 @@ public class TestChunkedList {
 				accumulator).get();
 
 		assertEquals(2, accumulator.parallelAcceptors.length);
-		assertEquals(3, ((ArrayList<Integer>) accumulator.parallelAcceptors[0]).size());
-		assertEquals(3, ((ArrayList<Integer>)accumulator.parallelAcceptors[1]).size());
+		// Due to race conditions, there are cases where only one accumulator is used during the test. 
+		// We cannot expect both to accumulators to be exactly of length 3
+		// assertEquals(3, ((ArrayList<Integer>) accumulator.parallelAcceptors[0]).size());
+		// assertEquals(3, ((ArrayList<Integer>)accumulator.parallelAcceptors[1]).size());
+		int totalAccepted = 0;
+		for (ArrayList<Integer> a : accumulator.parallelAcceptors) {
+			totalAccepted += a.size();
+		}
+		assertEquals(6, totalAccepted);
 	}
 
 	@Test
@@ -408,7 +414,6 @@ public class TestChunkedList {
 		assertEquals(expectedOutput, averageComputation.toString());
 	}
 
-	@SuppressWarnings("unchecked")
 	@Test
 	public void testForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
 		ExecutorService pool = Executors.newFixedThreadPool(2);

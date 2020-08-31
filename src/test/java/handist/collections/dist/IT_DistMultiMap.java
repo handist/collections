@@ -28,18 +28,18 @@ import handist.mpijunit.launcher.TestLauncher;
 
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks=2, launcher=TestLauncher.class)
-public class IT_DistMapList implements Serializable {
+public class IT_DistMultiMap implements Serializable {
 
 	/** Serial Version UID */
 	private static final long serialVersionUID = -699276324622147605L;
 
 	public static void main(String[] args) {
-		IT_DistMapList test = new IT_DistMapList();
+		IT_DistMultiMap test = new IT_DistMultiMap();
 		test.setup();
 		test.run();
 		System.out.println("----finish");
 	}
-	DistMultiMap<String, String> distMapList;
+	DistMultiMap<String, String> distMultiMap;
 	ArrayList<String> keyList;
 	long NPLACES;
 	long numData = 200;
@@ -71,7 +71,7 @@ public class IT_DistMapList implements Serializable {
 			}
 			long j = 0;
 			for (long i = 0; i < numData; i++) {
-				distMapList.put1(keyList.get((int)j), genRandStr("v"));
+				distMultiMap.put1(keyList.get((int)j), genRandStr("v"));
 				j = (j + 1) % numKey;
 			}
 		} catch (Exception e) {
@@ -86,7 +86,7 @@ public class IT_DistMapList implements Serializable {
 		//	gather.setCurrentAsInit();
 
 		// Distribute all entries
-		final DistMultiMap<String,String> distMapList2 = this.distMapList;
+		final DistMultiMap<String,String> distMapList2 = this.distMultiMap;
 		final int NPLACES2 = pg.size;
 		System.out.println("");
 		System.out.println("### MoveAtSync // Distribute all entries");
@@ -271,7 +271,7 @@ public class IT_DistMapList implements Serializable {
 		placeGroup = TeamedPlaceGroup.getWorld();
 		NPLACES = placeGroup.size();
 		random = new Random(12345);
-		distMapList = new DistMultiMap<String, String>(placeGroup);
+		distMultiMap = new DistMultiMap<String, String>(placeGroup);
 		keyList = new ArrayList<String>();
 	}
 }

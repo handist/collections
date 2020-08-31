@@ -101,7 +101,7 @@
 		<dependency>
 			<groupId>com.github.handist</groupId>
 			<artifactId>mpi-junit</artifactId>
-			<version>v1.2</version>
+			<version>-SNAPSHOT</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
