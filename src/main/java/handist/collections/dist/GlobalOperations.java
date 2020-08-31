@@ -9,17 +9,23 @@
  *******************************************************************************/
 package handist.collections.dist;
 
+import java.io.ObjectStreamException;
+
 import apgas.Constructs;
 import apgas.Place;
+import apgas.util.SerializableWithReplace;
+import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.function.SerializableBiConsumer;
+import handist.collections.function.SerializableConsumer;
 
 /**
  * Interface that defines the "Global Operations" that distributed
  * collections propose.
+ * @param <T> the type of objects manipulated by the distributed collection
  * @param <C> implementing type, should be a class that implements 
  * {@link AbstractDistCollection}
  */
-public abstract class GlobalOperations<C extends AbstractDistCollection<?>> {
+public abstract class GlobalOperations<T, C extends AbstractDistCollection<T,C>> implements SerializableWithReplace {
 	
 	protected final C localHandle;
 	
@@ -57,6 +63,20 @@ public abstract class GlobalOperations<C extends AbstractDistCollection<?>> {
 	}
 	
 	/**
+	 * Performs the specified action on every instance contained on every host
+	 * of the distributed collection and returns when all operations have
+	 * been completed. 
+	 * <p>
+	 * The action is performed on the 
+	 * @param action action to perform
+	 */
+	public void forEach(final SerializableConsumer<T> action) {
+		localHandle.placeGroup().broadcastFlat(()->{
+			localHandle.forEach(action);
+		});
+	}
+	
+	/**
 	 * Gathers the size of every local collection and returns it in the provided
 	 * array
 	 * @param result the array in which the result will be stored
@@ -67,4 +87,20 @@ public abstract class GlobalOperations<C extends AbstractDistCollection<?>> {
 		});
 	}
 	
+	/**
+	 * Method used to create an object which will be transferred to a remote 
+	 * place. 
+	 * <p>
+	 * This method is defined as <em>abstract</em> in class 
+	 * {@link GlobalOperations} to force the implementation in child classes. 
+	 * Implementation should return a {@link MemberOfLazyObjectReference}
+	 * instance capable of initializing the local handle of member 
+	 * {@link #localHandle} on the remote place and return the "GLOBAL" member
+	 * of this handle's local class. 
+	 * @return a {@link MemberOfLazyObjectReference} (left to programmer's 
+	 * 	good-will) 
+	 * @throws ObjectStreamException if such an exception is thrown during the
+	 *  process
+	 */
+	public abstract Object writeReplace() throws ObjectStreamException;
 }

@@ -25,9 +25,11 @@ import apgas.util.SerializableWithReplace;
 import handist.collections.Bag;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.SerializableBiConsumer;
+import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
 import mpi.MPI;
 import mpi.MPIException;
@@ -45,16 +47,27 @@ import mpi.MPIException;
  * 
  * @param <T> type of the elements handled by the {@link DistBag}.
  */
-public class DistBag<T> extends Bag<T> implements AbstractDistCollection<DistBag<T>>, SerializableWithReplace {
+public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, DistBag<T>>, SerializableWithReplace {
 	/* implements Container[T], ReceiverHolder[T] */
 	
-	public class DistBagGlobal extends GlobalOperations<DistBag<T>> {
+	public class DistBagGlobal extends GlobalOperations<T, DistBag<T>> {
 		DistBagGlobal(DistBag<T> handle) {
 			super(handle);
 		}
+
+		@Override
+		public Object writeReplace() throws ObjectStreamException {
+			final TeamedPlaceGroup pg1 = placeGroup;
+			final GlobalID gId = id;
+			return new MemberOfLazyObjectReference<DistBag<T>, DistBagGlobal>(
+					pg1, 
+					gId, 
+					()-> {return new DistBag<T>(pg1, gId);},
+					(distBag)-> {return distBag.GLOBAL;});
+		}
 	}
 	
-	public class DistBagTeam extends TeamOperations<DistBag<T>> {
+	public class DistBagTeam extends TeamOperations<T, DistBag<T>> {
 		
 		DistBagTeam(DistBag<T> handle) {
 			super(handle);
@@ -144,7 +157,7 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<DistBag
 	@SuppressWarnings("unchecked")
 	public void gather(Place root) {
 		Serializer serProcess = (ObjectOutputStream ser) -> {
-			ser.writeObject(new Bag(this));
+			ser.writeObject(new Bag<T>(this));
 		};
 		DeSerializerUsingPlace desProcess = (ObjectInputStream des, Place place) -> {
 			Bag<T> imported = (Bag<T>) des.readObject();
@@ -249,18 +262,23 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<DistBag
 	}
 
 	@Override
-	public TeamOperations<DistBag<T>> team() {
+	public TeamOperations<T, DistBag<T>> team() {
 		return TEAM;
 	}
 
 	@Override
-	public GlobalOperations<DistBag<T>> global() {
+	public GlobalOperations<T, DistBag<T>> global() {
 		return GLOBAL;
 	}
 
 	@Override
 	public TeamedPlaceGroup placeGroup() {
 		return placeGroup;
+	}
+
+	@Override
+	public void forEach(SerializableConsumer<T> action) {
+		super.forEach(action);
 	}
 
 }

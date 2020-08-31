@@ -312,11 +312,14 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 
 	/**
 	 * Return the intersection range of this instance ad the provided one.
-	 * If there is no index that belongs to both ranges, return null;
+	 * If there are no indices that belongs to either ranges, returns null;
+	 * <p>
+	 * If either {@code this} or the provided argument are singular point LongRanges, the
+	 * result will always be {@code null}.
 	 * 
 	 * @param range the range whose intersection with this instance is to be checked
-	 * @return a {@link LongRange} representing the instersection between this and
-	 * the provided instance, null if there is no intersection
+	 * @return a {@link LongRange} representing the intersection between this and
+	 * the provided instance, {@code null} if there is no intersection
 	 */
 	public LongRange intersection(LongRange range) {
 		long from = Math.max(range.from, this.from);

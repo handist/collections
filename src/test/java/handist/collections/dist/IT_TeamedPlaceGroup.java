@@ -50,10 +50,10 @@ public class IT_TeamedPlaceGroup implements Serializable {
 						test.run();
 						System.out.println("----finishA");
 					} else {
-						IT_DistMapList test = new IT_DistMapList();
+						IT_DistMultiMap test = new IT_DistMultiMap();
 						test.setup();
 						test.placeGroup = split; //TODO this is not very clean
-						test.distMapList = new DistMultiMap<String, String>(split);
+						test.distMultiMap = new DistMultiMap<String, String>(split);
 						test.run();
 						System.out.println("----finishB");
 					}

@@ -19,9 +19,10 @@ import handist.collections.dist.util.IntLongPair;
 /**
  * Interface which defines the "team" operations that distributed collections
  * provide.
+ * @param <T> type of the objects contained in the distributed collection
  * @param <C> type of the local handle on which the TeamOperations operate
  */
-public abstract class TeamOperations<C extends AbstractDistCollection<C>> {
+public abstract class TeamOperations<T, C extends AbstractDistCollection<T, C>> {
 	
 	static int _debug_level = 5;
 	

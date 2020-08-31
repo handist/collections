@@ -8,6 +8,7 @@ import apgas.util.GlobalID;
 import handist.collections.dist.TeamedPlaceGroup;
 
 public class LazyObjectReference<T> implements Serializable {
+	
 	/** 
 	 * Global ID used to identify an object with replication on multiple
 	 * places
@@ -40,7 +41,7 @@ public class LazyObjectReference<T> implements Serializable {
 		initializer = init;
 	}
 
-	private Object readResolve() throws ObjectStreamException {
+	protected Object readResolve() throws ObjectStreamException {
 		Object result = globalId.getHere();
 		if (result == null) {
 			try {

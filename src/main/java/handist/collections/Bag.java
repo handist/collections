@@ -24,6 +24,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
+import handist.collections.dist.DistBag;
+
 /**
  * Container for user-defined types. 
  * <p>
@@ -103,7 +105,9 @@ public class Bag<T> extends AbstractCollection<T> implements  ParallelReceiver<T
 	}
 
 	/**
-	 * Constructor to create a Bag that contains the same contents with another Bag or DistBag.
+	 * Constructor to create a Bag with the same contents as another {@link Bag}
+	 * or {@link DistBag}.
+	 * @param bag the bag to copy
 	 */
 	public Bag(Bag<T> bag) {
 		bags = bag.bags;

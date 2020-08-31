@@ -116,11 +116,58 @@ public class TestLongRange {
 		assertSame(firstHash0to5, secondHash0to5);
 		assertSame(firstHash5, secondHash5);
 	}
+	
+	@Test
+	public void testIntersection() {
+		LongRange range10to20 = new LongRange(10l, 20l);
+		LongRange range5to20 = new LongRange(5l, 20l);
+		LongRange range0to15 = new LongRange(0l, 15l);
+		LongRange range0to20 = new LongRange(0l, 20l);
+		LongRange range5to15 = new LongRange(5l, 15l);
+		LongRange range10 = new LongRange(10l);
+		
+		// Self-intersection
+		assertEquals(range0to5, range0to5.intersection(range0to5));
+		assertNull(range5.intersection(range5));
+		
+		// Total inclusion on the left side
+		assertEquals(range0to5, range0to5.intersection(range0to10));
+		assertEquals(range0to5, range0to10.intersection(range0to5));
+		
+		// Total inclusion on the right side
+		assertEquals(range10to20, range10to20.intersection(range5to20));
+		assertEquals(range10to20, range5to20.intersection(range10to20));
+		
+		// Total inclusion in the middle
+		assertEquals(range5to15, range5to15.intersection(range0to20));
+		assertEquals(range5to15, range0to20.intersection(range5to15));
+		
+		// Inclusion with "single point" LongRange
+		assertNull(range5.intersection(range5to15));
+		assertNull(range5to15.intersection(range5));
+		assertNull(range5.intersection(range0to10));
+		assertNull(range0to10.intersection(range5));
+		assertNull(range5.intersection(range0to5));
+		assertNull(range0to5.intersection(range5));
+		assertNull(range5.intersection(range10));
+		
+		// Partial overlap
+		assertEquals(range5to15, range0to15.intersection(range5to20));
+		assertEquals(range5to15, range5to20.intersection(range0to15));
+		
+		// Contiguous ranges
+		assertNull(range0to10.intersection(range10to20));
+		assertNull(range10to20.intersection(range0to10));
+		
+		// No intersection
+		assertNull(range0to5.intersection(range10to20));
+		assertNull(range10to20.intersection(range0to5));
+	}
 
 	@Test
 	public void testIsOverlapped() {
 		LongRange range10to20 = new LongRange(10l, 20l);
-		LongRange range5to20 = new LongRange(5l,20l);
+		LongRange range5to20 = new LongRange(5l, 20l);
 
 		// Cases with LongRange with identical bounds
 		assertTrue(range5.isOverlapped(range5));

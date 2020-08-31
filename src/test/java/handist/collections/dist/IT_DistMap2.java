@@ -17,10 +17,10 @@ import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import apgas.MultipleException;
 import apgas.Place;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -35,10 +35,10 @@ public class IT_DistMap2 implements Serializable {
 	 * These are either final or initialized in method 
 	 * {@link #setUpBeforeClass()}. 
 	 */
-	/** Size of the sata-set used for the tests **/
+	/** Size of the dataset used for the tests **/
 	public static final long numData = 200;
 	/** Random object used to generate values */
-	static Random random;
+	static Random random = new Random(12345l);
 	/** Serial Version UID */
 	private static final long serialVersionUID = 1L;
 	/**
@@ -55,20 +55,12 @@ public class IT_DistMap2 implements Serializable {
 	}
 
 	/**
-	 * Prepares static members
-	 */
-	@BeforeClass
-	public static void setUpBeforeClass() {
-		random = new Random(12345l);
-	}
-
-	/**
 	 * {@link DistMap} instance under test.
 	 * Before each test, it is re-initialized with {@value #numData} entries 
 	 * placed into it on host 0 and kept empty on other hosts. 
 	 * @see #setUp() 
 	 */
-	DistMap<String,String> distMap;
+	DistMap<String,Element> distMap;
 
 	/** PlaceGroup object representing the collaboration between processes */
 	TeamedPlaceGroup placeGroup;
@@ -80,7 +72,7 @@ public class IT_DistMap2 implements Serializable {
 
 		// Put some initial values in distMap
 		for (long l=0; l<numData; l++) {
-			distMap.put(genRandStr("k"), genRandStr("v"));
+			distMap.put(genRandStr("k"), new Element(genRandStr("v")));
 		}
 	}
 
@@ -88,7 +80,7 @@ public class IT_DistMap2 implements Serializable {
 	public void tearDown() throws Exception {
 		distMap.destroy();
 	}
-	
+
 	/**
 	 * Moves all the entries contained in host 0 to host 1
 	 * @throws Exception if an exception is thrown during the test
@@ -110,6 +102,39 @@ public class IT_DistMap2 implements Serializable {
 			} else {
 				assertEquals(0l, distMap.size());			
 			}});
+	}
+
+	@Test(timeout=10000)
+	public void testGlobalForEach() throws Throwable {
+		// Move some entries to place 1
+		distMap.placeGroup().broadcastFlat(()-> {
+			MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+			if (placeGroup.rank(here()) == 0) {
+
+				Place destination = placeGroup.get(1);
+				distMap.forEach((key, value)-> {
+					if (value.s.endsWith("0")) {
+						distMap.moveAtSync(key, destination, mm);
+					}
+				});
+			}
+			mm.sync();
+		});
+
+		// Set the every Element.s to a string starting with "new".
+		distMap.global().forEach((e)-> e.s = genRandStr("new"));
+
+		
+		try {
+			placeGroup.broadcastFlat(()-> {
+				for (Element e : distMap.values()) {
+					assertTrue(e.s.startsWith("new"));
+				}
+			});
+		} catch (MultipleException me) {
+			me.printStackTrace();
+			throw me.getSuppressed()[0];
+		}
 	}
 
 	/**

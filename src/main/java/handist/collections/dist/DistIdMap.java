@@ -24,7 +24,6 @@ import java.util.function.Function;
 
 import apgas.Place;
 import apgas.util.GlobalID;
-import handist.collections.LongRange;
 import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.SerializableConsumer;
@@ -46,7 +45,9 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 
 	/**
 	 * Construct a DistIdMap.
-	 * Place.places() is used as the PlaceGroup of the new instance.
+	 * {@link TeamedPlaceGroup#getWorld()} is used as the PlaceGroup of the 
+	 * new instance, a new {@link GlobalID} will also be created for this
+	 * new collection. 
 	 */
 	public DistIdMap() {
 		this(TeamedPlaceGroup.getWorld());
@@ -111,9 +112,15 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 
 	/**
 	 * Execute the specified operation with the corresponding value of the specified id.
-	 * If the entry is stored at local, the operation is executed sequaltially.
-	 * If the entry is stored at a remote place, the operation is asynchronously executed at the place.
-	 *
+	 * <ul>
+	 * <li>If the entry is stored at local, the operation is executed sequentially.
+	 * <li>If the entry is stored at a remote place, the operation is asynchronously executed
+	 * on the remote place
+	 * </ul>
+	 * <p>
+	 * In the remote case, this method returns immediately. Actual completion of the operation
+	 * can only be guaranteed if this method's enclosing {@link apgas.Constructs#finish(apgas.Job)}
+	 * has returned.
 	 * @param id a Long type value.
 	 * @param op the operation.
 	 */
@@ -128,11 +135,13 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 		});
 	}
 
-	/*
-	 * Get the corresponding value of the specified id.
+	/**
+	 * Get the corresponding value of the specified id in the local collection.
 	 *
-	 * @param id a Long type value.
-	 * @return the corresponding value of the specified id.
+	 * @param id long index to retrieve
+	 * @return the corresponding value of the specified index, or {@code null} if
+	 * the corresponding mapping was null or if there is no such mapping in the local
+	 * collection
 	 */
 	public V get(long id) {
 		return data.get(id);

@@ -35,7 +35,7 @@ public interface RangeRelocatable<R> {
 	 * provided manager's {@link MoveManagerLocal#sync()} method is called.
 	 * <p>
 	 * The default implementation consists in repetitively calling 
-	 * {@link #moveAtSync(Object, Place, MoveManagerLocal)} for each individual 
+	 * {@link #moveRangeAtSync(Object, Place, MoveManagerLocal)} for each individual 
 	 * range. Implementations are free to use a more efficient design.
 	 * @param ranges collections of ranges that describe objects to transfer
 	 * @param destination the place to which the objects should be transfered
