@@ -14,6 +14,7 @@ import java.util.ArrayList;
 
 import apgas.util.GlobalID;
 import handist.collections.dist.util.IntLongPair;
+import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.function.SerializableConsumer;
 
 
@@ -99,7 +100,7 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
 	 * Method used to create an object which will be transferred to a remote 
 	 * place. 
 	 * <p>
-	 * This method is prsent in interface {@link AbstractDistCollection} to 
+	 * This method is present in interface {@link AbstractDistCollection} to 
 	 * force the implementation in implementing classes. 
 	 * Implementation should return a {@link LazyObjectReference}
 	 * instance capable of initializing the local handle of the implementing
@@ -117,6 +118,14 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
 	 * @param action action to perform on each instance
 	 */
 	public void forEach(SerializableConsumer<T> action);
+	
+	/**
+	 * Performs the specified action on every instance contained by the local 
+	 * handle of this distributed collection in parallel.
+	 * @param action action to perform on each instance
+	 */
+	public void parallelForEach(SerializableConsumer<T> action);	
+	
 
 	/*
     public final def printAllData(){

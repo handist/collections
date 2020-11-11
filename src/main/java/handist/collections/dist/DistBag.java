@@ -280,5 +280,10 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 	public void forEach(SerializableConsumer<T> action) {
 		super.forEach(action);
 	}
+	
+	@Override
+	public void parallelForEach(SerializableConsumer<T> action) {
+		super.parallelForEach(action);
+	}
 
 }

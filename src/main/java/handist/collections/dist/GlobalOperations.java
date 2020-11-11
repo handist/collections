@@ -67,12 +67,26 @@ public abstract class GlobalOperations<T, C extends AbstractDistCollection<T,C>>
 	 * of the distributed collection and returns when all operations have
 	 * been completed. 
 	 * <p>
-	 * The action is performed on the 
+	 * The specified action is performed by a single thread on each host.
 	 * @param action action to perform
 	 */
 	public void forEach(final SerializableConsumer<T> action) {
 		localHandle.placeGroup().broadcastFlat(()->{
 			localHandle.forEach(action);
+		});
+	}
+	
+	/**
+	 * Performs the specified action on every instance contained on every host
+	 * of the distributed collection and returns when all operations have
+	 * been completed. 
+	 * <p>
+	 * The specified action is performed by multiple threads on each host. 
+	 * @param action action to perform
+	 */
+	public void parallelForEach(final SerializableConsumer<T> action) {
+		localHandle.placeGroup().broadcastFlat(() ->{
+			localHandle.parallelForEach(action);
 		});
 	}
 	
@@ -94,8 +108,8 @@ public abstract class GlobalOperations<T, C extends AbstractDistCollection<T,C>>
 	 * This method is defined as <em>abstract</em> in class 
 	 * {@link GlobalOperations} to force the implementation in child classes. 
 	 * Implementation should return a {@link MemberOfLazyObjectReference}
-	 * instance capable of initializing the local handle of member 
-	 * {@link #localHandle} on the remote place and return the "GLOBAL" member
+	 * instance capable of initializing the local handle of the distributed 
+	 * collection on the remote place and return the "GLOBAL" member
 	 * of this handle's local class. 
 	 * @return a {@link MemberOfLazyObjectReference} (left to programmer's 
 	 * 	good-will) 

@@ -624,4 +624,9 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 	public void forEach(SerializableConsumer<T> action) {
 		super.forEach(action);
 	}
+	
+	@Override
+	public void parallelForEach(SerializableConsumer<T> action) {
+		super.parallelForEach(action);
+	}
 }
