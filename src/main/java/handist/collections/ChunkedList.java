@@ -27,6 +27,8 @@ import java.util.function.Predicate;
 import handist.collections.FutureN.ReturnGivenResult;
 import handist.collections.function.LongTBiConsumer;
 
+import static apgas.Constructs.*;
+
 /**
  * Large collection containing multiple {@link Chunk}s. This overcomes the 
  * storing limitation of individual {@link Chunk}s. A {@link ChunkedList} can 
@@ -180,6 +182,12 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 		});
 		return new FutureN.ReturnGivenResult<ChunkedList<T>>(futures, this);
 	}
+	
+	public <U> void asyncForEach(BiConsumer<? super T, Consumer<U>> action, final ParallelReceiver<U> toStore) {
+		forEachParallelBody((ChunkedList<T> sub) -> { 
+			sub.forEach(action, toStore.getReceiver()); 
+		});
+	}
 
 	/**
 	 * Performs the provided action on every element in the collection asynchronously using the provided
@@ -193,11 +201,18 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 	 * @return a {@link ReturnGivenResult} which waits on the completion of all asynchronous tasks before
 	 * returning this instance
 	 */
+	@Deprecated
 	public Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
 		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
 		});
 		return new FutureN.ReturnGivenResult<ChunkedList<T>>(futures,  this);
+	}
+	
+	public void asyncForEach(Consumer<? super T> action) {
+		forEachParallelBody((ChunkedList<T> sub) -> { 
+			sub.forEach(action); 
+		});
 	}
 
 	/**
@@ -213,11 +228,18 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 	 * @return a {@link ReturnGivenResult} which waits on the completion of all asynchronous tasks before
 	 * returning this instance
 	 */
+	@Deprecated
 	public Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads, LongTBiConsumer<? super T> action) {
 		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
 		});
 		return new FutureN.ReturnGivenResult<ChunkedList<T>>(futures, this);
+	}
+	
+	public void asyncForEach(LongTBiConsumer<? super T> action) {
+		forEachParallelBody((ChunkedList<T> sub) -> { 
+			sub.forEach(action); 
+		});
 	}
 
 	/**
@@ -466,7 +488,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 			c.forEach(action);
 		}
 	}
-
+	
 	/**
 	 * Performs the provided action on each element of this collection in parallel using the provided {@link ExecutorService}
 	 * with the specified degree of parallelism. This action may involve extracting some information of type U from individual
@@ -481,6 +503,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 	 * @param toStore {@link ParallelReceiver} instance which provides the {@link Consumer}s of each thread that will process
 	 * the elements of this library and receive all the U elements extracted from this collection
 	 */
+	@Deprecated
 	public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<U>> action,
 			final ParallelReceiver<U> toStore) {
 		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
@@ -490,6 +513,26 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 	}
 
 	/**
+	 * Performs the provided action on each element of this collection in parallel using the provided {@link ExecutorService}
+	 * with the specified degree of parallelism. This action may involve extracting some information of type U from individual
+	 * elements and placing these into the Consumer (second argument of the lambda expression). This {@link Consumer} used in 
+	 * the lambda exression is obtained from the provided {@link ParallelReceiver} which will receive all the U instances
+	 * produced during this method. This method returns when all the elements in the collection have been treated.
+	 * @param <U> type of the information extracted from individual elements
+	 * @param action action to perform on individual elements of this collection, potentially extracting some information of
+	 * type U and giving it to the {@link Consumer}, the second argument of the action
+	 * @param toStore {@link ParallelReceiver} instance which provides the {@link Consumer}s of each thread that will process
+	 * the elements of this library and receive all the U elements extracted from this collection
+	 */
+	public <U> void parallelForEach(BiConsumer<? super T, Consumer<U>> action, final ParallelReceiver<U> toStore) {
+		finish(() -> {
+			forEachParallelBody((ChunkedList<T> sub) -> { 
+				sub.forEach(action, toStore.getReceiver()); 
+			});
+		});
+	}
+	
+	/**
 	 * Performs the provided action on every eleement in the collection in parallel using the
 	 * provided {@link ExecutorService} and the set degree of parallelism. Returns when all operations have
 	 * finished.
@@ -498,13 +541,27 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 	 * which this instance contents will be split to be handled by parallel threads
 	 * @param action to action to perform on element contained in this instance
 	 */
+	@Deprecated
 	public void forEach(ExecutorService pool, int nthreads, Consumer<? super T> action) {
 		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
 		});
 		waitNfutures(futures);
 	}
-
+	
+	/**
+	 * Performs the provided action on every eleement in the collection in parallel using the
+	 * apgas finish-async. Returns when all operations have finished.
+	 * @param action to action to perform on element contained in this instance
+	 */
+	public void parallelForEach(Consumer<? super T> action) {
+		finish(() -> {
+			forEachParallelBody((ChunkedList<T> sub) -> { 
+				sub.forEach(action); 	
+			});
+		});
+	}
+	
 	/**
 	 * Performs the provided action on every (long) key and (T) value in the collection in parallel using the
 	 * provided {@link ExecutorService} and the set degree of parallelism. Returns when all operations have
@@ -515,11 +572,26 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 	 * @param action to action to perform on each pair of ({@code long} key and (T) element contained in 
 	 * this instance
 	 */
+	@Deprecated
 	public void forEach(ExecutorService pool, int nthreads, LongTBiConsumer<? super T> action) {
 		List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
 			sub.forEach(action);
 		});
 		waitNfutures(futures);
+	}
+
+	/**
+	 * Performs the provided action on every (long) key and (T) value in the collection in parallel using the
+	 * apgas finish-async. Returns when all operations have finished
+	 * @param action to action to perform on each pair of ({@code long} key and (T) element contained in 
+	 * this instance
+	 */
+	public void parallelForEach(LongTBiConsumer<? super T> action) {
+		finish(() -> {
+			forEachParallelBody((ChunkedList<T> sub) -> { 
+				sub.forEach(action); 
+			});
+		});
 	}
 
 	/**
@@ -543,6 +615,16 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 		}
 	}
 
+	private void forEachParallelBody(Consumer<ChunkedList<T>> run) {
+		List<ChunkedList<T>> separated = this.separate(Runtime.getRuntime().availableProcessors() * 2);
+		for(ChunkedList<T> sub: separated) {
+			async(() -> {
+				run.accept(sub); 
+			});
+		}
+	}
+	
+	@Deprecated
 	private List<Future<?>> forEachParallelBody(ExecutorService pool, int nthreads, Consumer<ChunkedList<T>> run) {
 		List<ChunkedList<T>> separated = this.separate(nthreads);
 		List<Future<?>> futures = new ArrayList<>();
@@ -724,7 +806,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 		}
 		return removed;
 	}
-	
+
 	/**
 	 * Removes and returns a chunk whose {@link LongRange} on which it is 
 	 * defined matches the one on which the provided {@link RangedList} is 
@@ -757,6 +839,9 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 		long rem = totalNum % n;
 		long quo = totalNum / n;
 		List<ChunkedList<T>> result = new ArrayList<ChunkedList<T>>(n);
+		if (chunks.isEmpty()) {
+			return result;
+		}
 		RangedList<T> c = chunks.firstEntry().getValue();
 		long used = 0;
 

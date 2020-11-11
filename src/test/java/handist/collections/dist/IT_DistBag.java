@@ -99,6 +99,27 @@ public class IT_DistBag implements Serializable {
 		}
 	}
 
+	@Test
+	public void testGlobalParallelForEach() throws Throwable {
+		// Add a prefix to all Element.s members
+		distBag.GLOBAL.parallelForEach((e)->{
+			e.s = "GLOBAL" + e.s;
+		});
+
+		//Check that all elements on all places have the new prefix
+		try {
+			WORLD.broadcastFlat(()->{
+				// "normal" for loop on the elements of the local handle
+				for (Element e : distBag) {
+					assertTrue(e.s.startsWith("GLOBAL"));
+				}
+			});
+		} catch (MultipleException me) {
+			me.printStackTrace();
+			throw me.getSuppressed()[0];
+		}
+	}
+	
 	@Ignore
 	@Test(timeout=5000)
 	public void testTeamSize() throws Throwable {

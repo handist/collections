@@ -194,7 +194,7 @@ public class TestBag implements Serializable {
 
 		bag.forEach(exec, e -> e.increase(2));
 		for(int i = 0; i < ELEMENTS_COUNT; i++) {
-			assertSame(bag.remove().n, originalValues[ELEMENTS_COUNT - 1 - i] + 2);
+			assertSame(originalValues[ELEMENTS_COUNT - 1 - i] + 2, bag.remove().n);
 		}	
 	}
 
@@ -205,6 +205,18 @@ public class TestBag implements Serializable {
 		includeNullBag.forEach(exec, e -> e.increase(2));
 	}
 
+	@Test
+	public void testParallelForEach() {
+		int[] originalValues = new int[ELEMENTS_COUNT];
+		for(int i = 0; i < originalValues.length; i++) {
+			originalValues[i] = elems[i].n;
+		}
+
+		bag.parallelForEach(e -> e.increase(2));
+		for(int i = 0; i < ELEMENTS_COUNT; i++) {
+			assertSame(originalValues[ELEMENTS_COUNT - 1 - i] + 2, bag.remove().n);
+		}
+	}
 
 	@Test
 	public void testGetReceiver() {

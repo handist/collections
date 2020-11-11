@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -642,5 +643,48 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 	@Override
 	public void forEach(SerializableConsumer<V> action) {
 		data.values().forEach(action);
+	}
+	
+	@Override
+	public void parallelForEach(SerializableConsumer<V> action) {
+		parallelForEachLocal(action);
+	}
+	
+	private List<Collection<V>> separateLocalValues(int n) {
+		List<Collection<V>> result = new ArrayList<>(n);
+		long totalNum = size();
+		long rem = totalNum % n;
+		long quo = totalNum / n;
+		if(data.isEmpty()) {
+			return result;
+		}
+		Iterator it = data.values().iterator();
+		List<V> list = new ArrayList<V>();
+		for(long i = 0; i < n; i++) {
+			list = new ArrayList<V>();
+			long count = quo + ((i < rem) ? 1: 0);
+			for(long j = 0; j < count; j++) {
+				if(it.hasNext()) {
+					list.add((V)it.next());
+				}
+			}
+			result.add(list);
+		}
+		return result;
+	}
+	
+	private void parallelForEachLocal(SerializableConsumer<V> action) {
+		finish(() -> {
+			forEachParallelBodyLocal(action);
+		});
+	}
+	
+	private void forEachParallelBodyLocal(SerializableConsumer<V> action) {
+		List<Collection<V>> separated = separateLocalValues(Runtime.getRuntime().availableProcessors() * 2);
+		for(Collection<V> sub : separated) {
+			async(() -> {
+				sub.forEach(action);
+			});
+		}
 	}
 }

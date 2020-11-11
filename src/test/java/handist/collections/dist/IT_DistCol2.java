@@ -156,6 +156,46 @@ public class IT_DistCol2 implements Serializable {
 			throw me.getSuppressed()[0];
 		}
 	}
+	
+	/**
+	 * Checks that the global parallelForEach operates as intended
+	 * @throws Throwable if such a throwable is thrown during the test
+	 */
+	@Test(timeout=10000)
+	public void testGlobalParallelForEach() throws Throwable {
+		try {
+			// Place chunks in different handles
+			distCol.placeGroup().broadcastFlat(()->{
+				switch(here().id) {
+				case 0:
+					distCol.add(firstChunk);
+					break;
+				case 1:
+					distCol.add(secondChunk);
+					break;
+				case 2:
+					distCol.add(thirdChunk);
+					break;
+				}
+			});
+
+			// Call GLOBAL parallelForEach
+			distCol.GLOBAL.parallelForEach((e)->{
+				e.s = "testGlobal" + e.s;
+			});
+
+			// Check that every string was modified
+
+			distCol.placeGroup().broadcastFlat(()->{
+				for (Element e : distCol) {
+				    assertTrue(e.s.startsWith("testGlobal"));
+				}
+			});
+		} catch (MultipleException me) {
+			me.printStackTrace();
+			throw me.getSuppressed()[0];
+		}
+	}
 
     	/**
 	 * Checks that the global forEach operates as intended

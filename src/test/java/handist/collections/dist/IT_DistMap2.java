@@ -136,6 +136,39 @@ public class IT_DistMap2 implements Serializable {
 			throw me.getSuppressed()[0];
 		}
 	}
+	
+	@Test(timeout=10000)
+	public void testGlobalParallelForEach() throws Throwable {
+		// Move some entries to place 1
+		distMap.placeGroup().broadcastFlat(()-> {
+			MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+			if (placeGroup.rank(here()) == 0) {
+
+				Place destination = placeGroup.get(1);
+				distMap.forEach((key, value)-> {
+					if (value.s.endsWith("0")) {
+						distMap.moveAtSync(key, destination, mm);
+					}
+				});
+			}
+			mm.sync();
+		});
+
+		// Set the every Element.s to a string starting with "new".
+		distMap.global().parallelForEach((e)-> e.s = genRandStr("new"));
+
+		
+		try {
+			placeGroup.broadcastFlat(()-> {
+				for (Element e : distMap.values()) {
+					assertTrue(e.s.startsWith("new"));
+				}
+			});
+		} catch (MultipleException me) {
+			me.printStackTrace();
+			throw me.getSuppressed()[0];
+		}
+	}
 
 	/**
 	 * Checks that the initialization of the distMap was done correctly

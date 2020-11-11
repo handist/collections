@@ -26,6 +26,8 @@ import java.util.function.Consumer;
 
 import handist.collections.dist.DistBag;
 
+import static apgas.Constructs.*;
+
 /**
  * Container for user-defined types. 
  * <p>
@@ -203,7 +205,7 @@ public class Bag<T> extends AbstractCollection<T> implements  ParallelReceiver<T
 			}
 		}
 	}
-
+	
 	private List<Future<?>> forEachConst(ExecutorService pool, final Consumer<? super T> action) {
 		ArrayList<Future<?>> futures = new ArrayList<>();
 		for (Collection<T> bag : bags) {
@@ -213,7 +215,61 @@ public class Bag<T> extends AbstractCollection<T> implements  ParallelReceiver<T
 		}
 		return futures;
 	}
+	
+	/**
+	 * Launches a parallel forEach on the elements of this collection. The
+	 * elements contained in the individual lists (created either through 
+	 * {@link #addBag(List)} or {@link #getReceiver()}) are submitted to the 
+	 * provided {@link ExecutorService}. This method than waits for the 
+	 * completion of the tasks to return.   
+	 * 
+	 * @param action the action to perform on individual elements
+	 */
+	public void parallelForEach(final Consumer<? super T> action) {
+		finish(() -> {
+			forEachParallelBody((List<T> sub) -> {
+				sub.forEach(action);
+			});
+		});
+	}
+	
+	private void forEachParallelBody(final Consumer<List<T>> run) { 
+		Bag<T> separated = this.separate(Runtime.getRuntime().availableProcessors() * 2);
+		for(List<T> sub: separated.bags) {
+			async(() -> {
+				run.accept(sub);
+			});
+		}
+	}
 
+	/**
+	 * Separates the contents of the Bag in <em>n</em> parts.
+	 * This can be used to apply a forEach method in parallel using 'n' threads
+	 * for instance. The method returns Bag containing <em>n</em> {@link List}.
+	 *
+	 * @param n the number of parts in which to split the Bag
+	 * @return {@link Bag} containing the same number of
+	 * 	elements {@link List}s
+	 */
+	public Bag<T> separate(int n){
+		int totalNum = this.size();
+		int rem = totalNum % n;
+		int quo = totalNum / n;
+		Bag<T> result = new Bag<T>();
+		Iterator<T> it = this.iterator();
+		
+		for(int i = 0; i < n; i++) {
+			List<T> r = new ArrayList<T>();
+			result.addBag(r);
+			int rest = quo + ((i < rem)? 1 : 0);
+			while(rest > 0) {
+				r.add(it.next());
+				rest--;
+			}
+		}
+		return result;
+	}
+	
 	/**
 	 * Adds a new list to this instance and returns a {@link Consumer} which 
 	 * will place the T instances it receives into this dedicated list.
