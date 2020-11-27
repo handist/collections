@@ -45,7 +45,7 @@ public class IT_DistIdMap2 implements Serializable {
 	public void setUp() throws Throwable {
 		distIdMap = new DistIdMap<>();
 		WORLD.broadcastFlat(()->{
-			int here = WORLD.myRank();
+			int here = WORLD.rank();
 			for (long index = here * ENTRIES_PER_PLACE; index < (here +1) * ENTRIES_PER_PLACE; index++) {
 				distIdMap.put(index, new Element(genRandStr(here + "p")));				
 			}
@@ -83,7 +83,7 @@ public class IT_DistIdMap2 implements Serializable {
 				assertEquals(ENTRIES_PER_PLACE, distIdMap.size());
 				
 				// Check all local elements have the correct prefix
-				int here = WORLD.myRank();
+				int here = WORLD.rank();
 				for (Element e: distIdMap.values()) {
 					assertTrue(e.s.startsWith(here + "p"));
 				}

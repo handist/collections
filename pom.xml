@@ -44,6 +44,33 @@
 			</build>
 		</profile>
 		<profile>
+			<!-- Profile mpj native can be activated via the command line -->
+			<id>mpjnative</id>
+			<dependencies>
+				<dependency>
+					<groupId>com.github.handist</groupId>
+					<artifactId>mpj</artifactId>
+					<version>v1</version>
+				</dependency>
+			</dependencies>
+			<build>
+				<plugins>
+					<plugin>
+						<artifactId>maven-failsafe-plugin</artifactId>
+						<configuration>
+							<systemPropertyVariables>
+								<mpirunner.mpiImpl>mpj-native</mpirunner.mpiImpl>
+								<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
+								<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
+								<mpirunner.mpirunOptions>--oversubscribe</mpirunner.mpirunOptions>
+								<mpirunner.parseNotifications>0</mpirunner.parseNotifications>
+							</systemPropertyVariables>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
 			<!-- Profile mpijava can be activated via the command line -->
 			<id>mpijava</id>
 			<dependencies>

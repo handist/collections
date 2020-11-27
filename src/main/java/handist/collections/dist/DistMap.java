@@ -120,6 +120,8 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 	private Function<K, V> proxyGenerator;
 
 	public final DistMap<K, V>.DistMapGlobal GLOBAL;
+	
+	public final DistMap<K, V>.DistMapTeam TEAM;
 
 	/**
 	 * Construct an empty DistMap which can have local handles on all the hosts
@@ -140,14 +142,31 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 		this(pg,new GlobalID());
 	}
 
-	public DistMap(TeamedPlaceGroup pg, GlobalID globalId) {
-		//super(pg, id);
+	/**
+	 * Package private DistMap constructor.
+	 * This constructor is used to register a new DistMap
+	 * handle with the specified GlobalId. Programmers that use
+	 * this library should never have to call this constructor. 
+	 * <p>
+	 * Specifying a GLobalId which already has object handles 
+	 * registered in other places (potentially objects different from
+	 * a {@link DistMap} instance) could prove disastrous.
+	 * Instead, programmers should only call {@link #DistMap()} to create
+	 * a distributed map with handles on all hosts, or 
+	 * {@link #DistMap(TeamedPlaceGroup)} to restrict their DistMap to a 
+	 * subset of hosts.
+	 * @param pg the palceGroup on which this DistMap is defined 
+	 * @param globalId the global id associated to this distributed map
+	 */
+	DistMap(TeamedPlaceGroup pg, GlobalID globalId) {
 		placeGroup = pg;
 		id = globalId;
 		locality = new float[pg.size];
 		Arrays.fill(locality, 1.0f);
 		this.data = new HashMap<>();
 		GLOBAL = new DistMapGlobal(this);
+		TEAM = new DistMapTeam(this);
+		id.putHere(this);
 	}
 
 //	Method moved to TEAM and GLOBAL operations
@@ -609,8 +628,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 
 	@Override
 	public TeamOperations<V, DistMap<K,V>> team() {
-		// TODO Auto-generated method stub
-		return null;
+		return TEAM;
 	}
 
 	public String toString() {
@@ -658,7 +676,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 		if(data.isEmpty()) {
 			return result;
 		}
-		Iterator it = data.values().iterator();
+		Iterator<V> it = data.values().iterator();
 		List<V> list = new ArrayList<V>();
 		for(long i = 0; i < n; i++) {
 			list = new ArrayList<V>();

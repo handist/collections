@@ -7,7 +7,7 @@ stages:
   - report
 
 variables:
-  MAVEN_CLI_OPTS: "--batch-mode -Pmpijava"
+  MAVEN_CLI_OPTS: "--batch-mode"
 
 cache:
   paths:
@@ -33,11 +33,28 @@ junit_tests:
         - target/surefire-reports/TEST-*.xml
     expire_in: 1 week
 
-integration_tests:
+mpjnative_it_tests:
   stage: integration
   script:
     - source /home/gitlab-runner/.profile
-    - mvn $MAVEN_CLI_OPTS verify
+    - mvn $MAVEN_CLI_OPTS -Pmpjnative verify
+    - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - target/failsafe-reports/TEST-*.xml
+    paths:
+      - target/failsafe-reports/TEST-*.xml
+      - target/site/*
+    expire_in: 1 week
+
+mpijava_it_tests:
+  stage: integration
+  allow_failure: true
+  script:
+    - source /home/gitlab-runner/.profile
+    - mvn $MAVEN_CLI_OPTS -Pmpijava verify
     - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
   artifacts:
     when: always

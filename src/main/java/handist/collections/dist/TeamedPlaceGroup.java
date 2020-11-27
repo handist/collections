@@ -321,15 +321,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 	}
 
 	/**
-	 * Returns the rank of the calling host in the {@link TeamedPlaceGroup}.
+	 * Returns the MPI rank of the calling host in the current {@link TeamedPlaceGroup}.
 	 * @return rank of this host within the {@link TeamedPlaceGroup}
 	 */
-	public int myRank() {
+	public int rank() {
 		return myrank;
 	}
-
+	
 	/**
-	 * Returns the rank of the specified place host in the 
+	 * Returns the MPI rank of the specified place in the current 
 	 * {@link TeamedPlaceGroup}.
 	 * If the specified place is not a member of this {@link TeamedPlaceGroup},
 	 * throws a {@link RuntimeException}.

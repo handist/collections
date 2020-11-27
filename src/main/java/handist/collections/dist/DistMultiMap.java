@@ -64,7 +64,7 @@ public class DistMultiMap<K,V> extends DistMap<K, List<V>> {
 	}
 
 	/**
-	 * Apply the same operation onto the all local entries.
+	 * Apply the same operation onto all the local entries.
 	 *
 	 * @param op the operation.
 	 */

@@ -83,25 +83,59 @@ public class IT_DistMap2 implements Serializable {
 
 	/**
 	 * Moves all the entries contained in host 0 to host 1
-	 * @throws Exception if an exception is thrown during the test
+	 * @throws Throwable if an exception is thrown during the test
 	 */
 	@Test(timeout=10000)
-	public void testMoveToHost1() throws Exception {
-		placeGroup.broadcastFlat(()-> {
-			MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
-			if (placeGroup.rank(here()) == 0) {
+	public void testMoveToHost1() throws Throwable {
+		try {
+			placeGroup.broadcastFlat(()-> {
+				MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+				if (placeGroup.rank(here()) == 0) {
 
-				Place destination = placeGroup.get(1);
-				distMap.forEach((key, value)-> {distMap.moveAtSync(key, destination, mm);});
-			}
-			//placeGroup.barrier();
-			mm.sync();
+					Place destination = placeGroup.get(1);
+					distMap.forEach((key, value)-> {distMap.moveAtSync(key, destination, mm);});
+				}
+				mm.sync();
 
-			if (placeGroup.rank(here()) == 1) {
-				assertEquals(numData, distMap.size());
-			} else {
-				assertEquals(0l, distMap.size());			
-			}});
+				if (placeGroup.rank(here()) == 1) {
+					assertEquals(numData, distMap.size());
+				} else {
+					assertEquals(0l, distMap.size());			
+				}});
+		} catch (MultipleException me) {
+			me.printStackTrace();
+			throw me.getSuppressed()[0];
+		}
+	}
+
+	/**
+	 * Moves all the entries in host 0 to host 1 and then back to
+	 * host 0.
+	 * @throws Throwable if thrown during the test
+	 */
+	@Test(timeout=10000)
+	public void testMoveToHost1AndBack() throws Throwable {
+		try {
+			testMoveToHost1();
+			placeGroup.broadcastFlat(()->{
+				MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+				if (placeGroup.rank(here()) == 1) {
+
+					Place destination = placeGroup.get(0);
+					distMap.forEach((key, value)-> {distMap.moveAtSync(key, destination, mm);});
+				}
+				mm.sync();
+
+				if (placeGroup.rank(here()) == 0) {
+					assertEquals(numData, distMap.size());
+				} else {
+					assertEquals(0l, distMap.size());			
+				}
+			});
+		} catch (MultipleException me) {
+			me.printStackTrace();
+			throw me.getSuppressed()[0];
+		}
 	}
 
 	@Test(timeout=10000)
@@ -124,7 +158,7 @@ public class IT_DistMap2 implements Serializable {
 		// Set the every Element.s to a string starting with "new".
 		distMap.global().forEach((e)-> e.s = genRandStr("new"));
 
-		
+
 		try {
 			placeGroup.broadcastFlat(()-> {
 				for (Element e : distMap.values()) {
@@ -136,7 +170,7 @@ public class IT_DistMap2 implements Serializable {
 			throw me.getSuppressed()[0];
 		}
 	}
-	
+
 	@Test(timeout=10000)
 	public void testGlobalParallelForEach() throws Throwable {
 		// Move some entries to place 1
@@ -157,7 +191,7 @@ public class IT_DistMap2 implements Serializable {
 		// Set the every Element.s to a string starting with "new".
 		distMap.global().parallelForEach((e)-> e.s = genRandStr("new"));
 
-		
+
 		try {
 			placeGroup.broadcastFlat(()-> {
 				for (Element e : distMap.values()) {

@@ -49,7 +49,7 @@ import mpi.MPIException;
  */
 public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, DistBag<T>>, SerializableWithReplace {
 	/* implements Container[T], ReceiverHolder[T] */
-	
+
 	public class DistBagGlobal extends GlobalOperations<T, DistBag<T>> {
 		DistBagGlobal(DistBag<T> handle) {
 			super(handle);
@@ -65,10 +65,11 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 					()-> {return new DistBag<T>(pg1, gId);},
 					(distBag)-> {return distBag.GLOBAL;});
 		}
+
 	}
-	
+
 	public class DistBagTeam extends TeamOperations<T, DistBag<T>> {
-		
+
 		DistBagTeam(DistBag<T> handle) {
 			super(handle);
 		}
@@ -76,23 +77,21 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 		@Override
 		public void updateDist() {
 			// TODO Auto-generated method stub
-			
 		}
 
 		@Override
 		public void size(long[] result) {
 			TeamedPlaceGroup pg = handle.placeGroup();
-			long localSize = handle.size(); // cast from int to long here
-			long[] sendbuf = new long[]{ localSize };
-			// team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
+			result[pg.myrank] = handle.size();
 			try {
-				pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
+				// THIS WORKS FOR MPJ-NATIVE implementation
+				pg.comm.Allgather(result, pg.myrank, 1, MPI.LONG, result, 0, 1, MPI.LONG);
 			} catch (MPIException e) {
 				e.printStackTrace();
 				throw new Error("[DistMap] network error in team().size()");
 			}
 		}
-		
+
 	}
 
 	private static int _debug_level = 5;
@@ -134,21 +133,6 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 		TEAM = new DistBagTeam(this);
 	}
 
-	//  Method was moved to TEAM and GLOBAL handles
-//	@Override
-//	public void distSize(long[] result) {
-//		TeamedPlaceGroup pg = this.placeGroup;
-//		long localSize = size(); // int->long
-//		long[] sendbuf = new long[]{ localSize };
-//		// team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
-//		try {
-//			pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
-//		} catch (MPIException e) {
-//			e.printStackTrace();
-//			throw new Error("[DistMap] network error in checkDistInfo()");
-//		}
-//	}
-
 	/**
 	 * gather all place-local elements to the root Place.
 	 *
@@ -179,12 +163,6 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 			moveAtSyncCount((int) pair.second, placeGroup.get(pair.first), mm);
 		}
 	}
-	/*
-    public def versioning(srcName : String){
-        return new BranchingManager[DistBag[T], List[T]](srcName, this);
-    }
-	 */
-
 
 	/**
 	 * Return a Container that has the same values of DistBag's local storage.
@@ -280,7 +258,7 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 	public void forEach(SerializableConsumer<T> action) {
 		super.forEach(action);
 	}
-	
+
 	@Override
 	public void parallelForEach(SerializableConsumer<T> action) {
 		super.parallelForEach(action);

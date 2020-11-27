@@ -32,9 +32,10 @@ The test code is located under the `src/test/java` directory. There are two kind
 
 The former are bound to the `test` phase of the standard lifecycle of Maven. You can run them without any prerequisite using the `mvn test` command. They will also be run when generating the Java ARchive with `mvn package`.
 
-The former are bound to the `verify` phase. **HOWEVER**, only the `mpijava` profile that relies on the mpiJava library can run these tests at the moment. Attempting to run these tests in the default profile will result in failure. You need to use the `mpijava` profile as such: `mvn verify -Pmpijava`.
+The former are bound to the `verify` phase. **HOWEVER**, only the `mpijava` or `nativempj` profiles that rely on the mpiJava or MPJ-Express library can run these tests at the moment. Attempting to run these tests in the default profile will result in failure. You need to specify the `mpijava` (or mpjnative) profile as such: `mvn verify -Pmpijava`.
 
-As a requirement, you will need to specify the location of the Shared Object libraries (`libmpijava.so` and potentially `libsavesignals.so`) generated during the compilation of the mpiJava library on your particular system. This is done by setting the environment variable `MPIJAVA_LIB` to wherever these files are located on your system. For instance:
+As a requirement to running the tests with mpiJAva, you will need to specify the location of the Shared Object libraries (`libmpijava.so` and potentially `libsavesignals.so`) generated during the compilation of the mpiJava library on your particular system. This is done by setting the environment variable `MPIJAVA_LIB` to wherever these files are located on your system. For instance:
+
 ```
 user@computer:~/mpiJava/lib$ ls -l
 total 108
@@ -46,6 +47,8 @@ user@computer:~/mpiJava/lib$ cd ~/handistCollections
 user@computer:~/handistCollections$ mvn verify -Pmpijava
 ...
 ```
+
+In the case of the MPJ-Express library, you will need to set the `MPJ_HOME` environment variable at the location of the library on your system. It is expected that the `libnativempjdev.so` compiled for your specific system is located in the `$MPJ_HOME/lib` directory. 
 
 # Related repository
 

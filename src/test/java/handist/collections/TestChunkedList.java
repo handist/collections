@@ -183,8 +183,6 @@ public class TestChunkedList {
 
 	@Test
 	public void testAsyncForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
-		System.out.println("TestChunkedList.testAsyncForEachBiConsumerMultiReceiver");
-		
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 		chunkedList.set(4l, elems[4]);
 
@@ -418,9 +416,7 @@ public class TestChunkedList {
 	}
 
 	@Test
-	public void testForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
-		System.out.println("TestChunkedList.testForEachBiConsumerMultiReceiver");
-		
+	public void testForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {		
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 		chunkedList.set(4l, elems[4]);
 
@@ -491,8 +487,6 @@ public class TestChunkedList {
 	
 	@Test
 	public void testParallelForEachBiConsumer() throws InterruptedException, ExecutionException {
-		System.out.println("TestChunkedList.testParallelForEachBiConsumer");
-		
 		chunkedList.set(4l, elems[4]);
 
 		int processors = Runtime.getRuntime().availableProcessors() * 2;

@@ -11,7 +11,6 @@ import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -27,53 +26,42 @@ import handist.mpijunit.launcher.TestLauncher;
 @MpiConfig(ranks=2, launcher=TestLauncher.class)
 public class IT_DistBag implements Serializable {
 
+	/** Number of elements to initialize on each host */
+	static final int NB_ELEMS [] = {100, 50};
+
+	static final int NB_LISTS [] = {4, 4};
+	static Random random = new Random(12345l);
+
 	/** Serial Version UID */
 	private static final long serialVersionUID = 7668710704105520109L;
 
-	/** Number of elements to initialize on each host */
-	static final int NB_ELEMS [] = {100, 50};
-	static final int NB_LISTS [] = {4, 4};
-
 	/** World place group */
 	static final TeamedPlaceGroup WORLD = TeamedPlaceGroup.getWorld();
-
-	/** Instance under test */
-	DistBag<Element> distBag;
-
-	static Random random = new Random(12345l);
 
 	public static String genRandomString(String header) {
 		long rand = random.nextLong();
 		return header + rand;
 	}
 
-	@Before
-	public void setup() throws Throwable {
-		distBag = new DistBag<>();
-		WORLD.broadcastFlat(()-> {
-			int here = WORLD.myRank();
-			for (int listNumber = 0; listNumber < NB_LISTS[here]; listNumber ++) {
-				List<Element> l = new ArrayList<>(NB_ELEMS[here]);
-				for (int i = 0; i < NB_ELEMS[here]; i++) {
-					l.add(new Element(genRandomString(here + "p")));
-				}
-				distBag.addBag(l);
-			}
-		});
-	}
+	/** Instance under test */
+	DistBag<Element> distBag;
 
 	@After
 	public void cleanup() throws Throwable {
 		distBag.destroy();
 	}
 
-	@Test
-	public void testSetup() throws Throwable {
+	@Before
+	public void setup() throws Throwable {
+		distBag = new DistBag<>();
 		WORLD.broadcastFlat(()-> {
-			int here = WORLD.myRank();
-			assertEquals(NB_LISTS[here] * NB_ELEMS[here], distBag.size());
-			for (Element e : distBag) {
-				assertTrue(e.s.startsWith(here + "p"));
+			int here = WORLD.rank();
+			for (int listNumber = 0; listNumber < NB_LISTS[here]; listNumber ++) {
+				List<Element> l = new ArrayList<>(NB_ELEMS[here]);
+				for (int i = 0; i < NB_ELEMS[here]; i++) {
+					l.add(new Element(genRandomString(here + "p")));
+				}
+				distBag.addBag(l);
 			}
 		});
 	}
@@ -120,22 +108,6 @@ public class IT_DistBag implements Serializable {
 		}
 	}
 	
-	@Ignore
-	@Test(timeout=5000)
-	public void testTeamSize() throws Throwable {
-		long [] expected = new long [WORLD.size()];
-		for (int i = 0; i < WORLD.size(); i++) {
-			expected[i] = NB_ELEMS[i] * NB_LISTS[i];
-		}
-
-		WORLD.broadcastFlat(()-> {
-			final long [] size = new long [WORLD.size()];
-			distBag.TEAM.size(size);
-			assertArrayEquals(expected, size);
-		});
-	}
-
-	@Ignore
 	@Test(timeout=5000)
 	public void testGlobalSize() throws Throwable {
 		long [] size = new long [WORLD.size()];
@@ -148,5 +120,38 @@ public class IT_DistBag implements Serializable {
 
 
 		assertArrayEquals(expected, size);
+	}
+	
+	@Test
+	public void testSetup() throws Throwable {
+		WORLD.broadcastFlat(()-> {
+			int here = WORLD.rank();
+			assertEquals(NB_LISTS[here] * NB_ELEMS[here], distBag.size());
+			for (Element e : distBag) {
+				assertTrue(e.s.startsWith(here + "p"));
+			}
+		});
+	}
+
+	@Test(timeout=5000)
+	public void testTeamSize() throws Throwable {
+		long [] expected = new long [WORLD.size()];
+		for (int i = 0; i < WORLD.size(); i++) {
+			expected[i] = NB_ELEMS[i] * NB_LISTS[i];
+		}
+
+        try {
+		WORLD.broadcastFlat(()-> {
+			final long [] size = new long [WORLD.size()];
+			distBag.TEAM.size(size);
+			assertArrayEquals(expected, size);
+		});
+		} catch (MultipleException me) {
+		    System.err.println("Error occurred in testTeamSize: Suppressed errors were:");
+		    for (Throwable t : me.getSuppressed()) {
+			t.printStackTrace();
+		    }
+		    throw me.getSuppressed()[0];
+		}
 	}
 }

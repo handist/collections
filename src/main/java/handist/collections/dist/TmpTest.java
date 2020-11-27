@@ -28,7 +28,7 @@ public class TmpTest {
         };
         dcol.add(new Chunk<String>(new LongRange(10, 100), gen));
         pg.broadcastFlat(()->{
-            long offset = pg.myRank()* 1000L;
+            long offset = pg.rank()* 1000L;
             dcol.add(new Chunk<String>(new LongRange(offset+10, offset+100), gen));
         });
         pg.broadcastFlat(()->{
