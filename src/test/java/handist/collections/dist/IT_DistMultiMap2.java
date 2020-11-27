@@ -51,7 +51,7 @@ public class IT_DistMultiMap2 implements Serializable{
 	public void setUp() throws Throwable {
 		distMultiMap = new DistMultiMap<>(WORLD);
 		WORLD.broadcastFlat(()-> {
-			int here = WORLD.myRank();
+			int here = WORLD.rank();
 			for (long l = 0; l < NB_MAPPINGS; l++) {
 				String key = genRandStr(here + "k");
 				
@@ -74,7 +74,7 @@ public class IT_DistMultiMap2 implements Serializable{
 	public void testSetUp() throws Throwable {
 		try {
 			WORLD.broadcastFlat(()-> {
-				int here = WORLD.myRank();
+				int here = WORLD.rank();
 				Set<Map.Entry<String,List<Element>>> entrySet = distMultiMap.entrySet();
 				assertEquals(entrySet.size(), NB_MAPPINGS);
 				for (Map.Entry<String, List<Element>> entry : entrySet) {

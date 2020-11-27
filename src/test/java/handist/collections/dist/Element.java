@@ -19,4 +19,11 @@ class Element implements Serializable {
 	Element(String string) {
 		s = string;
 	}
+	
+	/**
+	 * Returns the contained String with "El: " prefix
+	 */
+	public String toString() {
+		return "El: " + s;
+	}
 }

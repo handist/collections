@@ -24,6 +24,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import apgas.MultipleException;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -31,12 +32,6 @@ import handist.mpijunit.launcher.TestLauncher;
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks=2, launcher=TestLauncher.class)
 public class IT_CachableArray implements Serializable {
-    /* The following will be needed to run the program as a main class
-    static {
-        TeamedPlaceGroup.setup();
-        setUpBeforeClass();
-    }
-    */
 
     /**
      * Static members and constants. 
@@ -81,6 +76,39 @@ public class IT_CachableArray implements Serializable {
     /** PlaceGroup object representing the collaboration between processes */
     TeamedPlaceGroup placeGroup;
 
+    public void addElems(int nth, List<LinkedList<String>> ca) {
+        for(LinkedList<String> elem: ca) {
+            elem.add(genRandStr(""+nth));
+        }
+    }
+
+    public void checkLast(final CachableArray<LinkedList<String>> ca) throws Throwable {
+        int sum = 0;
+
+        for(LinkedList<String> elem: ca) {
+            sum += elem.peekLast().hashCode();
+        }
+        final int sumAt0 = sum;
+        try {placeGroup.broadcastFlat(()->{
+            int sumX = 0;
+            for(LinkedList<String> elem: ca) {
+                sumX += elem.peekLast().hashCode();
+            }
+            
+            assertEquals(sumX, sumAt0);
+        });} catch (MultipleException me) {
+        	throw me.getSuppressed()[0];
+        }
+    }
+
+    public void relocate(final CachableArray<LinkedList<String>> ca) {
+        placeGroup.broadcastFlat(()->{
+            Function<LinkedList<String>,String> pack = (LinkedList<String> elem)->elem.peekLast();
+            BiConsumer<LinkedList<String>, String> unpack = (LinkedList<String>elem, String bag)->{ elem.addLast(bag);};
+            ca.broadcast(pack, unpack);
+        });
+    }
+        
     @Before
     public void setUp() throws Exception {
         placeGroup = TeamedPlaceGroup.getWorld();
@@ -93,53 +121,14 @@ public class IT_CachableArray implements Serializable {
         carray = CachableArray.make(placeGroup, data);
     }
 
-    public void addElems(int nth, List<LinkedList<String>> ca) {
-        for(LinkedList<String> elem: ca) {
-            elem.add(genRandStr(""+nth));
-        }
-    }
-
-    public void checkLast(final CachableArray<LinkedList<String>> ca) {
-        int sum = 0;
-        // System.out.println("elem:"+ ca.data);
-
-        for(LinkedList<String> elem: ca) {
-            sum += elem.peekLast().hashCode();
-        }
-        final int sumAt0 = sum;
-        placeGroup.broadcastFlat(()->{
-            int sumX = 0;
-            for(LinkedList<String> elem: ca) {
-                sumX += elem.peekLast().hashCode();
-            }
-            // System.out.println("assetCheck"+sumX +":"+sumAt0 + ":" + (sumX==sumAt0)+"@"+apgas.Constructs.here());
-            assertEquals(sumX, sumAt0);
-        });
-    }
-        
-    public void relocate(final CachableArray<LinkedList<String>> ca) {
-        placeGroup.broadcastFlat(()->{
-            Function<LinkedList<String>,String> pack = (LinkedList<String> elem)->elem.peekLast();
-            BiConsumer<LinkedList<String>, String> unpack = (LinkedList<String>elem, String bag)->{ elem.addLast(bag);};
-            ca.broadcast(pack, unpack);
-        });
-    }
-
     /**
      * Checks that the initialization of the distMap was done correctly
      */
     @Test
-    public void testSimple() {
+    public void testSimple() throws Throwable {
         checkLast(carray);
         addElems(1, carray);
         relocate(carray);
         checkLast(carray);
     }
-    /*
-    public static void main(String[] args) throws Exception {
-        IT_CachableArray run = new IT_CachableArray();
-        run.setUp();
-        run.testSimple();
-    }
-    */
 }
