@@ -24,6 +24,8 @@ import java.util.function.BiFunction;
 import apgas.Place;
 import apgas.util.GlobalID;
 import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.Serializer;
 
@@ -114,13 +116,13 @@ public class DistMultiMap<K,V> extends DistMap<K, List<V>> {
 		if (!containsKey(key))
 			throw new RuntimeException("DistMultiMap cannot move uncontained entry: " + key);
 		final DistMultiMap<K, V> toBranch = this; // using plh@AbstractCol
-		Serializer serialize = (ObjectOutputStream s) -> {
+		Serializer serialize = (ObjectOutput s) -> {
 			List<V> value = this.removeForMove(key);
 			// TODO we should check values!=null before transportation
 			s.writeObject(key);
 			s.writeObject(value);
 		};
-		DeSerializer deserialize = (ObjectInputStream ds) -> {
+		DeSerializer deserialize = (ObjectInput ds) -> {
 			K k = (K) ds.readObject();
 			// TODO we should check values!=null before transportation
 			List<V> v = (List<V>) ds.readObject();
@@ -159,11 +161,11 @@ public class DistMultiMap<K,V> extends DistMap<K, List<V>> {
 	@SuppressWarnings("unchecked")
 	public void putAtSync(K key, V value, Place pl, MoveManagerLocal mm) {
 		DistMultiMap<K,V> toBranch = this; // using plh@AbstractCol
-		Serializer serialize = (ObjectOutputStream s) -> {
+		Serializer serialize = (ObjectOutput s) -> {
 			s.writeObject(key);
 			s.writeObject(value);
 		};
-		DeSerializer deserialize = (ObjectInputStream ds) -> {
+		DeSerializer deserialize = (ObjectInput ds) -> {
 			K k = (K)ds.readObject();
 			V v = (V)ds.readObject();
 			toBranch.put1(k, v);

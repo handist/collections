@@ -29,6 +29,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+
 public class TestBag implements Serializable {
 
 	public class Element implements Serializable {
@@ -313,7 +316,8 @@ public class TestBag implements Serializable {
 		ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
 		ObjectOutputStream objectOut = new ObjectOutputStream(byteOut);
 		objectOut.writeObject(bag);
-
+		objectOut.close();
+		
 		byte[] buf = byteOut.toByteArray();
 
 		ByteArrayInputStream byteIn = new ByteArrayInputStream(buf);
@@ -324,12 +328,30 @@ public class TestBag implements Serializable {
 		for(int i = 0; i < ELEMENTS_COUNT; i++) {
 			assertSame(readBag.remove().n, bag.remove().n);
 		}
-
-		byteOut.close();
-		objectOut.close();
-		byteIn.close();
+		
 		objectIn.close();
+	}
+	
+	@Test
+	public void testWriteObjectKryo() {
+		ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+		ObjectOutput objectOut = new ObjectOutput(byteOut);
+		objectOut.writeObject(bag);
 
+		objectOut.close();
+
+		byte[] buf = byteOut.toByteArray();
+
+		ByteArrayInputStream byteIn = new ByteArrayInputStream(buf);
+		ObjectInput objectIn = new ObjectInput(byteIn);
+		@SuppressWarnings("unchecked")
+		Bag<Element> readBag = (Bag<Element>)objectIn.readObject();
+
+		for(int i = 0; i < ELEMENTS_COUNT; i++) {
+			assertSame(readBag.remove().n, bag.remove().n);
+		}
+
+		objectIn.close();
 	}
 
 }

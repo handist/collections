@@ -9,9 +9,12 @@
  *******************************************************************************/
 package handist.collections.function;
 
-import java.io.ObjectInputStream;
 import java.io.Serializable;
 
+import com.esotericsoftware.kryo.io.Input;
+
+import handist.collections.dist.util.ObjectInput;
+
 public interface DeSerializer extends Serializable{
-	void accept(ObjectInputStream in) throws Exception;
+	void accept(ObjectInput in) throws Exception;
 }

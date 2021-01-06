@@ -19,6 +19,11 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.KryoSerializable;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+
 import handist.collections.function.LongTBiConsumer;
 
 /**
@@ -26,7 +31,7 @@ import handist.collections.function.LongTBiConsumer;
  *
  * @param <T> type handled by the {@link RangedListView} this instance provides access to
  */
-public class RangedListView<T> extends RangedList<T> implements Serializable {
+public class RangedListView<T> extends RangedList<T> implements Serializable, KryoSerializable {
 
 	/**
 	 * Iterator on the elements of {@link #base} this {@link RangedListView} provides access to
@@ -230,13 +235,6 @@ public class RangedListView<T> extends RangedList<T> implements Serializable {
 		return super.size();
 	}
 
-	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-		@SuppressWarnings("unchecked")
-		Chunk<T> chunk = (Chunk<T>) in.readObject();
-		this.base = chunk;
-		this.range = chunk.getRange();
-	}
-
 	/**
 	 * Set the given value at the specified index. 
 	 *  
@@ -309,16 +307,36 @@ public class RangedListView<T> extends RangedList<T> implements Serializable {
 		return sb.toString();
 	}
 
+	@Override
+	public List<T> toList(LongRange r) {
+		rangeCheck(r);
+		return base.toList(r);
+	}
+	
 	// TODO this implement generates redundant RangedListView at receiver node.
 	private void writeObject(ObjectOutputStream out) throws IOException {
 		Chunk<T> chunk = this.toChunk(range);
 		out.writeObject(chunk);
 	}
 
+	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+		@SuppressWarnings("unchecked")
+		Chunk<T> chunk = (Chunk<T>) in.readObject();
+		this.base = chunk;
+		this.range = chunk.getRange();
+	}
+	
 	@Override
-	public List<T> toList(LongRange r) {
-		rangeCheck(r);
-		return base.toList(r);
+	public void write(Kryo kryo, Output output) {
+		Chunk<T> chunk = this.toChunk(range);
+		kryo.writeClassAndObject(output, chunk);
+	}
+	@Override
+	public void read(Kryo kryo, Input input) {
+		@SuppressWarnings("unchecked")
+		Chunk<T> chunk = (Chunk<T>) kryo.readClassAndObject(input);
+		this.base = chunk;
+		this.range = chunk.getRange();
 	}
 
 	/*

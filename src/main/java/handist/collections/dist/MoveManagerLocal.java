@@ -14,8 +14,6 @@ import static apgas.Constructs.*;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +21,8 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import apgas.Place;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.Serializer;
 
@@ -73,12 +73,13 @@ public final class MoveManagerLocal {
 			if(p.equals(here())) continue;
 
 			ByteArrayInputStream in = new ByteArrayInputStream(buf, offset, size);
-			ObjectInputStream ds = new ObjectInputStream(in);
+			ObjectInput ds = new ObjectInput(in);
 			List<DeSerializer> deserializerList =
 					(List<DeSerializer>)ds.readObject();
 			for (DeSerializer deserialize: deserializerList) {
 				deserialize.accept(ds);
 			}
+			ds.close();
 		}
 	}
 
@@ -87,18 +88,19 @@ public final class MoveManagerLocal {
 		for(Place p: placeGroup.places()) {
 			if(p.equals(here())) continue;
 			byte[] buf = map.get(p);
-			ObjectInputStream ds = new ObjectInputStream(new ByteArrayInputStream(buf));
-			List<Consumer<ObjectInputStream>> deserializerList =
-					(List<Consumer<ObjectInputStream>>)ds.readObject();
-			for (Consumer<ObjectInputStream> deserialize: deserializerList) {
+			ObjectInput ds = new ObjectInput(new ByteArrayInputStream(buf));
+			List<Consumer<ObjectInput>> deserializerList =
+					(List<Consumer<ObjectInput>>)ds.readObject();
+			for (Consumer<ObjectInput> deserialize: deserializerList) {
 				deserialize.accept(ds);
 			}
+			ds.close();
 		}
 	}
 
 	public byte[] executeSerialization(Place place) throws Exception {
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		ObjectOutputStream s = new ObjectOutputStream(out);
+		ObjectOutput s = new ObjectOutput(out);
 		s.writeObject(builders.get(place));
 		for (Serializer serializer: serializeListMap.get(place)) {
 			serializer.accept(s);
@@ -117,7 +119,7 @@ public final class MoveManagerLocal {
 			offsets[i] = out.size();
 			// TODO should reopen ByteArray...
 			if(DEBUG) System.out.println("execSeri: " + here() + "->" + place + ":start:" + out.size());
-			ObjectOutputStream s = new ObjectOutputStream(out);
+			ObjectOutput s = new ObjectOutput(out);
 			s.writeObject(builders.get(place));
 			for (Serializer serializer : serializeListMap.get(place)) {
 				serializer.accept(s);
@@ -140,10 +142,8 @@ public final class MoveManagerLocal {
 	 * @param pl the target place.
 	 */
 	public void reset(Place pl) {
-		serializeListMap.get(pl).add((ObjectOutputStream s) -> {
-			try {
-				s.reset();
-			} catch (IOException e) {}
+		serializeListMap.get(pl).add((ObjectOutput s) -> {
+			s.reset();
 		});
 	}
 

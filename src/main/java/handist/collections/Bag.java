@@ -24,6 +24,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.KryoSerializable;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+
 import handist.collections.dist.DistBag;
 
 import static apgas.Constructs.*;
@@ -38,7 +43,7 @@ import static apgas.Constructs.*;
  *
  * @param <T> type of the object handled
  */
-public class Bag<T> extends AbstractCollection<T> implements  ParallelReceiver<T>, Serializable {
+public class Bag<T> extends AbstractCollection<T> implements  ParallelReceiver<T>, Serializable, KryoSerializable {
 
 	/**
 	 * Iterator class for {@link Bag}
@@ -303,17 +308,6 @@ public class Bag<T> extends AbstractCollection<T> implements  ParallelReceiver<T
 		return new It();
 	}
 
-	@SuppressWarnings("unchecked")
-	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-		int size = in.readInt();
-		bags = new ConcurrentLinkedDeque<>();
-		ArrayList<T> bag1 = new ArrayList<T>(size);
-		for (int i = 0; i < size; i++) {
-			bag1.add((T) in.readObject());
-		}
-		bags.add(bag1);
-	}
-
 	/**
 	 * Removes one element contained in this instance and returns it. If there 
 	 * are no elements in this instance, returns {@code null}. 
@@ -384,5 +378,38 @@ public class Bag<T> extends AbstractCollection<T> implements  ParallelReceiver<T
 				out.writeObject(item);
 			}
 		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+		int size = in.readInt();
+		bags = new ConcurrentLinkedDeque<>();
+		ArrayList<T> bag1 = new ArrayList<T>(size);
+		for (int i = 0; i < size; i++) {
+			bag1.add((T) in.readObject());
+		}
+		bags.add(bag1);
+	}
+
+	@Override
+	public void write(Kryo kryo, Output output) {
+		output.writeInt(size());
+		for(Collection<T> bag : bags) {
+			for(T item : bag) {
+				kryo.writeClassAndObject(output, item);
+			}
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public void read(Kryo kryo, Input input) {
+		int size = input.readInt();
+		bags = new ConcurrentLinkedDeque<>();
+		ArrayList<T> bag1 = new ArrayList<T>(size);
+		for (int i = 0; i < size; i++) {
+			bag1.add((T) kryo.readClassAndObject(input));
+		}
+		bags.add(bag1);
 	}
 }

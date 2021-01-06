@@ -25,6 +25,8 @@ import java.util.function.Function;
 import apgas.Place;
 import apgas.util.GlobalID;
 import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
@@ -178,7 +180,7 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 	public void moveAtSync(Collection<Long> keys, Place dest, MoveManagerLocal mm) {
 		if (dest.equals(here())) return;
 		final DistIdMap<V> collection = this;
-		Serializer serialize = (ObjectOutputStream s) -> {
+		Serializer serialize = (ObjectOutput s) -> {
 			int size = keys.size();
 			s.writeInt(size);
 			for (Long key: keys) {
@@ -189,7 +191,7 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 				s.writeObject(value);
 			}
 		};
-		DeSerializer deserialize = (ObjectInputStream ds) -> {
+		DeSerializer deserialize = (ObjectInput ds) -> {
 			int size = ds.readInt();
 			for (int i =0; i<size; i++) {
 				long key = ds.readLong();
@@ -229,14 +231,14 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 			return;
 
 		final DistIdMap<V> toBranch = this;
-		Serializer serialize = (ObjectOutputStream s) -> {
+		Serializer serialize = (ObjectOutput s) -> {
 			V value = this.removeForMove(key);
 			byte mType = ldist.moveOut(key, dest);
 			s.writeLong(key);
 			s.writeByte(mType);
 			s.writeObject(value);
 		};
-		DeSerializer deserialize = (ObjectInputStream ds) -> {
+		DeSerializer deserialize = (ObjectInput ds) -> {
 			long k = ds.readLong();
 			byte mType = ds.readByte();
 			V v = (V) ds.readObject();
@@ -256,7 +258,7 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 	public void moveAtSyncCount(int count, Place dest, MoveManagerLocal mm) {
 		if (dest.equals(here())) return;
 		final DistIdMap<V> collection = this;
-		Serializer serialize = (ObjectOutputStream s) -> {
+		Serializer serialize = (ObjectOutput s) -> {
 			int size = count;
 			s.writeInt(size);
 			long[] keys = new long[size];
@@ -282,7 +284,7 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 				s.writeByte(mType);
 			}
 		};
-		DeSerializer deserialize = (ObjectInputStream ds) -> {
+		DeSerializer deserialize = (ObjectInput ds) -> {
 			int size = ds.readInt();
 			long[] keys = new long[size];
 			Object[] values = new Object[size];

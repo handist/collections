@@ -21,6 +21,11 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.KryoSerializable;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+
 import handist.collections.function.LongTBiConsumer;
 
 /**
@@ -28,7 +33,7 @@ import handist.collections.function.LongTBiConsumer;
  *
  * @param <T> type of the elements handled by this instance
  */
-public class Chunk<T> extends RangedList<T> implements Serializable {
+public class Chunk<T> extends RangedList<T> implements Serializable, KryoSerializable {
 
 	/**
 	 * Iterator class for Chunk
@@ -356,12 +361,6 @@ public class Chunk<T> extends RangedList<T> implements Serializable {
 		return "[Chunk] range "+ range + " is not contained in " + getRange();
 	}
 
-	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-		this.range = (LongRange) in.readObject();
-		this.a = (Object[]) in.readObject();
-		// System.out.println("readChunk:"+this);
-	}
-
 	/**
 	 * {@inheritDoc}
 	 */
@@ -475,6 +474,24 @@ public class Chunk<T> extends RangedList<T> implements Serializable {
 		out.writeObject(a);
 	}
 
+	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+		this.range = (LongRange) in.readObject();
+		this.a = (Object[]) in.readObject();
+		// System.out.println("readChunk:"+this);
+	}
+	
+	@Override
+	public void write(Kryo kryo, Output output) {
+		kryo.writeClassAndObject(output, range);
+		kryo.writeClassAndObject(output, a);
+	}
+
+	@Override
+	public void read(Kryo kryo, Input input) {
+		this.range = (LongRange) kryo.readClassAndObject(input);
+		this.a = (Object[]) kryo.readClassAndObject(input);
+	}
+	
 	/**
 	 * {@inheritDoc}
 	 */

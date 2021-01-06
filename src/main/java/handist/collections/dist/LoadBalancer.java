@@ -15,8 +15,6 @@ import static apgas.Constructs.*;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -26,6 +24,8 @@ import java.util.Random;
 import java.util.function.BiFunction;
 
 import apgas.Place;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import mpi.MPI;
 import mpi.MPIException;
 
@@ -47,14 +47,14 @@ abstract class LoadBalancer {
 		}
 
 		@Override
-		void exportOne(ObjectOutputStream out) throws IOException {
+		void exportOne(ObjectOutput out) throws IOException {
 			T one = body.remove(body.size()-1);
 			out.writeObject(one);
 		}
 
 		@Override 
 		@SuppressWarnings("unchecked")
-		void importOne(ObjectInputStream in) throws ClassNotFoundException, IOException {
+		void importOne(ObjectInput in) throws ClassNotFoundException, IOException {
 			body.add((T)in.readObject());
 		}
 
@@ -74,7 +74,7 @@ abstract class LoadBalancer {
 		}
 
 		@Override
-		void exportOne(ObjectOutputStream out) throws IOException {
+		void exportOne(ObjectOutput out) throws IOException {
 			assert(!body.isEmpty());
 			K key = body.keySet().iterator().next();
 			V v = body.remove(key);
@@ -84,7 +84,7 @@ abstract class LoadBalancer {
 
 		@Override 
 		@SuppressWarnings("unchecked")
-		void importOne(ObjectInputStream obj) throws ClassNotFoundException, IOException {
+		void importOne(ObjectInput obj) throws ClassNotFoundException, IOException {
 			K key = (K) obj.readObject();
 			V v = (V) obj.readObject();
 			body.put(key, v);
@@ -121,7 +121,7 @@ abstract class LoadBalancer {
 		}
 	}
 
-	abstract void exportOne(ObjectOutputStream out) throws IOException;
+	abstract void exportOne(ObjectOutput out) throws IOException;
 
 
 	// return (fromId, toId) => moveCount
@@ -207,7 +207,7 @@ abstract class LoadBalancer {
 		return func;
 	}
 
-	abstract void importOne(ObjectInputStream in) throws ClassNotFoundException, IOException;
+	abstract void importOne(ObjectInput in) throws ClassNotFoundException, IOException;
 	// private List<T> list;
 	abstract int localSize();
 
@@ -223,12 +223,12 @@ abstract class LoadBalancer {
 			for(int j=0; j<np; j++) {
 				int count = getCount.apply(myRole, j);
 				if(count > 0) {
-					ObjectOutputStream s = new ObjectOutputStream(s0);
+					ObjectOutput s = new ObjectOutput(s0);
 					s.writeInt(count);
 					for (int k=0; k<count; k++) {
 						exportOne(s);
 					}
-					s.flush();
+					s.close();
 					int prev = s0used;
 					sdispls[j] = prev;
 					s0used = s0.size();
@@ -254,12 +254,13 @@ abstract class LoadBalancer {
 			for (int i=0; i<np; i++) {
 				if(rcounts[i] == 0) continue;
 				ByteArrayInputStream in = new ByteArrayInputStream(recvbuf, rdispls[i], rcounts[i]);
-				ObjectInputStream ds = new ObjectInputStream(in);
+				ObjectInput ds = new ObjectInput(in);
 				int count = ds.readInt();
 				assert(getCount.apply(i, myRole) == count);
 				for(int k =0; k<count; k++) {
 					importOne(ds);
 				}
+				ds.close();
 			}
 		} catch(Exception e) {
 			e.printStackTrace(System.err);

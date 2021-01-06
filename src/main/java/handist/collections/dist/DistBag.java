@@ -26,6 +26,8 @@ import handist.collections.Bag;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.dist.util.MemberOfLazyObjectReference;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.SerializableBiConsumer;
@@ -140,11 +142,11 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 	 */
 	@SuppressWarnings("unchecked")
 	public void gather(Place root) {
-		Serializer serProcess = (ObjectOutputStream ser) -> {
-			ser.writeObject(new Bag<T>(this));
+		Serializer serProcess = (ObjectOutput s) -> {
+			s.writeObject(new Bag<T>(this));
 		};
-		DeSerializerUsingPlace desProcess = (ObjectInputStream des, Place place) -> {
-			Bag<T> imported = (Bag<T>) des.readObject();
+		DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
+			Bag<T> imported = (Bag<T>) ds.readObject();
 			addBag(imported);
 		};
 		CollectiveRelocator.gatherSer(placeGroup, root, serProcess, desProcess);
@@ -194,10 +196,10 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 		if (destination.equals(Constructs.here()))
 			return;
 		final DistBag<T> collection = this;
-		Serializer serialize = (ObjectOutputStream s) -> {
+		Serializer serialize = (ObjectOutput s) -> {
 			s.writeObject(this.remove(count));
 		};
-		DeSerializer deserialize = (ObjectInputStream ds) -> {
+		DeSerializer deserialize = (ObjectInput ds) -> {
 			Collection<T> imported = (Collection<T>) ds.readObject();
 			collection.addAll(imported);
 		};

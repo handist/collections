@@ -13,9 +13,6 @@ import static apgas.Constructs.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -29,6 +26,8 @@ import apgas.Place;
 import apgas.SerializableJob;
 import apgas.util.GlobalID;
 import apgas.util.SerializableWithReplace;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import apgas.mpi.MPILauncher;
 import apgas.mpi.MPILauncher.Plugin;
 import mpi.Comm;
@@ -53,7 +52,7 @@ import mpi.MPIException;
  * {@link TeamedPlaceGroup} instance.  
  */
 public class TeamedPlaceGroup implements SerializableWithReplace {
-	// TODO merge with ResilientPlaceGroup ?
+	// TODO merge with ResilientPlaceGroup ? 
 	private static final class ObjectReference implements Serializable {
 		/** Serial Version UID */
 		private static final long serialVersionUID = -1948016251753684732L;
@@ -148,32 +147,30 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 		GlobalID id;
 		if (myrank == 0) { // we could use here() as an alternative
 			id = new GlobalID();
-			try {
-				ByteArrayOutputStream out0 = new ByteArrayOutputStream();
-				ObjectOutputStream out = new ObjectOutputStream(out0);
-				out.writeObject(id);
-				out.close();
-				byte[] buf = out0.toByteArray();
-				int[] buf0 = new int[1];
-				buf0[0] = buf.length;
+			ByteArrayOutputStream out0 = new ByteArrayOutputStream();
+			ObjectOutput out = new ObjectOutput(out0);
+			out.writeObject(id);
+			out.close();
+			byte[] buf = out0.toByteArray();
+			int[] buf0 = new int[1];
+			buf0[0] = buf.length;
 
-				MPI.COMM_WORLD.Bcast(buf0, 0, 1, MPI.INT, 0);
-				readyToCloseWorld = new CountDownLatch(1);
-				MPI.COMM_WORLD.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
-			} catch (IOException e) {
-				throw new Error("[TeamedPlaceGroup] init error at master!");
-			}
+			MPI.COMM_WORLD.Bcast(buf0, 0, 1, MPI.INT, 0);
+			readyToCloseWorld = new CountDownLatch(1);
+			MPI.COMM_WORLD.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
 		} else {
 			int[] buf0 = new int[1];
 			MPI.COMM_WORLD.Bcast(buf0, 0, 1, MPI.INT, 0);
 			byte[] buf = new byte[buf0[0]];
 			readyToCloseWorld = new CountDownLatch(1);
 			MPI.COMM_WORLD.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
-			try {
-				ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(buf));
+			ObjectInput in = new ObjectInput(new ByteArrayInputStream(buf));
+			try {				
 				id = (GlobalID) in.readObject();
 			} catch (Exception e) {
 				throw new Error("[TeamedPlaceGroup] init error at worker");
+			} finally {
+				in.close();
 			}
 		}
 		world = new TeamedPlaceGroup(id, myrank, size, rank2place);
@@ -381,29 +378,27 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 			GlobalID id;
 			if (newRank == 0) {
 				id = new GlobalID();
-				try {
-					ByteArrayOutputStream out0 = new ByteArrayOutputStream();
-					ObjectOutputStream out = new ObjectOutputStream(out0);
-					out.writeObject(id);
-					out.close();
-					byte[] buf = out0.toByteArray();
-					int[] buf0 = new int[1];
-					buf0[0] = buf.length;
-					newComm.Bcast(buf0, 0, 1, MPI.INT, 0);
-					newComm.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
-				} catch (IOException e) {
-					throw new Error("[TeamedPlaceGroup] init error at master!");
-				}
+				ByteArrayOutputStream out0 = new ByteArrayOutputStream();
+				ObjectOutput out = new ObjectOutput(out0);
+				out.writeObject(id);
+				out.close();
+				byte[] buf = out0.toByteArray();
+				int[] buf0 = new int[1];
+				buf0[0] = buf.length;
+				newComm.Bcast(buf0, 0, 1, MPI.INT, 0);
+				newComm.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
 			} else {
 				int[] buf0 = new int[1];
 				newComm.Bcast(buf0, 0, 1, MPI.INT, 0);
 				byte[] buf = new byte[buf0[0]];
 				newComm.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
-				try {
-					ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(buf));
+				ObjectInput in = new ObjectInput(new ByteArrayInputStream(buf));
+				try {					
 					id = (GlobalID) in.readObject();
 				} catch (Exception e) {
 					throw new Error("[TeamedPlaceGroup] init error at worker");
+				} finally {
+					in.close();
 				}
 			}
 			return new TeamedPlaceGroup(id, newRank, newPlaces, newComm, this);

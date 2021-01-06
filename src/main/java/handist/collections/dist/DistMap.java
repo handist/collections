@@ -38,6 +38,8 @@ import apgas.util.SerializableWithReplace;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.dist.util.MemberOfLazyObjectReference;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
@@ -354,7 +356,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 		if (pl.equals(Constructs.here()))
 			return;
 		final DistMap<K, V> collection = this;
-		Serializer serialize = (ObjectOutputStream s) -> {
+		Serializer serialize = (ObjectOutput s) -> {
 			int size = keys.size();
 			s.writeInt(size);
 			for (K key : keys) {
@@ -363,7 +365,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 				s.writeObject(value);
 			}
 		};
-		DeSerializer deserialize = (ObjectInputStream ds) -> {
+		DeSerializer deserialize = (ObjectInput ds) -> {
 			int size = ds.readInt();
 			for (int i = 1; i <= size; i++) {
 				K key = (K) ds.readObject();
@@ -410,12 +412,12 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 		if (pl.equals(Constructs.here()))
 			return;
 		final DistMap<K, V> toBranch = this;
-		Serializer serialize = (ObjectOutputStream s) -> {
+		Serializer serialize = (ObjectOutput s) -> {
 			V value = this.remove(key);
 			s.writeObject(key);
 			s.writeObject(value);
 		};
-		DeSerializer deserialize = (ObjectInputStream ds) ->  {
+		DeSerializer deserialize = (ObjectInput ds) ->  {
 			K k = (K) ds.readObject();
 			V v = (V) ds.readObject();
 			toBranch.putForMove(k, v);

@@ -12,11 +12,11 @@ package handist.collections.dist;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 
 import apgas.Constructs;
 import apgas.Place;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.Serializer;
@@ -41,12 +41,13 @@ public class CollectiveRelocator {
 	public static void allgatherSer(TeamedPlaceGroup pg, Serializer ser, DeSerializerUsingPlace deser) {
 		int numPlaces = pg.size();
 		ByteArrayOutputStream out0 = new ByteArrayOutputStream();
-		try {
-			ObjectOutputStream out = new ObjectOutputStream(out0);
-			ser.accept(out);
-			out.close();
+		ObjectOutput out = new ObjectOutput(out0);
+		try {			
+			ser.accept(out);			
 		} catch (IOException exp) {
 			throw new Error("This should not occur!.");
+		} finally {
+			out.close();
 		}
 		byte[] buf = out0.toByteArray();
 		int size = buf.length;
@@ -78,16 +79,14 @@ public class CollectiveRelocator {
 			if (Constructs.here().equals(pg.get(i)))
 				continue;
 			ByteArrayInputStream in0 = new ByteArrayInputStream(rbuf, recvDispls[i], recvCounts[i]);
+			ObjectInput in = new ObjectInput(in0);
 			try {
-				ObjectInputStream in = new ObjectInputStream(in0);
-				try {
-					deser.accept(in, pg.get(i));
-				} catch (Exception e) {
-					e.printStackTrace();
-					throw new Error("[CollectiveRelocator] DeSerialize error handled.");
-				}
-			} catch (IOException e) {
-				throw new RuntimeException("This should not occur.");
+				deser.accept(in, pg.get(i));
+			} catch (Exception e) {
+				e.printStackTrace();
+				throw new Error("[CollectiveRelocator] DeSerialize error handled.");
+			} finally {
+				in.close();
 			}
 		}
 	}
@@ -95,33 +94,37 @@ public class CollectiveRelocator {
 	public static void bcastSer(TeamedPlaceGroup pg, Place root, Serializer ser, DeSerializer des) throws MPIException {
 		int[] tmpBuf = new int[1];
 		if (Constructs.here().equals(root)) {
+			ByteArrayOutputStream out0 = new ByteArrayOutputStream();
+			ObjectOutput out = new ObjectOutput(out0);
 			try {
-				ByteArrayOutputStream out0 = new ByteArrayOutputStream();
-				ObjectOutputStream out = new ObjectOutputStream(out0);
-				ser.accept(out);
-				out.close();
-				tmpBuf[0] = out0.size();
-				pg.comm.Bcast(tmpBuf, 0, 1, MPI.INT, pg.rank(root));
-				pg.comm.Bcast(out0.toByteArray(), 0, out0.size(), MPI.BYTE, pg.rank(root));
-			} catch (IOException e) {
+				ser.accept(out);								
+			} catch (IOException e) {				
 				e.printStackTrace();
 				throw new Error("[CollectiveRelocator] Serialize error raised.");
+			} finally {
+				out.close();
 			}
+			tmpBuf[0] = out0.size();
+			pg.comm.Bcast(tmpBuf, 0, 1, MPI.INT, pg.rank(root));
+			pg.comm.Bcast(out0.toByteArray(), 0, out0.size(), MPI.BYTE, pg.rank(root));
 		} else {
 			pg.comm.Bcast(tmpBuf, 0, 1, MPI.INT, pg.rank(root));
 			byte[] buf = new byte[tmpBuf[0]];
 			pg.comm.Bcast(buf, 0, buf.length, MPI.BYTE, pg.rank(root));
-			try {
-				des.accept(new ObjectInputStream(new ByteArrayInputStream(buf)));
+			ObjectInput in = new ObjectInput(new ByteArrayInputStream(buf));
+			try {				
+				des.accept(in);				
 			} catch (Exception e) {
 				e.printStackTrace();
 				throw new Error("[CollectiveRelocator] DeSerialize error raised.");
+			} finally {
+				in.close();
 			}
 		}
 	}
 
 	/*
-	 * TODO int->long?? 本当は、、int, long 版なども欲しいところだったような
+	 * TODO int->long?? 隴幢ｽｬ陟冶侭�ｿｽ�ｽｯ邵ｲ竏夲ｿｽ�ｼ�nt, long 霑壼現竊醍ｸｺ�ｽｩ郢ｧ繧茨ｽｬ�ｽｲ邵ｺ蜉ｱ�ｼ樒ｸｺ�ｽｨ邵ｺ阮呻ｽ咲ｸｺ�ｿｽ邵ｺ�ｽ｣邵ｺ貅假ｽ育ｸｺ�ｿｽ邵ｺ�ｽｪ
 	 */
 	static byte[] executeRelocation(TeamedPlaceGroup placeGroup, byte[] byteArray, int[] sendOffset, int[] sendSize,
 			int[] rcvOffset, int[] rcvSize) throws MPIException {
@@ -148,12 +151,13 @@ public class CollectiveRelocator {
 	public static void gatherSer(TeamedPlaceGroup pg, Place root, Serializer ser, DeSerializerUsingPlace deser) {
 		int numPlaces = pg.size();
 		ByteArrayOutputStream out0 = new ByteArrayOutputStream();
-		try {
-			ObjectOutputStream out = new ObjectOutputStream(out0);
+		ObjectOutput out = new ObjectOutput(out0);
+		try {			
 			ser.accept(out);
-			out.close();
 		} catch (IOException exp) {
 			throw new Error("This should not occur!.");
+		} finally {
+			out.close();
 		}
 		byte[] buf = out0.toByteArray();
 		int size = buf.length;
@@ -187,16 +191,14 @@ public class CollectiveRelocator {
 			if (Constructs.here().equals(pg.get(i)))
 				continue;
 			ByteArrayInputStream in0 = new ByteArrayInputStream(rbuf, recvDispls[i], recvCounts[i]);
+			ObjectInput in = new ObjectInput(in0);
 			try {
-				ObjectInputStream in = new ObjectInputStream(in0);
-				try {
-					deser.accept(in, pg.get(i));
-				} catch (Exception e) {
-					e.printStackTrace();
-					throw new Error("[CollectiveRelocator] DeSerialize error raised.");
-				}
-			} catch (IOException e) {
-				throw new RuntimeException("This should not occur.");
+				deser.accept(in, pg.get(i));
+			} catch (Exception e) {
+				e.printStackTrace();
+				throw new Error("[CollectiveRelocator] DeSerialize error raised.");
+			} finally {
+				in.close();
 			}
 		}
 	}

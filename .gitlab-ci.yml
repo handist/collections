@@ -49,7 +49,7 @@ mpjnative_it_tests:
       - target/site/*
     expire_in: 1 week
 
-mpijava_it_tests:
+.mpijava_it_tests:
   stage: integration
   allow_failure: true
   script:

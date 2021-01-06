@@ -25,7 +25,8 @@ import java.util.function.Function;
 import apgas.Place;
 import apgas.util.PlaceLocalObject;
 import apgas.util.SerializableWithReplace;
-
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.Serializer;
 import mpi.MPIException;
@@ -118,17 +119,17 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
      */
     @SuppressWarnings("unchecked")
     public <U> void broadcast(Function<T, U> pack, BiConsumer<T, U> unpack) {
-	Serializer serProcess = (ObjectOutputStream ser) -> {
+	Serializer serProcess = (ObjectOutput s) -> {
 	    for (T elem : data) {
-		ser.writeObject(pack.apply(elem));
+	    	s.writeObject(pack.apply(elem));
 	    }
 	};
-	DeSerializer desProcess = (ObjectInputStream des) -> {
+	DeSerializer desProcess = (ObjectInput ds) -> {
 	    for (T elem : data) {
-		U diff = (U) des.readObject();
-		unpack.accept(elem, diff);
+	    	U diff = (U) ds.readObject();
+	    	unpack.accept(elem, diff);
 	    }
-                };
+    };
 	try {
 	    CollectiveRelocator.bcastSer(placeGroup, master, serProcess, desProcess);
 	} catch (MPIException e) {

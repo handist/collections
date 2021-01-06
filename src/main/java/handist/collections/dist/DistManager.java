@@ -20,6 +20,8 @@ import java.util.Map;
 
 import apgas.Place;
 import handist.collections.ElementOverlapException;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.Serializer;
 
@@ -297,11 +299,11 @@ public class DistManager<T> {
 
 	@SuppressWarnings("unchecked")
 	void updateDist(TeamedPlaceGroup pg) {
-		Serializer serProcess = (ObjectOutputStream ser) -> {
-			ser.writeObject(diff);
+		Serializer serProcess = (ObjectOutput s) -> {
+			s.writeObject(diff);
 		};
-		DeSerializerUsingPlace desProcess = (ObjectInputStream des, Place from) -> {
-			Map<T, Integer> importedDiff = (Map<T, Integer>) des.readObject();
+		DeSerializerUsingPlace desProcess = (ObjectInput ds, Place from) -> {
+			Map<T, Integer> importedDiff = (Map<T, Integer>) ds.readObject();
 			for (Map.Entry<T, Integer> entry : importedDiff.entrySet()) {
 				T k = entry.getKey();
 				Integer v = entry.getValue();
