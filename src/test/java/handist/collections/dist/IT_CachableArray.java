@@ -123,6 +123,7 @@ public class IT_CachableArray implements Serializable {
 
     /**
      * Checks that the initialization of the distMap was done correctly
+     * @throws Throwable if thrown during the test
      */
     @Test
     public void testSimple() throws Throwable {

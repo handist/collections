@@ -20,16 +20,6 @@ public interface RangeRelocatable<R> {
 	public Collection<R> getAllRanges();
 	
 	/**
-	 * Marks the objects in the specified range for transfer to the specified 
-	 * destination. The transfer will be performed when the 
-	 * {@link MoveManagerLocal#sync()} is called.
-	 * @param range the range of objects to transfer
-	 * @param destination the destination of the objects
-	 * @param manager the instance in charge of handling a batch of object tranfers
-	 */
-	public void moveRangeAtSync(R range, Place destination, MoveManagerLocal manager);
-	
-	/**
 	 * Marks all the objects contained in all the ranges for transfer to the 
 	 * specified destination. The transfer will be performed the next tim the 
 	 * provided manager's {@link MoveManagerLocal#sync()} method is called.
@@ -48,22 +38,6 @@ public interface RangeRelocatable<R> {
 	}
 	
 	/**
-	 * Marks the elements in the provided range for transfer using the specified
-	 * {@link RangedDistribution}. The provided range may be split into multiple
-	 * sub-ranges to be transfered to different destinations. The actual 
-	 * transfer will be performed when the {@link MoveManagerLocal#sync()} method
-	 * is called.  
-	 * @param range the range of entries to transfer
-	 * @param destination function creating a map from ranges to Place
-	 * @param manager the manager in charge of the transfer
-	 */
-	public default void moveRangeAtSync(R range, RangedDistribution<R> destination, MoveManagerLocal manager ) {
-		for (Entry<R, Place> mappings : destination.placeRanges(range).entrySet()) {
-			moveRangeAtSync(mappings.getKey(), mappings.getValue(), manager);
-		}
-	}
-	
-	/**
 	 * Marks all the elements in the provided ranges for transfer using the 
 	 * specified {@link RangedDistribution}. The provided ranges may be split 
 	 * into multiple sub-ranges to be transfered to different destinations. The
@@ -77,6 +51,32 @@ public interface RangeRelocatable<R> {
 	public default void moveRangeAtSync(Collection<R> ranges, RangedDistribution<R> destination, MoveManagerLocal manager) {
 		for (R range : ranges) {
 			moveRangeAtSync(range, destination, manager);
+		}
+	}
+	
+	/**
+	 * Marks the objects in the specified range for transfer to the specified 
+	 * destination. The transfer will be performed when the 
+	 * {@link MoveManagerLocal#sync()} is called.
+	 * @param range the range of objects to transfer
+	 * @param destination the destination of the objects
+	 * @param manager the instance in charge of handling a batch of object tranfers
+	 */
+	public void moveRangeAtSync(R range, Place destination, MoveManagerLocal manager);
+	
+	/**
+	 * Marks the elements in the provided range for transfer using the specified
+	 * {@link RangedDistribution}. The provided range may be split into multiple
+	 * sub-ranges to be transfered to different destinations. The actual 
+	 * transfer will be performed when the {@link MoveManagerLocal#sync()} method
+	 * is called.  
+	 * @param range the range of entries to transfer
+	 * @param destination function creating a map from ranges to Place
+	 * @param manager the manager in charge of the transfer
+	 */
+	public default void moveRangeAtSync(R range, RangedDistribution<R> destination, MoveManagerLocal manager ) {
+		for (Entry<R, Place> mappings : destination.placeRanges(range).entrySet()) {
+			moveRangeAtSync(mappings.getKey(), mappings.getValue(), manager);
 		}
 	}
 }

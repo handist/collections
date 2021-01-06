@@ -11,8 +11,6 @@ package handist.collections.dist;
 
 import static apgas.Constructs.*;
 
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -43,6 +41,7 @@ import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
+import handist.collections.glb.DistMapGlb;
 import mpi.MPI;
 import mpi.MPIException;
 
@@ -113,15 +112,18 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 	 * Implementation of the local Map collection 
 	 */
 	protected Map<K, V> data;
+	/** Handle for GLB operations */
+	public final DistMapGlb<K, V> GLB;
+	public final DistMap<K, V>.DistMapGlobal GLOBAL;
+
+
 	final GlobalID id;
+
 	public transient float[] locality;
 
-
 	public final TeamedPlaceGroup placeGroup;
-
+	
 	private Function<K, V> proxyGenerator;
-
-	public final DistMap<K, V>.DistMapGlobal GLOBAL;
 	
 	public final DistMap<K, V>.DistMapTeam TEAM;
 
@@ -167,6 +169,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 		Arrays.fill(locality, 1.0f);
 		this.data = new HashMap<>();
 		GLOBAL = new DistMapGlobal(this);
+		GLB = new DistMapGlb<>(this);
 		TEAM = new DistMapTeam(this);
 		id.putHere(this);
 	}
@@ -241,6 +244,20 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 	public void forEach(BiConsumer<? super K, ? super V> action) {
 		if (!data.isEmpty())
 			data.forEach(action);
+	}
+
+	@Override
+	public void forEach(SerializableConsumer<V> action) {
+		data.values().forEach(action);
+	}
+
+	private void forEachParallelBodyLocal(SerializableConsumer<V> action) {
+		List<Collection<V>> separated = separateLocalValues(Runtime.getRuntime().availableProcessors() * 2);
+		for(Collection<V> sub : separated) {
+			async(() -> {
+				sub.forEach(action);
+			});
+		}
 	}
 
 	/**
@@ -349,7 +366,6 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 		 * value = entry.getValue(); dst(key) = op(value); } return dst; });
 		 */
 	}
-
 	@Override
 	@SuppressWarnings("unchecked")
 	public void moveAtSync(Collection<K> keys, Place pl, MoveManagerLocal mm) {
@@ -376,6 +392,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 		mm.request(pl, serialize, deserialize);
 	}
 
+
 	@Override
 	public void moveAtSync(Distribution<K> dist, MoveManagerLocal mm) {
 		Function<K, Place> rule = (K key) -> {
@@ -383,6 +400,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 		};
 		moveAtSync(rule, mm);
 	}
+
 	public void moveAtSync(Function<K, Place> rule, MoveManagerLocal mm) {
 		DistMap<K, V> collection = this;
 		HashMap<Place, List<K>> keysToMove = new HashMap<>();
@@ -397,7 +415,6 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 			moveAtSync(entry.getValue(), entry.getKey(), mm);
 		}
 	}
-
 
 	/**
 	 * Request that the specified element is relocated when #sync is called.
@@ -444,40 +461,18 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 	}
 
 	@Override
+	public void parallelForEach(SerializableConsumer<V> action) {
+		parallelForEachLocal(action);
+	}
+	private void parallelForEachLocal(SerializableConsumer<V> action) {
+		finish(() -> {
+			forEachParallelBodyLocal(action);
+		});
+	}
+
+	@Override
 	public TeamedPlaceGroup placeGroup() {
 		return placeGroup;
-	}
-
-	void printLocalData(){
-		System.out.println(this);
-	}
-
-	/**
-	 * Put a new entry.
-	 *
-	 * @param key   the key of the new entry.
-	 * @param value the value of the new entry.
-	 * @return the previous value associated with {@code key}, or
-	 * {@code null} if there was no mapping for {@code key}.(A {@code null}
-	 * return can also indicate that the map previously associated {@code null}
-	 * with {@code key}.)
-	 */
-	public V put(K key, V value) {
-		return data.put(key, value);
-	}
-	/**
-	 * Adds all the mappings contained in the specified map into this local map.
-	 */
-	@Override
-	public void putAll(Map<? extends K, ? extends V> m) {
-		data.putAll(m);
-	}
-
-	private V putForMove(K key, V value) {
-		if (data.containsKey(key)) {
-			throw new RuntimeException("DistMap cannot override existing entry: " + key);
-		}
-		return data.put(key, value);
 	}
 
 	/*
@@ -502,6 +497,51 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 
     }*/
 
+	void printLocalData(){
+		System.out.println(this);
+	}
+
+	// TODO different naming convention of balance methods with DistMap
+
+	/**
+	 * Put a new entry.
+	 *
+	 * @param key   the key of the new entry.
+	 * @param value the value of the new entry.
+	 * @return the previous value associated with {@code key}, or
+	 * {@code null} if there was no mapping for {@code key}.(A {@code null}
+	 * return can also indicate that the map previously associated {@code null}
+	 * with {@code key}.)
+	 */
+	public V put(K key, V value) {
+		return data.put(key, value);
+	}
+
+	/*    Abstractovdef create(placeGroup: PlaceGroup, team: TeamOperations, init: ()=>Map[T, U]){
+        // return new DistMap[T,U](placeGroup, init) as AbstractDistCollection[Map[T,U]];
+        return null as AbstractDistCollection[Map[T,U]];
+    }*/
+	/*
+    public def versioningMap(srcName : String){
+        // return new BranchingManager[DistMap[T,U], Map[T,U]](srcName, this);
+        return null as BranchingManager[DistMap[T,U], Map[T,U]];
+    }*/
+
+	/**
+	 * Adds all the mappings contained in the specified map into this local map.
+	 */
+	@Override
+	public void putAll(Map<? extends K, ? extends V> m) {
+		data.putAll(m);
+	}
+
+	private V putForMove(K key, V value) {
+		if (data.containsKey(key)) {
+			throw new RuntimeException("DistMap cannot override existing entry: " + key);
+		}
+		return data.put(key, value);
+	}
+
 	/**
 	 * Reduce the all elements including other place using the given operation.
 	 *
@@ -523,8 +563,6 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 
 	}
 
-	// TODO different naming convention of balance methods with DistMap
-
 	/**
 	 * Reduce the all elements including other place using the given operation.
 	 *
@@ -535,17 +573,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 	public V reduce(BiFunction<V, V, V> op, V unit) {
 		return reduce(op, op, unit);
 	}
-
-	/*    Abstractovdef create(placeGroup: PlaceGroup, team: TeamOperations, init: ()=>Map[T, U]){
-        // return new DistMap[T,U](placeGroup, init) as AbstractDistCollection[Map[T,U]];
-        return null as AbstractDistCollection[Map[T,U]];
-    }*/
-	/*
-    public def versioningMap(srcName : String){
-        // return new BranchingManager[DistMap[T,U], Map[T,U]](srcName, this);
-        return null as BranchingManager[DistMap[T,U], Map[T,U]];
-    }*/
-
+	
 	/**
 	 * Reduce the all local elements using the given operation.
 	 *
@@ -580,7 +608,7 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 	public void relocate(Function<K,Place> rule) throws Exception {
 		relocate(rule, new MoveManagerLocal(placeGroup));
 	}
-	
+
 	public void relocate(Function<K, Place> rule, MoveManagerLocal mm) throws Exception {
 		for (K key: data.keySet()) {
 			Place place = rule.apply(key);
@@ -598,6 +626,29 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 	 */
 	public V remove(Object key) {
 		return data.remove(key);
+	}
+
+	private List<Collection<V>> separateLocalValues(int n) {
+		List<Collection<V>> result = new ArrayList<>(n);
+		long totalNum = size();
+		long rem = totalNum % n;
+		long quo = totalNum / n;
+		if(data.isEmpty()) {
+			return result;
+		}
+		Iterator<V> it = data.values().iterator();
+		List<V> list = new ArrayList<V>();
+		for(long i = 0; i < n; i++) {
+			list = new ArrayList<V>();
+			long count = quo + ((i < rem) ? 1: 0);
+			for(long j = 0; j < count; j++) {
+				if(it.hasNext()) {
+					list.add((V)it.next());
+				}
+			}
+			result.add(list);
+		}
+		return result;
 	}
 
 	/**
@@ -627,12 +678,12 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 	public int size() {
 		return data.size();
 	}
-
+	
 	@Override
 	public TeamOperations<V, DistMap<K,V>> team() {
 		return TEAM;
 	}
-
+	
 	public String toString() {
 		StringWriter out0 = new StringWriter();
 		PrintWriter out = new PrintWriter(out0);
@@ -643,14 +694,14 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 		out.close();
 		return out0.toString();
 	}
-
+	
 	/**
 	 * Returns all the values of this local map in a collection.
 	 */
 	public Collection<V> values() {
 		return data.values();
 	}
-
+	
 	@Override
 	public Object writeReplace() throws ObjectStreamException {
 		final TeamedPlaceGroup pg1 = placeGroup;
@@ -658,53 +709,5 @@ public class DistMap<K, V> implements Map<K, V>, AbstractDistCollection<V, DistM
 		return new LazyObjectReference<DistMap<K, V>>(pg1, id1, () -> {
 			return new DistMap<K, V>(pg1, id1);
 		});
-	}
-
-	@Override
-	public void forEach(SerializableConsumer<V> action) {
-		data.values().forEach(action);
-	}
-	
-	@Override
-	public void parallelForEach(SerializableConsumer<V> action) {
-		parallelForEachLocal(action);
-	}
-	
-	private List<Collection<V>> separateLocalValues(int n) {
-		List<Collection<V>> result = new ArrayList<>(n);
-		long totalNum = size();
-		long rem = totalNum % n;
-		long quo = totalNum / n;
-		if(data.isEmpty()) {
-			return result;
-		}
-		Iterator<V> it = data.values().iterator();
-		List<V> list = new ArrayList<V>();
-		for(long i = 0; i < n; i++) {
-			list = new ArrayList<V>();
-			long count = quo + ((i < rem) ? 1: 0);
-			for(long j = 0; j < count; j++) {
-				if(it.hasNext()) {
-					list.add((V)it.next());
-				}
-			}
-			result.add(list);
-		}
-		return result;
-	}
-	
-	private void parallelForEachLocal(SerializableConsumer<V> action) {
-		finish(() -> {
-			forEachParallelBodyLocal(action);
-		});
-	}
-	
-	private void forEachParallelBodyLocal(SerializableConsumer<V> action) {
-		List<Collection<V>> separated = separateLocalValues(Runtime.getRuntime().availableProcessors() * 2);
-		for(Collection<V> sub : separated) {
-			async(() -> {
-				sub.forEach(action);
-			});
-		}
 	}
 }

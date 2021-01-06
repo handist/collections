@@ -9,11 +9,11 @@ import apgas.impl.KryoSerializer;
 
 public class ObjectInput {
 	
-	final InputStream stream;
 	final Input input;
+	boolean isClosed = false;
 	final Kryo kryo;
 	
-	boolean isClosed = false;
+	final InputStream stream;
 	
 	
 	public ObjectInput(InputStream in) {
@@ -27,10 +27,17 @@ public class ObjectInput {
 		kryo.setAutoReset(false);
 	}
 	
-	public Object readObject() {		
+	public void close() {		
+		input.close();
+		kryo.reset();
+		kryo.setAutoReset(true);	// Need for using at remote place.
+		isClosed = true;
+	}
+	
+	public byte readByte() {	
 		if(isClosed)
 			throw new RuntimeException(this + " has closed.");
-		return kryo.readClassAndObject(input);				
+		return input.readByte();
 	}
 	
 	public int readInt() {		
@@ -44,18 +51,11 @@ public class ObjectInput {
 			throw new RuntimeException(this + " has closed.");
 		return input.readLong();
 	}
-	
-	public byte readByte() {	
+		
+	public Object readObject() {		
 		if(isClosed)
 			throw new RuntimeException(this + " has closed.");
-		return input.readByte();
-	}
-		
-	public void close() {		
-		input.close();
-		kryo.reset();
-		kryo.setAutoReset(true);	// Need for using at remote place.
-		isClosed = true;
+		return kryo.readClassAndObject(input);				
 	}
 	
 	public void setAutoReset(boolean autoReset) {

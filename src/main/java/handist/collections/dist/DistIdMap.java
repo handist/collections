@@ -11,8 +11,6 @@ package handist.collections.dist;
 
 import static apgas.Constructs.*;
 
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -77,17 +75,6 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 		Arrays.fill(locality, 1.0f);
 	}
 
-	/* Ensure calling updateDist() before balance()
-	 * balance() should be called in all places
-	 */
-	public void distSize(long[] result) {
-		for (Map.Entry<Long, Place> entry : ldist.dist.entrySet()) {
-			// val k = entry.getKey();
-			Place v = entry.getValue();
-			result[placeGroup.rank(v)] += 1;
-		}
-	}
-
 	/**
 	 * Remove the all local entries.
 	 */
@@ -109,6 +96,17 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 	public boolean delete(long id) {
 		ldist.remove(id);
 		return super.delete(id);
+	}
+
+	/* Ensure calling updateDist() before balance()
+	 * balance() should be called in all places
+	 */
+	public void distSize(long[] result) {
+		for (Map.Entry<Long, Place> entry : ldist.dist.entrySet()) {
+			// val k = entry.getKey();
+			Place v = entry.getValue();
+			result[placeGroup.rank(v)] += 1;
+		}
 	}
 
 

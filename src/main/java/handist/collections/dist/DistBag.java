@@ -11,8 +11,6 @@ package handist.collections.dist;
 
 import static apgas.Constructs.*;
 
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -77,11 +75,6 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 		}
 
 		@Override
-		public void updateDist() {
-			// TODO Auto-generated method stub
-		}
-
-		@Override
 		public void size(long[] result) {
 			TeamedPlaceGroup pg = handle.placeGroup();
 			result[pg.myrank] = handle.size();
@@ -94,16 +87,21 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 			}
 		}
 
+		@Override
+		public void updateDist() {
+			// TODO Auto-generated method stub
+		}
+
 	}
 
 	private static int _debug_level = 5;
 
-	final GlobalID id;
-	public transient float[] locality;
-	public final TeamedPlaceGroup placeGroup;
-
 	/** Handle to Global operations on the DistBag instance */
 	public DistBag<T>.DistBagGlobal GLOBAL;
+	final GlobalID id;
+	public transient float[] locality;
+
+	public final TeamedPlaceGroup placeGroup;
 	/** Handle to TEAM operations on the DistBag instance */
 	public DistBag<T>.DistBagTeam TEAM;
 
@@ -135,6 +133,11 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 		TEAM = new DistBagTeam(this);
 	}
 
+	@Override
+	public void forEach(SerializableConsumer<T> action) {
+		super.forEach(action);
+	}
+
 	/**
 	 * gather all place-local elements to the root Place.
 	 *
@@ -155,6 +158,38 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 		}
 	}
 
+	/**
+	 * Return a Container that has the same values of DistBag's local storage.
+	 *
+	 * @return a Container that has the same values of local storage.
+	 */
+	/*
+    public Collection<T> clone(): Container[T] {
+        return data.clone();
+    }*/
+
+	@Override
+	public GlobalOperations<T, DistBag<T>> global() {
+		return GLOBAL;
+	}
+
+
+	/*
+    public def integrate(src : List[T]) {
+        // addAll(src);
+        throw new UnsupportedOperationException();
+    }*/
+
+	@Override
+	public GlobalID id() {
+		return id;
+	}
+
+	@Override
+	public float[] locality() {
+		return locality;
+	}
+
 	public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm) throws Exception {
 		for (IntLongPair pair : moveList) {
 			if (_debug_level > 5) {
@@ -165,16 +200,6 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 			moveAtSyncCount((int) pair.second, placeGroup.get(pair.first), mm);
 		}
 	}
-
-	/**
-	 * Return a Container that has the same values of DistBag's local storage.
-	 *
-	 * @return a Container that has the same values of local storage.
-	 */
-	/*
-    public Collection<T> clone(): Container[T] {
-        return data.clone();
-    }*/
 
 	/**
 	 * Removes the specified number of entries from the local Bag and prepares
@@ -206,12 +231,15 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 		mm.request(destination, serialize, deserialize);
 	}
 
+	@Override
+	public void parallelForEach(SerializableConsumer<T> action) {
+		super.parallelForEach(action);
+	}
 
-	/*
-    public def integrate(src : List[T]) {
-        // addAll(src);
-        throw new UnsupportedOperationException();
-    }*/
+	@Override
+	public TeamedPlaceGroup placeGroup() {
+		return placeGroup;
+	}
 
 	// TODO ...
 	public void setupBranches(SerializableBiConsumer<Place,DistBag<T>> gen) {
@@ -223,47 +251,17 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
 		});
 	}
 
+	@Override
+	public TeamOperations<T, DistBag<T>> team() {
+		return TEAM;
+	}
+
 	public Object writeReplace() throws ObjectStreamException {
 		final TeamedPlaceGroup pg1 = placeGroup;
 		final GlobalID id1 = id;
 		return new LazyObjectReference<DistBag<T>>(pg1, id1, ()-> {
 			return new DistBag<T>(pg1, id1);
 		});
-	}
-
-	@Override
-	public float[] locality() {
-		return locality;
-	}
-
-	@Override
-	public GlobalID id() {
-		return id;
-	}
-
-	@Override
-	public TeamOperations<T, DistBag<T>> team() {
-		return TEAM;
-	}
-
-	@Override
-	public GlobalOperations<T, DistBag<T>> global() {
-		return GLOBAL;
-	}
-
-	@Override
-	public TeamedPlaceGroup placeGroup() {
-		return placeGroup;
-	}
-
-	@Override
-	public void forEach(SerializableConsumer<T> action) {
-		super.forEach(action);
-	}
-
-	@Override
-	public void parallelForEach(SerializableConsumer<T> action) {
-		super.parallelForEach(action);
 	}
 
 }

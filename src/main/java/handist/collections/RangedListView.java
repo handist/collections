@@ -226,15 +226,21 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
 		return new It<T>(this, l);
 	}
 
-	/**
-	 * Returns the number of indices this {@link RangedListView} provides access
-	 * to
-	 */
 	@Override
-	public long size() {
-		return super.size();
+	public void read(Kryo kryo, Input input) {
+		@SuppressWarnings("unchecked")
+		Chunk<T> chunk = (Chunk<T>) kryo.readClassAndObject(input);
+		this.base = chunk;
+		this.range = chunk.getRange();
 	}
 
+	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+		@SuppressWarnings("unchecked")
+		Chunk<T> chunk = (Chunk<T>) in.readObject();
+		this.base = chunk;
+		this.range = chunk.getRange();
+	}
+	
 	/**
 	 * Set the given value at the specified index. 
 	 *  
@@ -249,7 +255,7 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
 		rangeCheck(index); 
 		return base.set(index, v);
 	}
-	
+
 	/**
 	 * {@inheritDoc}
 	 */
@@ -260,13 +266,21 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
 	}
 
 	/**
+	 * Returns the number of indices this {@link RangedListView} provides access
+	 * to
+	 */
+	@Override
+	public long size() {
+		return super.size();
+	}
+
+	/**
 	 * {@inheritDoc}
 	 */
 	@Override
 	public Object[] toArray() {
 		return toArray(range);
 	}
-
 	/**
 	 * {@inheritDoc}
 	 */
@@ -284,6 +298,13 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
 		rangeCheck(range);
 		return base.toChunk(range);
 	}
+	
+	@Override
+	public List<T> toList(LongRange r) {
+		rangeCheck(r);
+		return base.toList(r);
+	}
+
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
@@ -306,37 +327,16 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
 		// sb.append("@" + range.begin + ".." + last() + "]");
 		return sb.toString();
 	}
-
-	@Override
-	public List<T> toList(LongRange r) {
-		rangeCheck(r);
-		return base.toList(r);
-	}
-	
-	// TODO this implement generates redundant RangedListView at receiver node.
-	private void writeObject(ObjectOutputStream out) throws IOException {
-		Chunk<T> chunk = this.toChunk(range);
-		out.writeObject(chunk);
-	}
-
-	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-		@SuppressWarnings("unchecked")
-		Chunk<T> chunk = (Chunk<T>) in.readObject();
-		this.base = chunk;
-		this.range = chunk.getRange();
-	}
 	
 	@Override
 	public void write(Kryo kryo, Output output) {
 		Chunk<T> chunk = this.toChunk(range);
 		kryo.writeClassAndObject(output, chunk);
 	}
-	@Override
-	public void read(Kryo kryo, Input input) {
-		@SuppressWarnings("unchecked")
-		Chunk<T> chunk = (Chunk<T>) kryo.readClassAndObject(input);
-		this.base = chunk;
-		this.range = chunk.getRange();
+	// TODO this implement generates redundant RangedListView at receiver node.
+	private void writeObject(ObjectOutputStream out) throws IOException {
+		Chunk<T> chunk = this.toChunk(range);
+		out.writeObject(chunk);
 	}
 
 	/*

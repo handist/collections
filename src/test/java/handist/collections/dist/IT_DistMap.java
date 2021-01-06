@@ -108,7 +108,6 @@ public class IT_DistMap implements Serializable {
 		// Check that the keys have shifted by 1
 		x_checkKeyShift(1);
 
-
 		// ---------------------------------------------------------------------------
 		// Move all entries to the next place, twice
 		pg.broadcastFlat(() -> {

@@ -9,11 +9,11 @@ import apgas.impl.KryoSerializer;
 
 public class ObjectOutput {
 	
-	final OutputStream stream;
-	final Output output;
+	private boolean isClosed = false;
 	final Kryo kryo;
+	final Output output;
 	
-	private boolean isClosed = false;	
+	final OutputStream stream;	
 	
 	
 	public ObjectOutput(OutputStream out) {
@@ -26,30 +26,6 @@ public class ObjectOutput {
 		kryo.reset();		
 		kryo.setAutoReset(false);	
 	}	
-	
-	public void writeObject(Object obj) {
-		if(isClosed)
-			throw new RuntimeException(this + " has closed.");
-		kryo.writeClassAndObject(output, obj);		
-	}
-	
-	public void writeInt(int val) {
-		if(isClosed)
-			throw new RuntimeException(this + " has closed.");
-		output.writeInt(val);
-	}
-	
-	public void writeLong(long val) {		
-		if(isClosed)
-			throw new RuntimeException(this + " has closed.");
-		output.writeLong(val);
-	}
-	
-	public void writeByte(byte val) {		
-		if(isClosed)
-			throw new RuntimeException(this + " has closed.");
-		output.writeByte(val);
-	}
 	
 	public void close() {		
 		output.close();
@@ -70,5 +46,29 @@ public class ObjectOutput {
 		if(isClosed)
 			return;
 		kryo.setAutoReset(autoReset);
+	}
+	
+	public void writeByte(byte val) {		
+		if(isClosed)
+			throw new RuntimeException(this + " has closed.");
+		output.writeByte(val);
+	}
+	
+	public void writeInt(int val) {
+		if(isClosed)
+			throw new RuntimeException(this + " has closed.");
+		output.writeInt(val);
+	}
+	
+	public void writeLong(long val) {		
+		if(isClosed)
+			throw new RuntimeException(this + " has closed.");
+		output.writeLong(val);
+	}
+	
+	public void writeObject(Object obj) {
+		if(isClosed)
+			throw new RuntimeException(this + " has closed.");
+		kryo.writeClassAndObject(output, obj);		
 	}
 }

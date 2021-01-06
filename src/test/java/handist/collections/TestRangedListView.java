@@ -26,10 +26,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.io.Output;
-
-import apgas.impl.KryoSerializer;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 
@@ -40,7 +36,12 @@ import handist.collections.dist.util.ObjectOutput;
  */
 public class TestRangedListView implements Serializable {
 
+	/** Serial Version UID */
+	private static final long serialVersionUID = -1573705810224035903L;
+
 	public class Element implements Serializable{
+		/** Serial Version UID */
+		private static final long serialVersionUID = 3711173000651896802L;
 		public int n = 0;
 		public Element(int i) {
 			n = i;
@@ -455,7 +456,6 @@ public class TestRangedListView implements Serializable {
 		assertEquals(view.size(), r.size());
 	}
 	
-	@SuppressWarnings("unchecked")
 	@Test
 	public void testWriteObjectKryo() {
 		ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
@@ -469,7 +469,8 @@ public class TestRangedListView implements Serializable {
 		ByteArrayInputStream byteIn = new ByteArrayInputStream(buf);
 		ObjectInput objectIn = new ObjectInput(byteIn);		
 		@SuppressWarnings("unchecked")				
-		RangedListView<Element> r1 = (RangedListView<Element>) objectIn.readObject();		
+		RangedListView<Element> r1 = (RangedListView<Element>) objectIn.readObject();
+		@SuppressWarnings("unchecked")
 		RangedListView<Element> r2 = (RangedListView<Element>) objectIn.readObject();
 		objectIn.close();
 		

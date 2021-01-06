@@ -9,7 +9,13 @@
  *******************************************************************************/
 package handist.collections;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -35,19 +41,24 @@ import org.junit.Test;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 
+
+@SuppressWarnings("deprecation")
 public class TestChunkedList {
 
 	public static class Element implements Serializable {
 		/** Serial Version UID */
 		private static final long serialVersionUID = 5318079351127834274L;
 		public int n = 0;
+
 		public Element(int i) {
 			n = i;
 		}
+
 		public Element increase(int i) {
 			n += i;
 			return this;
 		}
+
 		@Override
 		public String toString() {
 			return String.valueOf(n);
@@ -70,21 +81,23 @@ public class TestChunkedList {
 			}
 
 		}
+
 		private int nextReceiver;
 
-		ConcurrentSkipListSet<Integer> [] parallelAcceptors;
+		ConcurrentSkipListSet<Integer>[] parallelAcceptors;
 
 		/**
-		 * Builds a Receiver of {@link Integer} that can accept objects
-		 * from the specified number of concurrent threads. 
+		 * Builds a Receiver of {@link Integer} that can accept objects from the
+		 * specified number of concurrent threads.
 		 * 
-		 * @param parallelism the number of threads susceptible to send {@link Integer}s to be accepted by this object
+		 * @param parallelism the number of threads susceptible to send {@link Integer}s
+		 *                    to be accepted by this object
 		 */
 		@SuppressWarnings("unchecked")
-		public MultiIntegerReceiver (int parallelism) {
+		public MultiIntegerReceiver(int parallelism) {
 			nextReceiver = 0;
 			parallelAcceptors = new ConcurrentSkipListSet[parallelism];
-			for(int i=0; i<parallelism; i++) {
+			for (int i = 0; i < parallelism; i++) {
 				parallelAcceptors[i] = new ConcurrentSkipListSet<Integer>();
 			}
 		}
@@ -106,25 +119,24 @@ public class TestChunkedList {
 	/** freshly created chunkedList which is empty */
 	ChunkedList<Element> newlyCreatedChunkedList;
 
-
 	@Before
 	public void setUp() throws Exception {
 		newlyCreatedChunkedList = new ChunkedList<>();
 
-		Chunk<Element> firstChunk = new Chunk<>(new LongRange(0, 3)); 
-		Chunk<Element> secondChunk = new Chunk<>(new LongRange(3,5));
-		Chunk<Element> thirdChunk = new Chunk<>(new LongRange(5,6));
+		Chunk<Element> firstChunk = new Chunk<>(new LongRange(0, 3));
+		Chunk<Element> secondChunk = new Chunk<>(new LongRange(3, 5));
+		Chunk<Element> thirdChunk = new Chunk<>(new LongRange(5, 6));
 		chunks[0] = firstChunk;
 		chunks[1] = secondChunk;
 		chunks[2] = thirdChunk;
 
-		for(int i = 0; i < 6; i++) { 
+		for (int i = 0; i < 6; i++) {
 			elems[i] = new Element(i);
 		}
-		for(int i = 0; i < 3; i++) { 
+		for (int i = 0; i < 3; i++) {
 			chunks[0].set(i, elems[i]);
 		}
-		for(int i = 3; i < 5; i++) {
+		for (int i = 3; i < 5; i++) {
 			chunks[1].set(i, elems[i]);
 		}
 		chunks[2].set(5, elems[5]);
@@ -133,7 +145,7 @@ public class TestChunkedList {
 		chunkedList.add(chunks[0]);
 		chunkedList.add(chunks[1]);
 		chunkedList.add(chunks[2]);
-		chunkedList.set(4, null);	// include value for a null test
+		chunkedList.set(4, null); // include value for a null test
 	}
 
 //	@Test(expected = UnsupportedOperationException.class)
@@ -166,17 +178,17 @@ public class TestChunkedList {
 
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorOverlapChunk2() {
-		chunkedList.add(new Chunk<>(new LongRange(2,3)));
+		chunkedList.add(new Chunk<>(new LongRange(2, 3)));
 	}
 
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorOverlapChunk3() {
-		chunkedList.add(new Chunk<>(new LongRange(3,4)));
+		chunkedList.add(new Chunk<>(new LongRange(3, 4)));
 	}
 
 	@Test(expected = RuntimeException.class)
 	public void testAddChunkErrorOverlapChunk4() {
-		chunkedList.add(new Chunk<>(new LongRange(-1,7)));
+		chunkedList.add(new Chunk<>(new LongRange(-1, 7)));
 	}
 
 	@Test(expected = NullPointerException.class)
@@ -191,15 +203,16 @@ public class TestChunkedList {
 
 		final MultiIntegerReceiver accumulator = new MultiIntegerReceiver(2);
 
-		chunkedList.asyncForEach(	pool, 2, 
-				(t, consumer)-> consumer.accept(-t.n), 
-				accumulator).get();
+		chunkedList.asyncForEach(pool, 2, (t, consumer) -> consumer.accept(-t.n), accumulator).get();
 
 		assertEquals(2, accumulator.parallelAcceptors.length);
-		// Due to race conditions, there are cases where only one accumulator is used during the test. 
+		// Due to race conditions, there are cases where only one accumulator is used
+		// during the test.
 		// We cannot expect both to accumulators to be exactly of length 3
-		// assertEquals(3, ((ArrayList<Integer>) accumulator.parallelAcceptors[0]).size());
-		// assertEquals(3, ((ArrayList<Integer>)accumulator.parallelAcceptors[1]).size());
+		// assertEquals(3, ((ArrayList<Integer>)
+		// accumulator.parallelAcceptors[0]).size());
+		// assertEquals(3,
+		// ((ArrayList<Integer>)accumulator.parallelAcceptors[1]).size());
 		int totalAccepted = 0;
 		for (ConcurrentSkipListSet<Integer> a : accumulator.parallelAcceptors) {
 			totalAccepted += a.size();
@@ -207,16 +220,14 @@ public class TestChunkedList {
 		assertEquals(6, totalAccepted);
 	}
 
-	@SuppressWarnings("deprecation")
 	@Test
 	public void testAsyncForEachConsumer() {
 		ExecutorService pool = Executors.newFixedThreadPool(2);
-		Future<ChunkedList<Element>> future = 
-				chunkedList.asyncForEach(pool, 2, (e) -> {
-					if (e != null) {
-						e.increase(10);
-					}
-				});
+		Future<ChunkedList<Element>> future = chunkedList.asyncForEach(pool, 2, (e) -> {
+			if (e != null) {
+				e.increase(10);
+			}
+		});
 
 		ChunkedList<Element> result = null;
 		try {
@@ -238,19 +249,18 @@ public class TestChunkedList {
 		assertEquals(15, result.get(5).n);
 	}
 
-	@SuppressWarnings("deprecation")
 	@Test
 	public void testAsyncForEachLongTBiConsumer() {
 		chunkedList.set(4l, elems[4]);
-		int [] originalValues = new int[elems.length];
+		int[] originalValues = new int[elems.length];
 		for (int i = 0; i < elems.length; i++) {
 			originalValues[i] = elems[i].n;
 		}
 
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 
-		Future<ChunkedList<Element>> future = chunkedList.asyncForEach(pool, 2, (l,e)-> {
-			e.increase((int)l);
+		Future<ChunkedList<Element>> future = chunkedList.asyncForEach(pool, 2, (l, e) -> {
+			e.increase((int) l);
 		});
 		ChunkedList<Element> result = null;
 		try {
@@ -260,8 +270,8 @@ public class TestChunkedList {
 			fail();
 		}
 
-		for (long i=0; i<elems.length; i++) {
-			assertEquals((int) originalValues[(int)i]+i, result.get(i).n);
+		for (long i = 0; i < elems.length; i++) {
+			assertEquals((int) originalValues[(int) i] + i, result.get(i).n);
 		}
 	}
 
@@ -271,7 +281,7 @@ public class TestChunkedList {
 		chunkedList.set(4, new Element(42));
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 
-		Future<ChunkedList<Integer>> future = chunkedList.asyncMap(pool, 2, e-> e.n + 5);
+		Future<ChunkedList<Integer>> future = chunkedList.asyncMap(pool, 2, e -> e.n + 5);
 		ChunkedList<Integer> result = null;
 		try {
 			result = future.get();
@@ -300,8 +310,8 @@ public class TestChunkedList {
 		chunkedList.clear();
 		assertTrue(chunkedList.isEmpty());
 		assertEquals(0l, chunkedList.size());
-		
-		// Check that calling clean on an empty ChunkedList does not cause 
+
+		// Check that calling clean on an empty ChunkedList does not cause
 		// any problem
 		newlyCreatedChunkedList.clear();
 		assertTrue(newlyCreatedChunkedList.isEmpty());
@@ -311,7 +321,7 @@ public class TestChunkedList {
 	@Test
 	public void testContains() {
 		assertTrue(chunkedList.contains(elems[0]));
-		assertFalse(chunkedList.contains(new Element(0)));	
+		assertFalse(chunkedList.contains(new Element(0)));
 		assertTrue(chunkedList.contains(null));
 	}
 
@@ -331,10 +341,10 @@ public class TestChunkedList {
 	public void testContainsChunk() {
 		assertTrue(chunkedList.containsChunk(chunks[0]));
 		assertFalse(chunkedList.containsChunk(new Chunk<Element>(new LongRange(6, 9))));
-		assertFalse(chunkedList.containsChunk(null));	
+		assertFalse(chunkedList.containsChunk(null));
 	}
 
-	//containsIndex, contains, containsAll, containsChunk
+	// containsIndex, contains, containsAll, containsChunk
 	@Test
 	public void testContainsIndex() {
 		assertTrue(chunkedList.containsIndex(0));
@@ -358,8 +368,8 @@ public class TestChunkedList {
 		chunkedList.set(4l, elems[4]);
 
 		// Keep the original values of the elements on the side
-		int [] originalValues = new int[elems.length];
-		for (int i = 0; i < elems.length; i ++) {
+		int[] originalValues = new int[elems.length];
+		for (int i = 0; i < elems.length; i++) {
 			originalValues[i] = elems[i].n;
 		}
 
@@ -368,7 +378,7 @@ public class TestChunkedList {
 
 		// Check that each element has its value increased by 2
 		for (int i = 0; i < elems.length; i++) {
-			assertEquals(originalValues[i]+2, chunkedList.get(i).n);
+			assertEquals(originalValues[i] + 2, chunkedList.get(i).n);
 		}
 	}
 
@@ -379,8 +389,8 @@ public class TestChunkedList {
 
 		ArrayList<Integer> accumulator = new ArrayList<>();
 
-		//Accumulate the opposites of each element
-		chunkedList.forEach((t, consumer)->consumer.accept(-t.n), accumulator);
+		// Accumulate the opposites of each element
+		chunkedList.forEach((t, consumer) -> consumer.accept(-t.n), accumulator);
 
 		assertEquals(chunkedList.size(), accumulator.size());
 	}
@@ -406,12 +416,11 @@ public class TestChunkedList {
 			}
 		};
 
-		chunkedList.forEach((t, consumer)->consumer.accept(t.n), averageComputation);
+		chunkedList.forEach((t, consumer) -> consumer.accept(t.n), averageComputation);
 
-
-		//Expected result
+		// Expected result
 		int expectedSum = 0;
-		for(Element e : elems) {
+		for (Element e : elems) {
 			expectedSum += e.n;
 		}
 		int expectedCount = elems.length;
@@ -420,22 +429,21 @@ public class TestChunkedList {
 		assertEquals(expectedOutput, averageComputation.toString());
 	}
 
-	@SuppressWarnings("deprecation")
 	@Test
-	public void testForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {		
+	public void testForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 		chunkedList.set(4l, elems[4]);
 
 		final MultiIntegerReceiver accumulator = new MultiIntegerReceiver(2);
 
-		chunkedList.forEach(pool, 2, (t, consumer)-> consumer.accept(-t.n),	accumulator);
+		chunkedList.forEach(pool, 2, (t, consumer) -> consumer.accept(-t.n), accumulator);
 
 		assertEquals(2, accumulator.parallelAcceptors.length);
-		assertEquals(3, ((ConcurrentSkipListSet<Integer>) accumulator.parallelAcceptors[0]).size());
-		assertEquals(3, ((ConcurrentSkipListSet<Integer>)accumulator.parallelAcceptors[1]).size());
+		int total = ((ConcurrentSkipListSet<Integer>) accumulator.parallelAcceptors[0]).size()
+				+ ((ConcurrentSkipListSet<Integer>) accumulator.parallelAcceptors[1]).size();
+		assertEquals(6, total);
 	}
 
-	@SuppressWarnings("deprecation")
 	@Test
 	public void testForEachConsumer() {
 		ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -459,40 +467,39 @@ public class TestChunkedList {
 	public void testForEachLongTBiconsumer() {
 		chunkedList.set(4l, elems[4]);
 
-		int [] originalValues = new int[elems.length];
+		int[] originalValues = new int[elems.length];
 		for (int i = 0; i < elems.length; i++) {
 			originalValues[i] = elems[i].n;
 		}
 
-		chunkedList.forEach((l,e)-> {
-			e.increase((int)l);
+		chunkedList.forEach((l, e) -> {
+			e.increase((int) l);
 		});
 
-		for (long i=0; i<elems.length; i++) {
-			assertEquals((int) originalValues[(int)i]+i, chunkedList.get(i).n);
+		for (long i = 0; i < elems.length; i++) {
+			assertEquals((int) originalValues[(int) i] + i, chunkedList.get(i).n);
 		}
 	}
 
-	@SuppressWarnings("deprecation")
 	@Test
 	public void testForEachLongTBiConsumerParallel() {
 		ExecutorService service = Executors.newFixedThreadPool(2);
 		chunkedList.set(4l, elems[4]);
 
-		int [] originalValues = new int[elems.length];
+		int[] originalValues = new int[elems.length];
 		for (int i = 0; i < elems.length; i++) {
 			originalValues[i] = elems[i].n;
 		}
 
-		chunkedList.forEach(service, 2, (l,e)-> {
-			e.increase((int)l);
+		chunkedList.forEach(service, 2, (l, e) -> {
+			e.increase((int) l);
 		});
 
-		for (long i=0; i<elems.length; i++) {
-			assertEquals((int) originalValues[(int)i]+i, chunkedList.get(i).n);
+		for (long i = 0; i < elems.length; i++) {
+			assertEquals((int) originalValues[(int) i] + i, chunkedList.get(i).n);
 		}
 	}
-	
+
 	@Test
 	public void testParallelForEachBiConsumer() throws InterruptedException, ExecutionException {
 		chunkedList.set(4l, elems[4]);
@@ -500,17 +507,17 @@ public class TestChunkedList {
 		int processors = Runtime.getRuntime().availableProcessors() * 2;
 		final MultiIntegerReceiver accumulator = new MultiIntegerReceiver(processors);
 
-		chunkedList.parallelForEach((t, consumer)-> consumer.accept(-t.n), accumulator);
+		chunkedList.parallelForEach((t, consumer) -> consumer.accept(-t.n), accumulator);
 
 		assertEquals(processors, accumulator.parallelAcceptors.length);
-		
+
 		int n = 0;
-		for(int i = 0; i < processors; i++) {
+		for (int i = 0; i < processors; i++) {
 			n += ((ConcurrentSkipListSet<Integer>) accumulator.parallelAcceptors[i]).size();
 		}
-		assertEquals(6, n);	
+		assertEquals(6, n);
 	}
-	
+
 	@Test
 	public void testParallelForEachConsumer() {
 		chunkedList.parallelForEach((e) -> {
@@ -528,26 +535,26 @@ public class TestChunkedList {
 		assertEquals(null, chunkedList.get(4));
 		assertEquals(15, chunkedList.get(5).n);
 	}
-	
+
 	@Test
 	public void testParallelForEachLongTBiConsumer() {
 		chunkedList.set(4l, elems[4]);
 
-		int [] originalValues = new int[elems.length];
+		int[] originalValues = new int[elems.length];
 		for (int i = 0; i < elems.length; i++) {
 			originalValues[i] = elems[i].n;
 		}
 
-		chunkedList.parallelForEach((l,e)-> {
-			e.increase((int)l);
+		chunkedList.parallelForEach((l, e) -> {
+			e.increase((int) l);
 		});
 
-		for (long i=0; i<elems.length; i++) {
-			assertEquals((int) originalValues[(int)i]+i, chunkedList.get(i).n);
+		for (long i = 0; i < elems.length; i++) {
+			assertEquals((int) originalValues[(int) i] + i, chunkedList.get(i).n);
 		}
 	}
 
-	@Test(expected=NullPointerException.class)
+	@Test(expected = NullPointerException.class)
 	public void testForEachWithNull() {
 		chunkedList.forEach((e) -> e.increase(2));
 	}
@@ -586,14 +593,12 @@ public class TestChunkedList {
 		it.next();
 	}
 
-
 	@Test
 	public void testLongSize() {
 		assertEquals(6l, chunkedList.size());
 		assertEquals(0, newlyCreatedChunkedList.size());
 	}
-	
-	
+
 	@Test
 	public void testConstructor() {
 		TreeMap<LongRange, RangedList<Element>> tMap = new TreeMap<>();
@@ -601,19 +606,18 @@ public class TestChunkedList {
 		tMap.put(chunks[1].getRange(), chunks[1]);
 		tMap.put(chunks[2].getRange(), chunks[2]);
 		ChunkedList<Element> cList = new ChunkedList<Element>(tMap);
-		
+
 		assertEquals(6l, cList.size());
 	}
-	
 
 	@Test
 	public void testMap() {
 		// First, remove the null element
 		chunkedList.set(4, new Element(42));
-		ChunkedList<Integer> integerChunkedList = chunkedList.map(e-> e.n + 5);
+		ChunkedList<Integer> integerChunkedList = chunkedList.map(e -> e.n + 5);
 
-		// Check that the returned ChunkedList and the original have 
-		// the same number of elements and that the values held by the 
+		// Check that the returned ChunkedList and the original have
+		// the same number of elements and that the values held by the
 		// result are indeed the ones we expect
 		assertNotSame(chunkedList, integerChunkedList);
 		assertEquals(6, chunkedList.size());
@@ -631,7 +635,7 @@ public class TestChunkedList {
 		chunkedList.set(4, new Element(42));
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 
-		ChunkedList<Integer> result = chunkedList.map(pool, 2, e-> e.n + 5);
+		ChunkedList<Integer> result = chunkedList.map(pool, 2, e -> e.n + 5);
 
 		assertNotSame(chunkedList, result);
 		assertEquals(6, chunkedList.size());
@@ -644,10 +648,9 @@ public class TestChunkedList {
 	}
 
 	@Test(expected = NullPointerException.class)
-	public void testMapWithNullElement() {		
+	public void testMapWithNullElement() {
 		chunkedList.map(e -> e.increase(5));
 	}
-
 
 	@Test
 	public void testNumChunks() {
@@ -663,7 +666,7 @@ public class TestChunkedList {
 	@Test
 	public void testRanges() {
 		int i = 0;
-		for(LongRange range: chunkedList.ranges()) {
+		for (LongRange range : chunkedList.ranges()) {
 			assertEquals(range, chunks[i].getRange());
 			i++;
 		}
@@ -671,9 +674,9 @@ public class TestChunkedList {
 
 	@Test
 	public void testRemoveChunk() {
-		//Chunk<Element> chunkToRemove = new Chunk<>(new LongRange(-1l, 0l));
-		LongRange rangeToRemove = new LongRange(-1l,  0l);
-		// Removes nothing, the indices do not intersect. 
+		// Chunk<Element> chunkToRemove = new Chunk<>(new LongRange(-1l, 0l));
+		LongRange rangeToRemove = new LongRange(-1l, 0l);
+		// Removes nothing, the indices do not intersect.
 		RangedList<Element> removed = chunkedList.remove(rangeToRemove);
 		assertEquals(6L, chunkedList.size());
 		assertNull(removed);
@@ -734,8 +737,8 @@ public class TestChunkedList {
 		assertSame(cLists.size(), 10);
 		assertSame(cLists.get(5).size(), 1L);
 		assertSame(cLists.get(9).size(), 0L);
-		
-		//Special case with empty ChunkedList
+
+		// Special case with empty ChunkedList
 		assertTrue(new ChunkedList<Element>().separate(42).isEmpty());
 	}
 
@@ -753,7 +756,7 @@ public class TestChunkedList {
 
 	@Test
 	public void testSize() {
-		assertEquals(6L, chunkedList.size());	
+		assertEquals(6L, chunkedList.size());
 		assertEquals(0L, newlyCreatedChunkedList.size());
 	}
 
@@ -773,22 +776,24 @@ public class TestChunkedList {
 		assertEquals("[ChunkedList(3),[[0,3)]:0,1,2,[[3,5)]:3,null,[[5,6)]:5]", chunkedList.toString());
 		assertEquals("[ChunkedList(0)]", newlyCreatedChunkedList.toString());
 	}
-	
+
 	@Test
-	public void testSerializable()  throws IOException, ClassNotFoundException {
-	    assertTrue(chunkedList instanceof Serializable);
-	    ByteArrayOutputStream out0 = new ByteArrayOutputStream();
-	    ObjectOutputStream out = new ObjectOutputStream(out0);
-	    out.writeObject(chunkedList);
-	    out.close();
-	    ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(out0.toByteArray()));
-	    @SuppressWarnings("unchecked")
-		ChunkedList<Element> c2 = (ChunkedList<Element>)in.readObject();
-	    assertEquals(c2.size(), chunkedList.size());
-        c2.forEach((long index, Element e)-> {
-            if(e==null) assertNull(chunkedList.get(index));
-            if(e!=null) assertEquals(chunkedList.get(index).n, e.n);  
-         });
+	public void testSerializable() throws IOException, ClassNotFoundException {
+		assertTrue(chunkedList instanceof Serializable);
+		ByteArrayOutputStream out0 = new ByteArrayOutputStream();
+		ObjectOutputStream out = new ObjectOutputStream(out0);
+		out.writeObject(chunkedList);
+		out.close();
+		ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(out0.toByteArray()));
+		@SuppressWarnings("unchecked")
+		ChunkedList<Element> c2 = (ChunkedList<Element>) in.readObject();
+		assertEquals(c2.size(), chunkedList.size());
+		c2.forEach((long index, Element e) -> {
+			if (e == null)
+				assertNull(chunkedList.get(index));
+			if (e != null)
+				assertEquals(chunkedList.get(index).n, e.n);
+		});
 	}
 	
 	@Test

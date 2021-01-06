@@ -19,11 +19,13 @@ import handist.collections.dist.util.IntLongPair;
 
 public abstract class GeneralDistManager<T> implements Serializable {
 
+	private static int _debug_level = 5;
+
+
 	/** Serial Version UID */
 	private static final long serialVersionUID = 7184736551394411890L;
+	protected T branch;
 
-
-	private static int _debug_level = 5;
 	final GlobalID id;
 	// @TransientInitExpr(getLocalData())
 
@@ -32,9 +34,7 @@ public abstract class GeneralDistManager<T> implements Serializable {
 	 * Ensure calling updateDist() before balance() balance() should be called in
 	 * all places
 	 */
-
-	public final TeamedPlaceGroup placeGroup; // may be packed into T? or globalID??
-    protected T branch;
+    public final TeamedPlaceGroup placeGroup; // may be packed into T? or globalID??
 
     /*
 	public GeneralDistManager(TeamedPlaceGroup pg, T branch) {

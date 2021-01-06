@@ -53,6 +53,7 @@ public class IT_DistIdMap implements Serializable {
 	/** 
 	 * Helper method to generate strings with the specified prefix 
 	 * @param prefix prefix of the random string returned 
+	 * @return a random string with the specified prefix
 	 */
 	public static String genRandStr(String prefix) {
 		long rand = random.nextLong();
@@ -99,7 +100,7 @@ public class IT_DistIdMap implements Serializable {
 			// Keys have now shifted by "shift"
 			x_checkKeyShift(shift);
 		}
-
+		
 		// ---------------------------------------------------------------------------
 		// Move all entries to place 0
 		z_moveToPlaceZero();
@@ -124,6 +125,7 @@ public class IT_DistIdMap implements Serializable {
 		// As the number of entries have doubled,
 		x_checkSize((h)-> {return numData*2/NPLACES;});
 		x_checkKeyShift(0l);
+
 
 		// Then remove additional key/value
 		try {pg.broadcastFlat(() -> {
@@ -150,7 +152,6 @@ public class IT_DistIdMap implements Serializable {
 		x_checkSize((h)-> {return numData/NPLACES;});
 		// Key / place shift should be unchanged
 		x_checkKeyShift(0l);
-
 	}
 
 	private void x_checkKeyShift(long expectedShift) throws Throwable {
@@ -200,7 +201,6 @@ public class IT_DistIdMap implements Serializable {
 				MoveManagerLocal mm = new MoveManagerLocal(pg);
 				int rank = pg.rank(here());
 				Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
-
 				distIdMap.forEach((Long key, String value) -> {
 					distIdMap.moveAtSync(key, destination, mm);
 				});

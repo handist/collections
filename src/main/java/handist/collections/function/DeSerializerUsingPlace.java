@@ -9,7 +9,6 @@
  *******************************************************************************/
 package handist.collections.function;
 
-import java.io.ObjectInputStream;
 import java.io.Serializable;
 
 import apgas.Place;

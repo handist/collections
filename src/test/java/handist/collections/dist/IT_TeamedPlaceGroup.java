@@ -61,26 +61,22 @@ public class IT_TeamedPlaceGroup implements Serializable {
 						IT_DistMultiMap test = new IT_DistMultiMap();
 						test.pg = split; //TODO this is not very clean
 						test.setup();
-						//test.distMultiMap = new DistMultiMap<String, String>(split);
 						try {
 							test.run();							
 						} catch (Throwable t) {
 							throw new RuntimeException(t);
 						}
-						// System.out.println("----finishB");
 					}
 				}
 			});
 		});
-		// System.out.println("----finish");
 	}
-
+	
 	@Ignore
 	@Test
 	public void testRank() throws Throwable {
 		// I don't quite understand the relationship between rank and place number. 
 		// Until then this test will be skipped.
-
 		// Check that every place has a correct rank in world place group
 		try {
 			world.broadcastFlat(()->{
@@ -105,6 +101,5 @@ public class IT_TeamedPlaceGroup implements Serializable {
 		} catch (MultipleException me) {
 			assertEquals(RuntimeException.class, me.getSuppressed()[0].getClass());
 		}
-
 	}
 }
