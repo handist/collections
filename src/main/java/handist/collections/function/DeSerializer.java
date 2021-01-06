@@ -11,8 +11,6 @@ package handist.collections.function;
 
 import java.io.Serializable;
 
-import com.esotericsoftware.kryo.io.Input;
-
 import handist.collections.dist.util.ObjectInput;
 
 public interface DeSerializer extends Serializable{

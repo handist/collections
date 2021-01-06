@@ -9,6 +9,8 @@ import handist.collections.dist.TeamedPlaceGroup;
 
 public class LazyObjectReference<T> implements Serializable {
 	
+	/** Serial Version UID */
+	private static final long serialVersionUID = -968836449183221397L;
 	/** 
 	 * Global ID used to identify an object with replication on multiple
 	 * places
@@ -19,13 +21,11 @@ public class LazyObjectReference<T> implements Serializable {
 	 * not yet been allocated in a local object.
 	 */
 	public SerializableCallable<T> initializer;
+
 	/**
 	 * Place group on which the object of interest can be allocated on
 	 */
 	public TeamedPlaceGroup placeGroup;
-
-	/** Serial Version UID */
-	private static final long serialVersionUID = -968836449183221397L;
 
 	/**
 	 * Constructor

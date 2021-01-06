@@ -41,11 +41,9 @@ public class IT_DistMap2 implements Serializable {
 	static Random random = new Random(12345l);
 	/** Serial Version UID */
 	private static final long serialVersionUID = 1L;
+	
 	/**
 	 * Helper method to generate Strings with the provided prefix.
-	 * <p>
-	 * Can only be called after {@link #setUpBeforeClass()} as the {@link Random}
-	 * object instance used by this method is initialized in this method. 
 	 * @param prefix the String prefix of the Random string generated
 	 * @return a random String with the provided prefix
 	 */

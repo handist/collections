@@ -118,7 +118,7 @@
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 			<version>4.13</version>
-			<scope>test</scope>
+			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.github.handist</groupId> <!-- Corresponds to github.com/handist/apgas repository -->

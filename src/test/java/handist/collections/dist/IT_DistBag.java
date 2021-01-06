@@ -107,7 +107,7 @@ public class IT_DistBag implements Serializable {
 			throw me.getSuppressed()[0];
 		}
 	}
-	
+
 	@Test(timeout=5000)
 	public void testGlobalSize() throws Throwable {
 		long [] size = new long [WORLD.size()];
@@ -121,7 +121,7 @@ public class IT_DistBag implements Serializable {
 
 		assertArrayEquals(expected, size);
 	}
-	
+
 	@Test
 	public void testSetup() throws Throwable {
 		WORLD.broadcastFlat(()-> {
@@ -140,18 +140,18 @@ public class IT_DistBag implements Serializable {
 			expected[i] = NB_ELEMS[i] * NB_LISTS[i];
 		}
 
-        try {
-		WORLD.broadcastFlat(()-> {
-			final long [] size = new long [WORLD.size()];
-			distBag.TEAM.size(size);
-			assertArrayEquals(expected, size);
-		});
+		try {
+			WORLD.broadcastFlat(()-> {
+				final long [] size = new long [WORLD.size()];
+				distBag.TEAM.size(size);
+				assertArrayEquals(expected, size);
+			});
 		} catch (MultipleException me) {
-		    System.err.println("Error occurred in testTeamSize: Suppressed errors were:");
-		    for (Throwable t : me.getSuppressed()) {
-			t.printStackTrace();
-		    }
-		    throw me.getSuppressed()[0];
+			System.err.println("Error occurred in testTeamSize: Suppressed errors were:");
+			for (Throwable t : me.getSuppressed()) {
+				t.printStackTrace();
+			}
+			throw me.getSuppressed()[0];
 		}
 	}
 }

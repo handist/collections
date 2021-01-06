@@ -19,16 +19,16 @@ public class LongRangeDistribution implements RangedDistribution<LongRange> {
 
 	private HashMap<LongRange, Place> dist;
 
-	public LongRangeDistribution(Map<LongRange, Place> originalHashMap) {
-		dist = new HashMap<>(originalHashMap);
-	}
-
 	/**
 	 * Copy constructor
 	 * @param distribution instance to copy
 	 */
 	public LongRangeDistribution(LongRangeDistribution distribution) {
 		dist = new HashMap<LongRange, Place>(distribution.dist);
+	}
+
+	public LongRangeDistribution(Map<LongRange, Place> originalHashMap) {
+		dist = new HashMap<>(originalHashMap);
 	}
 
 	/**

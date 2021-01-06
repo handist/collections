@@ -211,15 +211,6 @@ public abstract class RangedList<T> implements Iterable<T> {
 	}
 
 	/**
-	 * Returns the number of entries in this collection as a {@code long}
-	 * @return size of the collection
-	 */
-	public long size() {
-		LongRange r = getRange();
-		return r.to - r.from;
-	}
-
-	/**
 	 * Creates a new collection from the elements contained in this instance by
 	 * transforming them into a new type
 	 * @param <U> type of the collection to create
@@ -275,7 +266,7 @@ public abstract class RangedList<T> implements Iterable<T> {
 					"[RangedList] range mismatch:" + this.getRange() + " must include " + target);
 		}
 	}
-	
+
 	/**
 	 * Sets the provided value at the specified index
 	 * @param index index at which the value should be stored
@@ -284,7 +275,7 @@ public abstract class RangedList<T> implements Iterable<T> {
 	 * there was no previous value or the previous value stored was {@code null}
 	 */
 	public abstract T set(long index, T value);
-
+	
 	/**
 	 * Initializes the values in this instance by applying the provided function
 	 * on the elements contained in {@code source}
@@ -296,6 +287,15 @@ public abstract class RangedList<T> implements Iterable<T> {
 	 * 	returns a type T
 	 */
 	public abstract <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func);
+
+	/**
+	 * Returns the number of entries in this collection as a {@code long}
+	 * @return size of the collection
+	 */
+	public long size() {
+		LongRange r = getRange();
+		return r.to - r.from;
+	}
 
 	/**
 	 * Separates this instance into multiple {@link RangedList}s using the 

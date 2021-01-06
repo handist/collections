@@ -101,7 +101,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
 			chunk.a[i+lastReturnedShift] = e; //FIXME THIS IS NOT CORRECT !!!
 		}
 	}
-	
+
 	/** Serial Version UID */
 	private static final long serialVersionUID = -7691832846457812518L;
 
@@ -138,6 +138,29 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
 		}
 		a = new Object[(int) size];
 		this.range = range;
+	}
+
+	/**
+	 * Builds a {@link Chunk} with the provided {@link LongRange}. 
+	 * The provided initializer generates the initial value of the element for each index.
+	 * The given LongRange should have a strictly positive size. Giving a 
+	 * {@link LongRange} instance with identical lower and upper bounds will
+	 * result in a {@link IllegalArgumentException} being thrown.
+	 * <p>
+	 * If the {@link LongRange} provided has a range that exceeds 
+	 * {@value handist.collections.Config#maxChunkSize}, an {@link IllegalArgumentException} will be
+	 * be thrown. 
+	 *   
+	 * @param range the range of the chunk to build
+	 * @param initializer generates the initial value of the element for each index.
+	 * @throws IllegalArgumentException if a {@link Chunk} cannot be built with
+	 *  the provided range. 
+	 */
+	public Chunk(LongRange range, Function<Long, T> initializer) {
+		this(range);
+		range.forEach((long index)->{
+			a[(int)(index-range.from)] = initializer.apply(index); 
+		});
 	}
 
 	/**
@@ -196,29 +219,6 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
 		// instance for each key with Arrays.setAll(a, generator) ?
 		Arrays.fill(a, t); 
 	}
-
-    /**
-     * Builds a {@link Chunk} with the provided {@link LongRange}. 
-     * The provided initializer generates the initial value of the element for each index.
-     * The given LongRange should have a strictly positive size. Giving a 
-     * {@link LongRange} instance with identical lower and upper bounds will
-     * result in a {@link IllegalArgumentException} being thrown.
-     * <p>
-     * If the {@link LongRange} provided has a range that exceeds 
-     * {@value handist.collections.Config#maxChunkSize}, an {@link IllegalArgumentException} will be
-     * be thrown. 
-     *   
-     * @param range the range of the chunk to build
-     * @param initializer generates the initial value of the element for each index.
-     * @throws IllegalArgumentException if a {@link Chunk} cannot be built with
-     *  the provided range. 
-     */
-    public Chunk(LongRange range, Function<Long, T> initializer) {
-        this(range);
-        range.forEach((long index)->{
-           a[(int)(index-range.from)] = initializer.apply(index); 
-        });
-    }
 
 	/**
 	 * Returns a new Chunk defined on the same {@link LongRange} and with the 
@@ -361,6 +361,18 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
 		return "[Chunk] range "+ range + " is not contained in " + getRange();
 	}
 
+	@Override
+	public void read(Kryo kryo, Input input) {
+		this.range = (LongRange) kryo.readClassAndObject(input);
+		this.a = (Object[]) kryo.readClassAndObject(input);
+	}
+
+	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+		this.range = (LongRange) in.readObject();
+		this.a = (Object[]) in.readObject();
+		// System.out.println("readChunk:"+this);
+	}
+
 	/**
 	 * {@inheritDoc}
 	 */
@@ -445,6 +457,16 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
 	 * {@inheritDoc}
 	 */
 	@Override
+	public List<T> toList(LongRange r) {
+		final ArrayList<T> list = new ArrayList<>((int)r.size());
+		forEach(r, (t)->list.add(t));
+		return list;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
 	public String toString() {
 		if (range == null) {
 			return "[Chunk] in Construction";
@@ -467,39 +489,17 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
 		}
 		return sb.toString();
 	}
-	
-	private void writeObject(ObjectOutputStream out) throws IOException {
-		// System.out.println("writeChunk:"+this);
-		out.writeObject(range);
-		out.writeObject(a);
-	}
 
-	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-		this.range = (LongRange) in.readObject();
-		this.a = (Object[]) in.readObject();
-		// System.out.println("readChunk:"+this);
-	}
-	
 	@Override
 	public void write(Kryo kryo, Output output) {
 		kryo.writeClassAndObject(output, range);
 		kryo.writeClassAndObject(output, a);
 	}
 
-	@Override
-	public void read(Kryo kryo, Input input) {
-		this.range = (LongRange) kryo.readClassAndObject(input);
-		this.a = (Object[]) kryo.readClassAndObject(input);
-	}
-	
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public List<T> toList(LongRange r) {
-		final ArrayList<T> list = new ArrayList<>((int)r.size());
-		forEach(r, (t)->list.add(t));
-		return list;
+	private void writeObject(ObjectOutputStream out) throws IOException {
+		// System.out.println("writeChunk:"+this);
+		out.writeObject(range);
+		out.writeObject(a);
 	}
 
 	/*

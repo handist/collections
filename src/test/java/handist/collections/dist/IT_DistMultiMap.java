@@ -102,7 +102,6 @@ public class IT_DistMultiMap implements Serializable {
 		x_checkKeyShift(0);
 
 		// ------------------------------------------------------------------------------
-
 		// Move all entries to the next place
 		z_moveToNextPlace();
 
@@ -246,7 +245,6 @@ public class IT_DistMultiMap implements Serializable {
 			me.printStackTrace();
 			throw me.getSuppressed()[0];
 		}
-
 	}
 
 	/**
