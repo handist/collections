@@ -10,9 +10,12 @@
 package handist.collections.function;
 
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
+import com.esotericsoftware.kryo.io.Output;
+
+import handist.collections.dist.util.ObjectOutput;
+
 public interface Serializer extends Serializable {
-	void accept(ObjectOutputStream out) throws IOException;
+	void accept(ObjectOutput out) throws IOException;
 }

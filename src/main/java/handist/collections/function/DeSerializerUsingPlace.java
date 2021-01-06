@@ -13,7 +13,8 @@ import java.io.ObjectInputStream;
 import java.io.Serializable;
 
 import apgas.Place;
+import handist.collections.dist.util.ObjectInput;
 
 public interface DeSerializerUsingPlace extends Serializable{
-	void accept(ObjectInputStream in, Place p) throws Exception;
+	void accept(ObjectInput in, Place p) throws Exception;
 }

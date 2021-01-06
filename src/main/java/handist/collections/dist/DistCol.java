@@ -37,6 +37,8 @@ import handist.collections.RangedList;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.dist.util.MemberOfLazyObjectReference;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import handist.collections.dist.util.Pair;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.SerializableBiConsumer;
@@ -333,7 +335,7 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 			return;
 
 		final DistCol<T> toBranch = this; // using plh@AbstractCol
-		final Serializer serialize = (ObjectOutputStream s) -> {
+		final Serializer serialize = (ObjectOutput s) -> {
 			final ArrayList<Byte> keyTypeList = new ArrayList<>();
 			for (final RangedList<T> c : cs) {
 				keyTypeList.add(ldist.moveOut(c.getRange(), dest));
@@ -342,7 +344,7 @@ public class DistCol<T> extends ChunkedList<T> implements AbstractDistCollection
 			s.writeObject(keyTypeList);
 			s.writeObject(cs);
 		};
-		final DeSerializer deserialize = (ObjectInputStream ds) -> {
+		final DeSerializer deserialize = (ObjectInput ds) -> {
 			final List<Byte> keyTypeList = (List<Byte>) ds.readObject();
 			final Iterator<Byte> keyTypeListIt = keyTypeList.iterator();
 			final List<RangedList<T>> chunks = (List<RangedList<T>>) ds.readObject();

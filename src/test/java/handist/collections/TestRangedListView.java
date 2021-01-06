@@ -11,6 +11,12 @@ package handist.collections;
 
 import static org.junit.Assert.*;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
@@ -20,14 +26,21 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Output;
+
+import apgas.impl.KryoSerializer;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+
 /**
  * Junit test class for class {@link RangedListView}. 
  * @author Patrick
  *
  */
-public class TestRangedListView {
+public class TestRangedListView implements Serializable {
 
-	public class Element {
+	public class Element implements Serializable{
 		public int n = 0;
 		public Element(int i) {
 			n = i;
@@ -422,6 +435,46 @@ public class TestRangedListView {
 		for (int i = 5; i < 9; i ++) {
 			assertEquals(elems[i], chunk5to9.get(i));
 		}
+	}
+	
+	@Test
+	public void testWriteObject() throws IOException, ClassNotFoundException {
+		ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+		ObjectOutputStream objectOut = new ObjectOutputStream(byteOut);		
+		objectOut.writeObject(view);
+		objectOut.close();
+		
+		byte[] buf = byteOut.toByteArray();
+		
+		ByteArrayInputStream byteIn = new ByteArrayInputStream(buf);
+		ObjectInputStream objectIn = new ObjectInputStream(byteIn);
+		objectIn.close();
+		@SuppressWarnings("unchecked")
+		RangedListView<Element> r = (RangedListView<Element>) objectIn.readObject();
+		
+		assertEquals(view.size(), r.size());
+	}
+	
+	@SuppressWarnings("unchecked")
+	@Test
+	public void testWriteObjectKryo() {
+		ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+		ObjectOutput objectOut = new ObjectOutput(byteOut);
+		objectOut.writeObject(view);		
+		objectOut.writeObject(view);
+		objectOut.close();
+		
+		byte[] buf = byteOut.toByteArray();
+		
+		ByteArrayInputStream byteIn = new ByteArrayInputStream(buf);
+		ObjectInput objectIn = new ObjectInput(byteIn);		
+		@SuppressWarnings("unchecked")				
+		RangedListView<Element> r1 = (RangedListView<Element>) objectIn.readObject();		
+		RangedListView<Element> r2 = (RangedListView<Element>) objectIn.readObject();
+		objectIn.close();
+		
+		assertEquals(view.size(), r1.size());
+		assertEquals(view.size(), r2.size());
 	}
 	
 	@Test

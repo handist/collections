@@ -23,6 +23,9 @@ import java.util.function.Function;
 import org.junit.Before;
 import org.junit.Test;
 
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+
 public class TestChunk implements Serializable {
 
 	/** Element Class for Chunk */
@@ -572,7 +575,8 @@ public class TestChunk implements Serializable {
 		ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
 		ObjectOutputStream objectOut = new ObjectOutputStream(byteOut);
 		objectOut.writeObject(chunk);
-
+		objectOut.close();
+		
 		byte[] buf = byteOut.toByteArray();
 
 		ByteArrayInputStream byteIn = new ByteArrayInputStream(buf);
@@ -584,9 +588,27 @@ public class TestChunk implements Serializable {
 			assertSame(readChunk.get(i).n, chunk.get(i).n);
 		}
 
-		byteOut.close();
+		objectIn.close();
+	}
+	
+	
+	@Test
+	public void testWriteObjectKryo() {
+		ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
+		ObjectOutput objectOut = new ObjectOutput(byteOut);
+		objectOut.writeObject(chunk);
 		objectOut.close();
-		byteIn.close();
+		
+		byte[] buf = byteOut.toByteArray();
+
+		ByteArrayInputStream byteIn = new ByteArrayInputStream(buf);
+		ObjectInput objectIn = new ObjectInput(byteIn);
+		@SuppressWarnings("unchecked")
+		Chunk<Element> readChunk = (Chunk<Element>)objectIn.readObject();
+
+		for(int i = 0; i < elems.length; i++) {
+			assertSame(readChunk.get(i).n, chunk.get(i).n);
+		}
 		objectIn.close();
 	}
 }

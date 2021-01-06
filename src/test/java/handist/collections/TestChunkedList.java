@@ -32,6 +32,9 @@ import java.util.function.Consumer;
 import org.junit.Before;
 import org.junit.Test;
 
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+
 public class TestChunkedList {
 
 	public static class Element implements Serializable {
@@ -204,6 +207,7 @@ public class TestChunkedList {
 		assertEquals(6, totalAccepted);
 	}
 
+	@SuppressWarnings("deprecation")
 	@Test
 	public void testAsyncForEachConsumer() {
 		ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -234,6 +238,7 @@ public class TestChunkedList {
 		assertEquals(15, result.get(5).n);
 	}
 
+	@SuppressWarnings("deprecation")
 	@Test
 	public void testAsyncForEachLongTBiConsumer() {
 		chunkedList.set(4l, elems[4]);
@@ -415,6 +420,7 @@ public class TestChunkedList {
 		assertEquals(expectedOutput, averageComputation.toString());
 	}
 
+	@SuppressWarnings("deprecation")
 	@Test
 	public void testForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {		
 		ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -429,6 +435,7 @@ public class TestChunkedList {
 		assertEquals(3, ((ConcurrentSkipListSet<Integer>)accumulator.parallelAcceptors[1]).size());
 	}
 
+	@SuppressWarnings("deprecation")
 	@Test
 	public void testForEachConsumer() {
 		ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -466,6 +473,7 @@ public class TestChunkedList {
 		}
 	}
 
+	@SuppressWarnings("deprecation")
 	@Test
 	public void testForEachLongTBiConsumerParallel() {
 		ExecutorService service = Executors.newFixedThreadPool(2);
@@ -774,6 +782,22 @@ public class TestChunkedList {
 	    out.writeObject(chunkedList);
 	    out.close();
 	    ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(out0.toByteArray()));
+	    @SuppressWarnings("unchecked")
+		ChunkedList<Element> c2 = (ChunkedList<Element>)in.readObject();
+	    assertEquals(c2.size(), chunkedList.size());
+        c2.forEach((long index, Element e)-> {
+            if(e==null) assertNull(chunkedList.get(index));
+            if(e!=null) assertEquals(chunkedList.get(index).n, e.n);  
+         });
+	}
+	
+	@Test
+	public void testKryoSerializable() {
+	    ByteArrayOutputStream out0 = new ByteArrayOutputStream();
+	    ObjectOutput out = new ObjectOutput(out0);
+	    out.writeObject(chunkedList);
+	    out.close();
+	    ObjectInput in = new ObjectInput(new ByteArrayInputStream(out0.toByteArray()));
 	    @SuppressWarnings("unchecked")
 		ChunkedList<Element> c2 = (ChunkedList<Element>)in.readObject();
 	    assertEquals(c2.size(), chunkedList.size());
