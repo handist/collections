@@ -5,10 +5,14 @@ import static apgas.ExtendedConstructs.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicIntegerArray;
 
 import apgas.impl.Finish;
 import apgas.util.PlaceLocalObject;
+import handist.collections.Bag;
 import handist.collections.dist.TeamedPlaceGroup;
 
 /**
@@ -57,11 +61,16 @@ class GlbComputer extends PlaceLocalObject {
 	Map<GlbOperation, Finish> finishes;
 
 	/**
-	 * Array of GlbTask representing each distributed collection with operations in
-	 * progress on this local place
+	 * Map which contains the operation with work left as keys and the GlbTask is in
+	 * charge of handling the corresponding assignments. As all the assignments of a
+	 * certain operations are completed, the mapping in this collection will be
+	 * removed at the GlbTask's initiative as part of the
+	 * {@link Assignment#process(int)} method. This map is traversed when workers
+	 * try to acquire a new assignment from the reserve in method
+	 * {@link #getAssignment()}.
 	 */
 	@SuppressWarnings("rawtypes")
-	HashMap<GlbOperation, GlbTask> tasksWithWork;
+	ConcurrentHashMap<GlbOperation, GlbTask> tasksWithWork;
 
 	/**
 	 * Constructor
@@ -70,16 +79,14 @@ class GlbComputer extends PlaceLocalObject {
 	 */
 	WorkReserve() {
 	    allTasks = new HashMap<>();
-	    tasksWithWork = new HashMap<>();
+	    tasksWithWork = new ConcurrentHashMap<>();
 
 	    finishes = new HashMap<>();
 	    blockers = new HashMap<>();
 	}
 
 	/**
-	 * Checks the GlbTask of the current host to provide some work to a worker. The
-	 * calling worker needs to provide a {@link TaskProgress} instance in which the
-	 * work will be returned.
+	 * Checks the GlbTask of the current host to provide some work to a worker.
 	 * <p>
 	 * If at the time this method is called no work could be selected, returns null
 	 * instead.
@@ -118,7 +125,7 @@ class GlbComputer extends PlaceLocalObject {
 		toPlaceInAvailable = allTasks.get(op.collection);
 	    }
 
-	    // The GlbTasl may already be present in tasksWithWork if another operation is
+	    // The GlbTask may already be present in tasksWithWork if another operation is
 	    // being processed already. HashSet#add will keep the tasksWithWork set
 	    // unchanged in this case.
 	    tasksWithWork.put(op, toPlaceInAvailable);
@@ -128,6 +135,33 @@ class GlbComputer extends PlaceLocalObject {
 
     /** Singleton, local handle instance */
     private static GlbComputer computer = null;
+
+    /**
+     * Concurrent linked list which contains Ids for the workers that may run on the
+     * host.
+     */
+    /*
+     * For now, there is no specific information attached to the workers. A simple
+     * Integer object is used. These Integers are polled from this member before an
+     * asynchronous worker task is spanwed.
+     */
+    private final ConcurrentLinkedDeque<Integer> workerIds;
+
+    /**
+     * Atomic array used to signal to workers that they need to place some work back
+     * into the {@link #reserve}. Each worker is identified with a unique index.
+     * They use this identifier to access this array which is initialized with an
+     * initial length of {@link #MAX_WORKERS}.
+     * <p>
+     * The value used in this array are:
+     * <ul>
+     * <li>0: the worker can move on in its {@link #worker(Integer, Assignment)}
+     * procedure's main loop, the {@link #reserve} does not need to be fed with work
+     * <li>1: the worker should feed the {@link #reserve} in its main loop before
+     * setting its value back to 0.
+     * </ul>
+     */
+    private final AtomicIntegerArray feedReserveRequested;
 
     /**
      * Method returning the local singleton for GlbComputer
@@ -146,7 +180,7 @@ class GlbComputer extends PlaceLocalObject {
     /**
      * Number of concurrent workers running
      */
-    int currentWorkers;
+//    int currentWorkers;
 
     /**
      * Number of elements processed by workers in one gulp before they check the
@@ -171,8 +205,17 @@ class GlbComputer extends PlaceLocalObject {
      * constructor is made private to protect this property.
      */
     private GlbComputer() {
-	// MAX_WORKERS = Runtime.getRuntime().availableProcessors();
-	MAX_WORKERS = 1; // For now, will be increased later
+	// Set the maximum number of concurrent workers on this host
+	MAX_WORKERS = Runtime.getRuntime().availableProcessors();
+	// Prepare the worker Ids
+	workerIds = new ConcurrentLinkedDeque<>();
+	for (int i = 0; i < MAX_WORKERS; i++) {
+	    workerIds.add(new Integer(i));
+	}
+	// Prepare the atomic array used as flag to signal that the #reserve needs to be
+	// fed
+	feedReserveRequested = new AtomicIntegerArray(MAX_WORKERS);
+
 	reserve = new WorkReserve();
     }
 
@@ -219,15 +262,11 @@ class GlbComputer extends PlaceLocalObject {
      * <li><em>Lifeline phase</em> in which phase this thread will asynchronously
      * signal the neighboring places that it needs work.
      * </ol>
+     *
+     * @param op the operation which is being launched on this host
      */
     void operationActivity(@SuppressWarnings("rawtypes") GlbOperation op) {
-	// Spawn a worker (uncounted)
-	synchronized (this) {
-	    if (currentWorkers == 0) {
-		currentWorkers = 1;
-		uncountedAsyncAt(here(), () -> worker());
-	    }
-	}
+	attemptToSpawnWorker();
 
 	// Block until operation completes
 	try {
@@ -249,46 +288,99 @@ class GlbComputer extends PlaceLocalObject {
      * <p>
      * In this load balancer, a worker is not bound to any single task. Instead, it
      * takes work from any available operation and continues running until it
-     * completely runs out of work. The main steps in its main procedure are:
+     * completely runs out of work. Workers are spawned with an initial assignment.
+     * The main steps of this procedure are:
      * <ol>
-     * <li>Take a fragment of work from the local reserve
-     * <li>Process a part of this fragment
-     * <li>Check for any load balancing operation needed (spawning a new worker/
-     * placing some work back into the reserve)
+     * <li>Process a part of the work fragment the worker has, as defined by
+     * {@link #granularity}
+     * <li>Attempt to spawn a new parallel worker from the work presumably available
+     * in the {@link #reserve}
+     *
+     * <li>Check for any load balancing operation is needed
      * <li>If other asynchronous activities are waiting, yield its execution to
-     * allow them to execute
-     * <li>When the fragment taken is completely consumed, try to take another one
-     * from the local reserve and repeat
-     * <li>If unsuccessful in taking some new work, stop
+     * allow them to execute NOT IMPLEMENTED YET
      * </ol>
+     * These steps are repeated in a loop until the Assignment held by the worker is
+     * completed. When the worker exits that loop, it attempts to get a new
+     * Assignment from the {@link #reserve}. If successful, repeat the procedure
+     * from step 1. If unsuccessful, the worker stops.
+     *
+     * @param workerId {@link Integer} used to identify workers. The type of this
+     *                 parameter may be changed later to be able to attach some
+     *                 runtime facilities to the worker specific to some operations.
+     *                 For example when dealing with operation which consist in
+     *                 placing the results into {@link Bag}, we may want to
+     *                 initialize a single unique List for each worker with this
+     *                 list being re-used for multiple Assignments on this
+     *                 operation.
+     * @param a        initial assignment to be processed by this worker
      */
-    private void worker() {
-	Assignment a;
-	int remainingWorkers = 0;
-	for (;;) {
-	    // Trying to obtain a new assignment determines if the worker continue or stop,
-	    // it needs to be done in a synchronized block
-	    synchronized (this) {
+    private void worker(Integer workerId, Assignment a) {
+	try {
+	    for (;;) {
+		while (a.process(granularity)) { // STEP 1: Work is done here
+
+		    // STEP 2: Attempt to spawn a new worker from work present in the reserve
+		    attemptToSpawnWorker();
+
+		    // STEP 3: Load Balance operations
+		    if (feedReserveRequested.get(workerId) == 1) { // If feeding the reserve is requested
+			if (a.isSplittable(granularity)) {
+			    a.splitIntoGlbTask();
+			    feedReserveRequested.set(workerId, 0);
+			}
+
+		    }
+		}
+		// Assignment#process method returned false. This worker needs a new assignment.
+
+		// Trying to obtain a new assignment determines if the worker continue or stop
 		if ((a = reserve.getAssignment()) == null) {
-		    remainingWorkers = currentWorkers--;
+		    // The reserve returned null, this worker will stop
+		    workerIds.add(workerId);
 		    break;
 		}
 	    }
-	    try {
-		while (a.process(granularity)) {
-		    // TODO yield to other tasks, handle remote steals ...
-		}
-		// Assignment#process method returned false. This worker needs a new assignment.
-	    } catch (final Throwable t) {
-		t.printStackTrace();
+	} catch (final Throwable t) {
+	    System.err.println("Worker number " + workerId + " sufferred a " + t);
+	    t.printStackTrace();
+	} finally {
+	    workerIds.add(workerId);
+	}
+    }
+
+    /**
+     * Attempt to spawn a worker (uncounted) with an assignment obtained from the
+     * reserve. It is possible all the assignment this operation brought about were
+     * already taken up by existing workers, preventing this thread from obtaining
+     * work from the reserve. It is also possible that at the time this method is
+     * called, there are already the maximum number of workers running, in which
+     * case an additional worker is not spawned either. What is guaranteed by the
+     * spawn here is that if there were no workers running and some work is
+     * available, then a worker is spawned. In case workers are already running but
+     * it is possible to spawn an extra one, then it is perfectly fine to spawn an
+     * extra one.
+     */
+    private void attemptToSpawnWorker() {
+	final Integer id = workerIds.poll();
+	if (id != null) {
+	    final Assignment forSpawn = reserve.getAssignment();
+	    if (forSpawn != null) {
+		uncountedAsyncAt(here(), () -> worker(id, forSpawn));
+	    } else {
+		workerIds.add(id);
+
+		// Work could not be taken from the reserve
+		// We signal all the workers that the #reserve is empty and that every worker
+		// needs to place some work back into the reserve
+		reserveWasEmptied();
 	    }
 	}
+    }
 
-	if (remainingWorkers == 0) {
-	    // Just to be sure, release all locks
-	    for (final SemaphoreBlocker b : reserve.blockers.values()) {
-		b.unblock();
-	    }
+    private void reserveWasEmptied() {
+	for (int i = 0; i < MAX_WORKERS; i++) {
+	    feedReserveRequested.set(i, 1);
 	}
     }
 }

@@ -23,7 +23,6 @@ junit_tests:
   script:
     - source /home/gitlab-runner/.profile
     - mvn $MAVEN_CLI_OPTS test
-    - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
   artifacts:
     when: always
     reports:
