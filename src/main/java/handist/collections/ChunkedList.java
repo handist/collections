@@ -123,7 +123,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     /**
      * Constructor which takes an initial {@link TreeMap} of {@link LongRange}
      * mapped to {@link RangedList}.
-     * 
+     *
      * @param chunks initial mappings of {@link LongRange} and {@link Chunk}s
      */
     public ChunkedList(TreeMap<LongRange, RangedList<T>> chunks) {
@@ -136,7 +136,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * Add a chunk to this instance. The provided chunk should not intersect with
      * any other already present in this instance, a {@link RuntimeException} will
      * be thrown otherwise.
-     * 
+     *
      * @param c the chunk to add to this instance
      * @throws RuntimeException if the range on which the provided {@link Chunk} is
      *                          defined intersects with another {@link Chunk}
@@ -147,8 +147,8 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 	final LongRange intersection = checkOverlap(desired);
 	if (intersection != null) {
 	    // TODO
-	    throw new ElementOverlapException("LongRange " + desired + " overla" + "ps " + intersection
-		    + " which is already present in" + " this ChunkedList");
+	    throw new ElementOverlapException("LongRange " + desired + " overlaps " + intersection
+		    + " which is already present in this ChunkedList");
 	}
 	chunks.put(desired, c);
 	size += c.size();
@@ -177,7 +177,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * in {@code toStore}. Note that if you do not need to extract any information
      * from the elements in this collection, you should use method
      * {@link #asyncForEach(ExecutorService, int, Consumer)} instead.
-     * 
+     *
      * @param <U>      the type of the information to extract from the instances
      * @param pool     executor service in charge or performing the operation
      * @param nthreads the degree of parallelism for this action, corresponds to the
@@ -209,7 +209,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * of parallelism. This method returns a {@link FutureN.ReturnGivenResult} which
      * will wait on every asynchronous task spawned to complete before returning
      * this instance.
-     * 
+     *
      * @param pool     executor service in charge or performing the operation
      * @param nthreads the degree of parallelism for this action, corresponds to the
      *                 number of pieces in which this instance contents will be
@@ -233,7 +233,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * specified degree of parallelism. This method returns a
      * {@link FutureN.ReturnGivenResult} which will wait on every asynchronous task
      * spawned to complete before returning this instance.
-     * 
+     *
      * @param pool     executor service in charge or performing the operation
      * @param nthreads the degree of parallelism for this action, corresponds to the
      *                 number of pieces in which this instance contents will be
@@ -267,7 +267,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * the portion has been dealt with. This method returns a
      * {@link ReturnGivenResult} which will return the newly created
      * {@link ChunkedList} once all the individual futures have completed.
-     * 
+     *
      * @param <S>      the type handled by the newly created map
      * @param pool     the executor service in charge of processing this ChunkedList
      *                 in parallel
@@ -299,7 +299,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * the chunks contained by this instance. Returns the intersecting
      * {@link LongRange}, or {@code null} if there are no intersecting
      * {@link Chunk}s.
-     * 
+     *
      * @param range the LongRange instance to check
      * @return a LongRange on which one of the Chunks of this object is defined that
      *         intersects with the provided {@link LongRange}, or {@code null} if
@@ -340,7 +340,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * this instance contains at least one element 'e' such that (o==null ? e==null
      * : o.equals(e)). Of course, there may be several such elements 'e' in this
      * instance located in a single and/or multiple chunks.
-     * 
+     *
      * @param o object whose presence is to be checked
      * @return true if the provided object is contained in at least one of the
      *         chunks contained in this instance
@@ -367,7 +367,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * elements that are more likely to be absent from this instance at the
      * beginning of the collection (in the order used by the {@link Iterator}, it
      * may save considerable execution time.
-     * 
+     *
      * @param c elements whose presence in this instance is to be checked
      * @return true if every instance in the provided collection is present in this
      *         collection
@@ -387,7 +387,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     /**
      * Returns whether this {@link ChunkedList} contains the given
      * {@link RangedList}.
-     * 
+     *
      * @param c the {@link RangedList} whose inclusion in this instance needs to be
      *          checked
      * @return {@code true} if the provided {@link RangedList} is contained in this
@@ -448,7 +448,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     /**
      * Returns the list of {@link Chunk} that pass the provided filter. Chunks are
      * included if the filter returns {@code true}.
-     * 
+     *
      * @param filter the filter deciding if a given chunk should be included in the
      *               returned list
      * @return the {@link Chunk}s contained in this instance which passed the
@@ -473,7 +473,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * <p>
      * As a variant, you may also directly supply a Consumer&lt;U&gt; rather than a
      * collection using method {@link #forEach(BiConsumer, Consumer)}
-     * 
+     *
      * @param <U>     the type of the information to extract
      * @param action  action to perform on each element of the collection
      * @param toStore the collection in which the information extracted will be
@@ -499,7 +499,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * As an alternative, you can use method
      * {@link #forEach(BiConsumer, Collection)} to provide a {@link Collection}
      * rather than a {@link Consumer} as the second argument of the method.
-     * 
+     *
      * @param <U>      the type of the result extracted from the elements in this
      *                 collection
      * @param action   the action to perform on each element of this collection
@@ -514,7 +514,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
     /**
      * Performs the provided action on every element contained in this collection.
-     * 
+     *
      * @param action action to perform on each element contained in this instance
      */
     @Override
@@ -533,7 +533,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * is obtained from the provided {@link ParallelReceiver} which will receive all
      * the U instances produced during this method. This method returns when all the
      * elements in the collection have been treated.
-     * 
+     *
      * @param <U>      type of the information extracted from individual elements
      * @param pool     executor service in charge of processing the elements of this
      *                 instance in parallel
@@ -559,7 +559,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * Performs the provided action on every eleement in the collection in parallel
      * using the provided {@link ExecutorService} and the set degree of parallelism.
      * Returns when all operations have finished.
-     * 
+     *
      * @param pool     executor service in charge or performing the operation
      * @param nthreads the degree of parallelism for this action, corresponds to the
      *                 number of pieces in which this instance contents will be
@@ -578,7 +578,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * Performs the provided action on every (long) key and (T) value in the
      * collection in parallel using the provided {@link ExecutorService} and the set
      * degree of parallelism. Returns when all operations have finished.
-     * 
+     *
      * @param pool     executor service in charge or performing the operation
      * @param nthreads the degree of parallelism for this action, corresponds to the
      *                 number of pieces in which this instance contents will be
@@ -597,7 +597,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     /**
      * Performs the provided action on every (long) key and (T) value in the
      * collection serquentially and returns.
-     * 
+     *
      * @param action to action to perform on each pair of ({@code long} key and (T)
      *               element contained in this instance
      */
@@ -610,7 +610,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     /**
      * Performs the provided operation on each {@link Chunk} contained in this
      * instance and returns.
-     * 
+     *
      * @param op operation to make on each chunk
      */
     public void forEachChunk(Consumer<RangedList<T>> op) {
@@ -643,7 +643,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     /**
      * Finds the chunk containing the provided index and returns the associated
      * value.
-     * 
+     *
      * @param i long index whose associated value should be returned
      * @return the value associated with the provided index
      * @throws IndexOutOfBoundsException if the provided index is not contained by
@@ -675,7 +675,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
     /**
      * Indicates if this instance does not contain any chunk
-     * 
+     *
      * @return {@code true} if this instance does not contain any chunk
      */
     public boolean isEmpty() {
@@ -684,7 +684,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
     /**
      * Returns an iterator on the values contained by every chunk in this instance.
-     * 
+     *
      * @return an iterator on the elements contained in this {@link ChunkedList}
      */
     @Override
@@ -695,7 +695,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     /**
      * Creates a new {@link ChunkedList} by applying the provided map function in
      * parallel to every element of every {@link Chunk} contained by this instance.
-     * 
+     *
      * @param <S>      the type produced by the map function
      * @param pool     the executor service in charge of realizing the parallel
      *                 operation
@@ -724,7 +724,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     /**
      * Creates a new {@link ChunkedList} by applying the provided map function to
      * every element of every {@link Chunk} contained by this instance.
-     * 
+     *
      * @param <S>  the type produced by the map function
      * @param func the mapping function taking a T as parameter and returning a S
      * @return a newly created ChunkedList which contains the result of mapping the
@@ -772,7 +772,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
     /**
      * Returns the number of chunks contained in this instance
-     * 
+     *
      * @return number of chunks in this instance
      */
     public int numChunks() {
@@ -788,7 +788,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * is obtained from the provided {@link ParallelReceiver} which will receive all
      * the U instances produced during this method. This method returns when all the
      * elements in the collection have been treated.
-     * 
+     *
      * @param <U>     type of the information extracted from individual elements
      * @param action  action to perform on individual elements of this collection,
      *                potentially extracting some information of type U and giving
@@ -809,7 +809,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     /**
      * Performs the provided action on every eleement in the collection in parallel
      * using the apgas finish-async. Returns when all operations have finished.
-     * 
+     *
      * @param action to action to perform on element contained in this instance
      */
     public void parallelForEach(Consumer<? super T> action) {
@@ -824,7 +824,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * Performs the provided action on every (long) key and (T) value in the
      * collection in parallel using the apgas finish-async. Returns when all
      * operations have finished
-     * 
+     *
      * @param action to action to perform on each pair of ({@code long} key and (T)
      *               element contained in this instance
      */
@@ -852,7 +852,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * range provided as parameter. The specified range must match the exact bounds
      * of a chunk contained in this instance. If there are no chunks defined on the
      * specified range contained in this instance, returns null.
-     * 
+     *
      * @param range the range needs to be removed
      * @return the removed chunk, or null if there was no such chunk contained in
      *         this instance
@@ -868,7 +868,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     /**
      * Removes and returns a chunk whose {@link LongRange} on which it is defined
      * matches the one on which the provided {@link RangedList} is defined.
-     * 
+     *
      * @param c the chunk whose matching range needs to be removed
      * @return the removed chunk, or null if there was no such chunk contained in
      *         this instance
@@ -935,7 +935,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
     /**
      * Finds the matching chunk and sets the provided value at the specified index.
-     * 
+     *
      * @param i     the index at which the value should be set
      * @param value the value to set at the specified index
      * @return the former value stored at this index, {@code null} if there were no
@@ -957,7 +957,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     /**
      * Return to total number of mappings contained in this instance, i.e. the sum
      * of the size of each individual {@link Chunk} this instance holds.
-     * 
+     *
      * @return size of this instance as a {@code long}
      */
     public long size() {
@@ -987,61 +987,61 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
     /*
      * public static void main(String[] args) {
-     * 
+     *
      * ChunkedList<String> cl5 = new ChunkedList<>();
-     * 
+     *
      * // Test1: Add Chunks
-     * 
+     *
      * System.out.println("Test1"); for (int i = 0; i < 10; i++) { if (i % 2 == 1) {
      * continue; } long begin = i * 5; long end = (i + 1) * 5; Chunk<String> c = new
      * Chunk<>(new LongRange(begin, end)); for (long index = begin; index < end;
      * index++) { c.set(index, String.valueOf(index)); } cl5.addChunk(c); }
      * System.out.println(cl5.toString());
-     * 
+     *
      * // Test2: Iterate using each()
-     * 
+     *
      * System.out.println("Test2"); StringBuilder sb2 = new StringBuilder();
      * cl5.forEach(value -> sb2.append(value + ","));
      * System.out.println(sb2.toString());
-     * 
+     *
      * // Test3: Iterate using iterator()
-     * 
+     *
      * System.out.println("Test3"); StringBuilder sb3 = new StringBuilder();
      * Iterator<String> it = cl5.iterator(); while (it.hasNext()) {
      * sb3.append(it.next() + ","); } System.out.println(sb3.toString());
-     * 
+     *
      * // Test4: Raise exception
-     * 
+     *
      * System.out.println("Test4"); for (int i = 0; i < 10; i++) {
-     * 
+     *
      * long begin = i * 5 - 1; long end = i * 5 + 1; Chunk<String> c = new
      * Chunk<>(new LongRange(begin, end)); try { cl5.addChunk(c);
      * System.out.println("--- FAIL ---"); } catch (IllegalArgumentException e) { //
      * do nothing } } for (int i = 0; i < 10; i++) {
-     * 
+     *
      * long begin = i * 5 - 1; long end = i * 5 + 5; Chunk<String> c = new
      * Chunk<>(new LongRange(begin, end)); try { cl5.addChunk(c);
      * System.out.println("--- FAIL ---"); } catch (IllegalArgumentException e) { //
      * do nothing } } for (int i = 0; i < 10; i++) {
-     * 
+     *
      * long begin = i * 5 - 1; long end = i * 5 + 10; Chunk<String> c = new
      * Chunk<>(new LongRange(begin, end)); try { cl5.addChunk(c);
      * System.out.println("--- FAIL ---"); } catch (IllegalArgumentException e) { //
      * do nothing } } System.out.println("--- OK ---"); // Test5: Add RangedListView
-     * 
+     *
      * System.out.println("Test5"); Chunk<String> c0 = new Chunk<>(new LongRange(0,
      * 10 * 5)); for (long i = 0; i < 10 * 5; i++) { c0.set(i, String.valueOf(i)); }
      * for (int i = 0; i < 10; i++) { if (i % 2 == 0) { continue; } long begin = i *
      * 5; long end = (i + 1) * 5; RangedList<String> rl = c0.subList(begin, end);
      * cl5.addChunk(rl); } System.out.println(cl5.toString());
-     * 
+     *
      * // Test6: Iterate combination of Chunk and RangedListView
      * System.out.println("Test6"); StringBuilder sb6 = new StringBuilder();
      * Iterator<String> it6 = cl5.iterator(); while (it6.hasNext()) {
      * sb6.append(it6.next() + ","); } System.out.println(sb6.toString());
-     * 
+     *
      * // Test7: Raise exception on ChunkedList with continuous range
-     * 
+     *
      * System.out.println("Test7"); for (int i = 0; i < 10 * 5; i++) { long begin =
      * i - 1; long end = i + 1; Chunk<String> c = new Chunk<>(new LongRange(begin,
      * end)); try { cl5.addChunk(c); System.out.println("--- FAIL --- " + begin +
@@ -1051,7 +1051,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * System.out.println("--- FAIL --- " + begin + "," + end); } catch
      * (IllegalArgumentException e) { // do nothing } }
      * System.out.println("--- OK ---");
-     * 
+     *
      * }
      */
 }
