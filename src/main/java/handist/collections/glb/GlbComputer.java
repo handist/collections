@@ -19,10 +19,108 @@ import handist.collections.dist.TeamedPlaceGroup;
  * Distributed object in charge of handling the GLB runtime and the work
  * stealing and between hosts.
  *
- * @author Patrick
+ * @author Patrick Finnerty
  *
  */
 class GlbComputer extends PlaceLocalObject {
+
+    /**
+     * Class containing information and logging facilities of an individual worker.
+     * As part of the initialization process for the GLB, an instance of this class
+     * is prepared for each concurrent worker that may run on the host.
+     *
+     * @author Patrick Finnerty
+     *
+     */
+    final static class WorkerInfo {
+
+	/** Time stamp of the last change in this worker's state */
+	private long lastStamp;
+
+	/**
+	 * Time (in nanoseconds) spent working by this worker. The time spent yielding
+	 * is not included.
+	 */
+	public long timeWorking;
+
+	/** Time spent yielding to other tasks (not counted in {@link #timeWorking}) */
+	public long timeYielding;
+
+	/** Unique integer identifier */
+	final int id;
+
+	/**
+	 * Counts the number of times this worker was spawned
+	 */
+	int workerSpawned;
+
+	/**
+	 * Counts the number of times this worker split its assignment to increase
+	 * parallelism on the host
+	 */
+	int assignmentSplit;
+
+	/**
+	 * Counts the number of times this worker tried to split its assignment but
+	 * failed to do so as the assignment it held was too small
+	 */
+	int assignmentUnabledToSplit;
+
+	/**
+	 * Counts the number of times this worker successfully takes an assignment from
+	 * the reserve for itself
+	 */
+	int tookFromReserve;
+
+	/**
+	 * Signals that this worker started working
+	 */
+	void workerStarted() {
+	    workerSpawned++;
+	    lastStamp = System.nanoTime();
+	}
+
+	/**
+	 * Signals that this worker which was working has now started yielding to other
+	 * activities of the APGAS runtime.
+	 */
+	void workerYielding() {
+	    final long stamp = System.nanoTime();
+
+	    timeWorking += stamp - lastStamp;
+	    lastStamp = stamp;
+	}
+
+	/**
+	 * Signals that this worker which was yielding has now resumed working.
+	 */
+	void workerResumed() {
+	    final long stamp = System.nanoTime();
+
+	    timeYielding += stamp - lastStamp;
+	    lastStamp = stamp;
+	}
+
+	/**
+	 * Signals that this worker which was working has stopped.
+	 */
+	void workerStopped() {
+	    final long stamp = System.nanoTime();
+	    timeWorking += stamp - lastStamp;
+	}
+
+	/**
+	 * Constructor
+	 * <p>
+	 * The unique identifier of the instance created needs to be specified as
+	 * parameter.
+	 *
+	 * @param workerId identifier for the object to create
+	 */
+	public WorkerInfo(int workerId) {
+	    id = workerId;
+	}
+    }
 
     /**
      * Class used on each host to hold the work from which workers and remote steals
@@ -137,15 +235,10 @@ class GlbComputer extends PlaceLocalObject {
     private static GlbComputer computer = null;
 
     /**
-     * Concurrent linked list which contains Ids for the workers that may run on the
-     * host.
+     * Concurrent linked list which contains the inactive workers that may run on
+     * the host.
      */
-    /*
-     * For now, there is no specific information attached to the workers. A simple
-     * Integer object is used. These Integers are polled from this member before an
-     * asynchronous worker task is spanwed.
-     */
-    private final ConcurrentLinkedDeque<Integer> workerIds;
+    private final ConcurrentLinkedDeque<WorkerInfo> workers;
 
     /**
      * Atomic array used to signal to workers that they need to place some work back
@@ -208,9 +301,9 @@ class GlbComputer extends PlaceLocalObject {
 	// Set the maximum number of concurrent workers on this host
 	MAX_WORKERS = Runtime.getRuntime().availableProcessors();
 	// Prepare the worker Ids
-	workerIds = new ConcurrentLinkedDeque<>();
+	workers = new ConcurrentLinkedDeque<>();
 	for (int i = 0; i < MAX_WORKERS; i++) {
-	    workerIds.add(new Integer(i));
+	    workers.add(new WorkerInfo(i));
 	}
 	// Prepare the atomic array used as flag to signal that the #reserve needs to be
 	// fed
@@ -305,17 +398,17 @@ class GlbComputer extends PlaceLocalObject {
      * Assignment from the {@link #reserve}. If successful, repeat the procedure
      * from step 1. If unsuccessful, the worker stops.
      *
-     * @param workerId {@link Integer} used to identify workers. The type of this
-     *                 parameter may be changed later to be able to attach some
-     *                 runtime facilities to the worker specific to some operations.
-     *                 For example when dealing with operation which consist in
-     *                 placing the results into {@link Bag}, we may want to
-     *                 initialize a single unique List for each worker with this
-     *                 list being re-used for multiple Assignments on this
-     *                 operation.
-     * @param a        initial assignment to be processed by this worker
+     * @param id {@link Integer} used to identify workers. The type of this
+     *           parameter may be changed later to be able to attach some runtime
+     *           facilities to the worker specific to some operations. For example
+     *           when dealing with operation which consist in placing the results
+     *           into {@link Bag}, we may want to initialize a single unique List
+     *           for each worker with this list being re-used for multiple
+     *           Assignments on this operation.
+     * @param a  initial assignment to be processed by this worker
      */
-    private void worker(Integer workerId, Assignment a) {
+    private void worker(WorkerInfo worker, Assignment a) {
+	worker.workerStarted();
 	try {
 	    for (;;) {
 		while (a.process(granularity)) { // STEP 1: Work is done here
@@ -324,12 +417,14 @@ class GlbComputer extends PlaceLocalObject {
 		    attemptToSpawnWorker();
 
 		    // STEP 3: Load Balance operations
-		    if (feedReserveRequested.get(workerId) == 1) { // If feeding the reserve is requested
+		    if (feedReserveRequested.get(worker.id) == 1) { // If feeding the reserve is requested
 			if (a.isSplittable(granularity)) {
 			    a.splitIntoGlbTask();
-			    feedReserveRequested.set(workerId, 0);
+			    feedReserveRequested.set(worker.id, 0);
+			    worker.assignmentSplit++; // Log the action
+			} else {
+			    worker.assignmentUnabledToSplit++; // Log
 			}
-
 		    }
 		}
 		// Assignment#process method returned false. This worker needs a new assignment.
@@ -337,15 +432,18 @@ class GlbComputer extends PlaceLocalObject {
 		// Trying to obtain a new assignment determines if the worker continue or stop
 		if ((a = reserve.getAssignment()) == null) {
 		    // The reserve returned null, this worker will stop
-		    workerIds.add(workerId);
+		    worker.workerStopped();
+		    workers.add(worker);
 		    break;
+		} else {
+		    worker.tookFromReserve++;
 		}
 	    }
 	} catch (final Throwable t) {
-	    System.err.println("Worker number " + workerId + " sufferred a " + t);
+	    System.err.println("Worker number " + worker.id + " sufferred a " + t);
 	    t.printStackTrace();
 	} finally {
-	    workerIds.add(workerId);
+	    workers.add(worker);
 	}
     }
 
@@ -362,15 +460,18 @@ class GlbComputer extends PlaceLocalObject {
      * extra one.
      */
     private void attemptToSpawnWorker() {
-	final Integer id = workerIds.poll();
-	if (id != null) {
+	final WorkerInfo worker = workers.poll();
+	if (worker != null) {
 	    final Assignment forSpawn = reserve.getAssignment();
 	    if (forSpawn != null) {
-		uncountedAsyncAt(here(), () -> worker(id, forSpawn));
+		uncountedAsyncAt(here(), () -> worker(worker, forSpawn));
 	    } else {
-		workerIds.add(id);
-
 		// Work could not be taken from the reserve
+
+		// We place the workerInfo back into the #workers collection so that it gets
+		// another chance to be spawned later
+		workers.add(worker);
+
 		// We signal all the workers that the #reserve is empty and that every worker
 		// needs to place some work back into the reserve
 		reserveWasEmptied();
@@ -378,6 +479,22 @@ class GlbComputer extends PlaceLocalObject {
 	}
     }
 
+    /**
+     * Helper procedure used to signal to all workers that they need to place some
+     * work back into the {@link #reserve} if they can.
+     * <p>
+     * This procedure is called by whichever worker notices the fact the
+     * {@link #reserve} got empty first. It may be called by multiple workers
+     * concurrently without any adverse effect.
+     */
+    /*
+     * It may be possible that if two successive workers are unable to get some work
+     * from the reserve and start signaling this fact to other workers that some
+     * workers may find themselves repeatedly asked to place some work in the
+     * reserve despite the fact they have just done so. This could be alleviated if
+     * more restrictive synchronization mechanisms were used but I don't think these
+     * would actually bring about any benefit.
+     */
     private void reserveWasEmptied() {
 	for (int i = 0; i < MAX_WORKERS; i++) {
 	    feedReserveRequested.set(i, 1);
