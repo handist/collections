@@ -32,7 +32,14 @@ class GlbComputer extends PlaceLocalObject {
      * @author Patrick Finnerty
      *
      */
-    final static class WorkerInfo {
+    final static class WorkerInfo implements WorkerService {
+
+	/**
+	 * In some operations, an object may need to remain bound to a single worker and
+	 * used throughout the processing of the operation. In such a case, this objects
+	 * is kept in this collection.
+	 */
+	private final Map<Object, Object> workerBoundObjects;
 
 	/** Time stamp of the last change in this worker's state */
 	private long lastStamp;
@@ -109,6 +116,16 @@ class GlbComputer extends PlaceLocalObject {
 	    timeWorking += stamp - lastStamp;
 	}
 
+	@Override
+	public void attachOperationObject(Object key, Object o) {
+	    workerBoundObjects.put(key, o);
+	}
+
+	@Override
+	public Object retrieveOperationObject(Object key) {
+	    return workerBoundObjects.get(key);
+	}
+
 	/**
 	 * Constructor
 	 * <p>
@@ -119,6 +136,7 @@ class GlbComputer extends PlaceLocalObject {
 	 */
 	public WorkerInfo(int workerId) {
 	    id = workerId;
+	    workerBoundObjects = new ConcurrentHashMap<>();
 	}
     }
 
@@ -235,10 +253,21 @@ class GlbComputer extends PlaceLocalObject {
     private static GlbComputer computer = null;
 
     /**
-     * Concurrent linked list which contains the inactive workers that may run on
-     * the host.
+     * Array containing all the workers initialized on the host Contrary to
+     * {@link #idleWorkers}, the contents of this array never change. This array is
+     * used to access all the workers irrespective of if they are running or idle.
+     * <p>
+     * One particular case we need to access all workers is when an operation needs
+     * to attach an object to each worker which is needed when this operation is
+     * processed by a the workers.
      */
-    private final ConcurrentLinkedDeque<WorkerInfo> workers;
+    private final WorkerInfo[] workers;
+
+    /**
+     * Concurrent linked list which contains the inactive workers that may run on
+     * the host if they are given an assignment.
+     */
+    private final ConcurrentLinkedDeque<WorkerInfo> idleWorkers;
 
     /**
      * Atomic array used to signal to workers that they need to place some work back
@@ -279,7 +308,7 @@ class GlbComputer extends PlaceLocalObject {
      * Number of elements processed by workers in one gulp before they check the
      * runtime
      */
-    volatile int granularity = 1;
+    volatile int granularity = 6;
 
     /**
      * Maximum number of workers that can concurrently run on the local host
@@ -300,15 +329,20 @@ class GlbComputer extends PlaceLocalObject {
     private GlbComputer() {
 	// Set the maximum number of concurrent workers on this host
 	MAX_WORKERS = Runtime.getRuntime().availableProcessors();
+	workers = new WorkerInfo[MAX_WORKERS];
+
 	// Prepare the worker Ids
-	workers = new ConcurrentLinkedDeque<>();
+	idleWorkers = new ConcurrentLinkedDeque<>();
 	for (int i = 0; i < MAX_WORKERS; i++) {
-	    workers.add(new WorkerInfo(i));
+	    final WorkerInfo w = new WorkerInfo(i);
+	    idleWorkers.add(w);
+	    workers[i] = w;
 	}
-	// Prepare the atomic array used as flag to signal that the #reserve needs to be
-	// fed
+	// Prepare the atomic array used as flag to signal to workers that the #reserve
+	// needs to be fed
 	feedReserveRequested = new AtomicIntegerArray(MAX_WORKERS);
 
+	// Initialize the reserve of assignments for this host
 	reserve = new WorkReserve();
     }
 
@@ -319,11 +353,18 @@ class GlbComputer extends PlaceLocalObject {
      *
      * @param op the operation newly available to process
      */
-    @SuppressWarnings("rawtypes")
-    void newOperation(final GlbOperation op) {
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    void newOperation(GlbOperation op) {
 	// Put members needed for global termination management
 	reserve.finishes.put(op, currentFinish());
 	reserve.blockers.put(op, new SemaphoreBlocker());
+
+	// Prepare every worker with the special initialization (if needed)
+	if (op.workerInit != null) {
+	    for (final WorkerInfo wi : workers) {
+		op.workerInit.accept(wi);
+	    }
+	}
 
 	// Prepare the GlbTask of the relevant distributed collection
 	final boolean localWorkCreated = reserve.newOperation(op);
@@ -411,7 +452,7 @@ class GlbComputer extends PlaceLocalObject {
 	worker.workerStarted();
 	try {
 	    for (;;) {
-		while (a.process(granularity)) { // STEP 1: Work is done here
+		while (a.process(granularity, worker)) { // STEP 1: Work is done here
 
 		    // STEP 2: Attempt to spawn a new worker from work present in the reserve
 		    attemptToSpawnWorker();
@@ -433,7 +474,7 @@ class GlbComputer extends PlaceLocalObject {
 		if ((a = reserve.getAssignment()) == null) {
 		    // The reserve returned null, this worker will stop
 		    worker.workerStopped();
-		    workers.add(worker);
+		    idleWorkers.add(worker);
 		    break;
 		} else {
 		    worker.tookFromReserve++;
@@ -442,8 +483,6 @@ class GlbComputer extends PlaceLocalObject {
 	} catch (final Throwable t) {
 	    System.err.println("Worker number " + worker.id + " sufferred a " + t);
 	    t.printStackTrace();
-	} finally {
-	    workers.add(worker);
 	}
     }
 
@@ -460,7 +499,7 @@ class GlbComputer extends PlaceLocalObject {
      * extra one.
      */
     private void attemptToSpawnWorker() {
-	final WorkerInfo worker = workers.poll();
+	final WorkerInfo worker = idleWorkers.poll();
 	if (worker != null) {
 	    final Assignment forSpawn = reserve.getAssignment();
 	    if (forSpawn != null) {
@@ -470,7 +509,7 @@ class GlbComputer extends PlaceLocalObject {
 
 		// We place the workerInfo back into the #workers collection so that it gets
 		// another chance to be spawned later
-		workers.add(worker);
+		idleWorkers.add(worker);
 
 		// We signal all the workers that the #reserve is empty and that every worker
 		// needs to place some work back into the reserve

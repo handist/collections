@@ -17,11 +17,12 @@ interface Assignment {
      * current assignment. Then returns true if there remains some work for this
      * assignment that was progressed in this call, false otherwise.
      *
-     * @param qtt amount of work to process
+     * @param qtt    amount of work to process
+     * @param worker instance providing service the operation might need
      * @return true if there is some work available for the operation that was
      *         progressed
      */
-    boolean process(int qtt);
+    boolean process(int qtt, WorkerService ws);
 
     /**
      * Indicates if this assignment can be split into 2 new assignments. An

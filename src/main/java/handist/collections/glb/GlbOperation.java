@@ -12,6 +12,7 @@ import java.util.Queue;
 import apgas.MultipleException;
 import apgas.SerializableJob;
 import handist.collections.dist.AbstractDistCollection;
+import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.SerializableSupplier;
 
@@ -87,27 +88,39 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
     SerializableSupplier<GlbTask> initializerOfGlbTask;
 
     /**
-     * The method to be called on each host which, provided an instance of the
-     * identifier type will perform the operation.
+     * The method to be called by workers. It expects an instance of the identifier
+     * type K to perform the operation. The second argument (WorkerService) is here
+     * to provide special services to the operation in case it requires them.
      */
-    SerializableConsumer<K> operation;
+    SerializableBiConsumer<K, WorkerService> operation;
+
+    /**
+     * Method to be called on every worker before this operation can start on a
+     * host. May be null, in which case no particular action is needed.
+     */
+    SerializableConsumer<WorkerService> workerInit;
 
     /**
      * Constructor for GLB operation. The distributed collection under consideration
      * and the method to be called on it needs to be specified.
      *
-     * @param c           distributed collection on which this operation will be
-     *                    applied
-     * @param op          method to call on each local host to perform the
-     *                    computation
-     * @param f           object that is presented to the programmer inside the GLB
-     *                    program in which the result will be stored.
-     * @param glbTaskInit initializer of the class which will handle the progression
-     *                    of this operation. It will be used if not previously
-     *                    initialized for this collection through another
-     *                    collection.
+     * @param c                    distributed collection on which this operation
+     *                             will be applied
+     * @param op                   method to call on each local host to perform the
+     *                             computation
+     * @param f                    object that is presented to the programmer inside
+     *                             the GLB program in which the result will be
+     *                             stored.
+     * @param glbTaskInit          initializer of the class which will handle the
+     *                             progression of this operation. It will be used if
+     *                             not previously initialized for this collection
+     *                             through another collection.
+     * @param workerInitialization initialization to be performed on every worker in
+     *                             the system before this operation starts. May be
+     *                             null is not needed.
      */
-    GlbOperation(C c, SerializableConsumer<K> op, DistFuture<R> f, SerializableSupplier<GlbTask> glbTaskInit) {
+    GlbOperation(C c, SerializableBiConsumer<K, WorkerService> op, DistFuture<R> f,
+	    SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization) {
 	collection = c;
 	operation = op;
 	future = f; // We need a 2-way link between the GlbOperation and the
@@ -115,6 +128,7 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
 	hooks = new ArrayList<>();
 	dependencies = new LinkedList<>();
 	initializerOfGlbTask = glbTaskInit;
+	workerInit = workerInitialization;
     }
 
     /**
