@@ -17,6 +17,7 @@ import apgas.MultipleException;
 import apgas.Place;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
+import handist.collections.dist.DistBag;
 import handist.collections.dist.DistCol;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.mpijunit.MpiConfig;
@@ -27,16 +28,15 @@ import handist.mpijunit.launcher.TestLauncher;
 @MpiConfig(ranks = 4, launcher = TestLauncher.class)
 public class IT_GLB_DistCol implements Serializable {
 
-    /** Serial Version UID */
-    private static final long serialVersionUID = 3890454865986201964L;
-
     /** Number of ranges to populate this collection */
     final static long LONGRANGE_COUNT = 20l;
     /** Size of individual ranges */
     final static long RANGE_SIZE = 20l;
-
     /** Total number of elements contained in the {@link DistCol} */
     final static long DATA_SIZE = LONGRANGE_COUNT * RANGE_SIZE;
+
+    /** Serial Version UID */
+    private static final long serialVersionUID = 3890454865986201964L;
 
     /**
      * Helper method which fill the provided DistCol with values
@@ -59,6 +59,41 @@ public class IT_GLB_DistCol implements Serializable {
     }
 
     /**
+     * Checks that the given {@link DistBag} holds the specified number of objects
+     * distributed across all the places on which it is defined.
+     *
+     * @param bag           DistBag whose size needs to be checked
+     * @param expectedTotal expected number of objects
+     * @throws Throwable if thrown as part of this small test procedure
+     */
+    private static void z_checkBagTotalElements(DistBag<Element> bag, long expectedTotal) throws Throwable {
+	long count = 0;
+	for (final Place p : bag.placeGroup().places()) {
+	    count += at(p, () -> {
+		return bag.size();
+	    });
+	}
+	assertEquals(expectedTotal, count);
+    }
+
+    /**
+     * Checks that the distCol contains exactly the specified number of entries. The
+     * {@link DistCol#size()} needs to match the specified parameter.
+     *
+     * @param expectedCount expected total number of entries in {@link #distCol}
+     * @throws Throwable if thrown during the check
+     */
+    private static void z_checkDistColTotalElements(DistCol<Element> col, long expectedCount) throws Throwable {
+	long count = 0;
+	for (final Place p : col.placeGroup().places()) {
+	    count += at(p, () -> {
+		return col.size();
+	    });
+	}
+	assertEquals(expectedCount, count);
+    }
+
+    /**
      * Checks that the prefix of each element in {@link #distCol} is the one
      * specified
      *
@@ -68,6 +103,21 @@ public class IT_GLB_DistCol implements Serializable {
     private static void z_checkPrefixIs(DistCol<Element> col, final String prefix) throws Throwable {
 	try {
 	    col.GLOBAL.forEach((e) -> assertTrue("String was " + e.s, e.s.startsWith(prefix)));
+	} catch (final MultipleException me) {
+	    printExceptionAndThrowFirst(me);
+	}
+    }
+
+    /**
+     * Checks the suffix of every element contained in the provided DistBag
+     *
+     * @param bag    DistBag whose elements need to be checked
+     * @param suffix suffix expected to be on every element
+     * @throws Throwable if thrown as part of this small procedure
+     */
+    private static void z_checkSuffixIs(DistBag<Element> bag, final String suffix) throws Throwable {
+	try {
+	    bag.GLOBAL.forEach((e) -> assertTrue("String was " + e.s, e.s.endsWith(suffix)));
 	} catch (final MultipleException me) {
 	    printExceptionAndThrowFirst(me);
 	}
@@ -86,23 +136,6 @@ public class IT_GLB_DistCol implements Serializable {
 	} catch (final MultipleException me) {
 	    printExceptionAndThrowFirst(me);
 	}
-    }
-
-    /**
-     * Checks that the distCol contains exactly the specified number of entries. The
-     * {@link DistCol#size()} needs to match the specified parameter.
-     *
-     * @param expectedCount expected total number of entries in {@link #distCol}
-     * @throws Throwable if thrown during the check
-     */
-    private static void z_checkTotalElements(DistCol<Element> col, long expectedCount) throws Throwable {
-	long count = 0;
-	for (final Place p : col.placeGroup().places()) {
-	    count += at(p, () -> {
-		return col.size();
-	    });
-	}
-	assertEquals(expectedCount, count);
     }
 
     /**
@@ -161,7 +194,7 @@ public class IT_GLB_DistCol implements Serializable {
 	} catch (final MultipleException me) {
 	    printExceptionAndThrowFirst(me);
 	}
-	z_checkTotalElements(distCol, DATA_SIZE);
+	z_checkDistColTotalElements(distCol, DATA_SIZE);
 	z_checkPrefixIs(distCol, "Test");
     }
 
@@ -182,8 +215,8 @@ public class IT_GLB_DistCol implements Serializable {
 		}).result();
 
 		try {
-		    z_checkTotalElements(distCol, DATA_SIZE); // This shouldn't have changed
-		    z_checkTotalElements(result, DATA_SIZE); // Should contain the same number of elements
+		    z_checkDistColTotalElements(distCol, DATA_SIZE); // This shouldn't have changed
+		    z_checkDistColTotalElements(result, DATA_SIZE); // Should contain the same number of elements
 		    z_checkSuffixIs(result, "Test"); // The elements contained in the result should have 'Test' as
 						     // prefix
 		} catch (final Throwable e) {
@@ -206,12 +239,32 @@ public class IT_GLB_DistCol implements Serializable {
 	}
     }
 
-    @Test(timeout = 40000)
-    public void testTwoForEachAfterOneAnother() throws Throwable {
+    /**
+     * Checks that the "toBag" operation of DistCol. This operation relies on the
+     * WorkerService functionalities to bind a dedicated List to each worker.
+     *
+     * @throws Throwable if thrown during the computation
+     */
+    @Test(timeout = 20000)
+    public void testToBag() throws Throwable {
 	try {
 	    final ArrayList<Exception> ex = underGLB(() -> {
-		final DistFuture<?> prefixFuture = distCol.GLB.forEach(makePrefixTest);
-		distCol.GLB.forEach(makeSuffixTest).after(prefixFuture);
+		final DistBag<Element> result = distCol.GLB.toBag((e) -> {
+		    return new Element(e.s + "Test");
+		}).result();
+
+		try {
+		    z_checkDistColTotalElements(distCol, DATA_SIZE); // This shouldn't have changed
+		    // There should be as many lists in the handles of the DistBag as there are
+		    // workers on the hosts
+		    z_checkBagNumberOfLists(result, GlbComputer.getComputer().MAX_WORKERS);
+		    z_checkBagTotalElements(result, DATA_SIZE); // Should contain the same number of elements
+		    z_checkSuffixIs(result, "Test"); // The elements contained in the result should have 'Test' as
+						     // prefix
+		} catch (final Throwable e) {
+		    throw new RuntimeException(e);
+		}
+
 	    });
 	    if (!ex.isEmpty()) {
 		ex.get(0).printStackTrace();
@@ -219,10 +272,13 @@ public class IT_GLB_DistCol implements Serializable {
 	    }
 	} catch (final MultipleException me) {
 	    printExceptionAndThrowFirst(me);
+	} catch (final RuntimeException re) {
+	    if (re.getCause() instanceof AssertionError) {
+		throw re.getCause();
+	    } else {
+		throw re;
+	    }
 	}
-	z_checkTotalElements(distCol, DATA_SIZE);
-	z_checkPrefixIs(distCol, "Test");
-	z_checkSuffixIs(distCol, "Test");
     }
 
     @Test(timeout = 60000)
@@ -239,7 +295,7 @@ public class IT_GLB_DistCol implements Serializable {
 	} catch (final MultipleException me) {
 	    printExceptionAndThrowFirst(me);
 	}
-	z_checkTotalElements(distCol, DATA_SIZE);
+	z_checkDistColTotalElements(distCol, DATA_SIZE);
 	z_checkPrefixIs(distCol, "Test");
 	z_checkSuffixIs(distCol, "Test");
     }
@@ -261,11 +317,47 @@ public class IT_GLB_DistCol implements Serializable {
 	    printExceptionAndThrowFirst(me);
 	}
 
-	z_checkTotalElements(distCol, DATA_SIZE);
-	z_checkTotalElements(otherCol, DATA_SIZE);
+	z_checkDistColTotalElements(distCol, DATA_SIZE);
+	z_checkDistColTotalElements(otherCol, DATA_SIZE);
 	z_checkSuffixIs(distCol, "Test");
 	z_checkPrefixIs(otherCol, "Test");
 
 	otherCol.destroy();
+    }
+
+    @Test(timeout = 40000)
+    public void testTwoForEachAfterOneAnother() throws Throwable {
+	try {
+	    final ArrayList<Exception> ex = underGLB(() -> {
+		final DistFuture<?> prefixFuture = distCol.GLB.forEach(makePrefixTest);
+		distCol.GLB.forEach(makeSuffixTest).after(prefixFuture);
+	    });
+	    if (!ex.isEmpty()) {
+		ex.get(0).printStackTrace();
+		throw ex.get(0);
+	    }
+	} catch (final MultipleException me) {
+	    printExceptionAndThrowFirst(me);
+	}
+	z_checkDistColTotalElements(distCol, DATA_SIZE);
+	z_checkPrefixIs(distCol, "Test");
+	z_checkSuffixIs(distCol, "Test");
+    }
+
+    /**
+     * Small check on the given {@link DistBag} that the number of lists contained
+     * is equal to the provided integer.
+     *
+     * @param bag           {@link DistBag} to check
+     * @param expectedCount expected number of lists internally contained in each
+     *                      local handle of the provided {@link DistBag}
+     * @throws Throwable if thrown as part of this small procedure
+     */
+    private void z_checkBagNumberOfLists(DistBag<Element> bag, int expectedCount) throws Throwable {
+	for (final Place p : bag.placeGroup().places()) {
+	    at(p, () -> {
+		assertEquals(expectedCount, bag.listCount());
+	    });
+	}
     }
 }

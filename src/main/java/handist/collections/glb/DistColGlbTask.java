@@ -70,14 +70,14 @@ public class DistColGlbTask implements GlbTask {
 	@Override
 	public boolean isSplittable(int qtt) {
 	    // First condition, range greater than minimum
-	    if (range.size() < qtt) {
+	    if (range.size() <= qtt) {
 		return false;
 	    }
 
 	    // Second condition, at least one operation has greater than minimum elements
 	    // left to process
 	    for (final Long operationProgress : progress.values()) {
-		if (range.to - operationProgress > qtt) {
+		if (range.to - operationProgress >= qtt) {
 		    return true;
 		}
 	    }
@@ -105,13 +105,14 @@ public class DistColGlbTask implements GlbTask {
 	 * available for this assignment.
 	 *
 	 * @param qtt number of elements to process
+	 * @param ws  service provided by the worker to the operation
 	 * @return true if there is some work remaining in the operation that was
 	 *         progressed, false if the operation that was chosen was completed on
 	 *         this fragment
 	 */
 	@Override
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public boolean process(int qtt) {
+	public boolean process(int qtt, WorkerService ws) {
 
 	    // TODO this method of selecting the operation needs improvements
 	    // We may be able to introduce some sort of priority mechanism here
@@ -148,7 +149,7 @@ public class DistColGlbTask implements GlbTask {
 	    // Computation loop is made on the following LongRange inside the "action"
 	    // carried by the GlbOperation.
 	    final LongRange lr = new LongRange(next, limit);
-	    op.operation.accept(lr);
+	    op.operation.accept(lr, ws);
 
 	    // Signal the parent GlbTask that the operation has completed on this
 	    // assignment.
