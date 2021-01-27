@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
 
 import static apgas.Constructs.*;
@@ -10,6 +20,7 @@ import java.util.List;
 import java.util.Queue;
 
 import apgas.MultipleException;
+import apgas.Place;
 import apgas.SerializableJob;
 import handist.collections.dist.AbstractDistCollection;
 import handist.collections.function.SerializableBiConsumer;
@@ -49,8 +60,8 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
      *               completed
      */
     static void makeDependency(GlbOperation<?, ?, ?, ?, ?> before, GlbOperation<?, ?, ?, ?, ?> after) {
-	after.dependencies.add(before);
-	before.addHook(() -> after.dependencySatisfied(before));
+        after.dependencies.add(before);
+        before.addHook(() -> after.dependencySatisfied(before));
     }
 
     /** Distributed collection on which this operation is operating */
@@ -68,6 +79,12 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
      * computation.
      */
     private final Queue<GlbOperation<?, ?, ?, ?, ?>> dependencies;
+
+    /**
+     * List of all the errors that were thrown during this operation's execution.
+     * This member will remain null until method {@link #getErrors()} is called.
+     */
+    transient List<Throwable> errors = null;
 
     /** Indicates if this operation is terminated */
     private boolean finished = false;
@@ -120,15 +137,15 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
      *                             null is not needed.
      */
     GlbOperation(C c, SerializableBiConsumer<K, WorkerService> op, DistFuture<R> f,
-	    SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization) {
-	collection = c;
-	operation = op;
-	future = f; // We need a 2-way link between the GlbOperation and the
-	future.operation = this; // DistFuture
-	hooks = new ArrayList<>();
-	dependencies = new LinkedList<>();
-	initializerOfGlbTask = glbTaskInit;
-	workerInit = workerInitialization;
+            SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization) {
+        collection = c;
+        operation = op;
+        future = f; // We need a 2-way link between the GlbOperation and the
+        future.operation = this; // DistFuture
+        hooks = new ArrayList<>();
+        dependencies = new LinkedList<>();
+        initializerOfGlbTask = glbTaskInit;
+        workerInit = workerInitialization;
     }
 
     /**
@@ -137,7 +154,7 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
      * @param j the job to do after this operation has completed
      */
     void addHook(SerializableJob j) {
-	hooks.add(j);
+        hooks.add(j);
     }
 
     /**
@@ -151,31 +168,31 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
      *                           computation
      */
     void compute() {
-	MultipleException me = null;
-	try {
-	    collection.placeGroup().broadcastFlat(() -> {
-		// The GLB routine for this operation is called from here
-		final GlbComputer glb = GlbComputer.getComputer();
-		glb.newOperation(this);
-	    });
-	} catch (final MultipleException e) {
-	    me = e;
-	}
-	// The operation has completed, we execute the various hooks it may have
-	for (final SerializableJob h : hooks) {
-	    try {
-		h.run();
-	    } catch (final Exception e) {
-		System.err.println("Exception was thrown as part of operation" + this);
-		e.printStackTrace();
-	    }
-	}
+        MultipleException me = null;
+        try {
+            collection.placeGroup().broadcastFlat(() -> {
+                // The GLB routine for this operation is called from here
+                final GlbComputer glb = GlbComputer.getComputer();
+                glb.newOperation(this);
+            });
+        } catch (final MultipleException e) {
+            me = e;
+        }
+        // The operation has completed, we execute the various hooks it may have
+        for (final SerializableJob h : hooks) {
+            try {
+                h.run();
+            } catch (final Exception e) {
+                System.err.println("Exception was thrown as part of operation" + this);
+                e.printStackTrace();
+            }
+        }
 
-	finished = true;
-	// If a MultipleException was caught, throw it
-	if (me != null) {
-	    throw me;
-	}
+        finished = true;
+        // If a MultipleException was caught, throw it
+        if (me != null) {
+            throw me;
+        }
     }
 
     /**
@@ -199,12 +216,12 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
      * assertion exception in this method
      */
     private synchronized void dependencySatisfied(GlbOperation<?, ?, ?, ?, ?> dep) {
-	assertTrue(dep + " was not a dependency of " + this + " attempted to unblock " + this + " anyway.",
-		dependencies.remove(dep));
+        assertTrue(dep + " was not a dependency of " + this + " attempted to unblock " + this + " anyway.",
+                dependencies.remove(dep));
 
-	if (dependencies.isEmpty()) {
-	    async(() -> this.compute());
-	}
+        if (dependencies.isEmpty()) {
+            async(() -> this.compute());
+        }
     }
 
     /**
@@ -213,6 +230,43 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
      * @return true if this operation has completed, false otherwise
      */
     public boolean finished() {
-	return finished;
+        return finished;
+    }
+
+    /**
+     * If not previously called, gathers all the Throwables caught on the various
+     * hosts and gathers them into a single list which is then returned.
+     * <p>
+     * This method should only be called AFTER this operation has completed
+     * globally, i.e. if calling the {@link #finished()} method returned
+     * {@code true}
+     *
+     * @return a list of all the throwables that were thrown during the operation
+     */
+    List<Throwable> getErrors() {
+        if (errors == null) { // If this method was not previously called
+            errors = new ArrayList<>();
+            finish(() -> {
+                final Place here = here();
+                for (final Place p : collection.placeGroup().places()) {
+                    asyncAt(p, () -> {
+                        // Gather the errors on the remote host
+                        final ArrayList<Throwable> remoteErrors = GlbComputer.getComputer().operationErrors.get(this);
+                        if (remoteErrors != null) {
+                            // Send them to 'here'
+                            asyncAt(here, () -> {
+                                final List<Throwable> hereCollection = errors;
+                                synchronized (hereCollection) {
+                                    hereCollection.addAll(remoteErrors);
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+
+        }
+
+        return errors;
     }
 }

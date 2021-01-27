@@ -1,12 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
  *
  * This program and the accompanying materials are made available to you under
  * the terms of the Eclipse Public License 1.0 which accompanies this
- * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
  *
  * SPDX-License-Identifier: EPL-1.0
- *******************************************************************************/
+ ******************************************************************************/
 package handist.collections;
 
 import java.util.Iterator;
@@ -30,7 +31,7 @@ public interface RangedListIterator<T> extends Iterator<T> {
      * in the reverse direction. (In other words, returns true if
      * {@link #previous()} would return an element rather than throwing an
      * exception.)
-     * 
+     *
      * @return {@code true} if the iterator has more elements when traversing the
      *         list in the reverse direction
      */
@@ -39,7 +40,7 @@ public interface RangedListIterator<T> extends Iterator<T> {
     /**
      * Returns the {@code long} index in {@link RangedList} of the element that
      * would be returned by calling method {@link #next()}
-     * 
+     *
      * @return the index of the element that calling {@link #next()} would return
      */
     public long nextIndex();
@@ -50,7 +51,7 @@ public interface RangedListIterator<T> extends Iterator<T> {
      * the list backwards, or intermixed with calls to {@link #next()} to go back
      * and forth. Note that alternating calls to {@link #next()} and
      * {@link #previous()} will return the same element repeatedly.
-     * 
+     *
      * @return the previous element in the RangedList
      */
     public T previous();
@@ -59,7 +60,7 @@ public interface RangedListIterator<T> extends Iterator<T> {
      * Returns the index of the element that would be returned by a subsequent call
      * to method {@link #previous()}. (If this iterator is at the beginning of the
      * {@link RangedList}, it will return the lower bound value subtracted by 1).
-     * 
+     *
      * @return the index in the {@link RangedList}
      */
     public long previousIndex();
@@ -67,7 +68,7 @@ public interface RangedListIterator<T> extends Iterator<T> {
     /**
      * Replaces the last element returned by {@link #next()} of {@link #previous()}
      * with the specified element.
-     * 
+     *
      * @param e the value to set in place of the previously returned object
      * @throws IllegalStateException if neither {@link #next()} nor
      *                               {@link #previous()} have been previously called

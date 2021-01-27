@@ -1,12 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
  *
  * This program and the accompanying materials are made available to you under
  * the terms of the Eclipse Public License 1.0 which accompanies this
- * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
  *
  * SPDX-License-Identifier: EPL-1.0
- *******************************************************************************/
+ ******************************************************************************/
 package handist.collections.dist;
 
 import java.io.ObjectStreamException;
@@ -31,22 +32,22 @@ public abstract class GlobalOperations<T, C extends AbstractDistCollection<T, C>
     protected final C localHandle;
 
     GlobalOperations(C handle) {
-	localHandle = handle;
+        localHandle = handle;
     }
 
     public void balance() {
-	final TeamedPlaceGroup pg = localHandle.placeGroup();
-	pg.broadcastFlat(() -> {
-	    localHandle.team().teamedBalance();
-	});
+        final TeamedPlaceGroup pg = localHandle.placeGroup();
+        pg.broadcastFlat(() -> {
+            localHandle.team().teamedBalance();
+        });
     }
 
     public void balance(final float[] balance) {
-	localHandle.balanceSpecCheck(balance);
-	final TeamedPlaceGroup pg = localHandle.placeGroup();
-	pg.broadcastFlat(() -> {
-	    localHandle.team().teamedBalance(balance);
-	});
+        localHandle.balanceSpecCheck(balance);
+        final TeamedPlaceGroup pg = localHandle.placeGroup();
+        pg.broadcastFlat(() -> {
+            localHandle.team().teamedBalance(balance);
+        });
     };
 
     /**
@@ -55,27 +56,27 @@ public abstract class GlobalOperations<T, C extends AbstractDistCollection<T, C>
      * completed.
      * <p>
      * The specified action is performed by a single thread on each host.
-     * 
+     *
      * @param action action to perform
      */
     public void forEach(final SerializableConsumer<T> action) {
-	localHandle.placeGroup().broadcastFlat(() -> {
-	    localHandle.forEach(action);
-	});
+        localHandle.placeGroup().broadcastFlat(() -> {
+            localHandle.forEach(action);
+        });
     }
 
     /**
      * Calls the provided action on the local instance of the distributed collection
      * on every place the collection is handled and returns.
-     * 
+     *
      * @param action action to perform, the first parameter is the Place on which
      *               the local instance is located, the second parameter is the
      *               local collection object
      */
     public void onLocalHandleDo(SerializableBiConsumer<Place, C> action) {
-	localHandle.placeGroup().broadcastFlat(() -> {
-	    action.accept(Constructs.here(), localHandle);
-	});
+        localHandle.placeGroup().broadcastFlat(() -> {
+            action.accept(Constructs.here(), localHandle);
+        });
     }
 
     /**
@@ -84,25 +85,25 @@ public abstract class GlobalOperations<T, C extends AbstractDistCollection<T, C>
      * completed.
      * <p>
      * The specified action is performed by multiple threads on each host.
-     * 
+     *
      * @param action action to perform
      */
     public void parallelForEach(final SerializableConsumer<T> action) {
-	localHandle.placeGroup().broadcastFlat(() -> {
-	    localHandle.parallelForEach(action);
-	});
+        localHandle.placeGroup().broadcastFlat(() -> {
+            localHandle.parallelForEach(action);
+        });
     }
 
     /**
      * Gathers the size of every local collection and returns it in the provided
      * array
-     * 
+     *
      * @param result the array in which the result will be stored
      */
     public void size(final long[] result) {
-	localHandle.placeGroup().broadcastFlat(() -> {
-	    localHandle.team().size(result);
-	});
+        localHandle.placeGroup().broadcastFlat(() -> {
+            localHandle.team().size(result);
+        });
     }
 
     /**
@@ -113,7 +114,7 @@ public abstract class GlobalOperations<T, C extends AbstractDistCollection<T, C>
      * {@link MemberOfLazyObjectReference} instance capable of initializing the
      * local handle of the distributed collection on the remote place and return the
      * "GLOBAL" member of this handle's local class.
-     * 
+     *
      * @return a {@link MemberOfLazyObjectReference} (left to programmer's
      *         good-will)
      * @throws ObjectStreamException if such an exception is thrown during the

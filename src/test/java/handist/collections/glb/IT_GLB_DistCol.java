@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
 
 import static apgas.Constructs.*;
@@ -7,7 +17,10 @@ import static org.junit.Assert.*;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.core.IsInstanceOf;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -20,6 +33,7 @@ import handist.collections.LongRange;
 import handist.collections.dist.DistBag;
 import handist.collections.dist.DistCol;
 import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.glb.DistColGlb.DistColGlbError;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -32,11 +46,11 @@ public class IT_GLB_DistCol implements Serializable {
     final static long LONGRANGE_COUNT = 20l;
     /** Size of individual ranges */
     final static long RANGE_SIZE = 20l;
-    /** Total number of elements contained in the {@link DistCol} */
-    final static long DATA_SIZE = LONGRANGE_COUNT * RANGE_SIZE;
-
     /** Serial Version UID */
     private static final long serialVersionUID = 3890454865986201964L;
+
+    /** Total number of elements contained in the {@link DistCol} */
+    final static long TOTAL_DATA_SIZE = LONGRANGE_COUNT * RANGE_SIZE;
 
     /**
      * Helper method which fill the provided DistCol with values
@@ -44,18 +58,18 @@ public class IT_GLB_DistCol implements Serializable {
      * @param col the collection which needs to be populated
      */
     private static void y_populateDistCol(DistCol<Element> col) {
-	for (long l = 0l; l < LONGRANGE_COUNT; l++) {
-	    final long from = l * RANGE_SIZE;
-	    final long to = from + RANGE_SIZE;
-	    final String lrPrefix = "LR[" + from + ";" + to + "]";
-	    final LongRange lr = new LongRange(from, to);
-	    final Chunk<Element> c = new Chunk<>(lr);
-	    for (long i = from; i < to; i++) {
-		final String value = genRandStr(lrPrefix + ":" + i + "#");
-		c.set(i, new Element(value));
-	    }
-	    col.add(c);
-	}
+        for (long l = 0l; l < LONGRANGE_COUNT; l++) {
+            final long from = l * RANGE_SIZE;
+            final long to = from + RANGE_SIZE;
+            final String lrPrefix = "LR[" + from + ";" + to + "]";
+            final LongRange lr = new LongRange(from, to);
+            final Chunk<Element> c = new Chunk<>(lr);
+            for (long i = from; i < to; i++) {
+                final String value = lrPrefix + ":" + i + "#";
+                c.set(i, new Element(value));
+            }
+            col.add(c);
+        }
     }
 
     /**
@@ -67,13 +81,13 @@ public class IT_GLB_DistCol implements Serializable {
      * @throws Throwable if thrown as part of this small test procedure
      */
     private static void z_checkBagTotalElements(DistBag<Element> bag, long expectedTotal) throws Throwable {
-	long count = 0;
-	for (final Place p : bag.placeGroup().places()) {
-	    count += at(p, () -> {
-		return bag.size();
-	    });
-	}
-	assertEquals(expectedTotal, count);
+        long count = 0;
+        for (final Place p : bag.placeGroup().places()) {
+            count += at(p, () -> {
+                return bag.size();
+            });
+        }
+        assertEquals(expectedTotal, count);
     }
 
     /**
@@ -84,13 +98,13 @@ public class IT_GLB_DistCol implements Serializable {
      * @throws Throwable if thrown during the check
      */
     private static void z_checkDistColTotalElements(DistCol<Element> col, long expectedCount) throws Throwable {
-	long count = 0;
-	for (final Place p : col.placeGroup().places()) {
-	    count += at(p, () -> {
-		return col.size();
-	    });
-	}
-	assertEquals(expectedCount, count);
+        long count = 0;
+        for (final Place p : col.placeGroup().places()) {
+            count += at(p, () -> {
+                return col.size();
+            });
+        }
+        assertEquals(expectedCount, count);
     }
 
     /**
@@ -101,11 +115,11 @@ public class IT_GLB_DistCol implements Serializable {
      * @throws Throwable if thrown during the check
      */
     private static void z_checkPrefixIs(DistCol<Element> col, final String prefix) throws Throwable {
-	try {
-	    col.GLOBAL.forEach((e) -> assertTrue("String was " + e.s, e.s.startsWith(prefix)));
-	} catch (final MultipleException me) {
-	    printExceptionAndThrowFirst(me);
-	}
+        try {
+            col.GLOBAL.forEach((e) -> assertTrue("String was " + e.s, e.s.startsWith(prefix)));
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        }
     }
 
     /**
@@ -116,11 +130,11 @@ public class IT_GLB_DistCol implements Serializable {
      * @throws Throwable if thrown as part of this small procedure
      */
     private static void z_checkSuffixIs(DistBag<Element> bag, final String suffix) throws Throwable {
-	try {
-	    bag.GLOBAL.forEach((e) -> assertTrue("String was " + e.s, e.s.endsWith(suffix)));
-	} catch (final MultipleException me) {
-	    printExceptionAndThrowFirst(me);
-	}
+        try {
+            bag.GLOBAL.forEach((e) -> assertTrue("String was " + e.s, e.s.endsWith(suffix)));
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        }
     }
 
     /**
@@ -131,11 +145,11 @@ public class IT_GLB_DistCol implements Serializable {
      * @throws Throwable of throw during the test
      */
     private static void z_checkSuffixIs(DistCol<Element> col, final String suffix) throws Throwable {
-	try {
-	    col.GLOBAL.forEach((e) -> assertTrue("String was " + e.s, e.s.endsWith(suffix)));
-	} catch (final MultipleException me) {
-	    printExceptionAndThrowFirst(me);
-	}
+        try {
+            col.GLOBAL.forEach((e) -> assertTrue("String was " + e.s, e.s.endsWith(suffix)));
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        }
     }
 
     /**
@@ -151,15 +165,15 @@ public class IT_GLB_DistCol implements Serializable {
 
     @Before
     public void setUp() throws Exception {
-	placeGroup = TeamedPlaceGroup.getWorld();
-	distCol = new DistCol<>();
+        placeGroup = TeamedPlaceGroup.getWorld();
+        distCol = new DistCol<>();
 
-	y_populateDistCol(distCol);
+        y_populateDistCol(distCol);
     }
 
     @After
     public void tearDown() throws Exception {
-	distCol.destroy();
+        distCol.destroy();
     }
 
     /**
@@ -172,30 +186,115 @@ public class IT_GLB_DistCol implements Serializable {
      */
     @Test
     public void testEnvironmentHasEnoughParallelism() throws Exception {
-	for (final Place p : places()) {
-	    at(p, () -> {
-		if (Runtime.getRuntime().availableProcessors() <= 1) {
-		    throw new Exception("Not Enough Parallelism To Run These Tests");
-		}
-	    });
-	}
+        for (final Place p : places()) {
+            at(p, () -> {
+                if (Runtime.getRuntime().availableProcessors() <= 1) {
+                    throw new Exception("Not Enough Parallelism To Run These Tests");
+                }
+            });
+        }
     }
 
+    /**
+     * Checks the behavior of the GLB when an exception is thrown inside of the
+     * lambda expression supplied by the user.
+     *
+     * @throws Throwable if thrown during the test
+     */
+    @Test(timeout = 10000)
+    public void testExceptionDuringGlbOperation() throws Throwable {
+        // Put a NULL at a certain index
+        final long nullIndex = 5;
+        distCol.set(nullIndex, null);
+
+        // Perform a forEach on all the elements
+        // The GLB should apply the forEach on every element and keep an Exception for
+        // the index "nullIndex"
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                final List<Throwable> errors = distCol.GLB.forEach(makeSuffixTest).getErrors();
+                // We should have 1 exception in the errors returned by the GLB operation
+                assertEquals(1, errors.size());
+
+                // We check that the exception we got is indeed what we expect it to be
+                final Throwable t = errors.get(0);
+                // T is supposed to be the wrapper "DistColGlbError", which indicates that the
+                // problem occurred on index "nullIndex"
+                MatcherAssert.assertThat(t, IsInstanceOf.instanceOf(DistColGlb.DistColGlbError.class));
+                assertEquals(nullIndex, ((DistColGlbError) t).index);
+                // The cause should be a NullPointerException
+                MatcherAssert.assertThat(t.getCause(), IsInstanceOf.instanceOf(NullPointerException.class));
+
+                // We check that the operation was indeed applied to all other indices
+                final List<Throwable> checkErrors = distCol.GLB.forEach((l, e) -> {
+                    if (l == nullIndex) {
+                        // Check that the element is indeed null
+                        assertNull(e);
+                    } else {
+
+                        // Check that the element has the correct prefix
+                        assertTrue(e.s.endsWith("Test"));
+                    }
+                }).getErrors();
+
+                // Potential assertion failures would be caught in the previous forEach
+                // operation's errors.
+                assertTrue("There were <" + checkErrors.size() + "> errors when we expected <0>",
+                        checkErrors.isEmpty());
+            });
+            assertEquals(0, ex.size()); // There shouldn't be any error thrown from inside the GLB
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        }
+    }
+
+    /**
+     * Checks the
+     * {@link DistColGlb#forEach(handist.collections.function.SerializableConsumer)}
+     *
+     * @throws Throwable if thrown during the test
+     */
     @Test(timeout = 20000)
     public void testForEach() throws Throwable {
-	try {
-	    final ArrayList<Exception> ex = underGLB(() -> {
-		distCol.GLB.forEach(makePrefixTest);
-	    });
-	    if (!ex.isEmpty()) {
-		ex.get(0).printStackTrace();
-		throw ex.get(0);
-	    }
-	} catch (final MultipleException me) {
-	    printExceptionAndThrowFirst(me);
-	}
-	z_checkDistColTotalElements(distCol, DATA_SIZE);
-	z_checkPrefixIs(distCol, "Test");
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                distCol.GLB.forEach(makePrefixTest);
+            });
+            if (!ex.isEmpty()) {
+                ex.get(0).printStackTrace();
+                throw ex.get(0);
+            }
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        }
+        z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE);
+        z_checkPrefixIs(distCol, "Test");
+    }
+
+    /**
+     * Checks the
+     * {@link DistColGlb#forEach(handist.collections.function.SerializableLongTBiConsumer)}
+     * function
+     *
+     * @throws Throwable if thrown during the test
+     */
+    @Test(timeout = 20000)
+    public void testForEachLongTBiconsumer() throws Throwable {
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                // Check that no error is thrown during the GLB operation
+                assertTrue(distCol.GLB.forEach((l, e) -> {
+                    assertTrue(e.s.endsWith(l + "#"));
+                }).getErrors().isEmpty());
+            });
+            if (!ex.isEmpty()) {
+                ex.get(0).printStackTrace();
+                throw ex.get(0);
+            }
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        }
+        z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE);
     }
 
     /**
@@ -208,35 +307,35 @@ public class IT_GLB_DistCol implements Serializable {
      */
     @Test(timeout = 20000)
     public void testMap() throws Throwable {
-	try {
-	    final ArrayList<Exception> ex = underGLB(() -> {
-		final DistCol<Element> result = distCol.GLB.map((e) -> {
-		    return new Element(e.s + "Test");
-		}).result();
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                final DistCol<Element> result = distCol.GLB.map((e) -> {
+                    return new Element(e.s + "Test");
+                }).result();
 
-		try {
-		    z_checkDistColTotalElements(distCol, DATA_SIZE); // This shouldn't have changed
-		    z_checkDistColTotalElements(result, DATA_SIZE); // Should contain the same number of elements
-		    z_checkSuffixIs(result, "Test"); // The elements contained in the result should have 'Test' as
-						     // prefix
-		} catch (final Throwable e) {
-		    throw new RuntimeException(e);
-		}
+                try {
+                    z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE); // This shouldn't have changed
+                    z_checkDistColTotalElements(result, TOTAL_DATA_SIZE); // Should contain the same number of elements
+                    z_checkSuffixIs(result, "Test"); // The elements contained in the result should have 'Test' as
+                    // prefix
+                } catch (final Throwable e) {
+                    throw new RuntimeException(e);
+                }
 
-	    });
-	    if (!ex.isEmpty()) {
-		ex.get(0).printStackTrace();
-		throw ex.get(0);
-	    }
-	} catch (final MultipleException me) {
-	    printExceptionAndThrowFirst(me);
-	} catch (final RuntimeException re) {
-	    if (re.getCause() instanceof AssertionError) {
-		throw re.getCause();
-	    } else {
-		throw re;
-	    }
-	}
+            });
+            if (!ex.isEmpty()) {
+                ex.get(0).printStackTrace();
+                throw ex.get(0);
+            }
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        } catch (final RuntimeException re) {
+            if (re.getCause() instanceof AssertionError) {
+                throw re.getCause();
+            } else {
+                throw re;
+            }
+        }
     }
 
     /**
@@ -247,101 +346,101 @@ public class IT_GLB_DistCol implements Serializable {
      */
     @Test(timeout = 20000)
     public void testToBag() throws Throwable {
-	try {
-	    final ArrayList<Exception> ex = underGLB(() -> {
-		final DistBag<Element> result = distCol.GLB.toBag((e) -> {
-		    return new Element(e.s + "Test");
-		}).result();
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                final DistBag<Element> result = distCol.GLB.toBag((e) -> {
+                    return new Element(e.s + "Test");
+                }).result();
 
-		try {
-		    z_checkDistColTotalElements(distCol, DATA_SIZE); // This shouldn't have changed
-		    // There should be as many lists in the handles of the DistBag as there are
-		    // workers on the hosts
-		    z_checkBagNumberOfLists(result, GlbComputer.getComputer().MAX_WORKERS);
-		    z_checkBagTotalElements(result, DATA_SIZE); // Should contain the same number of elements
-		    z_checkSuffixIs(result, "Test"); // The elements contained in the result should have 'Test' as
-						     // prefix
-		} catch (final Throwable e) {
-		    throw new RuntimeException(e);
-		}
+                try {
+                    z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE); // This shouldn't have changed
+                    // There should be as many lists in the handles of the DistBag as there are
+                    // workers on the hosts
+                    z_checkBagNumberOfLists(result, GlbComputer.getComputer().MAX_WORKERS);
+                    z_checkBagTotalElements(result, TOTAL_DATA_SIZE); // Should contain the same number of elements
+                    z_checkSuffixIs(result, "Test"); // The elements contained in the result should have 'Test' as
+                    // prefix
+                } catch (final Throwable e) {
+                    throw new RuntimeException(e);
+                }
 
-	    });
-	    if (!ex.isEmpty()) {
-		ex.get(0).printStackTrace();
-		throw ex.get(0);
-	    }
-	} catch (final MultipleException me) {
-	    printExceptionAndThrowFirst(me);
-	} catch (final RuntimeException re) {
-	    if (re.getCause() instanceof AssertionError) {
-		throw re.getCause();
-	    } else {
-		throw re;
-	    }
-	}
+            });
+            if (!ex.isEmpty()) {
+                ex.get(0).printStackTrace();
+                throw ex.get(0);
+            }
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        } catch (final RuntimeException re) {
+            if (re.getCause() instanceof AssertionError) {
+                throw re.getCause();
+            } else {
+                throw re;
+            }
+        }
     }
 
     @Test(timeout = 60000)
     public void testTwoConcurrentForEach() throws Throwable {
-	try {
-	    final ArrayList<Exception> ex = underGLB(() -> {
-		distCol.GLB.forEach(makePrefixTest);
-		distCol.GLB.forEach(makeSuffixTest);
-	    });
-	    if (!ex.isEmpty()) {
-		ex.get(0).printStackTrace();
-		throw ex.get(0);
-	    }
-	} catch (final MultipleException me) {
-	    printExceptionAndThrowFirst(me);
-	}
-	z_checkDistColTotalElements(distCol, DATA_SIZE);
-	z_checkPrefixIs(distCol, "Test");
-	z_checkSuffixIs(distCol, "Test");
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                distCol.GLB.forEach(makePrefixTest);
+                distCol.GLB.forEach(makeSuffixTest);
+            });
+            if (!ex.isEmpty()) {
+                ex.get(0).printStackTrace();
+                throw ex.get(0);
+            }
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        }
+        z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE);
+        z_checkPrefixIs(distCol, "Test");
+        z_checkSuffixIs(distCol, "Test");
     }
 
     @Test(timeout = 40000)
     public void testTwoDifferentCollectionsComputations() throws Throwable {
-	final DistCol<Element> otherCol = new DistCol<>();
-	y_populateDistCol(otherCol);
-	try {
-	    final ArrayList<Exception> ex = underGLB(() -> {
-		distCol.GLB.forEach(makeSuffixTest);
-		otherCol.GLB.forEach(makePrefixTest);
-	    });
-	    if (!ex.isEmpty()) {
-		ex.get(0).printStackTrace();
-		throw ex.get(0);
-	    }
-	} catch (final MultipleException me) {
-	    printExceptionAndThrowFirst(me);
-	}
+        final DistCol<Element> otherCol = new DistCol<>();
+        y_populateDistCol(otherCol);
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                distCol.GLB.forEach(makeSuffixTest);
+                otherCol.GLB.forEach(makePrefixTest);
+            });
+            if (!ex.isEmpty()) {
+                ex.get(0).printStackTrace();
+                throw ex.get(0);
+            }
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        }
 
-	z_checkDistColTotalElements(distCol, DATA_SIZE);
-	z_checkDistColTotalElements(otherCol, DATA_SIZE);
-	z_checkSuffixIs(distCol, "Test");
-	z_checkPrefixIs(otherCol, "Test");
+        z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE);
+        z_checkDistColTotalElements(otherCol, TOTAL_DATA_SIZE);
+        z_checkSuffixIs(distCol, "Test");
+        z_checkPrefixIs(otherCol, "Test");
 
-	otherCol.destroy();
+        otherCol.destroy();
     }
 
     @Test(timeout = 40000)
     public void testTwoForEachAfterOneAnother() throws Throwable {
-	try {
-	    final ArrayList<Exception> ex = underGLB(() -> {
-		final DistFuture<?> prefixFuture = distCol.GLB.forEach(makePrefixTest);
-		distCol.GLB.forEach(makeSuffixTest).after(prefixFuture);
-	    });
-	    if (!ex.isEmpty()) {
-		ex.get(0).printStackTrace();
-		throw ex.get(0);
-	    }
-	} catch (final MultipleException me) {
-	    printExceptionAndThrowFirst(me);
-	}
-	z_checkDistColTotalElements(distCol, DATA_SIZE);
-	z_checkPrefixIs(distCol, "Test");
-	z_checkSuffixIs(distCol, "Test");
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                final DistFuture<?> prefixFuture = distCol.GLB.forEach(makePrefixTest);
+                distCol.GLB.forEach(makeSuffixTest).after(prefixFuture);
+            });
+            if (!ex.isEmpty()) {
+                ex.get(0).printStackTrace();
+                throw ex.get(0);
+            }
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        }
+        z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE);
+        z_checkPrefixIs(distCol, "Test");
+        z_checkSuffixIs(distCol, "Test");
     }
 
     /**
@@ -354,10 +453,10 @@ public class IT_GLB_DistCol implements Serializable {
      * @throws Throwable if thrown as part of this small procedure
      */
     private void z_checkBagNumberOfLists(DistBag<Element> bag, int expectedCount) throws Throwable {
-	for (final Place p : bag.placeGroup().places()) {
-	    at(p, () -> {
-		assertEquals(expectedCount, bag.listCount());
-	    });
-	}
+        for (final Place p : bag.placeGroup().places()) {
+            at(p, () -> {
+                assertEquals(expectedCount, bag.listCount());
+            });
+        }
     }
 }

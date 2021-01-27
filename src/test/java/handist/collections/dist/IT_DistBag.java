@@ -1,8 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.dist;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -23,135 +31,134 @@ import handist.mpijunit.launcher.TestLauncher;
  * Test class for the distributed features of {@link DistBag}
  */
 @RunWith(MpiRunner.class)
-@MpiConfig(ranks=2, launcher=TestLauncher.class)
+@MpiConfig(ranks = 2, launcher = TestLauncher.class)
 public class IT_DistBag implements Serializable {
 
-	/** Number of elements to initialize on each host */
-	static final int NB_ELEMS [] = {100, 50};
+    /** Number of elements to initialize on each host */
+    static final int NB_ELEMS[] = { 100, 50 };
 
-	static final int NB_LISTS [] = {4, 4};
-	static Random random = new Random(12345l);
+    static final int NB_LISTS[] = { 4, 4 };
+    static Random random = new Random(12345l);
 
-	/** Serial Version UID */
-	private static final long serialVersionUID = 7668710704105520109L;
+    /** Serial Version UID */
+    private static final long serialVersionUID = 7668710704105520109L;
 
-	/** World place group */
-	static final TeamedPlaceGroup WORLD = TeamedPlaceGroup.getWorld();
+    /** World place group */
+    static final TeamedPlaceGroup WORLD = TeamedPlaceGroup.getWorld();
 
-	public static String genRandomString(String header) {
-		long rand = random.nextLong();
-		return header + rand;
-	}
+    public static String genRandomString(String header) {
+        final long rand = random.nextLong();
+        return header + rand;
+    }
 
-	/** Instance under test */
-	DistBag<Element> distBag;
+    /** Instance under test */
+    DistBag<Element> distBag;
 
-	@After
-	public void cleanup() throws Throwable {
-		distBag.destroy();
-	}
+    @After
+    public void cleanup() throws Throwable {
+        distBag.destroy();
+    }
 
-	@Before
-	public void setup() throws Throwable {
-		distBag = new DistBag<>();
-		WORLD.broadcastFlat(()-> {
-			int here = WORLD.rank();
-			for (int listNumber = 0; listNumber < NB_LISTS[here]; listNumber ++) {
-				List<Element> l = new ArrayList<>(NB_ELEMS[here]);
-				for (int i = 0; i < NB_ELEMS[here]; i++) {
-					l.add(new Element(genRandomString(here + "p")));
-				}
-				distBag.addBag(l);
-			}
-		});
-	}
+    @Before
+    public void setup() throws Throwable {
+        distBag = new DistBag<>();
+        WORLD.broadcastFlat(() -> {
+            final int here = WORLD.rank();
+            for (int listNumber = 0; listNumber < NB_LISTS[here]; listNumber++) {
+                final List<Element> l = new ArrayList<>(NB_ELEMS[here]);
+                for (int i = 0; i < NB_ELEMS[here]; i++) {
+                    l.add(new Element(genRandomString(here + "p")));
+                }
+                distBag.addBag(l);
+            }
+        });
+    }
 
-	@Test
-	public void testGlobalForEach() throws Throwable {
-		// Add a prefix to all Element.s members
-		distBag.GLOBAL.forEach((e)->{
-			e.s = "GLOBAL" + e.s;
-		});
+    @Test
+    public void testGlobalForEach() throws Throwable {
+        // Add a prefix to all Element.s members
+        distBag.GLOBAL.forEach((e) -> {
+            e.s = "GLOBAL" + e.s;
+        });
 
-		//Check that all elements on all places have the new prefix
-		try {
-			WORLD.broadcastFlat(()->{
-				// "normal" for loop on the elements of the local handle
-				for (Element e : distBag) {
-					assertTrue(e.s.startsWith("GLOBAL"));
-				}
-			});
-		} catch (MultipleException me) {
-			me.printStackTrace();
-			throw me.getSuppressed()[0];
-		}
-	}
+        // Check that all elements on all places have the new prefix
+        try {
+            WORLD.broadcastFlat(() -> {
+                // "normal" for loop on the elements of the local handle
+                for (final Element e : distBag) {
+                    assertTrue(e.s.startsWith("GLOBAL"));
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
+    }
 
-	@Test
-	public void testGlobalParallelForEach() throws Throwable {
-		// Add a prefix to all Element.s members
-		distBag.GLOBAL.parallelForEach((e)->{
-			e.s = "GLOBAL" + e.s;
-		});
+    @Test
+    public void testGlobalParallelForEach() throws Throwable {
+        // Add a prefix to all Element.s members
+        distBag.GLOBAL.parallelForEach((e) -> {
+            e.s = "GLOBAL" + e.s;
+        });
 
-		//Check that all elements on all places have the new prefix
-		try {
-			WORLD.broadcastFlat(()->{
-				// "normal" for loop on the elements of the local handle
-				for (Element e : distBag) {
-					assertTrue(e.s.startsWith("GLOBAL"));
-				}
-			});
-		} catch (MultipleException me) {
-			me.printStackTrace();
-			throw me.getSuppressed()[0];
-		}
-	}
+        // Check that all elements on all places have the new prefix
+        try {
+            WORLD.broadcastFlat(() -> {
+                // "normal" for loop on the elements of the local handle
+                for (final Element e : distBag) {
+                    assertTrue(e.s.startsWith("GLOBAL"));
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
+    }
 
-	@Test(timeout=5000)
-	public void testGlobalSize() throws Throwable {
-		long [] size = new long [WORLD.size()];
-		long [] expected = new long [WORLD.size()];
-		for (int i = 0; i < WORLD.size(); i++) {
-			expected[i] = NB_ELEMS[i] * NB_LISTS[i];
-		}
+    @Test(timeout = 5000)
+    public void testGlobalSize() throws Throwable {
+        final long[] size = new long[WORLD.size()];
+        final long[] expected = new long[WORLD.size()];
+        for (int i = 0; i < WORLD.size(); i++) {
+            expected[i] = NB_ELEMS[i] * NB_LISTS[i];
+        }
 
-		distBag.GLOBAL.size(size);
+        distBag.GLOBAL.size(size);
 
+        assertArrayEquals(expected, size);
+    }
 
-		assertArrayEquals(expected, size);
-	}
+    @Test
+    public void testSetup() throws Throwable {
+        WORLD.broadcastFlat(() -> {
+            final int here = WORLD.rank();
+            assertEquals(NB_LISTS[here] * NB_ELEMS[here], distBag.size());
+            for (final Element e : distBag) {
+                assertTrue(e.s.startsWith(here + "p"));
+            }
+        });
+    }
 
-	@Test
-	public void testSetup() throws Throwable {
-		WORLD.broadcastFlat(()-> {
-			int here = WORLD.rank();
-			assertEquals(NB_LISTS[here] * NB_ELEMS[here], distBag.size());
-			for (Element e : distBag) {
-				assertTrue(e.s.startsWith(here + "p"));
-			}
-		});
-	}
+    @Test(timeout = 5000)
+    public void testTeamSize() throws Throwable {
+        final long[] expected = new long[WORLD.size()];
+        for (int i = 0; i < WORLD.size(); i++) {
+            expected[i] = NB_ELEMS[i] * NB_LISTS[i];
+        }
 
-	@Test(timeout=5000)
-	public void testTeamSize() throws Throwable {
-		long [] expected = new long [WORLD.size()];
-		for (int i = 0; i < WORLD.size(); i++) {
-			expected[i] = NB_ELEMS[i] * NB_LISTS[i];
-		}
-
-		try {
-			WORLD.broadcastFlat(()-> {
-				final long [] size = new long [WORLD.size()];
-				distBag.TEAM.size(size);
-				assertArrayEquals(expected, size);
-			});
-		} catch (MultipleException me) {
-			System.err.println("Error occurred in testTeamSize: Suppressed errors were:");
-			for (Throwable t : me.getSuppressed()) {
-				t.printStackTrace();
-			}
-			throw me.getSuppressed()[0];
-		}
-	}
+        try {
+            WORLD.broadcastFlat(() -> {
+                final long[] size = new long[WORLD.size()];
+                distBag.TEAM.size(size);
+                assertArrayEquals(expected, size);
+            });
+        } catch (final MultipleException me) {
+            System.err.println("Error occurred in testTeamSize: Suppressed errors were:");
+            for (final Throwable t : me.getSuppressed()) {
+                t.printStackTrace();
+            }
+            throw me.getSuppressed()[0];
+        }
+    }
 }

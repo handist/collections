@@ -35,6 +35,8 @@
 						<configuration>
 							<systemPropertyVariables>
 								<mpirunner.mpiImpl>mpj-multicore</mpirunner.mpiImpl>
+								<mpirunner.dryRun>true</mpirunner.dryRun>
+								<mpirunner.actionOnError>ignore</mpirunner.actionOnError>
 								<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
 								<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
 							</systemPropertyVariables>

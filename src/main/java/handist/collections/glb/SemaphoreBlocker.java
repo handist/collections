@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
 
 import java.io.Serializable;
@@ -27,7 +37,7 @@ public class SemaphoreBlocker implements ForkJoinPool.ManagedBlocker, Serializab
      * Constructor Initializes a lock with no permits.
      */
     public SemaphoreBlocker() {
-	lock = new Semaphore(0);
+        lock = new Semaphore(0);
     }
 
     /*
@@ -37,13 +47,13 @@ public class SemaphoreBlocker implements ForkJoinPool.ManagedBlocker, Serializab
      */
     @Override
     public boolean block() {
-	try {
-	    lock.acquire();
-	} catch (final InterruptedException e) {
-	    e.printStackTrace();
-	    block();
-	}
-	return true;
+        try {
+            lock.acquire();
+        } catch (final InterruptedException e) {
+            e.printStackTrace();
+            block();
+        }
+        return true;
     }
 
     /*
@@ -53,14 +63,14 @@ public class SemaphoreBlocker implements ForkJoinPool.ManagedBlocker, Serializab
      */
     @Override
     public boolean isReleasable() {
-	return lock.tryAcquire();
+        return lock.tryAcquire();
     }
 
     /**
      * Drains all the permits in this lock.
      */
     public void reset() {
-	lock.drainPermits();
+        lock.drainPermits();
     }
 
     /**
@@ -68,9 +78,9 @@ public class SemaphoreBlocker implements ForkJoinPool.ManagedBlocker, Serializab
      * {@link SemaphoreBlocker}.
      */
     public void unblock() {
-	// Avoids unnecessary accumulation of permits in the Lock. In our situation, a
-	// maximum of one permit is sufficient.
-	lock.drainPermits();
-	lock.release();
+        // Avoids unnecessary accumulation of permits in the Lock. In our situation, a
+        // maximum of one permit is sufficient.
+        lock.drainPermits();
+        lock.release();
     }
 }

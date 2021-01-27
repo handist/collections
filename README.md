@@ -15,9 +15,13 @@ This Java libraries relies on a number of libraries:
 + A slightly customized version of [APGAS for Java](https://github.com/x10-lang/apgas/tree/master/apgas) [located in this repository](https://github.com/handist/apgas)
 + A library providing Java bindings to MPI calls: either [MPJ-Express](http://mpj-express.org/) or [mpiJava](https://sourceforge.net/projects/mpijava/).
 
-To ease the compilation process, we placed these two libraries which are usually downloaded from their project's website in a git repository so that they will be downloaded automatically like any normal maven dependency. We provide two compilation profiles for the library: `mpj` (default) and `mpijava` which allows you to switch the dependency to the MPJ-Express library or the mpiJava library respectively.
+To ease the compilation process, we placed these two libraries which are usually downloaded from their project's website in a git repository so that they will be downloaded automatically like any normal maven dependency. We provide three compilation profiles for the library: 
 
-Whichever library/profile you choose does not change the JAR produced by running `mvn package` or `mvn package -Pmpijava`. You can very well compile the library with default profile (using the MPJ-Express library) and execute your programs using the mpiJava library. The implementation of the Java bindings used is determined by the classpath you provide when launching your program.
++ `mpj` (default) to be used to compile the project on any computer
++ `mpjnative` to be used to compile and test the project with the MPJ-native mode
++ `mpijava` to be used to compile and test the project with the mpiJava native bindings
+
+Whichever library/profile you choose does not change the JAR produced by running `mvn package` or `mvn package -Pmpijava`. You can very well compile the library with the default profile (using the MPJ-Express library) and execute your programs using the mpiJava library. The implementation of the Java bindings used is determined by the classpath you provide when launching your program.
 
 ## Creating the JAR
 
@@ -32,9 +36,11 @@ The test code is located under the `src/test/java` directory. There are two kind
 
 The former are bound to the `test` phase of the standard lifecycle of Maven. You can run them without any prerequisite using the `mvn test` command. They will also be run when generating the Java ARchive with `mvn package`.
 
-The former are bound to the `verify` phase. **HOWEVER**, only the `mpijava` or `nativempj` profiles that rely on the mpiJava or MPJ-Express library can run these tests at the moment. Attempting to run these tests in the default profile will result in failure. You need to specify the `mpijava` (or mpjnative) profile as such: `mvn verify -Pmpijava`.
+The former are bound to the `verify` phase. **HOWEVER**, only the `mpijava` or `mpjnative` profiles that rely on the mpiJava or MPJ-Express library can run these tests. Attempting to run these tests in the default profile will result in failure. You need to specify the `mpijava` (or `mpjnative`) profile as such: `mvn verify -Pmpijava`.
 
-As a requirement to running the tests with mpiJAva, you will need to specify the location of the Shared Object libraries (`libmpijava.so` and potentially `libsavesignals.so`) generated during the compilation of the mpiJava library on your particular system. This is done by setting the environment variable `MPIJAVA_LIB` to wherever these files are located on your system. For instance:
+**Configuration for `mpijava` profile**
+
+To running all the tests with the mpiJava library, you will need to specify the location of the Shared Object libraries (`libmpijava.so` and potentially `libsavesignals.so`) generated during the compilation of the mpiJava library on your particular system. This is done by setting the environment variable `MPIJAVA_LIB` to wherever these files are located on your system. For instance:
 
 ```
 user@computer:~/mpiJava/lib$ ls -l
@@ -48,7 +54,9 @@ user@computer:~/handistCollections$ mvn verify -Pmpijava
 ...
 ```
 
-In the case of the MPJ-Express library, you will need to set the `MPJ_HOME` environment variable at the location of the library on your system. It is expected that the `libnativempjdev.so` compiled for your specific system is located in the `$MPJ_HOME/lib` directory. 
+**Configuration for `mpjnative` profile**
+
+In the case of the MPJ-Express library, you will need to set the `MPJ_HOME` environment variable at the location of the library on your system. We expect that the `libnativempjdev.so` compiled for your specific system is located in the `$MPJ_HOME/lib` directory. 
 
 # Related repository
 

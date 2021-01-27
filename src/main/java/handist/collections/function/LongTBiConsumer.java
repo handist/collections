@@ -1,12 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
  *
  * This program and the accompanying materials are made available to you under
  * the terms of the Eclipse Public License 1.0 which accompanies this
- * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
  *
  * SPDX-License-Identifier: EPL-1.0
- *******************************************************************************/
+ ******************************************************************************/
 package handist.collections.function;
 
 import handist.collections.RangedList;
@@ -26,19 +27,19 @@ public interface LongTBiConsumer<T> {
     /**
      * Performs an action with the given {@code long} index and object of generic
      * type T.
-     * 
+     *
      * @param l index of the object in the {@link RangedList}
      * @param t object
      */
     void accept(long l, T t);
 
     default LongTBiConsumer<T> andThen(LongTBiConsumer<? super T> after) {
-	return new LongTBiConsumer<T>() {
-	    @Override
-	    public void accept(long l, T t) {
-		this.accept(l, t);
-		after.accept(l, t);
-	    }
-	};
+        return new LongTBiConsumer<T>() {
+            @Override
+            public void accept(long l, T t) {
+                this.accept(l, t);
+                after.accept(l, t);
+            }
+        };
     }
 }

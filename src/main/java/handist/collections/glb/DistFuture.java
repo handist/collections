@@ -1,6 +1,17 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
 
 import java.io.Serializable;
+import java.util.List;
 
 import javax.naming.OperationNotSupportedException;
 
@@ -30,7 +41,7 @@ public class DistFuture<R> implements Serializable {
      * @param r distributed collection handle
      */
     DistFuture(R r) {
-	result = r;
+        result = r;
     }
 
     /**
@@ -44,8 +55,24 @@ public class DistFuture<R> implements Serializable {
      * @throws OperationNotSupportedException is still in development
      */
     public DistFuture<R> after(DistFuture<?> dependency) throws OperationNotSupportedException {
-	GlobalLoadBalancer.glb.scheduleOperationAfter(dependency.operation, this.operation);
-	return this;
+        GlobalLoadBalancer.glb.scheduleOperationAfter(dependency.operation, this.operation);
+        return this;
+    }
+
+    /**
+     * Returns the exceptions thrown by the user-provided lambda expression during
+     * the computation. If the computation was not previously started, or if it is
+     * ongoing, this method will block until the operation terminates and return the
+     * exceptions that were thrown during the operation.
+     *
+     * @return All {@link Throwable}s thrown during the operation
+     */
+    @SuppressWarnings("unchecked")
+    public List<Throwable> getErrors() {
+        if (!operation.finished()) {
+            waitGlobalTermination();
+        }
+        return operation.getErrors();
     }
 
     /**
@@ -55,10 +82,10 @@ public class DistFuture<R> implements Serializable {
      * @return distributed collection handle
      */
     public R result() {
-	if (!operation.finished()) {
-	    waitGlobalTermination();
-	}
-	return result;
+        if (!operation.finished()) {
+            waitGlobalTermination();
+        }
+        return result;
     }
 
     /**
@@ -69,6 +96,6 @@ public class DistFuture<R> implements Serializable {
      * operations to start.
      */
     public void waitGlobalTermination() {
-	GlobalLoadBalancer.startAndWait(operation);
+        GlobalLoadBalancer.startAndWait(operation);
     }
 }
