@@ -1,12 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
  *
  * This program and the accompanying materials are made available to you under
  * the terms of the Eclipse Public License 1.0 which accompanies this
- * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
  *
  * SPDX-License-Identifier: EPL-1.0
- *******************************************************************************/
+ ******************************************************************************/
 package handist.collections;
 
 import static apgas.Constructs.*;
@@ -49,49 +50,49 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      * Iterator class for {@link Bag}
      */
     private class It implements Iterator<T> {
-	/** Iterator on the contents of a List<T> */
-	Iterator<T> cIter;
-	/** Iterator on {@link Bag#bags}, iterates on lists of T */
-	Iterator<List<T>> oIter;
+        /** Iterator on the contents of a List<T> */
+        Iterator<T> cIter;
+        /** Iterator on {@link Bag#bags}, iterates on lists of T */
+        Iterator<List<T>> oIter;
 
-	/**
-	 * Constructor. Initializes the two iterators used to iterate on the lists
-	 * contained in {@link Bag#bags} and the iterator on these lists.
-	 */
-	public It() {
-	    oIter = bags.iterator();
-	    if (oIter.hasNext()) {
-		cIter = oIter.next().iterator();
-	    } else {
-		cIter = null;
-	    }
-	}
+        /**
+         * Constructor. Initializes the two iterators used to iterate on the lists
+         * contained in {@link Bag#bags} and the iterator on these lists.
+         */
+        public It() {
+            oIter = bags.iterator();
+            if (oIter.hasNext()) {
+                cIter = oIter.next().iterator();
+            } else {
+                cIter = null;
+            }
+        }
 
-	@Override
-	public boolean hasNext() {
-	    if (cIter == null) {
-		return false;
-	    }
-	    while (true) {
-		if (cIter.hasNext()) {
-		    return true;
-		}
-		if (oIter.hasNext()) {
-		    cIter = oIter.next().iterator();
-		} else {
-		    cIter = null;
-		    return false;
-		}
-	    }
-	}
+        @Override
+        public boolean hasNext() {
+            if (cIter == null) {
+                return false;
+            }
+            while (true) {
+                if (cIter.hasNext()) {
+                    return true;
+                }
+                if (oIter.hasNext()) {
+                    cIter = oIter.next().iterator();
+                } else {
+                    cIter = null;
+                    return false;
+                }
+            }
+        }
 
-	@Override
-	public T next() {
-	    if (hasNext()) {
-		return cIter.next();
-	    }
-	    throw new IndexOutOfBoundsException();
-	}
+        @Override
+        public T next() {
+            if (hasNext()) {
+                return cIter.next();
+            }
+            throw new IndexOutOfBoundsException();
+        }
 
     }
 
@@ -108,7 +109,7 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      * Default constructor.
      */
     public Bag() {
-	bags = new ConcurrentLinkedDeque<>();
+        bags = new ConcurrentLinkedDeque<>();
     }
 
     /**
@@ -118,7 +119,7 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      * @param bag the bag to copy
      */
     public Bag(Bag<T> bag) {
-	bags = bag.bags;
+        bags = bag.bags;
     }
 
     /**
@@ -127,7 +128,7 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      * @param bag Bag of T
      */
     public void addBag(Bag<T> bag) {
-	bags.addAll(bag.bags);
+        bags.addAll(bag.bags);
     }
 
     /**
@@ -136,7 +137,7 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      * @param l list of T
      */
     public void addBag(List<T> l) {
-	bags.add(l);
+        bags.add(l);
     }
 
     /**
@@ -144,7 +145,7 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      */
     @Override
     public void clear() {
-	bags.clear();
+        bags.clear();
     }
 
     /**
@@ -154,22 +155,22 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      */
     @Override
     public Bag<T> clone() {
-	final Bag<T> result = new Bag<>();
-	for (final Collection<T> bag : bags) {
-	    final ArrayList<T> nbag = new ArrayList<>(bag);
-	    result.addBag(nbag);
-	}
-	return result;
+        final Bag<T> result = new Bag<>();
+        for (final Collection<T> bag : bags) {
+            final ArrayList<T> nbag = new ArrayList<>(bag);
+            result.addBag(nbag);
+        }
+        return result;
     }
 
     @Override
     public boolean contains(Object v) {
-	for (final Collection<T> bag : bags) {
-	    if (bag.contains(v)) {
-		return true;
-	    }
-	}
-	return false;
+        for (final Collection<T> bag : bags) {
+            if (bag.contains(v)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -178,20 +179,20 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      * @return the contents of this instance as a list
      */
     public List<T> convertToList() {
-	// TODO: prepare a smarter implementation
-	final ArrayList<T> result = new ArrayList<>(this.size());
-	for (final List<T> c : bags) {
-	    result.addAll(c);
-	}
-	bags.clear();
-	return result;
+        // TODO: prepare a smarter implementation
+        final ArrayList<T> result = new ArrayList<>(this.size());
+        for (final List<T> c : bags) {
+            result.addAll(c);
+        }
+        bags.clear();
+        return result;
     }
 
     @Override
     public void forEach(final Consumer<? super T> action) {
-	bags.forEach((Collection<T> bag) -> {
-	    bag.forEach(action);
-	});
+        bags.forEach((Collection<T> bag) -> {
+            bag.forEach(action);
+        });
     }
 
     /**
@@ -205,33 +206,33 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      * @param action the action to perform on individual elements
      */
     public void forEach(ExecutorService pool, final Consumer<? super T> action) {
-	final List<Future<?>> futures = forEachConst(pool, action);
-	for (final Future<?> f : futures) {
-	    try {
-		f.get();
-	    } catch (InterruptedException | ExecutionException e) {
-		throw new ParallelExecutionException("[Bag] exception raised by worker threads.", e);
-	    }
-	}
+        final List<Future<?>> futures = forEachConst(pool, action);
+        for (final Future<?> f : futures) {
+            try {
+                f.get();
+            } catch (InterruptedException | ExecutionException e) {
+                throw new ParallelExecutionException("[Bag] exception raised by worker threads.", e);
+            }
+        }
     }
 
     private List<Future<?>> forEachConst(ExecutorService pool, final Consumer<? super T> action) {
-	final ArrayList<Future<?>> futures = new ArrayList<>();
-	for (final Collection<T> bag : bags) {
-	    futures.add(pool.submit(() -> {
-		bag.forEach(action);
-	    }));
-	}
-	return futures;
+        final ArrayList<Future<?>> futures = new ArrayList<>();
+        for (final Collection<T> bag : bags) {
+            futures.add(pool.submit(() -> {
+                bag.forEach(action);
+            }));
+        }
+        return futures;
     }
 
     private void forEachParallelBody(final Consumer<List<T>> run) {
-	final Bag<T> separated = this.separate(Runtime.getRuntime().availableProcessors() * 2);
-	for (final List<T> sub : separated.bags) {
-	    async(() -> {
-		run.accept(sub);
-	    });
-	}
+        final Bag<T> separated = this.separate(Runtime.getRuntime().availableProcessors() * 2);
+        for (final List<T> sub : separated.bags) {
+            async(() -> {
+                run.accept(sub);
+            });
+        }
     }
 
     /**
@@ -240,24 +241,24 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      */
     @Override
     public Consumer<T> getReceiver() {
-	final ArrayList<T> bag = new ArrayList<>();
-	bags.add(bag);
-	return new Consumer<T>() {
-	    @Override
-	    public void accept(T t) {
-		bag.add(t);
-	    }
-	};
+        final ArrayList<T> bag = new ArrayList<>();
+        bags.add(bag);
+        return new Consumer<T>() {
+            @Override
+            public void accept(T t) {
+                bag.add(t);
+            }
+        };
     }
 
     @Override
     public boolean isEmpty() {
-	for (final Collection<T> bag : bags) {
-	    if (!bag.isEmpty()) {
-		return false;
-	    }
-	}
-	return true;
+        for (final Collection<T> bag : bags) {
+            if (!bag.isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -265,7 +266,7 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      */
     @Override
     public Iterator<T> iterator() {
-	return new It();
+        return new It();
     }
 
     /**
@@ -276,7 +277,7 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      * @return number of lists in this bag
      */
     public int listCount() {
-	return bags.size();
+        return bags.size();
     }
 
     /**
@@ -289,34 +290,34 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      * @param action the action to perform on individual elements
      */
     public void parallelForEach(final Consumer<? super T> action) {
-	finish(() -> {
-	    forEachParallelBody((List<T> sub) -> {
-		sub.forEach(action);
-	    });
-	});
+        finish(() -> {
+            forEachParallelBody((List<T> sub) -> {
+                sub.forEach(action);
+            });
+        });
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public void read(Kryo kryo, Input input) {
-	final int size = input.readInt();
-	bags = new ConcurrentLinkedDeque<>();
-	final ArrayList<T> bag1 = new ArrayList<>(size);
-	for (int i = 0; i < size; i++) {
-	    bag1.add((T) kryo.readClassAndObject(input));
-	}
-	bags.add(bag1);
+        final int size = input.readInt();
+        bags = new ConcurrentLinkedDeque<>();
+        final ArrayList<T> bag1 = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            bag1.add((T) kryo.readClassAndObject(input));
+        }
+        bags.add(bag1);
     }
 
     @SuppressWarnings("unchecked")
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-	final int size = in.readInt();
-	bags = new ConcurrentLinkedDeque<>();
-	final ArrayList<T> bag1 = new ArrayList<>(size);
-	for (int i = 0; i < size; i++) {
-	    bag1.add((T) in.readObject());
-	}
-	bags.add(bag1);
+        final int size = in.readInt();
+        bags = new ConcurrentLinkedDeque<>();
+        final ArrayList<T> bag1 = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            bag1.add((T) in.readObject());
+        }
+        bags.add(bag1);
     }
 
     /**
@@ -327,17 +328,17 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      *         instance does not contain anything
      */
     public synchronized T remove() {
-	while (true) {
-	    if (bags.isEmpty()) {
-		return null;
-	    }
-	    final List<T> bag = bags.getLast();
-	    if (bag.isEmpty()) {
-		bags.removeLast();
-	    } else {
-		return bag.remove(bag.size() - 1);
-	    }
-	}
+        while (true) {
+            if (bags.isEmpty()) {
+                return null;
+            }
+            final List<T> bag = bags.getLast();
+            if (bag.isEmpty()) {
+                bags.removeLast();
+            } else {
+                return bag.remove(bag.size() - 1);
+            }
+        }
     }
 
     /**
@@ -350,20 +351,20 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      * @return a list containing at most {@code n} elements
      */
     public synchronized List<T> remove(int n) {
-	final ArrayList<T> result = new ArrayList<>(n);
-	while (n > 0) {
-	    if (bags.isEmpty()) {
-		return result;
-	    }
-	    final List<T> bag = bags.getLast();
-	    if (bag.isEmpty()) {
-		bags.removeLast();
-		continue;
-	    }
-	    result.add(bag.remove(bag.size() - 1));
-	    n--;
-	}
-	return result;
+        final ArrayList<T> result = new ArrayList<>(n);
+        while (n > 0) {
+            if (bags.isEmpty()) {
+                return result;
+            }
+            final List<T> bag = bags.getLast();
+            if (bag.isEmpty()) {
+                bags.removeLast();
+                continue;
+            }
+            result.add(bag.remove(bag.size() - 1));
+            n--;
+        }
+        return result;
     }
 
     /**
@@ -375,61 +376,61 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
      * @return {@link Bag} containing the same number of elements {@link List}s
      */
     public Bag<T> separate(int n) {
-	final int totalNum = this.size();
-	final int rem = totalNum % n;
-	final int quo = totalNum / n;
-	final Bag<T> result = new Bag<>();
-	final Iterator<T> it = this.iterator();
+        final int totalNum = this.size();
+        final int rem = totalNum % n;
+        final int quo = totalNum / n;
+        final Bag<T> result = new Bag<>();
+        final Iterator<T> it = this.iterator();
 
-	for (int i = 0; i < n; i++) {
-	    final List<T> r = new ArrayList<>();
-	    result.addBag(r);
-	    int rest = quo + ((i < rem) ? 1 : 0);
-	    while (rest > 0) {
-		r.add(it.next());
-		rest--;
-	    }
-	}
-	return result;
+        for (int i = 0; i < n; i++) {
+            final List<T> r = new ArrayList<>();
+            result.addBag(r);
+            int rest = quo + ((i < rem) ? 1 : 0);
+            while (rest > 0) {
+                r.add(it.next());
+                rest--;
+            }
+        }
+        return result;
     }
 
     @Override
     public int size() {
-	int size = 0;
-	for (final Collection<T> bag : bags) {
-	    size += bag.size();
-	}
-	return size;
+        int size = 0;
+        for (final Collection<T> bag : bags) {
+            size += bag.size();
+        }
+        return size;
     }
 
     @Override
     public String toString() {
-	final StringBuilder sb = new StringBuilder();
-	sb.append("[Bag]");
-	for (final Collection<T> bag : bags) {
-	    sb.append(bag.toString() + ":");
-	}
-	sb.append("end of Bag");
-	return sb.toString();
+        final StringBuilder sb = new StringBuilder();
+        sb.append("[Bag]");
+        for (final Collection<T> bag : bags) {
+            sb.append(bag.toString() + ":");
+        }
+        sb.append("end of Bag");
+        return sb.toString();
     }
 
     @Override
     public void write(Kryo kryo, Output output) {
-	output.writeInt(size());
-	for (final Collection<T> bag : bags) {
-	    for (final T item : bag) {
-		kryo.writeClassAndObject(output, item);
-	    }
-	}
+        output.writeInt(size());
+        for (final Collection<T> bag : bags) {
+            for (final T item : bag) {
+                kryo.writeClassAndObject(output, item);
+            }
+        }
     }
 
     private void writeObject(ObjectOutputStream out) throws IOException {
-	// System.out.println("writeChunk:"+this);
-	out.writeInt(size());
-	for (final Collection<T> bag : bags) {
-	    for (final T item : bag) {
-		out.writeObject(item);
-	    }
-	}
+        // System.out.println("writeChunk:"+this);
+        out.writeInt(size());
+        for (final Collection<T> bag : bags) {
+            for (final T item : bag) {
+                out.writeObject(item);
+            }
+        }
     }
 }

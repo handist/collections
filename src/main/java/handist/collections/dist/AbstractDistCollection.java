@@ -1,12 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
  *
  * This program and the accompanying materials are made available to you under
  * the terms of the Eclipse Public License 1.0 which accompanies this
- * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
  *
  * SPDX-License-Identifier: EPL-1.0
- *******************************************************************************/
+ ******************************************************************************/
 package handist.collections.dist;
 
 import java.io.ObjectStreamException;
@@ -44,36 +45,36 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
      */
 
     public default void balanceSpecCheck(final float[] balance) {
-	if (balance.length != placeGroup().size) {
-	    throw new RuntimeException("[AbstractDistCollection");
-	}
+        if (balance.length != placeGroup().size) {
+            throw new RuntimeException("[AbstractDistCollection");
+        }
     }
 
     /**
      * Destroy an instance of AbstractDistCollection.
      */
     public default void destroy() {
-	placeGroup().remove(id());
+        placeGroup().remove(id());
     }
 
     /**
      * Performs the specified action on every instance contained by the local handle
      * of this distributed collection.
-     * 
+     *
      * @param action action to perform on each instance
      */
     public void forEach(SerializableConsumer<T> action);
 
     /**
      * Returns a handle to global operations of a distributed collection
-     * 
+     *
      * @return handle to "global" operations
      */
     public GlobalOperations<T, C> global();
 
     /**
      * Retuns the global ID that identifies this distributed collection on all hosts
-     * 
+     *
      * @return {@link GlobalID} of this distributed collection
      */
     public GlobalID id();
@@ -81,7 +82,7 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
     /**
      * Places the local size of each local handle of the distributed object in the
      * provided array
-     * 
+     *
      * @param result the array inside which the result will be places, it should
      *               have the same length as the number of places in the place group
      *               on which the distributed collection operates
@@ -91,18 +92,18 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
 
     /**
      * Returns the locality of the distributed collection
-     * 
+     *
      * @return float array representing the locality of the distributed collection
      */
     public float[] locality();
 
     public abstract void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm)
-	    throws Exception;
+            throws Exception;
 
     /**
      * Performs the specified action on every instance contained by the local handle
      * of this distributed collection in parallel.
-     * 
+     *
      * @param action action to perform on each instance
      */
     public void parallelForEach(SerializableConsumer<T> action);
@@ -119,7 +120,7 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
 
     /**
      * Returns a handle to teamed operations of a distributed collection
-     * 
+     *
      * @return handle to "teamed" operations
      */
     public TeamOperations<T, C> team();
@@ -131,7 +132,7 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
      * the implementation in implementing classes. Implementation should return a
      * {@link LazyObjectReference} instance capable of initializing the local handle
      * of the implementing class on the remote place
-     * 
+     *
      * @return a {@link LazyObjectReference} of the implementing class (left to
      *         programmer's good-will)
      * @throws ObjectStreamException if such an exception is thrown during the

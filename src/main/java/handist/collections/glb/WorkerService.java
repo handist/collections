@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
 
 /**
@@ -28,4 +38,15 @@ interface WorkerService {
      * @return the worker-bound object kept for the specified operation
      */
     Object retrieveOperationObject(Object key);
+
+    /**
+     * Method called to store any throwable that was thrown from the
+     * lambda-expression provided by the user as parameter to a GLB operation. This
+     * method is in charge of keeping the Throwable until the user calls
+     * {@link DistFuture#getErrors()} which will return any Throwable that was
+     * thrown by the user-specified lambda-expression during the GLB operation.
+     *
+     * @param t The Throwable that was thrown
+     */
+    void throwableInOperation(Throwable t);
 }

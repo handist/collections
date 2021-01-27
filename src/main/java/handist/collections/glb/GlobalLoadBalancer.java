@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
 
 import static apgas.Constructs.*;
@@ -15,10 +25,10 @@ public class GlobalLoadBalancer {
      * balancer.
      */
     static void start() {
-	while (!glb.operationsSubmitted.isEmpty()) {
-	    final GlbOperation<?, ?, ?, ?, ?> op = glb.operationsSubmitted.poll();
-	    async(() -> op.compute());
-	}
+        while (!glb.operationsSubmitted.isEmpty()) {
+            final GlbOperation<?, ?, ?, ?, ?> op = glb.operationsSubmitted.poll();
+            async(() -> op.compute());
+        }
     }
 
     /**
@@ -29,16 +39,16 @@ public class GlobalLoadBalancer {
      * @param operation the operation whose global termination is be waited upon
      */
     static void startAndWait(GlbOperation<?, ?, ?, ?, ?> operation) {
-	// It is possible that the operation on which we want to wait was already
-	// started, in which case removeFirstOccurence will return false
-	final boolean waitOperationPresent = glb.operationsSubmitted.removeFirstOccurrence(operation);
+        // It is possible that the operation on which we want to wait was already
+        // started, in which case removeFirstOccurence will return false
+        final boolean waitOperationPresent = glb.operationsSubmitted.removeFirstOccurrence(operation);
 
-	start(); // Start all other operations that were submitted to the GLB
+        start(); // Start all other operations that were submitted to the GLB
 
-	if (waitOperationPresent) {
-	    // launch this operation synchronously
-	    operation.compute();
-	}
+        if (waitOperationPresent) {
+            // launch this operation synchronously
+            operation.compute();
+        }
     }
 
     /**
@@ -50,28 +60,28 @@ public class GlobalLoadBalancer {
      * @return collection of all the Exceptions that occurred during the glb program
      */
     public synchronized static ArrayList<Exception> underGLB(SerializableJob program) {
-	if (GlobalLoadBalancer.glb == null) {
-	    // Create a new GlobalLoadBalancer instance that will handle the program
-	    glb = new GlobalLoadBalancer();
-	    final ArrayList<Exception> exc = new ArrayList<>();
-	    finish(() -> {
-		try {
-		    program.run();
-		    start(); // This launches any submitted operation that have not been explicitly launched
-			     // inside the provided program
-		} catch (final Exception e) {
-		    System.err.println("ERROR during GLB program execution");
-		    e.printStackTrace();
-		    exc.add(e);
-		} finally {
-		    glb = null; // Destroy the singleton for a new one to be created next time this method is
-				// called
-		}
-	    });
-	    return exc;
-	} else {
-	    throw new IllegalStateException("Method was called even though another glb program is already running");
-	}
+        if (GlobalLoadBalancer.glb == null) {
+            // Create a new GlobalLoadBalancer instance that will handle the program
+            glb = new GlobalLoadBalancer();
+            final ArrayList<Exception> exc = new ArrayList<>();
+            finish(() -> {
+                try {
+                    program.run();
+                    start(); // This launches any submitted operation that have not been explicitly launched
+                    // inside the provided program
+                } catch (final Exception e) {
+                    System.err.println("ERROR during GLB program execution");
+                    e.printStackTrace();
+                    exc.add(e);
+                } finally {
+                    glb = null; // Destroy the singleton for a new one to be created next time this method is
+                    // called
+                }
+            });
+            return exc;
+        } else {
+            throw new IllegalStateException("Method was called even though another glb program is already running");
+        }
     }
 
     /**
@@ -87,7 +97,7 @@ public class GlobalLoadBalancer {
      * Private constructor to preserve the singleton pattern
      */
     private GlobalLoadBalancer() {
-	operationsSubmitted = new LinkedList<>();
+        operationsSubmitted = new LinkedList<>();
     }
 
     /**
@@ -102,9 +112,9 @@ public class GlobalLoadBalancer {
      * @param then   operation to start after the first argument has completed
      */
     void scheduleOperationAfter(GlbOperation<?, ?, ?, ?, ?> before, GlbOperation<?, ?, ?, ?, ?> then) {
-	// "then" may have already been removed if it has multiple dependencies
-	operationsSubmitted.remove(then);
-	GlbOperation.makeDependency(before, then);
+        // "then" may have already been removed if it has multiple dependencies
+        operationsSubmitted.remove(then);
+        GlbOperation.makeDependency(before, then);
     }
 
     /**
@@ -114,6 +124,6 @@ public class GlobalLoadBalancer {
      * @param operation operation to perform on a distributed collection
      */
     void submit(@SuppressWarnings("rawtypes") GlbOperation operation) {
-	operationsSubmitted.add(operation);
+        operationsSubmitted.add(operation);
     }
 }
