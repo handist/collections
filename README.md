@@ -58,6 +58,17 @@ user@computer:~/handistCollections$ mvn verify -Pmpijava
 
 In the case of the MPJ-Express library, you will need to set the `MPJ_HOME` environment variable at the location of the library on your system. We expect that the `libnativempjdev.so` compiled for your specific system is located in the `$MPJ_HOME/lib` directory. 
 
+**Specifying a hostfile**
+
+When running the distributed tests under profiles `mpijava` or `mpjnative`, you can specify a hostfile by adding `-Dhostfile=/path/to/hostfile` to your maven command. For instance: 
+
+```
+mvn -Pmpjnative -Dhostfile=hosts clean verify site
+```
+
+In addition, if you place a file named *HOSTFILE* in the root directory of the project, it will be used automatically without needing to specify any particular option.
+
+
 # Related repository
 
 This work was inspired by the distributed collections library of X10. You can check this project named "Cassia" there: [cassiaX10lib](https://github.com/handist/cassiaX10lib)@github

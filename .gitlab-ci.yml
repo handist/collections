@@ -16,7 +16,8 @@ cache:
 project_compile:
   stage: build
   script:
-    - mvn $MAVEN_CLI_OPTS clean compile
+    - source /home/gitlab-runner/.profile
+    - mvn $MAVEN_CLI_OPTS -U clean compile
 
 junit_tests:
   stage: test
@@ -36,7 +37,7 @@ mpjnative_it_tests:
   stage: integration
   script:
     - source /home/gitlab-runner/.profile
-    - mvn $MAVEN_CLI_OPTS -Pmpjnative verify
+    - mvn $MAVEN_CLI_OPTS -Pmpjnative verify -Dhostfile=${HOSTFILE}
     - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
   artifacts:
     when: always
@@ -53,7 +54,7 @@ mpjnative_it_tests:
   allow_failure: true
   script:
     - source /home/gitlab-runner/.profile
-    - mvn $MAVEN_CLI_OPTS -Pmpijava verify
+    - mvn $MAVEN_CLI_OPTS -Pmpijava verify -Dhostfile=${HOSTFILE}
     - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
   artifacts:
     when: always
