@@ -35,7 +35,7 @@ public interface KeyRelocatable<K> {
     /**
      * Marks the keys in the specified collection for transfer according to the
      * distribution provided as parameter. The transfer will be effective when the
-     * manager's {@link MoveManagerLocal#sync()} method is called.
+     * manager's {@link CollectiveMoveManager#sync()} method is called.
      *
      * @param <D>          type representing a function from K to Place
      * @param keys         the keys to be marked for transfer
@@ -44,7 +44,7 @@ public interface KeyRelocatable<K> {
      * @param manager      the move manager in charge of the transfer
      */
     public default <D extends Distribution<K>> void moveAtSync(Collection<K> keys, D distribution,
-            MoveManagerLocal manager) {
+            MoveManager manager) {
         for (final K key : keys) {
             moveAtSync(key, distribution.place(key), manager);
         }
@@ -53,13 +53,13 @@ public interface KeyRelocatable<K> {
     /**
      * Marks all the keys in the provided collection for relocation over to the
      * specified place. The actual transfer will be performed the next time the
-     * specified manager's {@link MoveManagerLocal#sync()} method is called.
+     * specified manager's {@link CollectiveMoveManager#sync()} method is called.
      *
      * @param keys        collection of keys to be relocated
      * @param destination the place to which these keys should be relocated
      * @param manager     the manager in charge of performing the relocation
      */
-    public default void moveAtSync(Collection<K> keys, Place destination, MoveManagerLocal manager) {
+    public default void moveAtSync(Collection<K> keys, Place destination, MoveManager manager) {
         for (final K key : keys) {
             moveAtSync(key, destination, manager);
         }
@@ -69,24 +69,24 @@ public interface KeyRelocatable<K> {
      * Marks all the keys of this local handle for relocation using the provided
      * distribution to determine where each individual keys should go. The transfer
      * is actually performed the next the specified manager's
-     * {@link MoveManagerLocal#sync()} method is called.
+     * {@link CollectiveMoveManager#sync()} method is called.
      *
      * @param distribution the function that determines where each individual key
      *                     should be relocated to
      * @param manager      the move manager in charge of the transfer
      */
-    public default void moveAtSync(Distribution<K> distribution, MoveManagerLocal manager) {
+    public default void moveAtSync(Distribution<K> distribution, MoveManager manager) {
         moveAtSync(getAllKeys(), distribution, manager);
     }
 
     /**
      * Marks the specified key for relocation over to the specified place. The
      * transfer will be performed the next time the manager's
-     * {@link MoveManagerLocal#sync()} method is called.
+     * {@link CollectiveMoveManager#sync()} method is called.
      *
      * @param key         key to mark for relocation
      * @param destination place on which the key needs to be transfered
      * @param manager     manager in charge of the transfer
      */
-    public void moveAtSync(K key, Place destination, MoveManagerLocal manager);
+    public void moveAtSync(K key, Place destination, MoveManager manager);
 }

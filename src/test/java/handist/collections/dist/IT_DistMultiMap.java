@@ -150,7 +150,7 @@ public class IT_DistMultiMap implements Serializable {
         // Move entries on even ranks to the next odd rank
         pg.broadcastFlat(() -> {
             try {
-                final MoveManagerLocal mm = new MoveManagerLocal(pg);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
                 if (pg.rank() % 2 == 0) {
                     final int rank = pg.rank(here());
                     // Assumption that there is an even number of hosts running this test
@@ -197,7 +197,7 @@ public class IT_DistMultiMap implements Serializable {
         // Move all entries back to place 0
         pg.broadcastFlat(() -> {
             try {
-                final MoveManagerLocal mm = new MoveManagerLocal(pg);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
                 final Place destination = pg.get(0);
                 distMultiMap.forEach1((String key, String value) -> {
                     distMultiMap.moveAtSync(key, destination, mm);
@@ -302,7 +302,7 @@ public class IT_DistMultiMap implements Serializable {
         try {
             pg.broadcastFlat(() -> {
                 try {
-                    final MoveManagerLocal mm = new MoveManagerLocal(pg);
+                    final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
                     distMultiMap.forEach1((String key, String value) -> {
                         final int d = z_shift(key);
                         distMultiMap.moveAtSync(key, pg.get(d), mm);
@@ -323,7 +323,7 @@ public class IT_DistMultiMap implements Serializable {
     private void z_moveToNextPlace() {
         pg.broadcastFlat(() -> {
             try {
-                final MoveManagerLocal mm = new MoveManagerLocal(pg);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
                 final int rank = pg.rank(here());
                 final Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
 

@@ -277,7 +277,7 @@ public class DistCol<T> extends ChunkedList<T>
         }
 
         @Override
-        protected void moveAtSyncCount(ArrayList<IntLongPair> moveList, MoveManagerLocal mm) throws Exception {
+        protected void moveAtSyncCount(ArrayList<IntLongPair> moveList, CollectiveMoveManager mm) throws Exception {
             branch.moveAtSyncCount(moveList, mm);
         }
 
@@ -451,7 +451,7 @@ public class DistCol<T> extends ChunkedList<T>
 
     @Deprecated
     @SuppressWarnings("unchecked")
-    public void moveAtSync(final List<RangedList<T>> cs, final Place dest, final MoveManagerLocal mm) {
+    private void moveAtSync(final List<RangedList<T>> cs, final Place dest, final MoveManager mm) {
         if (_debug_level > 5) {
             System.out.print("[" + here().id + "] moveAtSync List[RangedList[T]]: ");
             for (final RangedList<T> rl : cs) {
@@ -491,7 +491,7 @@ public class DistCol<T> extends ChunkedList<T>
     }
 
     @Override
-    public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm) throws Exception {
+    public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManager mm) throws Exception {
         // TODO ->LinkedList? sort??
         final ArrayList<LongRange> localKeys = new ArrayList<>();
         localKeys.addAll(ranges());
@@ -532,7 +532,7 @@ public class DistCol<T> extends ChunkedList<T>
         }
     }
 
-    public void moveRangeAtSync(final Distribution<Long> dist, final MoveManagerLocal mm) {
+    public void moveRangeAtSync(final Distribution<Long> dist, final CollectiveMoveManager mm) {
         moveRangeAtSync((LongRange range) -> {
             final ArrayList<Pair<Place, LongRange>> listPlaceRange = new ArrayList<>();
             for (final Long key : range) {
@@ -542,7 +542,7 @@ public class DistCol<T> extends ChunkedList<T>
         }, mm);
     }
 
-    public void moveRangeAtSync(Function<LongRange, List<Pair<Place, LongRange>>> rule, MoveManagerLocal mm) {
+    public void moveRangeAtSync(Function<LongRange, List<Pair<Place, LongRange>>> rule, CollectiveMoveManager mm) {
         final DistCol<T> collection = this;
         final HashMap<Place, ArrayList<LongRange>> rangesToMove = new HashMap<>();
 
@@ -566,7 +566,7 @@ public class DistCol<T> extends ChunkedList<T>
     }
 
     @Override
-    public void moveRangeAtSync(final LongRange range, final Place dest, final MoveManagerLocal mm) {
+    public void moveRangeAtSync(final LongRange range, final Place dest, final MoveManager mm) {
         if (_debug_level > 5) {
             System.out.println("[" + here().id + "] moveAtSync range: " + range + " dest: " + dest.id);
         }
@@ -665,7 +665,8 @@ public class DistCol<T> extends ChunkedList<T>
         moveAtSync(chunksToMove, dest, mm);
     }
 
-    public void moveRangeAtSync(final RangedDistribution<LongRange> dist, final MoveManagerLocal mm) throws Exception {
+    public void moveRangeAtSync(final RangedDistribution<LongRange> dist, final CollectiveMoveManager mm)
+            throws Exception {
         moveRangeAtSync((LongRange range) -> {
             return dist.placeRanges(range);
         }, mm);

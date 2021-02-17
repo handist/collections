@@ -186,7 +186,7 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void moveAtSync(Collection<Long> keys, Place dest, MoveManagerLocal mm) {
+    public void moveAtSync(Collection<Long> keys, Place dest, MoveManager mm) {
         if (dest.equals(here())) {
             return;
         }
@@ -215,7 +215,7 @@ public class DistIdMap<V> extends DistMap<Long, V> {
     }
 
     @Override
-    public void moveAtSync(Distribution<Long> dist, MoveManagerLocal mm) {
+    public void moveAtSync(Distribution<Long> dist, MoveManager mm) {
         final Function<Long, Place> rule = (Long key) -> {
             return dist.place(key);
         };
@@ -223,7 +223,7 @@ public class DistIdMap<V> extends DistMap<Long, V> {
     }
 
     @Override
-    public void moveAtSync(Function<Long, Place> rule, MoveManagerLocal mm) {
+    public void moveAtSync(Function<Long, Place> rule, MoveManager mm) {
         final DistIdMap<V> collection = this;
         final HashMap<Place, ArrayList<Long>> keysToMove = new HashMap<>();
         collection.forEach((Long key, V value) -> {
@@ -239,7 +239,7 @@ public class DistIdMap<V> extends DistMap<Long, V> {
     }
 
     @SuppressWarnings("unchecked")
-    public void moveAtSync(final long key, Place dest, MoveManagerLocal mm) {
+    public void moveAtSync(final long key, Place dest, MoveManager mm) {
         if (dest.equals(here())) {
             return;
         }
@@ -265,13 +265,13 @@ public class DistIdMap<V> extends DistMap<Long, V> {
     }
 
     @Override
-    public void moveAtSync(Long key, Place dest, MoveManagerLocal mm) {
+    public void moveAtSync(Long key, Place dest, MoveManager mm) {
         moveAtSync(key.longValue(), dest, mm);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public void moveAtSyncCount(int count, Place dest, MoveManagerLocal mm) {
+    public void moveAtSyncCount(int count, Place dest, MoveManager mm) {
         if (dest.equals(here())) {
             return;
         }
@@ -323,11 +323,10 @@ public class DistIdMap<V> extends DistMap<Long, V> {
         mm.request(dest, serialize, deserialize);
     }
 
-    /*
-     * Put a new entry.
+    /**
+     * Put a new entry into the local map entry
      *
-     * @param id a Long type value.
-     *
+     * @param id    a Long type value.
      * @param value a value.
      */
     public V put(long id, V value) throws Exception {

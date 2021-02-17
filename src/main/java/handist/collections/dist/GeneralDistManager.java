@@ -82,7 +82,7 @@ public abstract class GeneralDistManager<T> implements Serializable {
         placeGroup.remove(id);
     }
 
-    abstract protected void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm)
+    abstract protected void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final CollectiveMoveManager mm)
             throws Exception;
 
     /**
@@ -97,14 +97,14 @@ public abstract class GeneralDistManager<T> implements Serializable {
     // TODO
     // public abstract void integrate(T src);
     public void teamedBalance() {
-        teamedBalance(new MoveManagerLocal(placeGroup));
+        teamedBalance(new CollectiveMoveManager(placeGroup));
     }
 
     public void teamedBalance(final float[] balance) {
-        teamedBalance(balance, new MoveManagerLocal(placeGroup));
+        teamedBalance(balance, new CollectiveMoveManager(placeGroup));
     }
 
-    public void teamedBalance(final float[] newLocality, final MoveManagerLocal mm) {
+    public void teamedBalance(final float[] newLocality, final CollectiveMoveManager mm) {
         // Rail.copy[Float](ne wL ocality, locality)
 
         if (newLocality.length != placeGroup.size()) {
@@ -118,7 +118,7 @@ public abstract class GeneralDistManager<T> implements Serializable {
     // maybe these methods should move to the interface like RelocatableCollection
     // or RelocatableMap
     // as default methods.
-    public void teamedBalance(MoveManagerLocal mm) {
+    public void teamedBalance(CollectiveMoveManager mm) {
         final int pgSize = placeGroup.size();
         final IntFloatPair[] listPlaceLocality = new IntFloatPair[pgSize];
         float localitySum = 0.0f;

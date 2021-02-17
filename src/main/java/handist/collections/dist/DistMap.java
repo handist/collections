@@ -386,7 +386,7 @@ public class DistMap<K, V>
 
     @Override
     @SuppressWarnings("unchecked")
-    public void moveAtSync(Collection<K> keys, Place pl, MoveManagerLocal mm) {
+    public void moveAtSync(Collection<K> keys, Place pl, MoveManager mm) {
         if (pl.equals(Constructs.here())) {
             return;
         }
@@ -412,14 +412,14 @@ public class DistMap<K, V>
     }
 
     @Override
-    public void moveAtSync(Distribution<K> dist, MoveManagerLocal mm) {
+    public void moveAtSync(Distribution<K> dist, MoveManager mm) {
         final Function<K, Place> rule = (K key) -> {
             return dist.place(key);
         };
         moveAtSync(rule, mm);
     }
 
-    public void moveAtSync(Function<K, Place> rule, MoveManagerLocal mm) {
+    public void moveAtSync(Function<K, Place> rule, MoveManager mm) {
         final DistMap<K, V> collection = this;
         final HashMap<Place, List<K>> keysToMove = new HashMap<>();
         collection.forEach((K key, V value) -> {
@@ -443,7 +443,7 @@ public class DistMap<K, V>
      */
     @Override
     @SuppressWarnings("unchecked")
-    public void moveAtSync(K key, Place pl, MoveManagerLocal mm) {
+    public void moveAtSync(K key, Place pl, MoveManager mm) {
         if (pl.equals(Constructs.here())) {
             return;
         }
@@ -462,7 +462,7 @@ public class DistMap<K, V>
     }
 
     @Override
-    public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm) throws Exception {
+    public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManager mm) throws Exception {
         for (final IntLongPair pair : moveList) {
             if (_debug_level > 5) {
                 System.out.println("MOVE src: " + here() + " dest: " + pair.first + " size: " + pair.second);
@@ -474,7 +474,7 @@ public class DistMap<K, V>
         }
     }
 
-    public void moveAtSyncCount(int count, Place dest, MoveManagerLocal mm) {
+    public void moveAtSyncCount(int count, Place dest, MoveManager mm) {
         if (count == 0) {
             return;
         }
@@ -611,10 +611,10 @@ public class DistMap<K, V>
     }
 
     public void relocate(Distribution<K> rule) throws Exception {
-        relocate(rule, new MoveManagerLocal(placeGroup));
+        relocate(rule, new CollectiveMoveManager(placeGroup));
     }
 
-    public void relocate(Distribution<K> rule, MoveManagerLocal mm) throws Exception {
+    public void relocate(Distribution<K> rule, CollectiveMoveManager mm) throws Exception {
         for (final K key : data.keySet()) {
             final Place place = rule.place(key);
             // TODO
@@ -625,10 +625,10 @@ public class DistMap<K, V>
     }
 
     public void relocate(Function<K, Place> rule) throws Exception {
-        relocate(rule, new MoveManagerLocal(placeGroup));
+        relocate(rule, new CollectiveMoveManager(placeGroup));
     }
 
-    public void relocate(Function<K, Place> rule, MoveManagerLocal mm) throws Exception {
+    public void relocate(Function<K, Place> rule, CollectiveMoveManager mm) throws Exception {
         for (final K key : data.keySet()) {
             final Place place = rule.apply(key);
             moveAtSync(key, place, mm);

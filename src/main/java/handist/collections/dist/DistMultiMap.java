@@ -103,7 +103,7 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void moveAtSync(K key, Place pl, MoveManagerLocal mm) {
+    public void moveAtSync(K key, Place pl, MoveManager mm) {
         if (pl.equals(here())) {
             return;
         }
@@ -145,8 +145,8 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
 
     /**
      * Request that the specified value be put in the list of the given key on the
-     * specified place when the method {@link MoveManagerLocal#sync()} of the
-     * specified {@link MoveManagerLocal} instance is called.
+     * specified place when the method {@link CollectiveMoveManager#sync()} of the
+     * specified {@link CollectiveMoveManager} instance is called.
      *
      * @param key   the key of the list.
      * @param value the value to be added to the mapping of {@code key}
@@ -154,7 +154,7 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
      * @param mm    MoveManagerLocal handling the data transfers
      */
     @SuppressWarnings("unchecked")
-    public void putAtSync(K key, V value, Place pl, MoveManagerLocal mm) {
+    public void putAtSync(K key, V value, Place pl, CollectiveMoveManager mm) {
         final DistMultiMap<K, V> toBranch = this; // using plh@AbstractCol
         final Serializer serialize = (ObjectOutput s) -> {
             s.writeObject(key);

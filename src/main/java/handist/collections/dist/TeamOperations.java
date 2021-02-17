@@ -53,14 +53,14 @@ public abstract class TeamOperations<T, C extends AbstractDistCollection<T, C>> 
     public abstract void size(long[] result);
 
     public void teamedBalance() {
-        teamedBalance(new MoveManagerLocal(handle.placeGroup()));
+        teamedBalance(new CollectiveMoveManager(handle.placeGroup()));
     }
 
     public void teamedBalance(final float[] balance) {
-        teamedBalance(balance, new MoveManagerLocal(handle.placeGroup()));
+        teamedBalance(balance, new CollectiveMoveManager(handle.placeGroup()));
     }
 
-    public void teamedBalance(final float[] newLocality, final MoveManagerLocal mm) {
+    public void teamedBalance(final float[] newLocality, final CollectiveMoveManager mm) {
         if (newLocality.length != handle.placeGroup().size()) {
             throw new RuntimeException("[DistCol] the size of newLocality must be the same with placeGroup.size()");
         }
@@ -78,7 +78,7 @@ public abstract class TeamOperations<T, C extends AbstractDistCollection<T, C>> 
      * TODO maybe these methods should move to the interface like
      * RelocatableCollection or RelocatableMap as default methods.
      */
-    public void teamedBalance(MoveManagerLocal mm) {
+    public void teamedBalance(CollectiveMoveManager mm) {
         final int pgSize = handle.placeGroup().size();
         final IntFloatPair[] listPlaceLocality = new IntFloatPair[pgSize];
         float localitySum = 0.0f;
