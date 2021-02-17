@@ -66,7 +66,7 @@ public class IT_DistIdMap implements Serializable {
      *
      * @throws Throwable if thrown during the test
      */
-    @Test
+    @Test(timeout = 20000)
     public void run() throws Throwable {
         // Create initial data at Place 0
         try {
@@ -99,8 +99,6 @@ public class IT_DistIdMap implements Serializable {
             z_moveToNextPlace();
             // Number of keys on each host is unchanged
 
-            // FIXME THE FOLLOWING TEST FAILS ON PLACE 0
-            // It looks like no entries are received from place 1
             x_checkSize((h) -> {
                 return numData / NPLACES;
             });
@@ -232,7 +230,7 @@ public class IT_DistIdMap implements Serializable {
         try {
             pg.broadcastFlat(() -> {
                 try {
-                    final MoveManagerLocal mm = new MoveManagerLocal(pg);
+                    final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
                     distIdMap.forEach((Long key, String value) -> {
                         final int d = (int) (key % pg.size());
                         distIdMap.moveAtSync(key, pg.get(d), mm);
@@ -253,7 +251,7 @@ public class IT_DistIdMap implements Serializable {
         try {
             pg.broadcastFlat(() -> {
                 try {
-                    final MoveManagerLocal mm = new MoveManagerLocal(pg);
+                    final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
                     final int rank = pg.rank(here());
                     final Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
                     distIdMap.forEach((Long key, String value) -> {
@@ -276,7 +274,7 @@ public class IT_DistIdMap implements Serializable {
         try {
             pg.broadcastFlat(() -> {
                 try {
-                    final MoveManagerLocal mm = new MoveManagerLocal(pg);
+                    final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
                     final Place destination = pg.get(0);
                     distIdMap.forEach((Long key, String value) -> {
                         distIdMap.moveAtSync(key, destination, mm);

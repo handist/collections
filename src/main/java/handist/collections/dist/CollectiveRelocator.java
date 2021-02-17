@@ -24,23 +24,18 @@ import handist.collections.function.Serializer;
 import mpi.MPI;
 import mpi.MPIException;
 
-public class CollectiveRelocator {
+/**
+ * Class wrapping utilities used to relocate object instances that rely on pairs
+ * of serializers and deserializers and MPI functions.
+ *
+ * @author Patrick Finnerty
+ *
+ */
+class CollectiveRelocator {
 
     private static final boolean DEBUG = false;
 
-    public static void all2allser(TeamedPlaceGroup placeGroup, MoveManagerLocal mm) throws Exception {
-        final int[] sendOffset = new int[placeGroup.size()];
-        final int[] sendSize = new int[placeGroup.size()];
-        final int[] rcvOffset = new int[placeGroup.size()];
-        final int[] rcvSize = new int[placeGroup.size()];
-        final ByteArrayOutputStream out = new ByteArrayOutputStream();
-        mm.executeSerialization(placeGroup, out, sendOffset, sendSize);
-        final byte[] buf = executeRelocation(placeGroup, out.toByteArray(), sendOffset, sendSize, rcvOffset, rcvSize);
-        mm.executeDeserialization(buf, rcvOffset, rcvSize);
-        mm.clear();
-    }
-
-    public static void allgatherSer(TeamedPlaceGroup pg, Serializer ser, DeSerializerUsingPlace deser) {
+    static void allgatherSer(TeamedPlaceGroup pg, Serializer ser, DeSerializerUsingPlace deser) {
         final int numPlaces = pg.size();
         final ByteArrayOutputStream out0 = new ByteArrayOutputStream();
         final ObjectOutput out = new ObjectOutput(out0);
@@ -94,7 +89,7 @@ public class CollectiveRelocator {
         }
     }
 
-    public static void bcastSer(TeamedPlaceGroup pg, Place root, Serializer ser, DeSerializer des) throws MPIException {
+    static void bcastSer(TeamedPlaceGroup pg, Place root, Serializer ser, DeSerializer des) throws MPIException {
         final int[] tmpBuf = new int[1];
         if (Constructs.here().equals(root)) {
             final ByteArrayOutputStream out0 = new ByteArrayOutputStream();
@@ -126,12 +121,35 @@ public class CollectiveRelocator {
         }
     }
 
-    /*
-     * TODO int->long?? 隴幢ｽｬ陟冶侭�ｿｽ�ｽｯ邵ｲ竏夲ｿｽ�ｼ�nt, long
-     * 霑壼現竊醍ｸｺ�ｽｩ郢ｧ繧茨ｽｬ�ｽｲ邵ｺ蜉ｱ�ｼ樒ｸｺ�ｽｨ邵ｺ阮呻ｽ咲ｸｺ�ｿｽ邵ｺ�ｽ｣邵ｺ貅假ｽ育ｸｺ�ｿｽ邵ｺ�ｽｪ
+    /**
+     * Transfers some bytes from and to all the places in the place group, returning
+     * a byte array containing all the bytes sent by the other places in the group
+     * to this place.
+     * <p>
+     * This method is actually implemented with 2 successive MPI calls. The first
+     * one is used to exchange information about the number of bytes each place want
+     * to transmit to every other place. With this information, each place prepares
+     * a receiver array of the appropriate size. The second MPI call is when the
+     * actual byte transfer occurs.
+     *
+     * @param placeGroup group of places participating in the exchange
+     * @param byteArray  array containing the bytes that this place want to send
+     * @param sendOffset offsets indicating the starting position in the array for
+     *                   the bytes that need to be transferred to every other place
+     *                   in the group
+     * @param sendSize   number of bytes in the array to be sent to every host
+     * @param rcvOffset  array in which the offsets indicating where the bytes
+     *                   received from every place start will be placed. This
+     *                   parameter needs to be an array initialized with a size that
+     *                   matches the number of places in this group.
+     * @param rcvSize    number of bytes received from each host in the group. This
+     *                   parameter needs to be an array initialized with a size that
+     *                   matches the number of places in this group.
+     * @return an array containing the bytes received from every place
+     * @throws MPIException
      */
-    static byte[] executeRelocation(TeamedPlaceGroup placeGroup, byte[] byteArray, int[] sendOffset, int[] sendSize,
-            int[] rcvOffset, int[] rcvSize) throws MPIException {
+    static byte[] exchangeBytesWithinGroup(TeamedPlaceGroup placeGroup, byte[] byteArray, int[] sendOffset,
+            int[] sendSize, int[] rcvOffset, int[] rcvSize) throws MPIException {
         placeGroup.comm.Alltoall(sendSize, 0, 1, MPI.INT, rcvSize, 0, 1, MPI.INT);
         if (DEBUG) {
             final StringBuffer buf = new StringBuffer();
@@ -144,15 +162,21 @@ public class CollectiveRelocator {
 
         int current = 0;
         for (int i = 0; i < rcvSize.length; i++) {
-            rcvOffset[i] = current;
-            current += rcvSize[i];
+            rcvOffset[i] = current; // Set the receiver offsets
+            current += rcvSize[i]; // Count the total number of bytes which this place is going to receive
         }
+
+        // Initialize a reception array of the adequate size
         final byte[] recvbuf = new byte[current];
+
+        // Do the transfer
         placeGroup.Alltoallv(byteArray, 0, sendSize, sendOffset, MPI.BYTE, recvbuf, 0, rcvSize, rcvOffset, MPI.BYTE);
+
+        // Return the initialized receiver array which now contains the received bytes.
         return recvbuf;
     }
 
-    public static void gatherSer(TeamedPlaceGroup pg, Place root, Serializer ser, DeSerializerUsingPlace deser) {
+    static void gatherSer(TeamedPlaceGroup pg, Place root, Serializer ser, DeSerializerUsingPlace deser) {
         final int numPlaces = pg.size();
         final ByteArrayOutputStream out0 = new ByteArrayOutputStream();
         final ObjectOutput out = new ObjectOutput(out0);

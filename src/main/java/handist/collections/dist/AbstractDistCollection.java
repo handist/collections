@@ -97,8 +97,7 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
      */
     public float[] locality();
 
-    public abstract void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm)
-            throws Exception;
+    public abstract void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManager mm) throws Exception;
 
     /**
      * Performs the specified action on every instance contained by the local handle

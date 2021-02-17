@@ -85,7 +85,7 @@ public class IT_DistMap2 implements Serializable {
     public void testGlobalForEach() throws Throwable {
         // Move some entries to place 1
         distMap.placeGroup().broadcastFlat(() -> {
-            final MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+            final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
             if (placeGroup.rank(here()) == 0) {
 
                 final Place destination = placeGroup.get(1);
@@ -117,7 +117,7 @@ public class IT_DistMap2 implements Serializable {
     public void testGlobalParallelForEach() throws Throwable {
         // Move some entries to place 1
         distMap.placeGroup().broadcastFlat(() -> {
-            final MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+            final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
             if (placeGroup.rank(here()) == 0) {
 
                 final Place destination = placeGroup.get(1);
@@ -154,7 +154,7 @@ public class IT_DistMap2 implements Serializable {
     public void testMoveToHost1() throws Throwable {
         try {
             placeGroup.broadcastFlat(() -> {
-                final MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
                 if (placeGroup.rank(here()) == 0) {
 
                     final Place destination = placeGroup.get(1);
@@ -186,7 +186,7 @@ public class IT_DistMap2 implements Serializable {
         try {
             testMoveToHost1();
             placeGroup.broadcastFlat(() -> {
-                final MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
                 if (placeGroup.rank(here()) == 1) {
 
                     final Place destination = placeGroup.get(0);

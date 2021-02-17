@@ -94,7 +94,7 @@ public class IT_DistMap implements Serializable {
         // Move all entries to the next place
         pg.broadcastFlat(() -> {
             try {
-                final MoveManagerLocal mm = new MoveManagerLocal(pg);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
                 final int rank = pg.rank(here());
                 final Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
                 distMap.forEach((String key, String value) -> {
@@ -120,7 +120,7 @@ public class IT_DistMap implements Serializable {
         // Move all entries to the next place, twice
         pg.broadcastFlat(() -> {
             try {
-                final MoveManagerLocal mm = new MoveManagerLocal(pg);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
                 final int rank = pg.rank(here());
                 final Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
 
@@ -150,7 +150,7 @@ public class IT_DistMap implements Serializable {
         // Move all entries to place 0
         pg.broadcastFlat(() -> {
             try {
-                final MoveManagerLocal mm = new MoveManagerLocal(pg);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
                 final Place destination = pg.get(0);
                 distMap.forEach((String key, String value) -> {
                     distMap.moveAtSync(key, destination, mm);
@@ -232,7 +232,7 @@ public class IT_DistMap implements Serializable {
     private void z_distribute() {
         pg.broadcastFlat(() -> {
             try {
-                final MoveManagerLocal mm = new MoveManagerLocal(pg);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
                 distMap.forEach((String key, String value) -> {
                     final int h = key.hashCode();
                     final int d = Math.abs(h) % distMap.placeGroup().size();

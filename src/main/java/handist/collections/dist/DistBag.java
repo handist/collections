@@ -233,7 +233,7 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
     }
 
     @Override
-    public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManagerLocal mm) throws Exception {
+    public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManager mm) throws Exception {
         for (final IntLongPair pair : moveList) {
             if (_debug_level > 5) {
                 System.out.println("MOVE src: " + here() + " dest: " + pair.first + " size: " + pair.second);
@@ -248,19 +248,19 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
     /**
      * Removes the specified number of entries from the local Bag and prepares them
      * to be transfered to the specified place when the
-     * {@link MoveManagerLocal#sync()} method of the {@link MoveManagerLocal} is
-     * called.
+     * {@link CollectiveMoveManager#sync()} method of the
+     * {@link CollectiveMoveManager} is called.
      * <p>
      * The objects are not removed from the local collection until method
-     * {@link MoveManagerLocal#sync()} is called. If the {@code destination} is the
-     * local placce, this method has no effects.
+     * {@link CollectiveMoveManager#sync()} is called. If the {@code destination} is
+     * the local placce, this method has no effects.
      *
      * @param count       number of objects to move from this instance
      * @param destination the destination of the objects
      * @param mm          move manager in charge of making the transfer
      */
     @SuppressWarnings("unchecked")
-    public void moveAtSyncCount(final int count, Place destination, MoveManagerLocal mm) {
+    public void moveAtSyncCount(final int count, Place destination, MoveManager mm) {
         if (destination.equals(Constructs.here())) {
             return;
         }

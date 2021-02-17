@@ -228,7 +228,7 @@ public class IT_DistCol implements Serializable {
 
         placeGroup.broadcastFlat(() -> {
             try {
-                final MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
                 LongRange range = new LongRange(0, splitSizeLarge);
                 long dest = 0;
                 while (range.from < AllRange.to) {
@@ -251,7 +251,7 @@ public class IT_DistCol implements Serializable {
         final long splitSizeSmall = 4;
         placeGroup.broadcastFlat(() -> {
             try {
-                final MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
                 LongRange range = new LongRange(0, splitSizeSmall);
                 long dest = 0;
                 while (range.from < AllRange.to) {
@@ -318,26 +318,25 @@ public class IT_DistCol implements Serializable {
         }
     }
 
-    @SuppressWarnings("deprecation")
     private void z_distributeChunks() throws Throwable {
         try {
             placeGroup.broadcastFlat(() -> {
 
                 try {
-                    final MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+                    final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
                     distCol.forEachChunk((RangedList<String> c) -> {
                         final LongRange r = c.getRange();
                         final String s = c.get(r.from);
                         // Every other chunk is sent to place 0 / 1
                         final int destination = (Integer.parseInt(s.split("/")[0])) % NPLACES;
-                        final ArrayList<RangedList<String>> cs = new ArrayList<>();
-                        cs.add(c);
-                        try {
-                            distCol.moveAtSync(cs, placeGroup.get(destination), mm);
-                        } catch (final Exception e) {
-                            System.err.println("Error on " + here());
-                            e.printStackTrace();
-                        }
+                        // final ArrayList<RangedList<String>> cs = new ArrayList<>();
+                        // cs.add(c);
+                        // try {
+                        distCol.moveRangeAtSync(r, placeGroup.get(destination), mm);
+                        // } catch (final Exception e) {
+                        // System.err.println("Error on " + here());
+                        // e.printStackTrace();
+                        // }
                     });
                     mm.sync();
                 } catch (final Exception e) {
@@ -351,24 +350,23 @@ public class IT_DistCol implements Serializable {
         }
     }
 
-    @SuppressWarnings("deprecation")
     private void z_moveToNextPlace() {
         placeGroup.broadcastFlat(() -> {
 
             try {
-                final MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
                 final int rank = placeGroup.rank(here());
                 final Place destination = placeGroup.get(rank + 1 == placeGroup.size() ? 0 : rank + 1);
-                distCol.forEachChunk((RangedList<String> c) -> {
-                    final ArrayList<RangedList<String>> cs = new ArrayList<>();
-                    cs.add(c);
-                    try {
-                        distCol.moveAtSync(cs, destination, mm);
-                    } catch (final Exception e) {
-                        System.err.println("Error on " + here());
-                        e.printStackTrace();
-                        // throw e;
-                    }
+                distCol.forEachChunk((c) -> {
+                    // final ArrayList<RangedList<String>> cs = new ArrayList<>();
+                    // cs.add(c);
+                    // try {
+                    distCol.moveRangeAtSync(c.getRange(), destination, mm);
+                    // } catch (final Exception e) {
+                    // System.err.println("Error on " + here());
+                    // e.printStackTrace();
+                    // throw e;
+                    // }
                 });
                 mm.sync();
             } catch (final Exception e) {
@@ -379,23 +377,22 @@ public class IT_DistCol implements Serializable {
         });
     }
 
-    @SuppressWarnings("deprecation")
     private void z_moveToPlaceZero() {
         placeGroup.broadcastFlat(() -> {
             try {
-                final MoveManagerLocal mm = new MoveManagerLocal(placeGroup);
+                final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
                 final Place destination = placeGroup.get(0);
-                distCol.forEachChunk((RangedList<String> c) -> {
-                    final ArrayList<RangedList<String>> cs = new ArrayList<>();
-                    cs.add(c);
+                distCol.forEachChunk((c) -> {
+                    // final ArrayList<RangedList<String>> cs = new ArrayList<>();
+                    // cs.add(c);
                     // System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
-                    try {
-                        distCol.moveAtSync(cs, destination, mm);
-                    } catch (final Exception e) {
-                        System.err.println("Error on " + here());
-                        e.printStackTrace();
-                        // throw e;
-                    }
+                    // try {
+                    distCol.moveRangeAtSync(c.getRange(), destination, mm);
+                    // } catch (final Exception e) {
+                    // System.err.println("Error on " + here());
+                    // e.printStackTrace();
+                    // throw e;
+                    // }
                 });
                 mm.sync();
             } catch (final Exception e) {
