@@ -36,7 +36,7 @@ The test code is located under the `src/test/java` directory. There are two kind
 
 The former are bound to the `test` phase of the standard lifecycle of Maven. You can run them without any prerequisite using the `mvn test` command. They will also be run when generating the Java ARchive with `mvn package`.
 
-The former are bound to the `verify` phase. **HOWEVER**, only the `mpijava` or `mpjnative` profiles that rely on the mpiJava or MPJ-Express library can run these tests. Attempting to run these tests in the default profile will result in failure. You need to specify the `mpijava` (or `mpjnative`) profile as such: `mvn verify -Pmpijava`.
+The later are bound to the `verify` phase. **HOWEVER**, only the `mpijava` or `mpjnative` profiles that rely on the mpiJava or MPJ-Express library can run these tests. Attempting to run these tests in the default profile will result in failure. You need to specify the `mpijava` (or `mpjnative`) profile as such: `mvn verify -Pmpijava`.
 
 **Configuration for `mpijava` profile**
 

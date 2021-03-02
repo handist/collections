@@ -31,6 +31,7 @@ import mpi.MPIException;
  * @author Patrick Finnerty
  *
  */
+@SuppressWarnings("deprecation")
 class CollectiveRelocator {
 
     private static final boolean DEBUG = false;

@@ -133,7 +133,7 @@ public class IT_CachableArray implements Serializable {
      *
      * @throws Throwable if thrown during the test
      */
-    @Test
+    @Test(timeout = 30000)
     public void testSimple() throws Throwable {
         checkLast(carray);
         addElems(1, carray);

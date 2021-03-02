@@ -51,7 +51,7 @@ import mpi.MPIException;
  * @param <V> type of the value mapped to each key in the {@link DistMap}
  */
 public class DistMap<K, V>
-        implements Map<K, V>, AbstractDistCollection<V, DistMap<K, V>>, KeyRelocatable<K>, SerializableWithReplace {
+        implements Map<K, V>, DistributedCollection<V, DistMap<K, V>>, KeyRelocatable<K>, SerializableWithReplace {
 
     public class DistMapGlobal extends GlobalOperations<V, DistMap<K, V>> {
         DistMapGlobal(DistMap<K, V> handle) {
@@ -75,6 +75,7 @@ public class DistMap<K, V>
             super(handle);
         }
 
+        @SuppressWarnings("deprecation")
         @Override
         public void size(long[] result) {
             final TeamedPlaceGroup pg = handle.placeGroup;

@@ -22,7 +22,8 @@ import java.util.Queue;
 import apgas.MultipleException;
 import apgas.Place;
 import apgas.SerializableJob;
-import handist.collections.dist.AbstractDistCollection;
+import apgas.util.GlobalID;
+import handist.collections.dist.DistributedCollection;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.SerializableSupplier;
@@ -37,7 +38,7 @@ import handist.collections.function.SerializableSupplier;
  * <li>the type of the ditributed collection representing the result of the
  * operation
  *
- * @author Patrick
+ * @author Patrick Finnerty
  *
  * @param <C> type of the distributed collection
  * @param <T> type of the individual elements contained by the collection
@@ -47,7 +48,7 @@ import handist.collections.function.SerializableSupplier;
  * @param <R> type of the distributed collection representing the result of the
  *            operation
  */
-class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implements Serializable {
+class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements Serializable {
     /** Serial Version UID */
     private static final long serialVersionUID = -7074061733010237021L;
 
@@ -63,6 +64,9 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
         after.dependencies.add(before);
         before.addHook(() -> after.dependencySatisfied(before));
     }
+
+    /** Global id for this GlbOperation */
+    GlobalID id;
 
     /** Distributed collection on which this operation is operating */
     C collection;
@@ -117,6 +121,15 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
      */
     SerializableConsumer<WorkerService> workerInit;
 
+//    /**
+//     * Private constructor which may only be used thorugh reflection by serializers
+//     */
+//    @SuppressWarnings("unused")
+//    private GlbOperation() {
+//        hooks = new ArrayList<>();
+//        dependencies = new LinkedList<>();
+//    }
+
     /**
      * Constructor for GLB operation. The distributed collection under consideration
      * and the method to be called on it needs to be specified.
@@ -138,6 +151,25 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
      */
     GlbOperation(C c, SerializableBiConsumer<K, WorkerService> op, DistFuture<R> f,
             SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization) {
+        this(c, op, f, glbTaskInit, workerInitialization, new GlobalID());
+    }
+
+    /**
+     * Private constructor used when the GlobalID is known.
+     *
+     * @param c                    the collection on which this operation operates
+     * @param op                   the closure which actually performs the work
+     * @param f                    the future which will handle the result of this
+     *                             operation
+     * @param glbTaskInit          initialization that will prepare the manager of
+     *                             the assignments of the distributed collection
+     * @param workerInitialization initialization that needs to be performed on
+     *                             every worker prior to the
+     * @param gid                  global id
+     */
+    private GlbOperation(C c, SerializableBiConsumer<K, WorkerService> op, DistFuture<R> f,
+            SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization,
+            GlobalID gid) {
         collection = c;
         operation = op;
         future = f; // We need a 2-way link between the GlbOperation and the
@@ -146,6 +178,8 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
         dependencies = new LinkedList<>();
         initializerOfGlbTask = glbTaskInit;
         workerInit = workerInitialization;
+        id = gid;
+        id.putHere(this);
     }
 
     /**
@@ -210,10 +244,11 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
     /*
      * Correct programming of the load balancer ensures that no operation will try
      * to signal that it has completed to an operation of which it is not a
-     * dependency, or do it multiple times. However the current implementation
-     * elegantly forgives such cases. Only when assertions are activated with
-     * command line option -ea (enable assertions) that such a case would throw an
-     * assertion exception in this method
+     * dependency, or signal its completion multiple times. However the current
+     * implementation elegantly allows such inconsistent cases without any adverse
+     * effects. Only when assertions are activated with command line option -ea
+     * (enable assertions) that such a case would throw an assertion exception in
+     * this method
      */
     private synchronized void dependencySatisfied(GlbOperation<?, ?, ?, ?, ?> dep) {
         assertTrue(dep + " was not a dependency of " + this + " attempted to unblock " + this + " anyway.",
@@ -221,6 +256,23 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
 
         if (dependencies.isEmpty()) {
             async(() -> this.compute());
+        }
+    }
+
+    /**
+     * GlbOperation are considered the same if they share the same global id. Other
+     * members are not checked. This could a problem if GlobalID instances were
+     * re-used carelessly but should otherwise be fine. As GlbOperation's
+     * constructor does not allow for an arbitrary id to be given at initialization,
+     * this is unlikely to become a problem.
+     */
+    @SuppressWarnings("rawtypes")
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof GlbOperation) {
+            return id.equals(((GlbOperation) o).id);
+        } else {
+            return false;
         }
     }
 
@@ -268,5 +320,10 @@ class GlbOperation<C extends AbstractDistCollection<T, C>, T, K, D, R> implement
         }
 
         return errors;
+    }
+
+    @Override
+    public int hashCode() {
+        return (int) id.gid();
     }
 }

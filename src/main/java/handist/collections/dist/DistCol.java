@@ -59,7 +59,7 @@ import handist.collections.glb.DistColGlb;
  */
 @DefaultSerializer(JavaSerializer.class)
 public class DistCol<T> extends ChunkedList<T>
-        implements AbstractDistCollection<T, DistCol<T>>, RangeRelocatable<LongRange>, SerializableWithReplace {
+        implements DistributedCollection<T, DistCol<T>>, RangeRelocatable<LongRange>, SerializableWithReplace {
 
     /**
      * Class used to identify pieces of chunks when a chunk is split in two and each
@@ -356,6 +356,7 @@ public class DistCol<T> extends ChunkedList<T>
      */
     private DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id) {
         super();
+        id.putHere(this);
         manager = new DistributionManager<>(placeGroup, id, this);
         manager.locality = initialLocality(placeGroup.size);
         ldist = new DistManager<>();
@@ -436,6 +437,11 @@ public class DistCol<T> extends ChunkedList<T>
     @Override
     public GlobalOperations<T, DistCol<T>> global() {
         return GLOBAL;
+    }
+
+    @Override
+    public int hashCode() {
+        return (int) id().gid();
     }
 
     @Override
@@ -752,9 +758,14 @@ public class DistCol<T> extends ChunkedList<T>
     }
 
     @Override
+    public String toString() {
+        return getClass().getSimpleName() + ":" + id();
+    }
+
+    @Override
     public Object writeReplace() throws ObjectStreamException {
         final TeamedPlaceGroup pg1 = manager.placeGroup;
-        final GlobalID id1 = manager.id;
+        final GlobalID id1 = id();
         return new LazyObjectReference<>(pg1, id1, () -> {
             return new DistCol<>(pg1, id1);
         });

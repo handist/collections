@@ -1,7 +1,6 @@
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
-import static apgas.ExtendedConstructs.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -10,8 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import apgas.Place;
-import apgas.SerializableJob;
-import apgas.impl.Finish;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
@@ -37,7 +34,10 @@ public class OneSidedMoveManager implements MoveManager {
      *
      * @return a safe integer to use as tag
      */
-    private static synchronized int nextTag() {
+    /*
+     * When refactoring of MPI features access is made, this method should be moved.
+     */
+    protected static synchronized int nextTag() {
         final int toReturn = intTag++;
         if (intTag < 0) {
             intTag = MINIMUM_TAG_VALUE;
@@ -48,17 +48,17 @@ public class OneSidedMoveManager implements MoveManager {
     /**
      * List of deserializers used to process the received data on the destination
      */
-    final List<DeSerializer> deserializers;
+    final protected List<DeSerializer> deserializers;
     /**
      * Place to which the objects need to be sent
      */
-    final Place destination;
+    final protected Place destination;
 
     /**
      * List of serializers used to transform the objects of the local host into
      * bytes to be sent to the remote host
      */
-    final List<Serializer> serializers;
+    final protected List<Serializer> serializers;
 
     /**
      * Constructor
@@ -79,7 +79,8 @@ public class OneSidedMoveManager implements MoveManager {
      *
      * @throws IOException if thrown during the serialization process
      */
-    void asyncSend() throws IOException {
+    @SuppressWarnings("deprecation")
+    public void asyncSend() throws IOException {
         final byte[] bytesToSend = prepareByteArray();
 
         final int nbOfBytes = bytesToSend.length;
@@ -108,48 +109,6 @@ public class OneSidedMoveManager implements MoveManager {
     }
 
     /**
-     * Proceed to the serialization and send the bytes over to the destination. Also
-     * spawn an asynchronous task on the remote place to receive the bytes and
-     * deserialize them.
-     *
-     * @param j       the job to run after the deserialization of the objects that
-     *                were transferred
-     * @param finishs the finishes under which the asynchronous task which is
-     *                spawned on the destination host is registered.
-     * @throws IOException if thrown during serialization
-     */
-    void asyncSendAndDo(SerializableJob j, Finish... finishs) throws IOException {
-        final byte[] bytesToSend = prepareByteArray();
-
-        final int nbOfBytes = bytesToSend.length;
-        final int destinationRank = TeamedPlaceGroup.world.rank(destination);
-        final int myRank = TeamedPlaceGroup.world.rank();
-        final int tag = nextTag();
-
-        TeamedPlaceGroup.world.comm.Isend(bytesToSend, 0, nbOfBytes, MPI.BYTE, destinationRank, tag);
-
-        asyncArbitraryFinish(destination, () -> {
-            // Receive the array of bytes
-            TeamedPlaceGroup.world.comm.Recv(new byte[nbOfBytes], 0, nbOfBytes, MPI.BYTE, myRank, tag);
-            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);
-            final ObjectInput oInput = new ObjectInput(inStream);
-
-            // The first object to come out of the byte array is a list of deserializers
-            @SuppressWarnings("unchecked")
-            final List<DeSerializer> ds = (List<DeSerializer>) oInput.readObject();
-
-            // We know apply each deserializer one after the other
-            for (final DeSerializer deserializer : ds) {
-                deserializer.accept(oInput);
-            }
-            oInput.close();
-
-            // Reception is over, launch the job that was given as parameter
-            j.run();
-        }, finishs);
-    }
-
-    /**
      * Applies all the serializers accumulated so far and produces a byte array
      * which is going to be transmitted to the destination
      *
@@ -157,7 +116,7 @@ public class OneSidedMoveManager implements MoveManager {
      *         the objects that were targeted by the serializers
      * @throws IOException if thrown during serialization of objects
      */
-    private byte[] prepareByteArray() throws IOException {
+    protected byte[] prepareByteArray() throws IOException {
         final ByteArrayOutputStream stream = new ByteArrayOutputStream();
         final ObjectOutput oo = new ObjectOutput(stream);
 
@@ -188,7 +147,8 @@ public class OneSidedMoveManager implements MoveManager {
      *
      * @throws IOException if thrown during the serialization process
      */
-    void send() throws IOException {
+    @SuppressWarnings("deprecation")
+    public void send() throws IOException {
         final byte[] bytesToSend = prepareByteArray();
 
         final int nbOfBytes = bytesToSend.length;

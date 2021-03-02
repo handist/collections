@@ -28,6 +28,8 @@ import apgas.MultipleException;
 import apgas.Place;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
+import handist.collections.RangedList;
+import handist.collections.dist.CollectiveMoveManager;
 import handist.collections.dist.DistCol;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.mpijunit.MpiConfig;
@@ -41,8 +43,14 @@ public class IT_GlbProgramTest1 implements Serializable {
     /** Number of ranges to populate this collection */
     final static long LONGRANGE_COUNT = 20l;
 
-    /** Size of individual ranges */
-    final static long RANGE_SIZE = 20l;
+    /** Number of hosts on which this tests runs */
+    final static int PLACEGROUP_SIZE = 4;
+
+    /**
+     * Size of individual ranges. This is made purposely an odd number such that
+     * distributing the ranges can be done easily with a simple modulus operation.
+     */
+    final static long RANGE_SIZE = 100 * PLACEGROUP_SIZE + 1;
 
     /** Serial Version UID */
     private static final long serialVersionUID = -5017047700763986362L;
@@ -79,19 +87,8 @@ public class IT_GlbProgramTest1 implements Serializable {
         placeGroup = TeamedPlaceGroup.getWorld();
         col = new DistCol<>(placeGroup);
 
-        // Put some initial values in distMap
-        for (long l = 0l; l < LONGRANGE_COUNT; l++) {
-            final long from = l * RANGE_SIZE;
-            final long to = from + RANGE_SIZE;
-            final String lrPrefix = "LR[" + from + ";" + to + "]";
-            final LongRange lr = new LongRange(from, to);
-            final Chunk<Element> c = new Chunk<>(lr);
-            for (long i = from; i < to; i++) {
-                final String value = genRandStr(lrPrefix + ":" + i + "#");
-                c.set(i, new Element(value));
-            }
-            col.add(c);
-        }
+        y_populateCollection();
+        y_makeDistribution();
     }
 
     @After
@@ -105,7 +102,7 @@ public class IT_GlbProgramTest1 implements Serializable {
      *
      * @throws Throwable if thrown during the test
      */
-    @Test(timeout = 10000)
+    @Test(timeout = 20000)
     public void testAfter() throws Throwable {
         final ArrayList<Exception> ex = underGLB(() -> {
             final DistFuture<DistCol<Element>> test = col.GLB.forEach(makePrefixTest);
@@ -191,7 +188,6 @@ public class IT_GlbProgramTest1 implements Serializable {
         } catch (final MultipleException me) {
             printExceptionAndThrowFirst(me);
         }
-
         checkNoElementLost();
     }
 
@@ -203,7 +199,6 @@ public class IT_GlbProgramTest1 implements Serializable {
         if (!ex.isEmpty()) {
             throw ex.get(0);
         }
-
     }
 
     /**
@@ -226,12 +221,32 @@ public class IT_GlbProgramTest1 implements Serializable {
     }
 
     /**
+     * Checks that the correct number of elements was created as well as the
+     * distribution of these instances
+     */
+    @Test
+    public void testSetup() {
+        long total = 0;
+        for (final Place p : col.placeGroup().places()) {
+            total += at(p, () -> {
+                if (p.id != 3) {
+                    assertTrue(col.numChunks() > 0);
+                } else {
+                    assertTrue(col.numChunks() == 0);
+                }
+                return col.size();
+            });
+        }
+        assertEquals(TOTAL_DATA_SIZE, total);
+    }
+
+    /**
      * Checks that a simple GLB program with a single instruction operates as
      * intended
      *
      * @throws Throwable if thrown during the program
      */
-    @Test(timeout = 10000)
+    @Test(timeout = 20000)
     public void testSingleOperationGlbProgram() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
@@ -355,6 +370,36 @@ public class IT_GlbProgramTest1 implements Serializable {
         }
 
         checkNoElementLost();
+    }
+
+    private void y_makeDistribution() {
+        // Transfer elements to remote hosts (Places 0, 1, 2 - 3 doesn't get any)
+        placeGroup.broadcastFlat(() -> {
+            final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
+            col.forEachChunk((RangedList<Element> c) -> {
+                final LongRange r = c.getRange();
+                // We place the chunks everywhere except on place 3
+                final Place destination = place((int) r.from % (PLACEGROUP_SIZE - 1));
+                col.moveRangeAtSync(r, destination, mm);
+            });
+            mm.sync();
+        });
+    }
+
+    private void y_populateCollection() {
+        // Put some initial values in distMap
+        for (long l = 0l; l < LONGRANGE_COUNT; l++) {
+            final long from = l * RANGE_SIZE;
+            final long to = from + RANGE_SIZE;
+            final String lrPrefix = "LR[" + from + ";" + to + "]";
+            final LongRange lr = new LongRange(from, to);
+            final Chunk<Element> c = new Chunk<>(lr);
+            for (long i = from; i < to; i++) {
+                final String value = genRandStr(lrPrefix + ":" + i + "#");
+                c.set(i, new Element(value));
+            }
+            col.add(c);
+        }
     }
 
 }

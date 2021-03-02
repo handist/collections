@@ -25,9 +25,9 @@ import handist.collections.function.SerializableConsumer;
  *
  * @param <T> the type of objects manipulated by the distributed collection
  * @param <C> implementing type, should be a class that implements
- *            {@link AbstractDistCollection}
+ *            {@link DistributedCollection}
  */
-public abstract class GlobalOperations<T, C extends AbstractDistCollection<T, C>> implements SerializableWithReplace {
+public abstract class GlobalOperations<T, C extends DistributedCollection<T, C>> implements SerializableWithReplace {
 
     protected final C localHandle;
 
