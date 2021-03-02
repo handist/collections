@@ -32,6 +32,7 @@ import mpi.MPIException;
 //TODO not used now.
 // for internal use
 // this is a class for the load balancing
+@SuppressWarnings("deprecation")
 abstract class LoadBalancer {
 
     // private static Place tmpRoot = Place(0);

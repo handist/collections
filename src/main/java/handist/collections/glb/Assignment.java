@@ -10,6 +10,8 @@
  ******************************************************************************/
 package handist.collections.glb;
 
+import java.io.Serializable;
+
 /**
  * Portion of work to assign to a worker.
  * <p>
@@ -20,7 +22,7 @@ package handist.collections.glb;
  * @author Patrick Finnerty
  *
  */
-interface Assignment {
+interface Assignment extends Serializable {
 
     /**
      * Chooses an operation available in this assignment to be processed by the

@@ -47,7 +47,7 @@ import mpi.MPIException;
  *
  * @param <T> type of the elements handled by the {@link DistBag}.
  */
-public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, DistBag<T>>, SerializableWithReplace {
+public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistBag<T>>, SerializableWithReplace {
     /* implements Container[T], ReceiverHolder[T] */
 
     /**
@@ -96,6 +96,7 @@ public class DistBag<T> extends Bag<T> implements AbstractDistCollection<T, Dist
             super(handle);
         }
 
+        @SuppressWarnings("deprecation")
         @Override
         public void size(long[] result) {
             final TeamedPlaceGroup pg = handle.placeGroup();

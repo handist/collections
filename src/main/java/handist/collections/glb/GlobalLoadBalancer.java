@@ -17,7 +17,18 @@ import java.util.LinkedList;
 
 import apgas.SerializableJob;
 
+/**
+ * Class presenting the static method under which GLB operations can operate.
+ * Programmers may choose to statically impoirt this class to avoid the lengthy
+ * {@code GlobalLoadBalancer#underGLB(SerializableJob)} call in their program.
+ *
+ * @author Patrick Finnerty
+ *
+ */
 public class GlobalLoadBalancer {
+    /**
+     * Singleton
+     */
     static GlobalLoadBalancer glb = null;
 
     /**
@@ -63,6 +74,10 @@ public class GlobalLoadBalancer {
         if (GlobalLoadBalancer.glb == null) {
             // Create a new GlobalLoadBalancer instance that will handle the program
             glb = new GlobalLoadBalancer();
+
+            // Also initialize the GlbComputer on all hosts before trying to submit anything
+            GlbComputer.getComputer();
+
             final ArrayList<Exception> exc = new ArrayList<>();
             finish(() -> {
                 try {

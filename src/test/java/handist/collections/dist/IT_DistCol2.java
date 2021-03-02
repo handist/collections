@@ -280,9 +280,11 @@ public class IT_DistCol2 implements Serializable {
      */
     @Test
     public void testSetup() {
+        assertEquals(distCol, distCol.id().getHere());
         world.broadcastFlat(() -> {
             assertTrue(distCol.isEmpty());
             assertEquals(0l, distCol.size());
+            assertEquals(distCol, distCol.id().getHere());
         });
     }
 

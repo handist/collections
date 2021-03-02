@@ -12,19 +12,29 @@ package handist.collections.glb;
 
 import static apgas.Constructs.*;
 import static apgas.ExtendedConstructs.*;
+import static org.junit.Assert.*;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
+import apgas.GlobalRuntime;
+import apgas.Place;
 import apgas.impl.Finish;
 import apgas.util.PlaceLocalObject;
 import handist.collections.Bag;
+import handist.collections.dist.DistributedCollection;
 import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.glb.lifeline.Lifeline;
+import handist.collections.glb.lifeline.LifelineFactory;
+import handist.collections.glb.lifeline.Loop;
 
 /**
  * Distributed object in charge of handling the GLB runtime and the work
@@ -34,6 +44,42 @@ import handist.collections.dist.TeamedPlaceGroup;
  *
  */
 class GlbComputer extends PlaceLocalObject {
+
+    /**
+     * Class representing the fact that a host wants to steal some work from another
+     * host.
+     *
+     * @author Patrick Finnerty
+     *
+     */
+    final static class LifelineToken implements Serializable {
+        /** Serial Version UID */
+        private static final long serialVersionUID = 1445594155772627013L;
+        /** Distributed collection from which assignments are desired */
+        @SuppressWarnings("rawtypes")
+        DistributedCollection collection;
+        /**
+         * Place performing the steal / answering a lifeline steal
+         */
+        Place place;
+
+        /**
+         * Constructor for a lifeline token. The target collection and the source of the
+         * steal are specified as parameters
+         *
+         * @param c distributed collection from which work is desired
+         * @param p place which is trying to steal some work
+         */
+        private LifelineToken(@SuppressWarnings("rawtypes") DistributedCollection c, Place p) {
+            collection = c;
+            place = p;
+        }
+
+        @Override
+        public String toString() {
+            return "LifelineToken[" + place + "/" + collection + "]";
+        }
+    }
 
     /**
      * Class containing information and logging facilities of an individual worker.
@@ -66,6 +112,18 @@ class GlbComputer extends PlaceLocalObject {
 
         /** Time stamp of the last change in this worker's state */
         private long lastStamp;
+
+        /**
+         * Number of times the worker made an answer to a remote thief.
+         */
+        public int lifelineAnswer;
+
+        /**
+         * Number of times the worker attempted to make an answer to a lifeline thief
+         * but this attempt failed because no assignments were available on the local
+         * host.
+         */
+        public int lifelineCannotAnswer;
 
         /**
          * Time (in nanoseconds) spent working by this worker. The time spent yielding
@@ -188,20 +246,6 @@ class GlbComputer extends PlaceLocalObject {
         Map<Object, GlbTask> allTasks;
 
         /**
-         * Map associating every GlbOperation with the semaphore used to block the
-         * thread representing the presence of work for this operation.
-         */
-        @SuppressWarnings("rawtypes")
-        Map<GlbOperation, SemaphoreBlocker> blockers;
-
-        /**
-         * Map associating every GlbOperation with the finish instance in which they are
-         * being executed
-         */
-        @SuppressWarnings("rawtypes")
-        Map<GlbOperation, Finish> finishes;
-
-        /**
          * Map which contains the operation with work left as keys and the GlbTask is in
          * charge of handling the corresponding assignments. As all the assignments of a
          * certain operations are completed, the mapping in this collection will be
@@ -221,9 +265,6 @@ class GlbComputer extends PlaceLocalObject {
         WorkReserve() {
             allTasks = new HashMap<>();
             tasksWithWork = new ConcurrentHashMap<>();
-
-            finishes = new HashMap<>();
-            blockers = new HashMap<>();
         }
 
         /**
@@ -278,6 +319,32 @@ class GlbComputer extends PlaceLocalObject {
     private static GlbComputer computer = null;
 
     /**
+     * Code used in member {@link #lifelineEstablished} to represent the fact that
+     * this place had a lifeline established with the remote host
+     *
+     * @see #establishingLifelineOnRemoteHost(DistributedCollection)
+     */
+    private static final int LIFELINE_ESTABLISHED = 1;
+
+    /**
+     * Code used in member {@link #lifelineEstablished} to represent the fact that
+     * this place has not established a lifeline with a remote host
+     *
+     * @see #establishingLifelineOnRemoteHost(DistributedCollection)
+     */
+    private static final int LIFELINE_NOT_ESTABLISHED = 0;
+
+    /**
+     * Setting describing if tracing is activated. If so, a number of output
+     * messages are made to {@link System#err} as GLB events occur.
+     */
+    static boolean TRACE = Boolean.parseBoolean(System.getProperty(Config.ACTIVATE_TRACE, "false"));
+
+    static void destroyGlbComputer() {
+        computer = null;
+    }
+
+    /**
      * Method returning the local singleton for GlbComputer
      *
      * @return GlbComputer local handle
@@ -285,11 +352,30 @@ class GlbComputer extends PlaceLocalObject {
     static GlbComputer getComputer() {
         if (computer == null) {
             computer = PlaceLocalObject.make(TeamedPlaceGroup.getWorld().places(), () -> {
-                return new GlbComputer();
+                final GlbComputer c = new GlbComputer();
+                // Assign the static member of class GlbComputer here
+                // Doing so here avoids the need for a second finish/asyncAt block
+                GlbComputer.computer = c;
+                if (TRACE) {
+                    System.err.println("GlbComputer on " + here() + " is " + c);
+                }
+                return c;
             });
         }
+        assertNotNull(computer);
         return computer;
     }
+
+    /**
+     * Map associating every GlbOperation with the semaphore used to block the
+     * thread representing the presence of work for this operation.
+     * <p>
+     * This member needs to be accessed through a synchronized block as it is not
+     * protected against concurrent modifications. As it is not accessed often, the
+     * use of a concurrent data structure is not warranted.
+     */
+    @SuppressWarnings("rawtypes")
+    private final Map<GlbOperation, OperationBlocker> blockers;
 
     /**
      * Atomic array used to signal to workers that they need to place some work back
@@ -308,10 +394,25 @@ class GlbComputer extends PlaceLocalObject {
     private final AtomicIntegerArray feedReserveRequested;
 
     /**
+     * Map associating every GlbOperation with the finish instance in which they are
+     * being executed
+     */
+    /*
+     * This member needs to be protected against concurrent modifications as there
+     * is a risk that multiple starting operations may try to insert their "finish"
+     * value inside this collection concurrently. While we could use synchronized
+     * blocks for all accesses made to this object, it would be error-prone as
+     * workers making lifeline answer may access this object at any time from
+     * outside this object. A concurrent data collection was therefore preferred.
+     */
+    @SuppressWarnings("rawtypes")
+    final ConcurrentHashMap<GlbOperation, Finish> finishes;
+
+    /**
      * Number of elements processed by workers in one gulp before they check the
      * runtime
      */
-    volatile int granularity = 6;
+    volatile int granularity;
 
     /**
      * Concurrent linked list which contains the inactive workers that may run on
@@ -320,14 +421,25 @@ class GlbComputer extends PlaceLocalObject {
     private final ConcurrentLinkedDeque<WorkerInfo> idleWorkers;
 
     /**
+     * Collection used to keep track of the lifelines that are established on remote
+     * hosts
+     */
+    @SuppressWarnings("rawtypes")
+    ConcurrentHashMap<DistributedCollection, ConcurrentHashMap<Place, AtomicInteger>> lifelineEstablished;
+
+    /**
+     * Lifeline requests for work coming from remote places in the system.
+     * <p>
+     * A lifeline request consists in a token which contains the distributed
+     * collection which is the target of the steal and the Place which requires the
+     * work. Refer to
+     */
+    ConcurrentLinkedQueue<LifelineToken> lifelineThieves;
+
+    /**
      * Maximum number of workers that can concurrently run on the local host
      */
     final int MAX_WORKERS;
-
-    /**
-     * Number of concurrent workers running
-     */
-//    int currentWorkers;
 
     /**
      * Member used for book-keeping of the errors that occur during GLB operations.
@@ -335,10 +447,19 @@ class GlbComputer extends PlaceLocalObject {
     @SuppressWarnings("rawtypes")
     final transient Map<GlbOperation, ArrayList<Throwable>> operationErrors;
 
+    /** Fork Join Pool used by the APGAS runtime */
+    final ForkJoinPool POOL;
+
     /**
      * Instance in which the workers on a host take / place work back into
      */
     WorkReserve reserve;
+
+    /**
+     * Collection of Locks which contains the locks that are available for workers
+     * to pick up to actively yield to other activities.
+     */
+    private final ConcurrentLinkedQueue<TimeoutBlocker> workerAvailableLocks;
 
     /**
      * Array containing all the workers initialized on the host Contrary to
@@ -352,26 +473,43 @@ class GlbComputer extends PlaceLocalObject {
     private final WorkerInfo[] workers;
 
     /**
+     * Lock used to force workers to yield execution to allow other activities to
+     * run
+     */
+    private final TimeoutBlocker workerYieldLock;
+
+    /**
      * Private constructor
      * <p>
      * GlbComputer is a global object that follows a singleton design pattern. This
      * constructor is made private to protect this property.
      */
     private GlbComputer() {
-        // Set the maximum number of concurrent workers on this host
-        MAX_WORKERS = Runtime.getRuntime().availableProcessors();
-        workers = new WorkerInfo[MAX_WORKERS];
+        // Set the constants related to runtime environment
+        MAX_WORKERS = Config.getMaximumConcurrentWorkers();
+        POOL = (ForkJoinPool) GlobalRuntime.getRuntime().getExecutorService();
+
+        // Initialize the single lock used by workers to actively yield to other
+        // activities (lifeline steals / other non-GLB activities)
+        workerYieldLock = new TimeoutBlocker();
+        workerAvailableLocks = new ConcurrentLinkedQueue<>();
+        workerAvailableLocks.add(workerYieldLock);
 
         // Prepare the worker Ids
+        workers = new WorkerInfo[MAX_WORKERS];
         idleWorkers = new ConcurrentLinkedDeque<>();
         for (int i = 0; i < MAX_WORKERS; i++) {
             final WorkerInfo w = new WorkerInfo(i);
             idleWorkers.add(w);
             workers[i] = w;
         }
+
         // Prepare the atomic array used as flag to signal to workers that the #reserve
         // needs to be fed
         feedReserveRequested = new AtomicIntegerArray(MAX_WORKERS);
+
+        // Set an initial value for the granularity
+        granularity = Config.getGranularity();
 
         // Initialize the reserve of assignments for this host
         reserve = new WorkReserve();
@@ -379,6 +517,13 @@ class GlbComputer extends PlaceLocalObject {
         // Initialize the map that will contain the errors that may occur during GLB
         // operation
         operationErrors = new HashMap<>();
+
+        finishes = new ConcurrentHashMap<>();
+        blockers = new HashMap<>();
+
+        // Initialize the data structures used to keep track of the lifelines
+        lifelineThieves = new ConcurrentLinkedQueue<>();
+        lifelineEstablished = new ConcurrentHashMap<>();
     }
 
     /**
@@ -398,6 +543,9 @@ class GlbComputer extends PlaceLocalObject {
         if (worker != null) {
             final Assignment forSpawn = reserve.getAssignment();
             if (forSpawn != null) {
+                if (TRACE) {
+                    System.err.println(here() + " spawned worker(" + worker.id + ")");
+                }
                 uncountedAsyncAt(here(), () -> worker(worker, forSpawn));
             } else {
                 // Work could not be taken from the reserve
@@ -414,6 +562,83 @@ class GlbComputer extends PlaceLocalObject {
     }
 
     /**
+     * Procedure called by the thread representing the presence of work for a given
+     * operation on this host when all the local assignments have completed and it
+     * established lifelines on neighbor nodes to obtain some work.
+     * <p>
+     * As under our current implementation, lifelines are established on a "per
+     * collection" basis, it is possible that an operation which terminates does not
+     * actually establish any new lifelines. This is the case if multiple operations
+     * on the same collection are ongoing and a previous operation terminated
+     * before, establishing the lifelines before this new operation did.
+     *
+     * @param c the collection on which the operation that has terminated operated
+     */
+    void establishingLifelineOnRemoteHost(@SuppressWarnings("rawtypes") DistributedCollection c) {
+        final LifelineToken token = new LifelineToken(c, here());
+
+        final ConcurrentHashMap<Place, AtomicInteger> lifelineStatus = lifelineEstablished.get(c);
+
+        for (final Map.Entry<Place, AtomicInteger> pair : lifelineStatus.entrySet()) {
+            // An atomic check is made to avoid establishing a lifeline redundantly
+            if (pair.getValue().compareAndSet(LIFELINE_NOT_ESTABLISHED, LIFELINE_ESTABLISHED)) {
+                // This thread set the flag to "established", it can now make the assynchronous
+                // call that actually establishes the lifeline on the remote host
+
+                // asyncAt(pair.getKey(), () -> {
+                uncountedAsyncAt(pair.getKey(), () -> {
+                    try {
+                        if (TRACE) {
+                            System.err.println(token.place + " established lifeline on " + here() + " for collection "
+                                    + token.collection);
+                        }
+                        lifelineThieves.add(token);
+                    } catch (final Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
+        }
+    }
+
+    /**
+     * Procedure called by a remote host when giving some work as part of a lifeline
+     * answer.
+     *
+     * @param token   token containing the information about the collection and the
+     *                place making the answer
+     * @param stolen  collection of assignments that will now be under this host
+     *                responsibility
+     * @param numbers the number of assignments with work that are given for each
+     *                operation that the asignments may contain
+     */
+    void lifelineAnswer(final LifelineToken token, final ArrayList<Assignment> stolen,
+            @SuppressWarnings("rawtypes") final HashMap<GlbOperation, Integer> numbers) {
+        if (TRACE) {
+            System.err.println(here() + " received " + stolen.size() + " assignments from " + token.place);
+        }
+
+        // The lifeline answer has just been received, we set the lifeline tracker back
+        // to "not established"
+        assertTrue(lifelineEstablished.get(token.collection).get(token.place).compareAndSet(LIFELINE_ESTABLISHED,
+                LIFELINE_NOT_ESTABLISHED));
+
+        // Merge the assignments
+        final GlbTask glbTask = reserve.allTasks.get(token.collection);
+        glbTask.mergeAssignments(numbers, stolen);
+
+        // For each operation that was transmitted, place an asynchronous task that will
+        // wait till operation termination
+        for (@SuppressWarnings("rawtypes")
+        final GlbOperation op : numbers.keySet()) {
+            final Finish f = finishes.get(op);
+            reserve.tasksWithWork.put(op, glbTask);
+            asyncArbitraryFinish(here(), () -> operationActivity(op), f);
+        }
+
+    }
+
+    /**
      * Registers a new operation as available to workers and starts workers if they
      * were not already launched. The thread that called this method is then blocked
      * until the computation has terminated globally/locally ?
@@ -422,10 +647,34 @@ class GlbComputer extends PlaceLocalObject {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     void newOperation(GlbOperation op) {
-        // Put members needed for global termination management
-        reserve.finishes.put(op, currentFinish());
-        reserve.blockers.put(op, new SemaphoreBlocker());
+        // Prepare the data structure for tracking the state of the outgoing lifelines
+        // if it was not already created. A mapping is actually created if the operation
+        // given as parameter operates on a distributed collection which has not
+        // previously had any operations run on it.
+        lifelineEstablished.computeIfAbsent(op.collection, col -> {
+            final ConcurrentHashMap<Place, AtomicInteger> map = new ConcurrentHashMap<>();
+            Lifeline l;
+            try {
+                l = LifelineFactory.newLifeline(col.placeGroup());
+            } catch (final Exception e) {
+                e.printStackTrace();
+                System.err.println("Faced a " + e + " when attempting to initialize a new lifeline strategy. Using "
+                        + Loop.class.getName() + " instead");
+                l = new Loop(col.placeGroup());
+            }
+            for (final Place p : l.lifeline(here())) {
+                map.put(p, new AtomicInteger(0));
+            }
+            return map;
+        });
 
+        // Put members needed for global termination management
+        // This part is made synchronized since the underlying collections are not
+        // protected against concurrent accesses.
+        synchronized (blockers) {
+            blockers.put(op, new OperationBlocker());
+        }
+        finishes.put(op, currentFinish());
         // Prepare every worker with the special initialization (if needed)
         if (op.workerInit != null) {
             for (final WorkerInfo wi : workers) {
@@ -444,8 +693,8 @@ class GlbComputer extends PlaceLocalObject {
             // Launch workers / block until local termination
             operationActivity(op);
         } else {
-            // TODO Go on to work stealing directly.
-            // Careful with the activity actually in charge of it
+            // Go on to work stealing directly.
+            establishingLifelineOnRemoteHost(op.collection);
         }
     }
 
@@ -469,10 +718,34 @@ class GlbComputer extends PlaceLocalObject {
     void operationActivity(@SuppressWarnings("rawtypes") GlbOperation op) {
         attemptToSpawnWorker();
 
+        // As this activity is going to block, it should unblock any potential worker
+        // that yielded its execution to allow this activity to run
+        workerYieldLock.unblock();
+
         // Block until operation completes
         try {
             // Take the appropriate SemaphoreBlocker to be waken up by workers
-            ForkJoinPool.managedBlock(reserve.blockers.get(op));
+            final OperationBlocker mb;
+            synchronized (blockers) {
+                mb = blockers.get(op);
+            }
+
+            if (mb.allowedToBlock()) {
+                if (TRACE) {
+                    System.err.println(here() + ": thread waiting on operation " + op);
+                }
+                ForkJoinPool.managedBlock(mb);
+                if (TRACE) {
+                    System.out.println(here() + ": resumed after waiting on " + op);
+                }
+            } else {
+                // There is already another thread blocking on this semaphore.
+                // This thread was a lifeline answer and can return safely
+                if (TRACE) {
+                    System.err.println(here() + ": thread already waiting on operation " + op);
+                }
+                return;
+            }
         } catch (final InterruptedException e) {
             System.err.println(
                     "InterruptedException received in operation activity, this should not happen as the managed blocker implementation does not throw this error");
@@ -480,7 +753,7 @@ class GlbComputer extends PlaceLocalObject {
         }
 
         // The operation has completed. Moving on to establishing lifelines.
-        // TODO
+        establishingLifelineOnRemoteHost(op.collection);
     }
 
     /**
@@ -502,6 +775,26 @@ class GlbComputer extends PlaceLocalObject {
     private void reserveWasEmptied() {
         for (int i = 0; i < MAX_WORKERS; i++) {
             feedReserveRequested.set(i, 1);
+        }
+    }
+
+    /**
+     * Sub-routine used to signal to the local work reserve and the local operation
+     * thread that an operation has had all its local assignments completed locally.
+     *
+     * @param op the operation whose assignments were entirely processed
+     */
+    void signalLocalOperationCompletion(@SuppressWarnings("rawtypes") GlbOperation op) {
+        // We signal the local reserve instance that this operation has completed
+        // locally.
+        reserve.tasksWithWork.remove(op);
+
+        // We unblock the operation thread that was waiting
+        // This part is protected against concurrent accesses as a concurrent
+        // GlbComputer#newOperation call may insert a new value into the map, causing
+        // some troubles.
+        synchronized (blockers) {
+            blockers.get(op).unblock();
         }
     }
 
@@ -557,6 +850,49 @@ class GlbComputer extends PlaceLocalObject {
                             worker.assignmentUnabledToSplit++; // Log
                         }
                     }
+
+                    // STEP 4: Yield if need be
+                    TimeoutBlocker l;
+                    if (POOL.hasQueuedSubmissions() && (l = workerAvailableLocks.poll()) != null) {
+                        l.reset();
+                        // System.err.println("WORKER HELPING");
+                        ForkJoinPool.managedBlock(l);
+                        // System.err.println("WORKER RESUMING");
+                        workerAvailableLocks.add(l);
+                    }
+
+                    // STEP 5: Answer lifeline thieves if there are any and this host is capable of
+                    // doing so
+                    final LifelineToken steal = lifelineThieves.poll();
+                    if (steal != null) {
+                        if (TRACE) {
+                            // System.err.println("Worker on " + here() + " took up lifeline " + steal);
+                        }
+
+                        // Check if the target collection has some assignments left for the target
+                        // collection
+
+                        GlbTask g;
+                        // FIXME when using some "After" dependencies, it is possible for a lifeline
+                        // request to be received at a time the corresponding operation has not yet gone
+                        // through method #newOperation. In this case,
+                        // reserve.allTasks.get(steal.collection) will return null. We need to account
+                        // for that edge case where the lifeline answer is actually the first to bring
+                        // the information to this place that a new operation is available for
+                        // computation.
+                        if ((g = reserve.allTasks.get(steal.collection)) != null && g.answerLifeline(steal)) {
+                            if (TRACE) {
+                                // System.err.println("Processed lifeline request " + steal);
+                            }
+                            worker.lifelineAnswer++;
+                        } else {
+                            if (TRACE) {
+                                // System.err.println("Could not answer thief at this time");
+                            }
+                            worker.lifelineCannotAnswer++;
+                            lifelineThieves.add(steal);
+                        }
+                    }
                 }
                 // Assignment#process method returned false. This worker needs a new assignment.
 
@@ -565,13 +901,27 @@ class GlbComputer extends PlaceLocalObject {
                     // The reserve returned null, this worker will stop
                     worker.workerStopped();
                     idleWorkers.add(worker);
-                    break;
+                    // FIXME potential problem here where the attempt at taking work from the
+                    // reserve and placing the worker info back into the idleWorker collection
+                    // should be done atomically to protect against concurrent #lifleineAnswer made.
+                    // In the current state it is possible (though unlikely) for work to be merged
+                    // after workers have failed to take some the operationActivity which attempts
+                    // to spawn a worker to make this attempt BEFORE worker's info was placed back
+                    // into the collection.
+                    workerYieldLock.unblock(); // As this worker quits, any waiting worker can resume
+                    if (TRACE) {
+                        System.err.println(here() + " worker(" + worker.id + ") stopped --- " + idleWorkers.size()
+                                + " stopped workers");
+                    }
+                    return;
                 } else {
+                    // This worker was able to take an assignment from the reserve. It is not
+                    // starting the for(;;) loop again.
                     worker.tookFromReserve++;
                 }
             }
         } catch (final Throwable t) {
-            System.err.println("Worker number " + worker.id + " sufferred a " + t);
+            System.err.println("Worker number " + worker.id + " on " + here() + " sufferred a " + t);
             t.printStackTrace();
         }
     }

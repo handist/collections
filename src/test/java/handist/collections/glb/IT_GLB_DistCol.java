@@ -30,6 +30,8 @@ import apgas.MultipleException;
 import apgas.Place;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
+import handist.collections.RangedList;
+import handist.collections.dist.CollectiveMoveManager;
 import handist.collections.dist.DistBag;
 import handist.collections.dist.DistCol;
 import handist.collections.dist.TeamedPlaceGroup;
@@ -44,13 +46,32 @@ public class IT_GLB_DistCol implements Serializable {
 
     /** Number of ranges to populate this collection */
     final static long LONGRANGE_COUNT = 20l;
+
+    /** Number of hosts on which this tests runs */
+    final static int PLACEGROUP_SIZE = 4;
+
     /** Size of individual ranges */
-    final static long RANGE_SIZE = 20l;
+    final static long RANGE_SIZE = 4 * PLACEGROUP_SIZE + 1;
     /** Serial Version UID */
     private static final long serialVersionUID = 3890454865986201964L;
 
     /** Total number of elements contained in the {@link DistCol} */
     final static long TOTAL_DATA_SIZE = LONGRANGE_COUNT * RANGE_SIZE;
+
+    private static <T> void y_makeDistribution(DistCol<T> col) {
+        // Transfer elements to remote hosts (Places 0, 1, 2 - 3 doesn't get any)
+        final TeamedPlaceGroup pg = col.placeGroup();
+        pg.broadcastFlat(() -> {
+            final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
+            col.forEachChunk((RangedList<T> c) -> {
+                final LongRange r = c.getRange();
+                // We place the chunks everywhere except on place 3
+                final Place destination = place((int) r.from % (PLACEGROUP_SIZE - 1));
+                col.moveRangeAtSync(r, destination, mm);
+            });
+            mm.sync();
+        });
+    }
 
     /**
      * Helper method which fill the provided DistCol with values
@@ -69,6 +90,23 @@ public class IT_GLB_DistCol implements Serializable {
                 c.set(i, new Element(value));
             }
             col.add(c);
+        }
+    }
+
+    /**
+     * Small check on the given {@link DistBag} that the number of lists contained
+     * is equal to the provided integer.
+     *
+     * @param bag           {@link DistBag} to check
+     * @param expectedCount expected number of lists internally contained in each
+     *                      local handle of the provided {@link DistBag}
+     * @throws Throwable if thrown as part of this small procedure
+     */
+    private static void z_checkBagNumberOfLists(DistBag<Element> bag, int expectedCount) throws Throwable {
+        for (final Place p : bag.placeGroup().places()) {
+            at(p, () -> {
+                assertEquals(expectedCount, bag.listCount());
+            });
         }
     }
 
@@ -116,7 +154,8 @@ public class IT_GLB_DistCol implements Serializable {
      */
     private static void z_checkPrefixIs(DistCol<Element> col, final String prefix) throws Throwable {
         try {
-            col.GLOBAL.forEach((e) -> assertTrue("String was " + e.s, e.s.startsWith(prefix)));
+            col.GLOBAL.forEach((e) -> assertTrue("String was " + e.s + " when it should have started with " + prefix,
+                    e.s.startsWith(prefix)));
         } catch (final MultipleException me) {
             printExceptionAndThrowFirst(me);
         }
@@ -146,7 +185,9 @@ public class IT_GLB_DistCol implements Serializable {
      */
     private static void z_checkSuffixIs(DistCol<Element> col, final String suffix) throws Throwable {
         try {
-            col.GLOBAL.forEach((e) -> assertTrue("String was " + e.s, e.s.endsWith(suffix)));
+            col.GLOBAL
+                    .forEach((e) -> assertTrue("String was " + e.s + " when it should have ended with String:" + suffix,
+                            e.s.endsWith(suffix)));
         } catch (final MultipleException me) {
             printExceptionAndThrowFirst(me);
         }
@@ -169,11 +210,15 @@ public class IT_GLB_DistCol implements Serializable {
         distCol = new DistCol<>();
 
         y_populateDistCol(distCol);
+        y_makeDistribution(distCol);
     }
 
     @After
     public void tearDown() throws Exception {
         distCol.destroy();
+        TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
+            GlbComputer.destroyGlbComputer();
+        });
     }
 
     /**
@@ -339,6 +384,26 @@ public class IT_GLB_DistCol implements Serializable {
     }
 
     /**
+     * Checks that the correct number of elements was created as well as the
+     * distribution of these instances
+     */
+    @Test
+    public void testSetup() {
+        long total = 0;
+        for (final Place p : distCol.placeGroup().places()) {
+            total += at(p, () -> {
+                if (p.id != 3) {
+                    assertTrue(distCol.numChunks() > 0);
+                } else {
+                    assertTrue(distCol.numChunks() == 0);
+                }
+                return distCol.size();
+            });
+        }
+        assertEquals(TOTAL_DATA_SIZE, total);
+    }
+
+    /**
      * Checks that the "toBag" operation of DistCol. This operation relies on the
      * WorkerService functionalities to bind a dedicated List to each worker.
      *
@@ -424,7 +489,7 @@ public class IT_GLB_DistCol implements Serializable {
         otherCol.destroy();
     }
 
-    @Test(timeout = 40000)
+    @Test(timeout = 15000)
     public void testTwoForEachAfterOneAnother() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
@@ -441,22 +506,5 @@ public class IT_GLB_DistCol implements Serializable {
         z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE);
         z_checkPrefixIs(distCol, "Test");
         z_checkSuffixIs(distCol, "Test");
-    }
-
-    /**
-     * Small check on the given {@link DistBag} that the number of lists contained
-     * is equal to the provided integer.
-     *
-     * @param bag           {@link DistBag} to check
-     * @param expectedCount expected number of lists internally contained in each
-     *                      local handle of the provided {@link DistBag}
-     * @throws Throwable if thrown as part of this small procedure
-     */
-    private void z_checkBagNumberOfLists(DistBag<Element> bag, int expectedCount) throws Throwable {
-        for (final Place p : bag.placeGroup().places()) {
-            at(p, () -> {
-                assertEquals(expectedCount, bag.listCount());
-            });
-        }
     }
 }

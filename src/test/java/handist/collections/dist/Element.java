@@ -15,7 +15,7 @@ import java.io.Serializable;
 /**
  * Class used as element in the tests of the distributed collections
  */
-class Element implements Serializable {
+public class Element implements Serializable {
     /** Serial Version UID */
     private static final long serialVersionUID = -2659467143487621997L;
 

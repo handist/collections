@@ -27,7 +27,7 @@ import handist.collections.function.SerializableConsumer;
  * @param <T> type of the object contained in the distributed collection
  * @param <C> the underlying collection itself (used for reflective operations)
  */
-public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C>> {
+public interface DistributedCollection<T, C extends DistributedCollection<T, C>> {
 
     static int _debug_level = 5;
 
@@ -73,13 +73,6 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
     public GlobalOperations<T, C> global();
 
     /**
-     * Retuns the global ID that identifies this distributed collection on all hosts
-     *
-     * @return {@link GlobalID} of this distributed collection
-     */
-    public GlobalID id();
-
-    /**
      * Places the local size of each local handle of the distributed object in the
      * provided array
      *
@@ -91,6 +84,13 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
     // abstract public void distSize(long[] result);
 
     /**
+     * Retuns the global ID that identifies this distributed collection on all hosts
+     *
+     * @return {@link GlobalID} of this distributed collection
+     */
+    public GlobalID id();
+
+    /**
      * Returns the locality of the distributed collection
      *
      * @return float array representing the locality of the distributed collection
@@ -99,6 +99,9 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
 
     public abstract void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManager mm) throws Exception;
 
+    // TODO
+    // public abstract void integrate(T src);
+
     /**
      * Performs the specified action on every instance contained by the local handle
      * of this distributed collection in parallel.
@@ -106,9 +109,6 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
      * @param action action to perform on each instance
      */
     public void parallelForEach(SerializableConsumer<T> action);
-
-    // TODO
-    // public abstract void integrate(T src);
 
     /**
      * Return the PlaceGroup on which this distributed collection was built
@@ -124,10 +124,15 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
      */
     public TeamOperations<T, C> team();
 
+    /*
+     * public final def printAllData(){ for(p in placeGroup){ at(p){
+     * printLocalData(); } } }
+     */
+
     /**
      * Method used to create an object which will be transferred to a remote place.
      * <p>
-     * This method is present in interface {@link AbstractDistCollection} to force
+     * This method is present in interface {@link DistributedCollection} to force
      * the implementation in implementing classes. Implementation should return a
      * {@link LazyObjectReference} instance capable of initializing the local handle
      * of the implementing class on the remote place
@@ -138,10 +143,4 @@ public interface AbstractDistCollection<T, C extends AbstractDistCollection<T, C
      *                               process
      */
     abstract public Object writeReplace() throws ObjectStreamException;
-
-    /*
-     * public final def printAllData(){ for(p in placeGroup){ at(p){
-     * printLocalData(); } } }
-     */
-
 }

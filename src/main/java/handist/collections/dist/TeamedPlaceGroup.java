@@ -174,7 +174,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
             try {
                 id = (GlobalID) in.readObject();
             } catch (final Exception e) {
-                throw new Error("[TeamedPlaceGroup] init error at worker");
+                throw new Error("[TeamedPlaceGroup] init error at worker", e);
             } finally {
                 in.close();
             }
@@ -186,11 +186,18 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
          */
     }
 
-    // TODO
-    Intracomm comm;
+    /**
+     * Direct access to MPI functions is absolutely discouraged. This member will be
+     * made private with intermediate access in the future.
+     */
+    /*
+     * TODO this needs refactoring -> make this member private
+     */
+    @Deprecated
+    public Intracomm comm;
 
-    final GlobalID id;
-    int myrank;
+    private final GlobalID id;
+    final int myrank;
 
     private TeamedPlaceGroup parent;
 
@@ -241,8 +248,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
         parent = null;
     }
 
-    protected TeamedPlaceGroup(GlobalID id, int myrank, List<Place> places, Intracomm comm, TeamedPlaceGroup parent) { // for
-        // whole_world
+    protected TeamedPlaceGroup(GlobalID id, int myrank, List<Place> places, Intracomm comm, TeamedPlaceGroup parent) {
         this.id = id;
         size = places.size();
         this.myrank = myrank;
@@ -432,6 +438,12 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * comm.Free(); }
      */
 
+    /**
+     * Creates a new TeamedPlaceGroup from this instance containing half of the
+     * places involved in this instance
+     *
+     * @return a new TeamedPlaceGroup
+     */
     public TeamedPlaceGroup splitHalf() {
         final TreeMap<Integer, Integer> rank2color = new TreeMap<>();
         if (size() == 1) {
