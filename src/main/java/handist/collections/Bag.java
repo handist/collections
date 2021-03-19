@@ -16,7 +16,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -44,7 +43,7 @@ import handist.collections.dist.DistBag;
  *
  * @param <T> type of the object handled
  */
-public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>, Serializable, KryoSerializable {
+public class Bag<T> implements ParallelReceiver<T>, Serializable, KryoSerializable {
 
     /**
      * Iterator class for {@link Bag}
@@ -123,7 +122,7 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
     }
 
     /**
-     * Adds a list of instances to this instance.
+     * Adds a instances contained by the provided {@link Bag} to this instance.
      *
      * @param bag Bag of T
      */
@@ -132,7 +131,7 @@ public class Bag<T> extends AbstractCollection<T> implements ParallelReceiver<T>
     }
 
     /**
-     * Adds a list of instances to this instance.
+     * Adds a list of T instances to this instance.
      *
      * @param l list of T
      */

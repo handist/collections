@@ -97,8 +97,38 @@ public class TestChunkedList {
         }
 
         @Override
+        public void clear() {
+            // TODO Auto-generated method stub
+
+        }
+
+        @Override
+        public boolean contains(Object v) {
+            // TODO Auto-generated method stub
+            return false;
+        }
+
+        @Override
         public Consumer<Integer> getReceiver() {
             return new PConsumer(nextReceiver++);
+        }
+
+        @Override
+        public boolean isEmpty() {
+            // TODO Auto-generated method stub
+            return false;
+        }
+
+        @Override
+        public Iterator<Integer> iterator() {
+            // TODO Auto-generated method stub
+            return null;
+        }
+
+        @Override
+        public int size() {
+            // TODO Auto-generated method stub
+            return 0;
         }
     }
 
@@ -447,6 +477,20 @@ public class TestChunkedList {
         assertEquals(2, accumulator.parallelAcceptors.length);
         final int total = accumulator.parallelAcceptors[0].size() + accumulator.parallelAcceptors[1].size();
         assertEquals(6, total);
+    }
+
+    @Test
+    public void testForEachBiConsumerParallelReceiver() throws Exception {
+        final Bag<Integer> parallelReceiver = new Bag<>();
+        chunkedList.set(4l, elems[4]);
+
+        chunkedList.forEach((e, c) -> {
+            c.accept(e.n);
+        }, parallelReceiver);
+
+        for (final Element e : elems) {
+            assertTrue(parallelReceiver.contains(e.n));
+        }
     }
 
     @Test
