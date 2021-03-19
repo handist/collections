@@ -229,7 +229,7 @@ public class IT_GLB_DistCol implements Serializable {
      *
      * @throws Exception if there is not enough parallelism on the host
      */
-    @Test
+    @Test(timeout = 10000)
     public void testEnvironmentHasEnoughParallelism() throws Exception {
         for (final Place p : places()) {
             at(p, () -> {
@@ -387,7 +387,7 @@ public class IT_GLB_DistCol implements Serializable {
      * Checks that the correct number of elements was created as well as the
      * distribution of these instances
      */
-    @Test
+    @Test(timeout = 10000)
     public void testSetup() {
         long total = 0;
         for (final Place p : distCol.placeGroup().places()) {
@@ -464,7 +464,7 @@ public class IT_GLB_DistCol implements Serializable {
         z_checkSuffixIs(distCol, "Test");
     }
 
-    @Test(timeout = 40000)
+    @Test(timeout = 20000)
     public void testTwoDifferentCollectionsComputations() throws Throwable {
         final DistCol<Element> otherCol = new DistCol<>();
         y_populateDistCol(otherCol);

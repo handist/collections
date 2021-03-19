@@ -18,10 +18,11 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -51,11 +52,11 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * @param <S> type of the elements handled by the {@link ChunkedList}
      */
     private static class It<S> implements Iterator<S> {
-        public TreeMap<LongRange, RangedList<S>> chunks;
+        public ConcurrentSkipListMap<LongRange, RangedList<S>> chunks;
         private Iterator<S> cIter;
         private LongRange range;
 
-        public It(TreeMap<LongRange, RangedList<S>> chunks) {
+        public It(ConcurrentSkipListMap<LongRange, RangedList<S>> chunks) {
             this.chunks = chunks;
             final Map.Entry<LongRange, RangedList<S>> firstEntry = chunks.firstEntry();
             if (firstEntry != null) {
@@ -104,33 +105,36 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * Chunks contained by this instance. They are sorted using the
      * {@link LongRange} ordering.
      */
-    private final TreeMap<LongRange, RangedList<T>> chunks;
+    private final ConcurrentSkipListMap<LongRange, RangedList<T>> chunks;
 
     /**
      * Running tally of how many elements can be contained in the ChunkedList. It is
      * equal to the sum of the size of each individual chunk.
      */
-    private long size = 0;
+    private final AtomicLong size;
 
     /**
      * Default constructor. Prepares the contained for the {@link Chunk}s this
      * instance is going to receive.
      */
     public ChunkedList() {
-        // chunks = new TreeMap<>(Comparator.comparingLong(r -> r.from));
-        chunks = new TreeMap<>();
+        chunks = new ConcurrentSkipListMap<>();
+        size = new AtomicLong(0l);
     }
 
     /**
-     * Constructor which takes an initial {@link TreeMap} of {@link LongRange}
-     * mapped to {@link RangedList}.
+     * Constructor which takes an initial {@link ConcurrentSkipListMap} of
+     * {@link LongRange} mapped to {@link RangedList}.
      *
      * @param chunks initial mappings of {@link LongRange} and {@link Chunk}s
      */
-    public ChunkedList(TreeMap<LongRange, RangedList<T>> chunks) {
+    public ChunkedList(ConcurrentSkipListMap<LongRange, RangedList<T>> chunks) {
         this.chunks = chunks;
-        size = 0;
-        chunks.forEach((r, c) -> size += c.size());
+        long accumulator = 0l;
+        for (final LongRange r : chunks.keySet()) {
+            accumulator += r.size();
+        }
+        size = new AtomicLong(accumulator);
     }
 
     /**
@@ -152,7 +156,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
                     + " which is already present in this ChunkedList");
         }
         chunks.put(desired, c);
-        size += c.size();
+        size.addAndGet(c.size());
     }
 
     public <U> void asyncForEach(BiConsumer<? super T, Consumer<U>> action, final ParallelReceiver<U> toStore) {
@@ -316,7 +320,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * will return {@code true}, calling {@link #size()} will return {@code 0l}.
      */
     public void clear() {
-        size = 0l;
+        size.set(0l);
         chunks.clear();
     }
 
@@ -328,7 +332,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     @Override
     protected Object clone() {
-        final TreeMap<LongRange, RangedList<T>> newChunks = new TreeMap<>();
+        final ConcurrentSkipListMap<LongRange, RangedList<T>> newChunks = new ConcurrentSkipListMap<>();
         for (final RangedList<T> c : chunks.values()) {
             newChunks.put(c.getRange(), ((Chunk<T>) c).clone());
         }
@@ -395,6 +399,9 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      *         instance, {@code false} otherwise
      */
     public boolean containsChunk(RangedList<T> c) {
+        if (c == null) {
+            return false;
+        }
         return chunks.containsValue(c);
     }
 
@@ -416,9 +423,9 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
     /*
      * public Map<LongRange, RangedList<T>> filterChunk0(Predicate<RangedList<?
-     * super T>> filter) { TreeMap<LongRange, RangedList<T>> map = new TreeMap<>();
-     * for (RangedList<T> c : chunks.values()) { if (filter.test(c)) {
-     * map.put(c.getRange(), c); } } return map; }
+     * super T>> filter) { ConcurrentSkipListMap<LongRange, RangedList<T>> map = new
+     * ConcurrentSkipListMap<>(); for (RangedList<T> c : chunks.values()) { if
+     * (filter.test(c)) { map.put(c.getRange(), c); } } return map; }
      */
 
     @Override
@@ -657,7 +664,8 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         if (entry == null || !entry.getKey().contains(i)) {
             entry = chunks.ceilingEntry(r);
             if (entry == null || !entry.getKey().contains(i)) {
-                throw new IndexOutOfBoundsException("ChunkedList: index " + i + " is out of range of " + chunks);
+                throw new IndexOutOfBoundsException(
+                        "ChunkedList: index " + i + " is not within the range of any chunk");
             }
         }
         final RangedList<T> chunk = entry.getValue();
@@ -680,7 +688,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * @return {@code true} if this instance does not contain any chunk
      */
     public boolean isEmpty() {
-        return size == 0;
+        return size.get() == 0;
     }
 
     /**
@@ -861,7 +869,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     public RangedList<T> remove(LongRange range) {
         final RangedList<T> removed = chunks.remove(range);
         if (removed != null) {
-            size -= removed.size();
+            size.addAndGet(-removed.size());
         }
         return removed;
     }
@@ -878,7 +886,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     public RangedList<T> remove(RangedList<T> c) {
         final RangedList<T> removed = chunks.remove(c.getRange());
         if (removed != null) {
-            size -= removed.size();
+            size.addAndGet(-removed.size());
         }
         return removed;
     }
@@ -962,7 +970,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * @return size of this instance as a {@code long}
      */
     public long size() {
-        return size;
+        return size.get();
     }
 
     @Override
@@ -985,74 +993,4 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             }
         }
     }
-
-    /*
-     * public static void main(String[] args) {
-     *
-     * ChunkedList<String> cl5 = new ChunkedList<>();
-     *
-     * // Test1: Add Chunks
-     *
-     * System.out.println("Test1"); for (int i = 0; i < 10; i++) { if (i % 2 == 1) {
-     * continue; } long begin = i * 5; long end = (i + 1) * 5; Chunk<String> c = new
-     * Chunk<>(new LongRange(begin, end)); for (long index = begin; index < end;
-     * index++) { c.set(index, String.valueOf(index)); } cl5.addChunk(c); }
-     * System.out.println(cl5.toString());
-     *
-     * // Test2: Iterate using each()
-     *
-     * System.out.println("Test2"); StringBuilder sb2 = new StringBuilder();
-     * cl5.forEach(value -> sb2.append(value + ","));
-     * System.out.println(sb2.toString());
-     *
-     * // Test3: Iterate using iterator()
-     *
-     * System.out.println("Test3"); StringBuilder sb3 = new StringBuilder();
-     * Iterator<String> it = cl5.iterator(); while (it.hasNext()) {
-     * sb3.append(it.next() + ","); } System.out.println(sb3.toString());
-     *
-     * // Test4: Raise exception
-     *
-     * System.out.println("Test4"); for (int i = 0; i < 10; i++) {
-     *
-     * long begin = i * 5 - 1; long end = i * 5 + 1; Chunk<String> c = new
-     * Chunk<>(new LongRange(begin, end)); try { cl5.addChunk(c);
-     * System.out.println("--- FAIL ---"); } catch (IllegalArgumentException e) { //
-     * do nothing } } for (int i = 0; i < 10; i++) {
-     *
-     * long begin = i * 5 - 1; long end = i * 5 + 5; Chunk<String> c = new
-     * Chunk<>(new LongRange(begin, end)); try { cl5.addChunk(c);
-     * System.out.println("--- FAIL ---"); } catch (IllegalArgumentException e) { //
-     * do nothing } } for (int i = 0; i < 10; i++) {
-     *
-     * long begin = i * 5 - 1; long end = i * 5 + 10; Chunk<String> c = new
-     * Chunk<>(new LongRange(begin, end)); try { cl5.addChunk(c);
-     * System.out.println("--- FAIL ---"); } catch (IllegalArgumentException e) { //
-     * do nothing } } System.out.println("--- OK ---"); // Test5: Add RangedListView
-     *
-     * System.out.println("Test5"); Chunk<String> c0 = new Chunk<>(new LongRange(0,
-     * 10 * 5)); for (long i = 0; i < 10 * 5; i++) { c0.set(i, String.valueOf(i)); }
-     * for (int i = 0; i < 10; i++) { if (i % 2 == 0) { continue; } long begin = i *
-     * 5; long end = (i + 1) * 5; RangedList<String> rl = c0.subList(begin, end);
-     * cl5.addChunk(rl); } System.out.println(cl5.toString());
-     *
-     * // Test6: Iterate combination of Chunk and RangedListView
-     * System.out.println("Test6"); StringBuilder sb6 = new StringBuilder();
-     * Iterator<String> it6 = cl5.iterator(); while (it6.hasNext()) {
-     * sb6.append(it6.next() + ","); } System.out.println(sb6.toString());
-     *
-     * // Test7: Raise exception on ChunkedList with continuous range
-     *
-     * System.out.println("Test7"); for (int i = 0; i < 10 * 5; i++) { long begin =
-     * i - 1; long end = i + 1; Chunk<String> c = new Chunk<>(new LongRange(begin,
-     * end)); try { cl5.addChunk(c); System.out.println("--- FAIL --- " + begin +
-     * "," + end); } catch (IllegalArgumentException e) { // do nothing } } for (int
-     * i = 0; i < 10 * 5; i++) { long begin = i - 1; long end = i + 6; Chunk<String>
-     * c = new Chunk<>(new LongRange(begin, end)); try { cl5.addChunk(c);
-     * System.out.println("--- FAIL --- " + begin + "," + end); } catch
-     * (IllegalArgumentException e) { // do nothing } }
-     * System.out.println("--- OK ---");
-     *
-     * }
-     */
 }

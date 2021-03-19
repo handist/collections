@@ -345,7 +345,9 @@ public class DistColGlbTask implements GlbTask {
      * "Readers" are threads that perform the {@link #splitIntoGlbTask()} method
      * while "Writers" are threads that call the {@link #newOperation(GlbOperation)}
      * method. There can be many concurrent calls to the {@link #splitIntoGlbTask()}
-     * method but not when a new operation becomes available.
+     * method but not when a new operation becomes available and a number of
+     * modifications to several members of this class need to be made atomically to
+     * preserve consistency.
      */
     transient final ReadWriteLock lockForWorkAssignmentSplittingAndNewOperation;
 
@@ -440,11 +442,14 @@ public class DistColGlbTask implements GlbTask {
 
         // Prepare the array of enclosing finishes
         final Set<GlbOperation> operations = numbers.keySet();
-        final Finish[] finishes = new Finish[operations.size()];
+        final HashMap<GlbOperation, Finish> finishes = new HashMap<>();
+        final Finish[] finishArray = new Finish[operations.size()];
         final GlbComputer glb = GlbComputer.getComputer();
         int fidx = 0;
         for (final GlbOperation op : operations) {
-            finishes[fidx++] = glb.finishes.get(op);
+            final Finish f = glb.finishes.get(op);
+            finishes.put(op, f);
+            finishArray[fidx++] = f;
         }
 
         /*
@@ -464,11 +469,8 @@ public class DistColGlbTask implements GlbTask {
         switch (answerMode) {
         case MPI:
             try {
-                m.asyncSendAndDoWithMPI(() -> {
-                    // Merge assignments, ensure presence of a thread for operation termination
-                    // detection
-                    // TODO
-                }, finishes);
+                m.asyncSendAndDoWithMPI(
+                        () -> GlbComputer.getComputer().lifelineAnswer(token, stolen, numbers, finishes), finishArray);
             } catch (final Exception e) {
                 System.err.println("Error while trying to transfer work");
                 e.printStackTrace();
@@ -477,7 +479,8 @@ public class DistColGlbTask implements GlbTask {
         case KRYO:
         default:
             try {
-                m.asyncSendAndDoNoMPI(() -> GlbComputer.getComputer().lifelineAnswer(token, stolen, numbers), finishes);
+                m.asyncSendAndDoNoMPI(() -> GlbComputer.getComputer().lifelineAnswer(token, stolen, numbers, finishes),
+                        finishArray);
             } catch (final IOException e) {
                 System.err.println("Error while trying to transfer work");
                 e.printStackTrace();
@@ -514,9 +517,9 @@ public class DistColGlbTask implements GlbTask {
     }
 
     /**
-     * Merges the given assignment into this GlbTask. This method is called by a
-     * lifeline answer after the instances on which the assignment operate are
-     * transferred.
+     * Merges the given assignments into this GlbTask. This method is called by a
+     * lifeline answer after the instances on which the assignment operate have been
+     * integrated into the underlying {@link DistCol}.
      *
      * @param quantities  the number of assignment which have work for each glb
      *                    operation entered as a key in this map
@@ -529,8 +532,6 @@ public class DistColGlbTask implements GlbTask {
         // increment the counters for the number of assignments left to process for each
         // operation. This can be done without any particular protections.
         for (final Map.Entry<GlbOperation, Integer> entry : quantities.entrySet()) {
-
-            // final AtomicInteger i = assignmentsLeftToProcess.values().iterator().next();
             final AtomicInteger i = assignmentsLeftToProcess.get(entry.getKey());
             assertNotNull(i);
             i.addAndGet(entry.getValue());
@@ -538,20 +539,20 @@ public class DistColGlbTask implements GlbTask {
 
         // We need to increment the counter for the number of assignments contained
         // locally, as well as placing all the assignment in the "availableAssignments"
-        // queue.
-        // This needs to be done under STRONG protection: we use the writeLock
+        // queue. This needs to be done under STRONG protection: we use the writeLock
         lockForWorkAssignmentSplittingAndNewOperation.writeLock().lock();
 
-        totalAssignments.addAndGet(assignments.size()); // Increment counter
-        // All all assignments
+        totalAssignments.addAndGet(assignments.size()); // Increment counter for the total number of assignments handled
+                                                        // by this instance
+
+        // All all assignments to the "availableAssignments" collection
         for (final Assignment a : assignments) {
-            final DistColAssignment dca = (DistColAssignment) a;
+            final DistColAssignment dca = (DistColAssignment) a; // Cast to the proper type
             dca.setParent(this); // From now on, "this" DistColGlbTask is handling the assignment
             availableAssignments.add(dca);
         }
-
+        // The critical step has ended, we release the writeLock
         lockForWorkAssignmentSplittingAndNewOperation.writeLock().unlock();
-
     }
 
     /**

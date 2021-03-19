@@ -71,6 +71,7 @@ public class IT_ObjectsUsedAsMapKeys implements Serializable {
                 final DistCol c = collection;
                 asyncAt(place(0), () -> {
                     assertNotNull(IT_ObjectsUsedAsMapKeys.distributedCollectionMap.get(c));
+                    assertTrue(IT_ObjectsUsedAsMapKeys.distributedCollectionMap.containsKey(c));
                 });
             });
         });
@@ -92,16 +93,9 @@ public class IT_ObjectsUsedAsMapKeys implements Serializable {
         finish(() -> {
             asyncAt(place(1), () -> {
                 final GlbOperation op = operationKey;
-                // final GlobalID idx = operationKey.id;
-                // final GlobalID idx = op.id;
-
-                // assertNotNull(idx);
-                // assertNotNull(operationKey);
-                // assertNotNull(op);
                 asyncAt(place(0), () -> {
-                    // assertEquals(IT_SerializableMapKeys.operationKey, op);
-                    // assertEquals(IT_SerializableMapKeys.operationKey.hashCode(), op.hashCode());
                     assertNotNull(IT_ObjectsUsedAsMapKeys.glbOperationMap.get(op));
+                    assertTrue(IT_ObjectsUsedAsMapKeys.glbOperationMap.containsKey(op));
                 });
             });
         });

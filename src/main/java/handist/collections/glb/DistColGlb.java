@@ -51,16 +51,24 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         public final long index;
 
         /**
+         * Range on which the assignment was operating at the time the exception was
+         * encountered
+         */
+        public final LongRange assignmentRange;
+
+        /**
          * Constructor
          * <p>
          * This constructor is made private as instances of this class do not need to be
          * created outside of {@link DistColGlb}.
          *
-         * @param l index at which the throwable was thrown
-         * @param t the {@link Throwable} thrown by the user-supplied closure
+         * @param lr range on which the assignment was operating
+         * @param l  index at which the throwable was thrown
+         * @param t  the {@link Throwable} thrown by the user-supplied closure
          */
-        private DistColGlbError(long l, Throwable t) {
-            super(t.getMessage() + " at index " + l, t);
+        private DistColGlbError(LongRange lr, long l, Throwable t) {
+            super(t.getMessage() + " at index " + l + " in assignment on range " + lr, t);
+            assignmentRange = new LongRange(lr.from, lr.to);
             index = l;
         }
     }
@@ -108,7 +116,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
                 try {
                     action.accept(col.get(l));
                 } catch (final Throwable t) {
-                    ws.throwableInOperation(new DistColGlbError(l, t));
+                    ws.throwableInOperation(new DistColGlbError(lr, l, t));
                 }
             }
         };
@@ -152,7 +160,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
                 try {
                     action.accept(l, col.get(l));
                 } catch (final Throwable t) {
-                    ws.throwableInOperation(new DistColGlbError(l, t));
+                    ws.throwableInOperation(new DistColGlbError(lr, l, t));
                 }
             }
         };
@@ -212,7 +220,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
                     final U u = map.apply(t);
                     c.set(l, u);
                 } catch (final Throwable t) {
-                    ws.throwableInOperation(new DistColGlbError(l, t));
+                    ws.throwableInOperation(new DistColGlbError(lr, l, t));
                 }
             }
         };
@@ -273,7 +281,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
                     final U u = function.apply(t);
                     destination.accept(u);
                 } catch (final Throwable t) {
-                    ws.throwableInOperation(new DistColGlbError(l, t));
+                    ws.throwableInOperation(new DistColGlbError(lr, l, t));
                 }
             }
         };
