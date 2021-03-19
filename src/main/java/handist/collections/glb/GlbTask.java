@@ -23,7 +23,7 @@ import handist.collections.glb.GlbComputer.LifelineToken;
  * @author Patrick Finnerty
  *
  */
-public interface GlbTask extends Serializable {
+interface GlbTask extends Serializable {
 
     /**
      * Asks the GlbTask to answer a lifeline thief. The asynchronous call which

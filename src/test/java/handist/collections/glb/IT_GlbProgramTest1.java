@@ -61,7 +61,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     /** DistCol used to test the GLB functionalities */
     DistCol<Element> col;
 
-    /** PlaceGroup on which collection #map is defined */
+    /** PlaceGroup on which collection #col is defined */
     TeamedPlaceGroup placeGroup;
 
     /**
@@ -94,70 +94,6 @@ public class IT_GlbProgramTest1 implements Serializable {
     @After
     public void tearDown() {
         col.destroy();
-    }
-
-    /**
-     * This checks that the second operation only starts after the first one has
-     * completed. If the contrary occurs, assertions will fail.
-     *
-     * @throws Throwable if thrown during the test
-     */
-    @Test(timeout = 20000)
-    public void testAfter() throws Throwable {
-        final ArrayList<Exception> ex = underGLB(() -> {
-            final DistFuture<DistCol<Element>> test = col.GLB.forEach(makePrefixTest);
-            col.GLB.forEach((e) -> assertTrue(e.s.startsWith("Test"))).after(test);
-        });
-        if (!ex.isEmpty()) {
-            throw ex.get(0);
-        }
-        checkNoElementLost();
-    }
-
-    /**
-     * This checks that the last operation only starts after the first two
-     * completed. If the contrary occurs, assertions will fail.
-     *
-     * @throws Throwable if thrown during the test
-     */
-    @Test(timeout = 10000)
-    public void testAfterTwo() throws Throwable {
-        final ArrayList<Exception> ex = underGLB(() -> {
-            //
-            final DistFuture<DistCol<Element>> test = col.GLB.forEach(makePrefixTest);
-            final DistFuture<DistCol<Element>> addZ = col.GLB.forEach(addZToPrefix).after(test);
-            col.GLB.forEach((e) -> assertTrue(e.s.startsWith("ZTest"))).after(addZ);
-        });
-        if (!ex.isEmpty()) {
-            throw ex.get(0);
-        }
-        checkNoElementLost();
-    }
-
-    /**
-     * Same test as {@link #testAfterTwo()}, but using an alternative writing.
-     * <p>
-     * Here, the dependency of the third operation on the completion of the first
-     * two operations is programmed explicitly. In practice this is redundant since
-     * the second operation also depends on the completion of the first operation,
-     * but it is better to explicitly check.
-     *
-     * @throws Throwable if thrown during the test
-     */
-    @Test(timeout = 10000)
-    public void testAfterTwo_Alternative() throws Throwable {
-        final ArrayList<Exception> ex = underGLB(() -> {
-            final DistFuture<DistCol<Element>> test = col.GLB.forEach(makePrefixTest);
-            final DistFuture<DistCol<Element>> addZ = col.GLB.forEach(addZToPrefix).after(test);
-            col.GLB.forEach((e) -> assertTrue(e.s.startsWith("ZTest"))).after(test).after(addZ);
-        });
-        if (!ex.isEmpty()) {
-            for (final Exception e : ex) {
-                e.printStackTrace();
-            }
-            throw ex.get(0);
-        }
-        checkNoElementLost();
     }
 
     @Test(expected = IllegalStateException.class, timeout = 1000)

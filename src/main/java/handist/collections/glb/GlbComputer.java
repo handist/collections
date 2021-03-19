@@ -24,6 +24,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import apgas.GlobalRuntime;
 import apgas.Place;
@@ -89,7 +91,7 @@ class GlbComputer extends PlaceLocalObject {
      * @author Patrick Finnerty
      *
      */
-    final static class WorkerInfo implements WorkerService {
+    final class WorkerInfo implements WorkerService {
 
         /**
          * Counts the number of times this worker split its assignment to increase
@@ -234,7 +236,13 @@ class GlbComputer extends PlaceLocalObject {
      * @author Patrick Finnerty
      *
      */
-    final static class WorkReserve {
+    final class WorkReserve {
+        /**
+         * Lock used to guarantee availability of {@link WorkerInfo} instances inside
+         * the {@link #idleWorkers} collection when they fail to take some work from
+         * this instance.
+         */
+        final ReadWriteLock lock;
 
         /**
          * Map from distributed collection to their respective GlbTask instance. This
@@ -263,6 +271,7 @@ class GlbComputer extends PlaceLocalObject {
          * Prepares the members of WorkReserve to receive the various GLB operations
          */
         WorkReserve() {
+            lock = new ReentrantReadWriteLock();
             allTasks = new HashMap<>();
             tasksWithWork = new ConcurrentHashMap<>();
         }
@@ -273,16 +282,27 @@ class GlbComputer extends PlaceLocalObject {
          * If at the time this method is called no work could be selected, returns null
          * instead.
          *
+         * @param wInfo the worker info instance which will be placed back into the
+         *              #idleWorkers collection if calling this method did not result in
+         *              an Assignment being given to the worker
          * @return the provided instance with updates, or null if no work could be
          *         obtained
          */
-        Assignment getAssignment() {
+        Assignment getAssignment(WorkerInfo wInfo) {
+            lock.readLock().lock();
             for (final GlbTask t : tasksWithWork.values()) {
                 Assignment a;
                 if ((a = t.assignWorkToWorker()) != null) {
+                    lock.readLock().unlock();
                     return a;
                 }
             }
+            // Unable to get an assignment for the worker
+            wInfo.workerStopped();
+            idleWorkers.add(wInfo);
+            lock.readLock().unlock();
+
+            reserveWasEmptied();
             return null;
         }
 
@@ -307,11 +327,14 @@ class GlbComputer extends PlaceLocalObject {
                 toPlaceInAvailable = allTasks.get(op.collection);
             }
 
-            // The GlbTask may already be present in tasksWithWork if another operation is
-            // being processed already. HashSet#add will keep the tasksWithWork set
-            // unchanged in this case.
-            tasksWithWork.put(op, toPlaceInAvailable);
-            return toPlaceInAvailable.newOperation(op);
+            final boolean workCreated = toPlaceInAvailable.newOperation(op);
+            if (workCreated) {
+                // The GlbTask may already be present in tasksWithWork if another operation is
+                // being processed already. HashSet#add will keep the tasksWithWork set
+                // unchanged in this case.
+                tasksWithWork.put(op, toPlaceInAvailable);
+            }
+            return workCreated;
         }
     }
 
@@ -541,7 +564,9 @@ class GlbComputer extends PlaceLocalObject {
     private void attemptToSpawnWorker() {
         final WorkerInfo worker = idleWorkers.poll();
         if (worker != null) {
-            final Assignment forSpawn = reserve.getAssignment();
+            // In case getAssignment was not able to deliver an assignment for our worker,
+            // the worker instance is placed back into #ifleWorkers as part of this method
+            final Assignment forSpawn = reserve.getAssignment(worker);
             if (forSpawn != null) {
                 if (TRACE) {
                     System.err.println(here() + " spawned worker(" + worker.id + ")");
@@ -552,11 +577,11 @@ class GlbComputer extends PlaceLocalObject {
 
                 // We place the workerInfo back into the #workers collection so that it gets
                 // another chance to be spawned later
-                idleWorkers.add(worker);
+                // idleWorkers.add(worker); FIXME delete this part
 
                 // We signal all the workers that the #reserve is empty and that every worker
                 // needs to place some work back into the reserve
-                reserveWasEmptied();
+//                reserveWasEmptied(); FIXME delete this part
             }
         }
     }
@@ -613,19 +638,59 @@ class GlbComputer extends PlaceLocalObject {
      *                operation that the asignments may contain
      */
     void lifelineAnswer(final LifelineToken token, final ArrayList<Assignment> stolen,
-            @SuppressWarnings("rawtypes") final HashMap<GlbOperation, Integer> numbers) {
+            @SuppressWarnings("rawtypes") final HashMap<GlbOperation, Integer> numbers,
+            @SuppressWarnings("rawtypes") final HashMap<GlbOperation, Finish> finish) {
         if (TRACE) {
             System.err.println(here() + " received " + stolen.size() + " assignments from " + token.place);
         }
 
         // The lifeline answer has just been received, we set the lifeline tracker back
         // to "not established"
-        assertTrue(lifelineEstablished.get(token.collection).get(token.place).compareAndSet(LIFELINE_ESTABLISHED,
-                LIFELINE_NOT_ESTABLISHED));
+        final ConcurrentHashMap<Place, AtomicInteger> lifelinesForCollection = lifelineEstablished
+                .get(token.collection);
+        final AtomicInteger state = lifelinesForCollection.get(token.place);
+        final boolean resetLifeline = state.compareAndSet(LIFELINE_ESTABLISHED, LIFELINE_NOT_ESTABLISHED);
+        assertTrue(resetLifeline); // Check that the previous operation worked properly
+
+        // Verification that the operations contained by the lifeline answer has been
+        // initialized on this host.
+        /*
+         * Sometimes a lifeline answer will bring assignments that have the progress
+         * tracking mechanisms for a newly avaialble operation whose #newOperation call
+         * was made on the remote host but it has not been done yet on this host. In
+         * this case, this preparation needs to be done before merging any assignments
+         * coming from the lifeline answer
+         */
+        final GlbTask glbTask = reserve.allTasks.get(token.collection);
+        synchronized (this) {
+            for (@SuppressWarnings("rawtypes")
+            final GlbOperation op : numbers.keySet()) {
+                if (null == finishes.get(op)) {
+                    // this lifeline answer is the first activity that brings this new operation to
+                    // the place.
+                    prepareForNewOperation(op, finish.get(op));
+                }
+            }
+        }
 
         // Merge the assignments
-        final GlbTask glbTask = reserve.allTasks.get(token.collection);
         glbTask.mergeAssignments(numbers, stolen);
+
+        /*
+         * I know, this is weird. But allow me to explain. This guarantees that workers
+         * which may have failed to take some work from the reserve (before assignments
+         * from this lifeline answer were merged into it) have had their WorkerInfo
+         * instance placed back into the #idleWorkers collection. See method
+         * WorkReserve#getAssignment.
+         *
+         * In the rare (but not impossible) case where all the workers fail to get work
+         * from the reserve just before this lifeline answer merges new assignments,
+         * this guarantees that the calls to #attempToSpawnWorker that are made inside
+         * method #operationActivity will find these WorkerInfo instances and be able to
+         * spawn them.
+         */
+        reserve.lock.writeLock().lock();
+        reserve.lock.writeLock().unlock();
 
         // For each operation that was transmitted, place an asynchronous task that will
         // wait till operation termination
@@ -645,7 +710,7 @@ class GlbComputer extends PlaceLocalObject {
      *
      * @param op the operation newly available to process
      */
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings("rawtypes")
     void newOperation(GlbOperation op) {
         // Prepare the data structure for tracking the state of the outgoing lifelines
         // if it was not already created. A mapping is actually created if the operation
@@ -668,22 +733,18 @@ class GlbComputer extends PlaceLocalObject {
             return map;
         });
 
-        // Put members needed for global termination management
-        // This part is made synchronized since the underlying collections are not
-        // protected against concurrent accesses.
-        synchronized (blockers) {
-            blockers.put(op, new OperationBlocker());
-        }
-        finishes.put(op, currentFinish());
-        // Prepare every worker with the special initialization (if needed)
-        if (op.workerInit != null) {
-            for (final WorkerInfo wi : workers) {
-                op.workerInit.accept(wi);
+        boolean localWorkCreated;
+        synchronized (this) {
+            // Check for the rare case in which a lifeline answer might have done all this
+            // initialization, in which case this thread is not needed and can return
+            // immediately
+            if (null != finishes.get(op)) {
+                return;
             }
-        }
 
-        // Prepare the GlbTask of the relevant distributed collection
-        final boolean localWorkCreated = reserve.newOperation(op);
+            // Prepare the GlbTask of the relevant distributed collection
+            localWorkCreated = prepareForNewOperation(op, currentFinish());
+        }
 
         // If there was some work created as a result, launch a worker / block until
         // completion
@@ -754,6 +815,35 @@ class GlbComputer extends PlaceLocalObject {
 
         // The operation has completed. Moving on to establishing lifelines.
         establishingLifelineOnRemoteHost(op.collection);
+    }
+
+    /**
+     * Sub-routine which is part of {@link #newOperation(GlbOperation)} and
+     * {@link #lifelineAnswer(LifelineToken, ArrayList, HashMap)}.
+     *
+     * @param op the new operation which is now available on the host
+     * @param f  the finish which is tracking the completion of this operation
+     * @return true if the initialization of the assignments on this host resulted
+     *         in work being now available to workers
+     */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private boolean prepareForNewOperation(final GlbOperation op, Finish f) {
+        // Put members needed for global termination management
+        // This part is made synchronized since the underlying collections are not
+        // protected against concurrent accesses.
+        synchronized (blockers) {
+            blockers.put(op, new OperationBlocker());
+        }
+        finishes.put(op, f);
+        // Prepare every worker with the special initialization (if needed)
+        if (op.workerInit != null) {
+            for (final WorkerInfo wi : workers) {
+                op.workerInit.accept(wi);
+            }
+        }
+
+        // Prepare the GlbTask of the relevant distributed collection
+        return reserve.newOperation(op);
     }
 
     /**
@@ -897,10 +987,10 @@ class GlbComputer extends PlaceLocalObject {
                 // Assignment#process method returned false. This worker needs a new assignment.
 
                 // Trying to obtain a new assignment determines if the worker continue or stop
-                if ((a = reserve.getAssignment()) == null) {
+                if ((a = reserve.getAssignment(worker)) == null) {
                     // The reserve returned null, this worker will stop
-                    worker.workerStopped();
-                    idleWorkers.add(worker);
+//                    worker.workerStopped();
+                    // idleWorkers.add(worker);
                     // FIXME potential problem here where the attempt at taking work from the
                     // reserve and placing the worker info back into the idleWorker collection
                     // should be done atomically to protect against concurrent #lifleineAnswer made.

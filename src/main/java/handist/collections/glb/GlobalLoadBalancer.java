@@ -14,8 +14,11 @@ import static apgas.Constructs.*;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.concurrent.ForkJoinPool;
 
 import apgas.SerializableJob;
+import handist.collections.glb.GlbOperation.OperationCompletionManagedBlocker;
+import handist.collections.glb.GlbOperation.State;
 
 /**
  * Class presenting the static method under which GLB operations can operate.
@@ -36,29 +39,48 @@ public class GlobalLoadBalancer {
      * balancer.
      */
     static void start() {
-        while (!glb.operationsSubmitted.isEmpty()) {
-            final GlbOperation<?, ?, ?, ?, ?> op = glb.operationsSubmitted.poll();
-            async(() -> op.compute());
+        while (!glb.operationsStaged.isEmpty()) {
+            final GlbOperation<?, ?, ?, ?, ?> op = glb.operationsStaged.poll();
+            boolean needsToBeLaunched;
+            synchronized (op) {
+                op.state = GlbOperation.State.RUNNING;
+                needsToBeLaunched = !op.hasDependencies();
+            }
+
+            if (needsToBeLaunched) {
+                async(() -> op.compute());
+            }
         }
     }
 
     /**
-     * Helper method used to launch the computations submitted to the global load
+     * Helper method used to launch the operations submitted to the global load
      * balancer. In addition, this method will only return when the specified
      * operation completes
      *
      * @param operation the operation whose global termination is be waited upon
      */
     static void startAndWait(GlbOperation<?, ?, ?, ?, ?> operation) {
-        // It is possible that the operation on which we want to wait was already
-        // started, in which case removeFirstOccurence will return false
-        final boolean waitOperationPresent = glb.operationsSubmitted.removeFirstOccurrence(operation);
+        // Install a hook on the operation on which we are going to wait
+        OperationCompletionManagedBlocker b = null;
+        synchronized (operation) {
+            if (operation.state != State.TERMINATED) {
+                // Install a hook to "unblock the SempaphoreBlocker
+                b = new OperationCompletionManagedBlocker();
+                final OperationCompletionManagedBlocker blocker = b; // final field for lambda expression
+                operation.addHook(() -> blocker.unblock());
+            }
+        }
 
         start(); // Start all other operations that were submitted to the GLB
 
-        if (waitOperationPresent) {
-            // launch this operation synchronously
-            operation.compute();
+        if (b != null) { // b is different from null iff the operation has not yet terminated
+            try {
+                // Block until woken up by the installed hook
+                ForkJoinPool.managedBlock(b);
+            } catch (final InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -100,35 +122,27 @@ public class GlobalLoadBalancer {
     }
 
     /**
-     * Collection containing the operations that are submitted to the GLB as part of
-     * a program given to {@link #underGLB(SerializableJob)}. The operation are kept
-     * in this collection until they are removed either when they are launched or if
-     * they need to wait on the completion of another operation to be launched.
+     * Collection containing the operation that have been submitted to the GLB as
+     * part of a program given to {@link #underGLB(SerializableJob)}.
      */
     @SuppressWarnings("rawtypes")
-    LinkedList<GlbOperation> operationsSubmitted;
+    private final LinkedList<GlbOperation> operationsStaged;
 
     /**
      * Private constructor to preserve the singleton pattern
      */
     private GlobalLoadBalancer() {
-        operationsSubmitted = new LinkedList<>();
+        operationsStaged = new LinkedList<>();
     }
 
     /**
      * Makes the global load balancer start the operation given as second argument
      * after the operation represented by the first argument had completed globally.
-     * <p>
-     * The operation given as "then" will be removed from the collection of
-     * operations to launch and instead be launched by a hook on the "before"
-     * operation.
      *
      * @param before operation to terminate before the second argument can start
      * @param then   operation to start after the first argument has completed
      */
     void scheduleOperationAfter(GlbOperation<?, ?, ?, ?, ?> before, GlbOperation<?, ?, ?, ?, ?> then) {
-        // "then" may have already been removed if it has multiple dependencies
-        operationsSubmitted.remove(then);
         GlbOperation.makeDependency(before, then);
     }
 
@@ -139,6 +153,6 @@ public class GlobalLoadBalancer {
      * @param operation operation to perform on a distributed collection
      */
     void submit(@SuppressWarnings("rawtypes") GlbOperation operation) {
-        operationsSubmitted.add(operation);
+        operationsStaged.add(operation);
     }
 }

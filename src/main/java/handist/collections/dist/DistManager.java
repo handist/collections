@@ -13,9 +13,9 @@ package handist.collections.dist;
 import static apgas.Constructs.*;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import apgas.Place;
 import handist.collections.ElementOverlapException;
@@ -70,9 +70,9 @@ public class DistManager<T> {
      * notified to remote places. There may be other changes that occurred on remote
      * places that this local handle is not yet aware of.
      */
-    public HashMap<T, Integer> diff = new HashMap<>();
+    public ConcurrentHashMap<T, Integer> diff = new ConcurrentHashMap<>();
     /** Current knowledge of the key-holding information on local & remote places */
-    public HashMap<T, Place> dist = new HashMap<>();
+    public ConcurrentHashMap<T, Place> dist = new ConcurrentHashMap<>();
 
     HashSet<T> importedDiffKeys = new HashSet<>();
 

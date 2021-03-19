@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -314,11 +314,11 @@ public class TestChunkedList {
 
     @Test
     public void testConstructor() {
-        final TreeMap<LongRange, RangedList<Element>> tMap = new TreeMap<>();
-        tMap.put(chunks[0].getRange(), chunks[0]);
-        tMap.put(chunks[1].getRange(), chunks[1]);
-        tMap.put(chunks[2].getRange(), chunks[2]);
-        final ChunkedList<Element> cList = new ChunkedList<>(tMap);
+        final ConcurrentSkipListMap<LongRange, RangedList<Element>> cMap = new ConcurrentSkipListMap<>();
+        cMap.put(chunks[0].getRange(), chunks[0]);
+        cMap.put(chunks[1].getRange(), chunks[1]);
+        cMap.put(chunks[2].getRange(), chunks[2]);
+        final ChunkedList<Element> cList = new ChunkedList<>(cMap);
 
         assertEquals(6l, cList.size());
     }

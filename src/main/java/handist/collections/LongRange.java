@@ -14,7 +14,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.stream.LongStream;
@@ -178,7 +178,7 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 
     /**
      * Scans intersections between this instance and the key sets of the provided
-     * {@code TreeMap<LongRange, S> rmap} and applies
+     * {@code ConcurrentSkipListMap<LongRange, S> rmap} and applies
      * {@code Consumer<LongRange> consumer} to each intersection range.
      *
      * @param rmap     tree map whose intersection with this instance will be
@@ -186,7 +186,7 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
      * @param consumer the action to perform on the {@link LongRange} index
      *                 instersections
      */
-    public void computeOnOverlap(TreeMap<LongRange, ?> rmap, Consumer<LongRange> consumer) {
+    public void computeOnOverlap(ConcurrentSkipListMap<LongRange, ?> rmap, Consumer<LongRange> consumer) {
         long current = from;
         while (true) {
             final LongRange tmp = new LongRange(current, current);
@@ -205,15 +205,15 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 
     /**
      * Scans intersections between this instance and the key sets of the provided
-     * {@code TreeMap<LongRange, S> rmap} and apply {@code LongConsumer consumer} to
-     * each index in the intersections.
+     * {@code ConcurrentSkipListMap<LongRange, S> rmap} and apply
+     * {@code LongConsumer consumer} to each index in the intersections.
      *
      * @param rmap     tree map whose intersection with this instance will be
      *                 processed
      * @param consumer the action to perform on each index in the intersection
      *                 between the this instance and provided key {@code rmap} keys
      */
-    public void computeOnOverlap(TreeMap<LongRange, ?> rmap, LongConsumer consumer) {
+    public void computeOnOverlap(ConcurrentSkipListMap<LongRange, ?> rmap, LongConsumer consumer) {
         computeOnOverlap(rmap, (LongRange range) -> {
             range.forEach(consumer);
         });
@@ -221,13 +221,13 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
 
     /**
      * Checks if all the indices in this range are included in one of the keys
-     * contained by the provided {@code TreeMap}.
+     * contained by the provided {@code ConcurrentSkipListMap}.
      *
-     * @param rmap the TreeMap instance to check
-     * @return a LongRange key of the provided TreeMap instance that intersects this
-     *         instance, or {@code null} if there are so such key.
+     * @param rmap the ConcurrentSkipListMap instance to check
+     * @return a LongRange key of the provided ConcurrentSkipListMap instance that
+     *         intersects this instance, or {@code null} if there are so such key.
      */
-    public boolean contained(TreeMap<LongRange, ?> rmap) {
+    public boolean contained(ConcurrentSkipListMap<LongRange, ?> rmap) {
         long current = from;
         while (true) {
             final LongRange tmp = new LongRange(current, current);
@@ -288,22 +288,23 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
     }
 
     // TODO
-    // I cannot find a way to convert Treemap to TreeSet (or something having
+    // I cannot find a way to convert ConcurrentSkipListMap to TreeSet (or something
+    // having
     // floor/ceiling).
-    // (I think TreeSet used TreeMap in its implementation.)
+    // (I think TreeSet used ConcurrentSkipListMap in its implementation.)
     // prepare TreeSet version of the following methods
     // OR
     // prepare LongRangeSet having such facilities
     /**
      * Checks if this instance intersects with one of the keys contained by the
-     * provided {@code TreeMap<LongRange, S> rmap}. Returns one of the intersecting
-     * keys, or {@code null} if there are no such intersecting key.
+     * provided {@code ConcurrentSkipListMap<LongRange, S> rmap}. Returns one of the
+     * intersecting keys, or {@code null} if there are no such intersecting key.
      *
-     * @param rmap the TreeMap instance to check
-     * @return a LongRange key of the provided TreeMap instance that intersects this
-     *         instance, or {@code null} if there are so such key.
+     * @param rmap the ConcurrentSkipListMap instance to check
+     * @return a LongRange key of the provided ConcurrentSkipListMap instance that
+     *         intersects this instance, or {@code null} if there are so such key.
      */
-    public LongRange findOverlap(TreeMap<LongRange, ?> rmap) {
+    public LongRange findOverlap(ConcurrentSkipListMap<LongRange, ?> rmap) {
         final LongRange floorKey = rmap.floorKey(this);
         if (floorKey != null && floorKey.isOverlapped(this)) {
             return floorKey;

@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.ForkJoinPool;
 
 import apgas.MultipleException;
 import apgas.Place;
@@ -49,21 +50,123 @@ import handist.collections.function.SerializableSupplier;
  *            operation
  */
 class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements Serializable {
+
+    /**
+     * Managed Blocker implementation used when waiting for the completion of an
+     * operation which has already started.
+     *
+     * @author Patrick Finnerty
+     * @see GlobalLoadBalancer#startAndWait(GlbOperation)
+     */
+    static class OperationCompletionManagedBlocker implements ForkJoinPool.ManagedBlocker {
+        /** Semaphore instance around which this class is implemented */
+        private volatile boolean releasable;
+
+        /**
+         * Constructor
+         *
+         * Builds a new managed blocker ready for use
+         */
+        public OperationCompletionManagedBlocker() {
+            releasable = false;
+        }
+
+        @Override
+        public synchronized boolean block() throws InterruptedException {
+            if (!releasable) {
+                try {
+                    this.wait();
+                } catch (final InterruptedException e) {
+                    // Ignore the exception
+                }
+            }
+            return releasable;
+        }
+
+        @Override
+        public boolean isReleasable() {
+            return releasable;
+        }
+
+        public synchronized void unblock() {
+            releasable = true;
+            notify();
+        }
+    }
+
+    /**
+     * Enumerator used to describe the state of the current operation.
+     *
+     */
+    enum State {
+        /**
+         * Value used to describe an operation as "staged", i.e. the operation has been
+         * submitted to the GLB but the next blocking operation inside the GLB program
+         * has not been reached yet
+         */
+        STAGED,
+        /**
+         * Value used to describe this operation as running, i.e. either being processed
+         * by workers in the GLB or waiting on some dependencies to complete to start
+         * computation
+         */
+        RUNNING,
+
+        /**
+         * Value used to describe an operation as "completed", i.e. all of the
+         * assignments have been processed globally.
+         */
+        TERMINATED
+    }
+
     /** Serial Version UID */
     private static final long serialVersionUID = -7074061733010237021L;
 
     /**
      * Adds a completion dependency between the instance provided as parameter and
      * this operation.
+     * <p>
+     * In case the "before" dependency has already terminated, a dependency/hook
+     * pair is not installed as the completion dependency is already satisfied.
+     * <p>
+     * If the "after" operation was submitted to the GLB before a blocking
+     * operation, an {@link IllegalStateException} will be thrown.
      *
      * @param before operation which needs to complete before after can start
      * @param after  operation which will only start when the "before" operation has
      *               completed
+     * @throws IllegalStateException if the call attempted to add a dependency on an
+     *                               operation which may have already started.
      */
     static void makeDependency(GlbOperation<?, ?, ?, ?, ?> before, GlbOperation<?, ?, ?, ?, ?> after) {
-        after.dependencies.add(before);
-        before.addHook(() -> after.dependencySatisfied(before));
+        if (after.state != State.STAGED) {
+            throw new IllegalStateException(
+                    "Attempted to add a completion dependency on an operation which may have already started");
+        }
+
+        synchronized (before) {
+            if (before.state == State.TERMINATED) {
+                return; // Nothing to install as the dependency is already satisfied
+            } else {
+                synchronized (after) {
+                    after.dependencies.add(before); // protected against concurrent after#dependencySatisfied
+                }
+                before.addHook(() -> after.dependencySatisfied(before));
+            }
+        }
     }
+
+    /**
+     * Variable used to keep track of the state of this operation. It will take the
+     * following values in order:
+     * <ol>
+     * <li>{@link #OPERATION_STAGED}
+     * <li>{@link #OPERATION_RUNNING}
+     * <li>{@link #OPERATION_TERMINATED}
+     * </ol>
+     * Any access to this member needs to be done through a synchronized block.
+     */
+    State state;
 
     /** Global id for this GlbOperation */
     GlobalID id;
@@ -82,7 +185,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      * this member is made empty as a result, that hook will start this instance's
      * computation.
      */
-    private final Queue<GlbOperation<?, ?, ?, ?, ?>> dependencies;
+    private final transient Queue<GlbOperation<?, ?, ?, ?, ?>> dependencies;
 
     /**
      * List of all the errors that were thrown during this operation's execution.
@@ -91,7 +194,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
     transient List<Throwable> errors = null;
 
     /** Indicates if this operation is terminated */
-    private boolean finished = false;
+//    private boolean finished = false;
 
     /**
      * Handle provided to the programmer inside a glb program to manipulate the
@@ -100,7 +203,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
     DistFuture<R> future;
 
     /** Jobs to do after completion */
-    private final List<SerializableJob> hooks;
+    private transient final List<SerializableJob> hooks;
 
     /**
      * Initializer which will be called on every host if the GlbTask for the
@@ -120,15 +223,6 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      * host. May be null, in which case no particular action is needed.
      */
     SerializableConsumer<WorkerService> workerInit;
-
-//    /**
-//     * Private constructor which may only be used thorugh reflection by serializers
-//     */
-//    @SuppressWarnings("unused")
-//    private GlbOperation() {
-//        hooks = new ArrayList<>();
-//        dependencies = new LinkedList<>();
-//    }
 
     /**
      * Constructor for GLB operation. The distributed collection under consideration
@@ -151,7 +245,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      */
     GlbOperation(C c, SerializableBiConsumer<K, WorkerService> op, DistFuture<R> f,
             SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization) {
-        this(c, op, f, glbTaskInit, workerInitialization, new GlobalID());
+        this(c, op, f, glbTaskInit, workerInitialization, State.STAGED, new GlobalID());
     }
 
     /**
@@ -165,11 +259,13 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      *                             the assignments of the distributed collection
      * @param workerInitialization initialization that needs to be performed on
      *                             every worker prior to the
+     * @param s                    state of the GlbOperation (staged, running or
+     *                             terminated)
      * @param gid                  global id
      */
     private GlbOperation(C c, SerializableBiConsumer<K, WorkerService> op, DistFuture<R> f,
             SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization,
-            GlobalID gid) {
+            State s, GlobalID gid) {
         collection = c;
         operation = op;
         future = f; // We need a 2-way link between the GlbOperation and the
@@ -178,7 +274,9 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
         dependencies = new LinkedList<>();
         initializerOfGlbTask = glbTaskInit;
         workerInit = workerInitialization;
+        state = s;
         id = gid;
+
         id.putHere(this);
     }
 
@@ -202,6 +300,8 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      *                           computation
      */
     void compute() {
+        // The state "running" needs to be set before calling this method
+        assertEquals(State.RUNNING, state);
         MultipleException me = null;
         try {
             collection.placeGroup().broadcastFlat(() -> {
@@ -211,6 +311,10 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
             });
         } catch (final MultipleException e) {
             me = e;
+        }
+
+        synchronized (this) {
+            state = State.TERMINATED;
         }
         // The operation has completed, we execute the various hooks it may have
         for (final SerializableJob h : hooks) {
@@ -222,7 +326,8 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
             }
         }
 
-        finished = true;
+        // finished = true;
+
         // If a MultipleException was caught, throw it
         if (me != null) {
             throw me;
@@ -251,10 +356,10 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      * this method
      */
     private synchronized void dependencySatisfied(GlbOperation<?, ?, ?, ?, ?> dep) {
-        assertTrue(dep + " was not a dependency of " + this + " attempted to unblock " + this + " anyway.",
-                dependencies.remove(dep));
+        final boolean removed = dependencies.remove(dep);
+        assertTrue(dep + " was not a dependency of " + this + " attempted to unblock " + this + " anyway.", removed);
 
-        if (dependencies.isEmpty()) {
+        if (state == State.RUNNING && dependencies.isEmpty()) {
             async(() -> this.compute());
         }
     }
@@ -282,7 +387,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      * @return true if this operation has completed, false otherwise
      */
     public boolean finished() {
-        return finished;
+        return state == State.TERMINATED;
     }
 
     /**
@@ -296,9 +401,11 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      * @return a list of all the throwables that were thrown during the operation
      */
     List<Throwable> getErrors() {
+        assertEquals(State.TERMINATED, state);
         if (errors == null) { // If this method was not previously called
             errors = new ArrayList<>();
             finish(() -> {
+                final List<Throwable> destinationCollection = errors;
                 final Place here = here();
                 for (final Place p : collection.placeGroup().places()) {
                     asyncAt(p, () -> {
@@ -307,19 +414,27 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
                         if (remoteErrors != null) {
                             // Send them to 'here'
                             asyncAt(here, () -> {
-                                final List<Throwable> hereCollection = errors;
-                                synchronized (hereCollection) {
-                                    hereCollection.addAll(remoteErrors);
+                                synchronized (destinationCollection) {
+                                    destinationCollection.addAll(remoteErrors);
                                 }
                             });
                         }
                     });
                 }
             });
-
         }
 
         return errors;
+    }
+
+    /**
+     * Indicates if this operation has uncompleted dependencies.
+     *
+     * @return true if other operation need to complete before this operation can
+     *         start, false otherwise
+     */
+    public boolean hasDependencies() {
+        return !dependencies.isEmpty();
     }
 
     @Override

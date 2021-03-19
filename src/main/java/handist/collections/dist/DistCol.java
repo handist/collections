@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import com.esotericsoftware.kryo.DefaultSerializer;
@@ -422,7 +423,7 @@ public class DistCol<T> extends ChunkedList<T>
         return ldist.diff;
     }
 
-    public HashMap<LongRange, Place> getDist() {
+    public ConcurrentHashMap<LongRange, Place> getDist() {
         return ldist.dist;
     }
 
