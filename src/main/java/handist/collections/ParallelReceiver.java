@@ -20,7 +20,23 @@ import java.util.function.Consumer;
  *
  * @param <T> type of the objects to receive
  */
-public interface ParallelReceiver<T> {
+public interface ParallelReceiver<T> extends Iterable<T> {
+
+    /**
+     * Removes all contents from this parallel receiver. This instance will be empty
+     * as a result.
+     */
+    void clear();
+
+    /**
+     * Indicates if the object given as parameter is present in this instance
+     *
+     * @param v the object whose presence is to be checked
+     * @return {@code true} if the object is present at least once in this parallel
+     *         receiver, {@code false} otherwise
+     */
+    boolean contains(Object v);
+
     /**
      * Provides a new handle that will place T instances into this instance. This
      * method may be called by multiple threads that all want to place some
@@ -32,4 +48,18 @@ public interface ParallelReceiver<T> {
      * @return a new {@link Consumer} accepting T objects
      */
     Consumer<T> getReceiver();
+
+    /**
+     * Indicates if this parallel receiver contains any object
+     *
+     * @return {@code true} if this instance is empty, {@code false} otherwise
+     */
+    boolean isEmpty();
+
+    /**
+     * Returns the size (i.e.) the number of elements contained in this instance.
+     *
+     * @return the number of elements contained in the receiver as an integer
+     */
+    int size();
 }

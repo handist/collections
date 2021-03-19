@@ -15,7 +15,7 @@ import static apgas.Constructs.*;
 import java.io.ObjectStreamException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
+import java.util.List;
 
 import apgas.Constructs;
 import apgas.Place;
@@ -270,8 +270,8 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
             s.writeObject(this.remove(count));
         };
         final DeSerializer deserialize = (ObjectInput ds) -> {
-            final Collection<T> imported = (Collection<T>) ds.readObject();
-            collection.addAll(imported);
+            final List<T> imported = (List<T>) ds.readObject();
+            collection.addBag(imported);
         };
         mm.request(destination, serialize, deserialize);
     }
