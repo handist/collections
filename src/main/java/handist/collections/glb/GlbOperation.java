@@ -194,7 +194,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
     transient List<Throwable> errors = null;
 
     /** Indicates if this operation is terminated */
-//    private boolean finished = false;
+    // private boolean finished = false;
 
     /**
      * Handle provided to the programmer inside a glb program to manipulate the
@@ -404,24 +404,15 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
         assertEquals(State.TERMINATED, state);
         if (errors == null) { // If this method was not previously called
             errors = new ArrayList<>();
-            finish(() -> {
-                final List<Throwable> destinationCollection = errors;
-                final Place here = here();
-                for (final Place p : collection.placeGroup().places()) {
-                    asyncAt(p, () -> {
-                        // Gather the errors on the remote host
-                        final ArrayList<Throwable> remoteErrors = GlbComputer.getComputer().operationErrors.get(this);
-                        if (remoteErrors != null) {
-                            // Send them to 'here'
-                            asyncAt(here, () -> {
-                                synchronized (destinationCollection) {
-                                    destinationCollection.addAll(remoteErrors);
-                                }
-                            });
-                        }
-                    });
+            for (final Place p : collection.placeGroup().places()) {
+                final ArrayList<Throwable> remoteErrors = at(p, () -> { // Synchronous call. Maybe we can do better?
+                    return GlbComputer.getComputer().operationErrors.get(this);
+                });
+                if (remoteErrors != null) {
+                    errors.addAll(remoteErrors);
                 }
-            });
+
+            }
         }
 
         return errors;

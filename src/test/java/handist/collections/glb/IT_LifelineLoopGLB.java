@@ -126,7 +126,7 @@ public class IT_LifelineLoopGLB implements Serializable {
             }).getErrors();
 
             if (!errors.isEmpty()) {
-                System.err.println("There were " + errors.size() + " errors in testNoLifeline");
+                System.err.println("There were " + errors.size() + " errors in testLoopLifeline");
                 throw new RuntimeException(errors.get(0)); // Pack the first error as the cause of the RuntimeException
             }
         });

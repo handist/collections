@@ -92,7 +92,7 @@ public class GlobalLoadBalancer {
      * @param program program to launch under GLB
      * @return collection of all the Exceptions that occurred during the glb program
      */
-    public synchronized static ArrayList<Exception> underGLB(SerializableJob program) {
+    public static ArrayList<Exception> underGLB(SerializableJob program) {
         if (GlobalLoadBalancer.glb == null) {
             // Create a new GlobalLoadBalancer instance that will handle the program
             glb = new GlobalLoadBalancer();

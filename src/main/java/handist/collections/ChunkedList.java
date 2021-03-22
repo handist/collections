@@ -159,6 +159,22 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         size.addAndGet(c.size());
     }
 
+    /**
+     * Places the given ranged list without performing any checks.
+     * <p>
+     * This is useful, particularly when splitting chunks as cannot afford a moment
+     * between which the original chunk is removed from the collection and the newer
+     * chunks are placed into the collection. As the newer chunks need to be placed
+     * first, for a brief instant, the ChunkedList will contain multiple ranges
+     * which overlap.
+     *
+     * @param c the chunk to place in the collection
+     */
+    protected void add_unchecked(RangedList<T> c) {
+        chunks.put(c.getRange(), c);
+        size.addAndGet(c.size());
+    }
+
     public <U> void asyncForEach(BiConsumer<? super T, Consumer<? super U>> action,
             final ParallelReceiver<? super U> toStore) {
         forEachParallelBody((ChunkedList<T> sub) -> {

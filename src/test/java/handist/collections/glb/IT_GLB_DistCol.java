@@ -17,10 +17,7 @@ import static org.junit.Assert.*;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.List;
 
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.core.IsInstanceOf;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,7 +32,6 @@ import handist.collections.dist.CollectiveMoveManager;
 import handist.collections.dist.DistBag;
 import handist.collections.dist.DistCol;
 import handist.collections.dist.TeamedPlaceGroup;
-import handist.collections.glb.DistColGlb.DistColGlbError;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -237,59 +233,6 @@ public class IT_GLB_DistCol implements Serializable {
                     throw new Exception("Not Enough Parallelism To Run These Tests");
                 }
             });
-        }
-    }
-
-    /**
-     * Checks the behavior of the GLB when an exception is thrown inside of the
-     * lambda expression supplied by the user.
-     *
-     * @throws Throwable if thrown during the test
-     */
-    @Test(timeout = 10000)
-    public void testExceptionDuringGlbOperation() throws Throwable {
-        // Put a NULL at a certain index
-        final long nullIndex = 5;
-        distCol.set(nullIndex, null);
-
-        // Perform a forEach on all the elements
-        // The GLB should apply the forEach on every element and keep an Exception for
-        // the index "nullIndex"
-        try {
-            final ArrayList<Exception> ex = underGLB(() -> {
-                final List<Throwable> errors = distCol.GLB.forEach(makeSuffixTest).getErrors();
-                // We should have 1 exception in the errors returned by the GLB operation
-                assertEquals(1, errors.size());
-
-                // We check that the exception we got is indeed what we expect it to be
-                final Throwable t = errors.get(0);
-                // T is supposed to be the wrapper "DistColGlbError", which indicates that the
-                // problem occurred on index "nullIndex"
-                MatcherAssert.assertThat(t, IsInstanceOf.instanceOf(DistColGlb.DistColGlbError.class));
-                assertEquals(nullIndex, ((DistColGlbError) t).index);
-                // The cause should be a NullPointerException
-                MatcherAssert.assertThat(t.getCause(), IsInstanceOf.instanceOf(NullPointerException.class));
-
-                // We check that the operation was indeed applied to all other indices
-                final List<Throwable> checkErrors = distCol.GLB.forEach((l, e) -> {
-                    if (l == nullIndex) {
-                        // Check that the element is indeed null
-                        assertNull(e);
-                    } else {
-
-                        // Check that the element has the correct prefix
-                        assertTrue(e.s.endsWith("Test"));
-                    }
-                }).getErrors();
-
-                // Potential assertion failures would be caught in the previous forEach
-                // operation's errors.
-                assertTrue("There were <" + checkErrors.size() + "> errors when we expected <0>",
-                        checkErrors.isEmpty());
-            });
-            assertEquals(0, ex.size()); // There shouldn't be any error thrown from inside the GLB
-        } catch (final MultipleException me) {
-            printExceptionAndThrowFirst(me);
         }
     }
 

@@ -177,7 +177,7 @@ public class IT_LifelineHypercubeGLB implements Serializable {
             }).getErrors();
 
             if (!errors.isEmpty()) {
-                System.err.println("There were " + errors.size() + " errors in testNoLifeline");
+                System.err.println("There were " + errors.size() + " errors in testHypercubeLifeline");
                 throw new RuntimeException(errors.get(0)); // Pack the first error as the cause of the RuntimeException
             }
         });
