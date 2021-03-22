@@ -373,6 +373,12 @@ public class DistCol<T> extends ChunkedList<T>
     }
 
     @Override
+    public void add_unchecked(RangedList<T> c) {
+        ldist.add(c.getRange());
+        super.add_unchecked(c);
+    }
+
+    @Override
     public void clear() {
         super.clear();
         ldist.clear();
@@ -577,98 +583,108 @@ public class DistCol<T> extends ChunkedList<T>
         if (_debug_level > 5) {
             System.out.println("[" + here().id + "] moveAtSync range: " + range + " dest: " + dest.id);
         }
+
         final ArrayList<RangedList<T>> chunksToMove = new ArrayList<>();
         final ArrayList<ChunkExtractLeft<T>> chunksToExtractLeft = new ArrayList<>();
         final ArrayList<ChunkExtractMiddle<T>> chunksToExtractMiddle = new ArrayList<>();
         final ArrayList<ChunkExtractRight<T>> chunksToExtractRight = new ArrayList<>();
-        forEachChunk((RangedList<T> c) -> {
-            final LongRange cRange = c.getRange();
-            if (cRange.from <= range.from) {
-                if (cRange.to <= range.from) { // cRange.max < range.min) {
-                    // skip
+        
+        // This method needs to be protected against concurrent calls
+        // We don't to risk splitting the same Chunk concurrently (as could be the case
+        // with the GLB)
+        synchronized (this) {
+            forEachChunk((RangedList<T> c) -> {
+                final LongRange cRange = c.getRange();
+                if (cRange.from <= range.from) {
+                    if (cRange.to <= range.from) { // cRange.max < range.min) {
+                        // skip
+                    } else {
+                        // range.min <= cRange.max
+                        if (cRange.from == range.from) {
+                            if (cRange.to <= range.to) {
+                                // add cRange.min..cRange.max
+                                chunksToMove.add(c);
+                            } else {
+                                // range.max < cRange.max
+                                // split at range.max/range.max+1
+                                // add cRange.min..range.max
+                                chunksToExtractLeft.add(new ChunkExtractLeft<>(c, range.to/* max + 1 */));
+                            }
+                        } else {
+                            // cRange.min < range.min
+                            if (range.to < cRange.to) {
+                                // split at range.min-1/range.min
+                                // split at range.max/range.max+1
+                                // add range.min..range.max
+                                chunksToExtractMiddle
+                                        .add(new ChunkExtractMiddle<>(c, range.from, range.to/* max + 1 */));
+                            } else {
+                                // split at range.min-1/range.min
+                                // cRange.max =< range.max
+                                // add range.min..cRange.max
+                                chunksToExtractRight.add(new ChunkExtractRight<>(c, range.from));
+                            }
+                        }
+                    }
                 } else {
-                    // range.min <= cRange.max
-                    if (cRange.from == range.from) {
+                    // range.min < cRange.min
+                    if (range.to <= cRange.from) { // range.max < cRange.min) {
+                        // skip
+                    } else {
+                        // cRange.min <= range.max
                         if (cRange.to <= range.to) {
                             // add cRange.min..cRange.max
                             chunksToMove.add(c);
                         } else {
-                            // range.max < cRange.max
                             // split at range.max/range.max+1
                             // add cRange.min..range.max
                             chunksToExtractLeft.add(new ChunkExtractLeft<>(c, range.to/* max + 1 */));
                         }
-                    } else {
-                        // cRange.min < range.min
-                        if (range.to < cRange.to) {
-                            // split at range.min-1/range.min
-                            // split at range.max/range.max+1
-                            // add range.min..range.max
-                            chunksToExtractMiddle.add(new ChunkExtractMiddle<>(c, range.from, range.to/* max + 1 */));
-                        } else {
-                            // split at range.min-1/range.min
-                            // cRange.max =< range.max
-                            // add range.min..cRange.max
-                            chunksToExtractRight.add(new ChunkExtractRight<>(c, range.from));
-                        }
                     }
                 }
-            } else {
-                // range.min < cRange.min
-                if (range.to <= cRange.from) { // range.max < cRange.min) {
-                    // skip
-                } else {
-                    // cRange.min <= range.max
-                    if (cRange.to <= range.to) {
-                        // add cRange.min..cRange.max
-                        chunksToMove.add(c);
-                    } else {
-                        // split at range.max/range.max+1
-                        // add cRange.min..range.max
-                        chunksToExtractLeft.add(new ChunkExtractLeft<>(c, range.to/* max + 1 */));
-                    }
-                }
+            });
+
+            for (final ChunkExtractLeft<T> chunkToExtractLeft : chunksToExtractLeft) {
+                final RangedList<T> original = chunkToExtractLeft.original;
+                final List<RangedList<T>> splits = chunkToExtractLeft.extract();
+                // System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
+                add_unchecked(splits.get(0)/* first */);
+                // System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
+                add_unchecked(splits.get(1)/* second */);
+
+                // System.out.println("[" + here.id + "] removeChunk " + original.getRange());
+                remove(original);
+                chunksToMove.add(splits.get(0)/* first */);
             }
-        });
 
-        for (final ChunkExtractLeft<T> chunkToExtractLeft : chunksToExtractLeft) {
-            final RangedList<T> original = chunkToExtractLeft.original;
-            final List<RangedList<T>> splits = chunkToExtractLeft.extract();
-            // System.out.println("[" + here.id + "] removeChunk " + original.getRange());
-            remove(original);
-            // System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-            add(splits.get(0)/* first */);
-            // System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-            add(splits.get(1)/* second */);
-            chunksToMove.add(splits.get(0)/* first */);
-        }
+            for (final ChunkExtractMiddle<T> chunkToExtractMiddle : chunksToExtractMiddle) {
+                final RangedList<T> original = chunkToExtractMiddle.original;
+                final List<RangedList<T>> splits = chunkToExtractMiddle.extract();
+                // System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
+                add_unchecked(splits.get(0)/* first */);
+                // System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
+                add_unchecked(splits.get(1)/* second */);
+                // System.out.println("[" + here.id + "] putChunk " + splits.third.getRange());
+                add_unchecked(splits.get(2)/* third */);
 
-        for (final ChunkExtractMiddle<T> chunkToExtractMiddle : chunksToExtractMiddle) {
-            final RangedList<T> original = chunkToExtractMiddle.original;
-            final List<RangedList<T>> splits = chunkToExtractMiddle.extract();
-            // System.out.println("[" + here.id + "] removeChunk " + original.getRange());
-            remove(original);
-            // System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-            add(splits.get(0)/* first */);
-            // System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-            add(splits.get(1)/* second */);
-            // System.out.println("[" + here.id + "] putChunk " + splits.third.getRange());
-            add(splits.get(2)/* third */);
-            chunksToMove.add(splits.get(1)/* second */);
-        }
+                // System.out.println("[" + here.id + "] removeChunk " + original.getRange());
+                remove(original);
+                chunksToMove.add(splits.get(1)/* second */);
+            }
 
-        for (final ChunkExtractRight<T> chunkToExtractRight : chunksToExtractRight) {
-            final RangedList<T> original = chunkToExtractRight.original;
-            final List<RangedList<T>> splits = chunkToExtractRight.extract();
-            // System.out.println("[" + here.id + "] removeChunk " + original.getRange());
-            remove(original);
-            // System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-            add(splits.get(0)/* first */);
-            // System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-            add(splits.get(1)/* second */);
-            chunksToMove.add(splits.get(1)/* second */);
-        }
+            for (final ChunkExtractRight<T> chunkToExtractRight : chunksToExtractRight) {
+                final RangedList<T> original = chunkToExtractRight.original;
+                final List<RangedList<T>> splits = chunkToExtractRight.extract();
+                // System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
+                add_unchecked(splits.get(0)/* first */);
+                // System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
+                add_unchecked(splits.get(1)/* second */);
+                // System.out.println("[" + here.id + "] removeChunk " + original.getRange());
+                remove(original);
 
+                chunksToMove.add(splits.get(1)/* second */);
+            }
+        } // End of the synchronized block
         moveAtSync(chunksToMove, dest, mm);
     }
 

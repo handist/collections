@@ -66,9 +66,9 @@ interface Assignment extends Serializable {
     boolean process(int qtt, WorkerService ws, @SuppressWarnings("rawtypes") GlbOperation op);
 
     /**
-     * Splits this assignment and places the created Assignment into the
-     * {@link GlbTask} which is handling the assignments of the distributed
-     * collection on which this assignment operates.
+     * Splits this assignment and places the created assignments into the GlbTask
+     * which is handling the assignments of the distributed collection on which the
+     * assignments operate.
      */
     void splitIntoGlbTask();
 }
