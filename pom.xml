@@ -5,10 +5,10 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>handist</groupId>
+	<groupId>com.github.handist</groupId>
 	<artifactId>collections</artifactId>
 	<packaging>jar</packaging>
-	<version>-SNAPSHOT</version>
+	<version>v1.0.0</version>
 
 	<name>handistCollections</name>
 	<description>A simple distributed collection's library</description>
@@ -24,8 +24,8 @@
 			<dependencies>
 				<dependency>
 					<groupId>com.github.handist</groupId>
-					<artifactId>mpj</artifactId>
-					<version>v1</version>
+					<artifactId>MPJ</artifactId>
+					<version>0.44</version>
 				</dependency>
 			</dependencies>
 			<build>
@@ -51,8 +51,8 @@
 			<dependencies>
 				<dependency>
 					<groupId>com.github.handist</groupId>
-					<artifactId>mpj</artifactId>
-					<version>v1</version>
+					<artifactId>MPJ</artifactId>
+					<version>0.44</version>
 				</dependency>
 			</dependencies>
 			<build>
@@ -143,21 +143,6 @@
 				</plugins>
 			</build>
 		</profile>
-		<profile>
-			<id>glb</id>
-			<build>
-				<plugins>
-					<plugin>
-						<artifactId>maven-failsafe-plugin</artifactId>
-						<configuration>
-							<includes>
-								<Include>LargeGLB.java</Include>
-							</includes>
-						</configuration>
-					</plugin>
-				</plugins>
-			</build>
-		</profile>
 	</profiles>
 
 	<properties>
@@ -181,14 +166,14 @@
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
-			<groupId>com.github.handist</groupId> <!-- Corresponds to github.com/handist/apgas repository -->
+			<groupId>com.github.handist</groupId>
 			<artifactId>apgas</artifactId>
-			<version>handist-SNAPSHOT</version>
+			<version>v1.2.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.handist</groupId>
 			<artifactId>mpi-junit</artifactId>
-			<version>-SNAPSHOT</version>
+			<version>v1.2.1</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
@@ -198,7 +183,7 @@
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
-				<version>0.8.5</version>
+				<version>0.8.6</version>
 				<executions>
 					<execution>
 						<id>default-prepare-agent</id>
