@@ -7,7 +7,7 @@ stages:
   - report
 
 variables:
-  MAVEN_CLI_OPTS: "--batch-mode -Pmpijava"
+  MAVEN_CLI_OPTS: "--batch-mode"
 
 cache:
   paths:
@@ -16,14 +16,14 @@ cache:
 project_compile:
   stage: build
   script:
-    - mvn $MAVEN_CLI_OPTS clean compile
+    - source /home/gitlab-runner/.profile
+    - mvn $MAVEN_CLI_OPTS -U clean compile
 
 junit_tests:
   stage: test
   script:
     - source /home/gitlab-runner/.profile
     - mvn $MAVEN_CLI_OPTS test
-    - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
   artifacts:
     when: always
     reports:
@@ -33,11 +33,28 @@ junit_tests:
         - target/surefire-reports/TEST-*.xml
     expire_in: 1 week
 
-integration_tests:
+mpjnative_it_tests:
   stage: integration
   script:
     - source /home/gitlab-runner/.profile
-    - mvn $MAVEN_CLI_OPTS verify
+    - mvn $MAVEN_CLI_OPTS -Pmpjnative verify -Dhostfile=${HOSTFILE}
+    - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - target/failsafe-reports/TEST-*.xml
+    paths:
+      - target/failsafe-reports/TEST-*.xml
+      - target/site/*
+    expire_in: 1 week
+
+.mpijava_it_tests:
+  stage: integration
+  allow_failure: true
+  script:
+    - source /home/gitlab-runner/.profile
+    - mvn $MAVEN_CLI_OPTS -Pmpijava verify -Dhostfile=${HOSTFILE}
     - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
   artifacts:
     when: always
@@ -63,14 +80,14 @@ publish:
     - source /home/gitlab-runner/.profile
     - mvn $MAVEN_CLI_OPTS site
     - cd target
-    - git clone --single-branch --branch gh-pages https://github.com/handist/handistCollections.git
+    - git clone --single-branch --branch gh-pages https://github.com/handist/collections.git
     - rm -rf handistCollections/master-latest
     - mkdir handistCollections/master-latest
     - cp -r site/* handistCollections/master-latest/
     - cd handistCollections
     - git add master-latest
     - git commit -m "${CI_COMMIT_MESSAGE}"
-    - git remote set-url origin https://${GITHUB_USER}:${GITHUB_OAUTH}@github.com/handist/handistCollections.git
+    - git remote set-url origin https://${GITHUB_USER}:${GITHUB_OAUTH}@github.com/handist/collections.git
     - git push origin gh-pages
   only:
     - master

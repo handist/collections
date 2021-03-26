@@ -1,425 +1,293 @@
 /*******************************************************************************
- * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
  *
- * This program and the accompanying materials are made available to you under 
- * the terms of the Eclipse Public License 1.0 which accompanies this 
- * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
  *
  * SPDX-License-Identifier: EPL-1.0
- *******************************************************************************/
+ ******************************************************************************/
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
+import static org.junit.Assert.*;
 
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Random;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-
+import apgas.MultipleException;
 import apgas.Place;
+import handist.collections.function.SerializableFunction;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
 
 @RunWith(MpiRunner.class)
-@MpiConfig(ranks=2, launcher=TestLauncher.class)
+@MpiConfig(ranks = 2, launcher = TestLauncher.class)
 public class IT_DistIdMap implements Serializable {
 
-	/** Serial Version UID */
-	private static final long serialVersionUID = -6870647874233619233L;
-	
-	TeamedPlaceGroup placeGroup;
-	// long numData = 10;
-	long numData = 200;
+    static final int NPLACES = places().size();
 
-	Random random;
-	private DistIdMap<String> distIdMap;
+    /** Number of entries to place in the map */
+    static final long numData = 200;
 
-	@Before
-	public void setup() {
-		this.placeGroup = TeamedPlaceGroup.getWorld();
-		this.random = new Random(12345);
-		this.distIdMap = new DistIdMap<String>(placeGroup);
-	}
+    /** Random instance used to populate the map */
+    static Random random = new Random(12345);
 
-	public static void main(String[] args) {
-		IT_DistIdMap test = new IT_DistIdMap();
-		test.setup();
-		test.run();
-		System.out.println("----finish");
-	}
+    /** Serial Version UID */
+    private static final long serialVersionUID = -6870647874233619233L;
 
-	public String genRandStr(String header) {
-		long rand = random.nextLong();
-		return header + rand;
-	}
+    /**
+     * Helper method to generate strings with the specified prefix
+     *
+     * @param prefix prefix of the random string returned
+     * @return a random string with the specified prefix
+     */
+    public static String genRandStr(String prefix) {
+        final long rand = random.nextLong();
+        return prefix + rand;
+    }
 
-	@Test
-	public void run() {
-		// Create initial data at Place 0
-		final TeamedPlaceGroup pg = placeGroup;
-		final DistIdMap<String> distIdMap2 = this.distIdMap;
-		finish(()->{
-			pg.broadcastFlat(() -> {
-				System.out.println("hello:" + here() + ", " + pg);
-			});
-		});
+    /** distIdMap which is the object of the tests of this class */
+    DistIdMap<String> distIdMap;
 
-		System.out.println("### Create initial data at Place 0");
+    /** PlaceGroup on which the distributed id map is defined */
+    TeamedPlaceGroup pg;
 
-		try {
-			for (long i = 0; i < numData; i++) {
-				distIdMap2.put(i, genRandStr("v"));
-			}
-		} catch (Exception e) {
-			System.err.println("Error on "+here());
-			e.printStackTrace();
-		}
+    /**
+     * Single test method of this class.
+     *
+     * @throws Throwable if thrown during the test
+     */
+    @Test(timeout = 20000)
+    public void run() throws Throwable {
+        // Create initial data at Place 0
+        try {
+            for (long i = 0; i < numData; i++) {
+                distIdMap.put(i, genRandStr("v"));
+            }
+        } catch (final Exception e) {
+            System.err.println("Error on " + here());
+            e.printStackTrace();
+            throw e.getSuppressed()[0];
+        }
 
-		//	val gather = new GatherDistIdMap[String](pg, distIdMap2);
-		//	gather.gather();
-		//	gather.print();
-		//	gather.setCurrentAsInit();
+        // Check that the entries were correctly added to the collection on place 0
+        x_checkSize((h) -> {
+            return h.id == 0 ? numData : 0;
+        });
 
-		// Distribute all entries
-		System.out.println("");
-		System.out.println("### MoveAtSync // Distribute all entries");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				distIdMap2.forEach((Long key, String value) -> {
-					int d = (int) (key % pg.size());
-					System.out.println("" + here() + " moves key: " + key + " to " + d);
-					//distIdMap2.moveAtSync(key, pg.places().get(d), mm);
-					distIdMap2.moveAtSync(key, pg.get(d), mm); // Place with  rank `d`, not the Place with id==d
-				});
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+        // ---------------------------------------------------------------------------
+        // Distribute all the keys over the places
+        z_distribute();
+        // Check that every place got the same number of keys
+        x_checkSize((h) -> {
+            return numData / NPLACES;
+        });
+        // Check that the correct keys were transferred
+        x_checkKeyShift(0l);
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//		val d = key % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    Console.OUT.println("VALIDATE 1-1: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 1-1: FAIL");
-		//	}
+        for (long shift = 1; shift <= 2; shift++) {
+            // Move all entries to the n+1%NB_PLACE place
+            z_moveToNextPlace();
+            // Number of keys on each host is unchanged
 
-		//        Console.OUT.println("");
-		//        Console.OUT.println("### Update dist // Distribute all entries");
-		//	pg.broadcastFlat(() => {
-		//	    distIdMap2.updateDist();
-		//	});
+            x_checkSize((h) -> {
+                return numData / NPLACES;
+            });
+            // Keys have now shifted by "shift"
+            x_checkKeyShift(shift);
+        }
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    Console.OUT.println("VALIDATE 1-2: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 1-2: FAIL");
-		//	}
+        // ---------------------------------------------------------------------------
+        // Move all entries to place 0
+        z_moveToPlaceZero();
+        // Check that all the entries are now on 0
+        x_checkSize((h) -> {
+            return h.id == 0 ? numData : 0;
+        });
 
+        // ---------------------------------------------------------------------------
 
-		// ---------------------------------------------------------------------------
+        // Generate additional key/value pair
+        try {
+            for (long i = numData; i < numData * 2; i++) {
+                distIdMap.put(i, genRandStr("v"));
+            }
+        } catch (final Exception e) {
+            System.err.println("Error on " + here());
+            e.printStackTrace();
+            throw e;
+        }
 
-		// Move all entries to the next place
+        // Distribute all entries with the additional key/values
+        z_distribute();
+        // As the number of entries have doubled,
+        x_checkSize((h) -> {
+            return numData * 2 / NPLACES;
+        });
+        x_checkKeyShift(0l);
 
-		System.out.println("");
-		System.out.println("### MoveAtSync // Move all entries to the next place");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				//val destination = Place.places().next(here);
-				int rank = pg.rank(here());
-				Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
+        // Then remove additional key/value
+        try {
+            pg.broadcastFlat(() -> {
+                final ArrayList<Long> keyList = new ArrayList<>();
+                try {
+                    distIdMap.forEach((Long key, String value) -> {
+                        if (key >= numData) {
+                            keyList.add(key);
+                        }
+                    });
+                    for (final long key : keyList) {
+                        distIdMap.remove(key);
+                    }
+                } catch (final Exception e) {
+                    System.err.println("Error on " + here());
+                    e.printStackTrace();
+                    throw e;
+                }
+            });
+        } catch (final MultipleException me) {
+            throw me.getSuppressed()[0];
+        }
 
-				distIdMap2.forEach((Long key, String value) -> {
-					System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-					distIdMap2.moveAtSync(key, destination, mm);
-				});
+        // Removing the additional entries should have returned each local handle to
+        // original nb entries.
+        x_checkSize((h) -> {
+            return numData / NPLACES;
+        });
+        // Key / place shift should be unchanged
+        x_checkKeyShift(0l);
+    }
 
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+    @Before
+    public void setup() {
+        pg = TeamedPlaceGroup.getWorld();
+        distIdMap = new DistIdMap<>(pg);
+    }
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//		val d = (key + 1) % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    Console.OUT.println("VALIDATE 2-1: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 2-1: FAIL");
-		//	}
+    @After
+    public void tearDown() {
+        distIdMap.destroy();
+    }
 
-		//        Console.OUT.println("");
-		//        Console.OUT.println("### Update dist // Move all entries to the next place");
-		//	pg.broadcastFlat(() => {
-		//	    distIdMap2.updateDist();
-		//	});
+    private void x_checkKeyShift(long expectedShift) throws Throwable {
+        try {
+            pg.broadcastFlat(() -> {
+                final long shift = (expectedShift + here().id) % NPLACES;
+                try {
+                    // Check that each key/pair is on the right place
+                    for (final Long key : distIdMap.getAllKeys()) {
+                        // long chunkNumber = lr.from / (rangeSize + rangeSkip);
+                        final long apparentShift = (key % NPLACES);
+                        assertEquals(shift, apparentShift);
+                    }
+                } catch (final Throwable e) {
+                    final RuntimeException re = new RuntimeException("Error on " + here());
+                    re.initCause(e);
+                    throw re;
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
+    }
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    Console.OUT.println("VALIDATE 2-2: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 2-2: FAIL");
-		//	}
+    /**
+     * Subroutine which checks that every place holds half of the total instances
+     *
+     * @param size indicates the expected size as a function of the place provided
+     *             as parameter
+     * @throws Throwable if thrown during the check
+     */
+    private void x_checkSize(final SerializableFunction<Place, Long> size) throws Throwable {
+        try {
+            pg.broadcastFlat(() -> {
+                final long expected = size.apply(here());
+                try {
+                    assertEquals(expected, distIdMap.size());
+                } catch (final Throwable e) {
+                    System.err.println("Error on " + here());
+                    e.printStackTrace();
+                    throw e;
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
+    }
 
-		// ---------------------------------------------------------------------------
+    private void z_distribute() throws Throwable {
+        try {
+            pg.broadcastFlat(() -> {
+                try {
+                    final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
+                    distIdMap.forEach((Long key, String value) -> {
+                        final int d = (int) (key % pg.size());
+                        distIdMap.moveAtSync(key, pg.get(d), mm);
+                    });
+                    mm.sync();
+                } catch (final Exception e) {
+                    System.err.println("Error on " + here());
+                    e.printStackTrace();
+                    throw e;
+                }
+            });
+        } catch (final MultipleException me) {
+            throw me.getSuppressed()[0];
+        }
+    }
 
-		// Move all entries to the next to next place
+    private void z_moveToNextPlace() throws Throwable {
+        try {
+            pg.broadcastFlat(() -> {
+                try {
+                    final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
+                    final int rank = pg.rank(here());
+                    final Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
+                    distIdMap.forEach((Long key, String value) -> {
+                        distIdMap.moveAtSync(key, destination, mm);
+                    });
 
-		System.out.println("");
-		System.out.println("### MoveAtSync // Move all entries to the next to next place");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				//val destination = Place.places().next(here);
-				int rank = pg.rank(here());
-				Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
+                    mm.sync();
+                } catch (final Exception e) {
+                    System.err.println("Error on " + here());
+                    e.printStackTrace();
+                    throw e;
+                }
+            });
+        } catch (final MultipleException me) {
+            throw me.getSuppressed()[0];
+        }
+    }
 
-				distIdMap2.forEach((Long key, String value) -> {
-					System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-					distIdMap2.moveAtSync(key, destination, mm);
-				});
-
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//		val d = (key + 3) % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    Console.OUT.println("VALIDATE 3-1: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 3-1: FAIL");
-		//	}
-
-		//        Console.OUT.println("");
-		//        Console.OUT.println("### Update dist // Move all entries to the next to next place");
-		//	pg.broadcastFlat(() => {
-		//	    distIdMap2.updateDist();
-		//	});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    Console.OUT.println("VALIDATE 3-2: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 3-2: FAIL");
-		//	}
-
-
-		// ---------------------------------------------------------------------------
-
-		// Move all entries to the NPLACES times next place
-
-		System.out.println("");
-		System.out.println("### MoveAtSync // Move all entries to the NPLACES times next place");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				//val destination = Place.places().next(here);
-				int rank = pg.rank(here());
-				Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
-				for (int i = 0; i < pg.size(); i++) {
-					distIdMap2.forEach((Long key, String value) -> {
-						System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-						distIdMap2.moveAtSync(key, destination, mm);
-					});
-					mm.sync();
-				}
-
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//		val d = (key + 3) % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    Console.OUT.println("VALIDATE 4-1: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 4-1: FAIL");
-		//	}
-
-		//        Console.OUT.println("");
-		//        Console.OUT.println("### Update dist // Move all entries to the NPLACES times next place");
-		//	pg.broadcastFlat(() => {
-		//	    distIdMap2.updateDist();
-		//	});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    Console.OUT.println("VALIDATE 4-2: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 4-2: FAIL");
-		//	}
-
-
-		// ---------------------------------------------------------------------------
-
-		// Move all entries to place 0
-		System.out.println("");
-		System.out.println("### MoveAtSync // Move all entries to place 0");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				Place destination = pg.get(0);
-				distIdMap2.forEach((Long key, String value) -> {
-					System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-					distIdMap2.moveAtSync(key, destination, mm);
-				});
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//		return 0n;
-		//	    })) {
-		//	    Console.OUT.println("VALIDATE 5-1: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 5-1: FAIL");
-		//	}
-
-		//        Console.OUT.println("");
-		//        Console.OUT.println("### Update dist // Move all entries to place 0");
-		//	pg.broadcastFlat(() => {
-		//	    distIdMap2.updateDist();
-		//	});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    Console.OUT.println("VALIDATE 5-2: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 5-2: FAIL");
-		//	}
-
-		// ---------------------------------------------------------------------------
-
-		// Generate additional key/value pair
-
-		try {
-			for (long i = numData; i < numData * 2; i++) {
-				distIdMap2.put(i, genRandStr("v"));
-			}
-		} catch (Exception e) {
-			System.err.println("Error on "+here());
-			e.printStackTrace();
-		}
-
-		// Distribute all entries with additional key/value
-		System.out.println("");
-		System.out.println("### Distribute all entries with additional key/value");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				distIdMap2.forEach((Long key, String value) -> {
-					int d = (int) (key % pg.size());
-					System.out.println("" + here() + " moves key: " + key + " to " + d);
-					distIdMap2.moveAtSync(key, pg.get(d), mm);
-				});
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-
-		// Then remove additional key/value
-		final long numData2 = this.numData;
-		System.out.println("");
-		System.out.println("### Then remove additional key/value");
-		pg.broadcastFlat(() -> {
-			ArrayList<Long> keyList = new ArrayList<Long>();
-			try {
-				//MoveManagerLocal mm = new MoveManagerLocal(pg);
-				distIdMap2.forEach((Long key, String value) -> {
-					if (key >= numData2) {
-						System.out.println("[" + here() + "] try to remove " + key);
-						keyList.add(key);
-					}
-				});
-				for (long key : keyList) {
-					distIdMap2.remove(key);
-				}
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//		val d = key % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    Console.OUT.println("VALIDATE 6-1: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 6-1: FAIL");
-		//	}
-
-		//        Console.OUT.println("");
-		//        Console.OUT.println("### Update dist // Distribute all entries again and remove additional data");
-		//	pg.broadcastFlat(() => {
-		//	    distIdMap2.updateDist();
-		//	});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    Console.OUT.println("VALIDATE 6-2: SUCCESS");
-		//	} else {
-		//	    Console.OUT.println("VALIDATE 6-2: FAIL");
-		//	}
-
-	}
+    private void z_moveToPlaceZero() throws Throwable {
+        try {
+            pg.broadcastFlat(() -> {
+                try {
+                    final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
+                    final Place destination = pg.get(0);
+                    distIdMap.forEach((Long key, String value) -> {
+                        distIdMap.moveAtSync(key, destination, mm);
+                    });
+                    mm.sync();
+                } catch (final Exception e) {
+                    System.err.println("Error on " + here());
+                    e.printStackTrace();
+                    throw e;
+                }
+            });
+        } catch (final MultipleException me) {
+            throw me.getSuppressed()[0];
+        }
+    }
 }
-

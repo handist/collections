@@ -3,4 +3,7 @@
 bin/
 /target/
 .*
-
+*.log
+hosts
+hostfile
+HOSTFILE

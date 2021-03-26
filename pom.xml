@@ -5,10 +5,10 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>handist</groupId>
+	<groupId>com.github.handist</groupId>
 	<artifactId>collections</artifactId>
 	<packaging>jar</packaging>
-	<version>-SNAPSHOT</version>
+	<version>v1.0.0</version>
 
 	<name>handistCollections</name>
 	<description>A simple distributed collection's library</description>
@@ -24,8 +24,8 @@
 			<dependencies>
 				<dependency>
 					<groupId>com.github.handist</groupId>
-					<artifactId>mpj</artifactId>
-					<version>v1</version>
+					<artifactId>MPJ</artifactId>
+					<version>0.44</version>
 				</dependency>
 			</dependencies>
 			<build>
@@ -35,8 +35,37 @@
 						<configuration>
 							<systemPropertyVariables>
 								<mpirunner.mpiImpl>mpj-multicore</mpirunner.mpiImpl>
+								<mpirunner.dryRun>true</mpirunner.dryRun>
+								<mpirunner.actionOnError>ignore</mpirunner.actionOnError>
 								<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
 								<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
+							</systemPropertyVariables>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<!-- Profile mpj native can be activated via the command line -->
+			<id>mpjnative</id>
+			<dependencies>
+				<dependency>
+					<groupId>com.github.handist</groupId>
+					<artifactId>MPJ</artifactId>
+					<version>0.44</version>
+				</dependency>
+			</dependencies>
+			<build>
+				<plugins>
+					<plugin>
+						<artifactId>maven-failsafe-plugin</artifactId>
+						<configuration>
+							<systemPropertyVariables>
+								<mpirunner.mpiImpl>mpj-native</mpirunner.mpiImpl>
+								<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
+								<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
+								<mpirunner.mpirunOptions>--oversubscribe</mpirunner.mpirunOptions>
+								<mpirunner.parseNotifications>0</mpirunner.parseNotifications>
 							</systemPropertyVariables>
 						</configuration>
 					</plugin>
@@ -71,6 +100,49 @@
 				</plugins>
 			</build>
 		</profile>
+		<profile>
+			<id>hostfile-file-present</id>
+			<activation>
+				<file>
+					<exists>HOSTFILE</exists>
+				</file>
+			</activation>
+			<build>
+				<plugins>
+					<plugin>
+						<artifactId>maven-failsafe-plugin</artifactId>
+						<configuration>
+							<systemPropertyVariables>
+								<mpirunner.mpirunOptions>--hostfile HOSTFILE</mpirunner.mpirunOptions>
+							</systemPropertyVariables>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<!-- Profile automatically activated when the property "hostfile" is specified 
+				(mvn -Dhostfile=/path/to/hostfile) -->
+			<id>explicit-hostfile</id>
+			<activation>
+				<property>
+					<name>hostfile</name>
+				</property>
+			</activation>
+			<build>
+				<plugins>
+					<plugin>
+						<artifactId>maven-failsafe-plugin</artifactId>
+						<configuration>
+							<systemPropertyVariables>
+								<!-- override the default and specify the hostfile -->
+								<mpirunner.mpirunOptions>--hostfile ${hostfile}</mpirunner.mpirunOptions>
+							</systemPropertyVariables>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
 	</profiles>
 
 	<properties>
@@ -90,18 +162,18 @@
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<version>4.13</version>
-			<scope>test</scope>
+			<version>4.13.1</version>
+			<scope>compile</scope>
 		</dependency>
 		<dependency>
-			<groupId>com.github.handist</groupId> <!-- Corresponds to github.com/handist/apgas repository -->
+			<groupId>com.github.handist</groupId>
 			<artifactId>apgas</artifactId>
-			<version>v1.1</version>
+			<version>v1.2.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.handist</groupId>
 			<artifactId>mpi-junit</artifactId>
-			<version>v1.2</version>
+			<version>v1.2.1</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
@@ -111,7 +183,7 @@
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
-				<version>0.8.5</version>
+				<version>0.8.6</version>
 				<executions>
 					<execution>
 						<id>default-prepare-agent</id>
