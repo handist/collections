@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistMultiMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistMultiMap.java</span></div><h1>DistMultiMap.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist;
+
+import static apgas.Constructs.*;
+
+import java.io.ObjectStreamException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+
+import apgas.Place;
+import apgas.util.GlobalID;
+import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.Serializer;
+
+/**
+ * A Map data structure spread over the multiple places. This class allows
+ * multiple values for one key, those values being stored in a list.
+ *
+ * @param &lt;K&gt; type of the key used in the {@link DistMultiMap}
+ * @param &lt;V&gt; type of the elements contained in the lists to which the keys map
+ */
+public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, List&lt;V&gt;&gt; {
+
+    /**
+     * Construct a DistMultiMap.
+     */
+    public DistMultiMap() {
+<span class="nc" id="L44">        this(TeamedPlaceGroup.getWorld());</span>
+<span class="nc" id="L45">    }</span>
+
+    /**
+     * Construct a DistMultiMap with given argument.
+     *
+     * @param placeGroup PlaceGroup.
+     */
+    public DistMultiMap(TeamedPlaceGroup placeGroup) {
+<span class="fc" id="L53">        super(placeGroup);</span>
+<span class="fc" id="L54">    }</span>
+
+    /**
+     * Construct a DistMultiMap with given arguments.
+     *
+     * @param placeGroup PlaceGroup
+     * @param id         the global ID used to identify this instance
+     */
+    public DistMultiMap(TeamedPlaceGroup placeGroup, GlobalID id) {
+<span class="fc" id="L63">        super(placeGroup, id);</span>
+<span class="fc" id="L64">    }</span>
+
+    /**
+     * Apply the same operation onto all the local entries.
+     *
+     * @param op the operation.
+     */
+    public void forEach1(BiConsumer&lt;K, V&gt; op) {
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        for (final Map.Entry&lt;K, List&lt;V&gt;&gt; entry : data.entrySet()) {</span>
+<span class="fc" id="L73">            final K key = entry.getKey();</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">            for (final V value : entry.getValue()) {</span>
+<span class="fc" id="L75">                op.accept(key, value);</span>
+<span class="fc" id="L76">            }</span>
+<span class="fc" id="L77">        }</span>
+<span class="fc" id="L78">    }</span>
+
+    // TODO ...
+    // public void setupBranches(DistMap.Generator&lt;T,List&lt;U&gt;&gt; gen)
+
+    /**
+     * Apply the same operation on each element including remote places and creates
+     * a new {@link DistMultiMap} with the same keys as this instance and the result
+     * of the mapping operation as values.
+     *
+     * @param &lt;W&gt; the type of the result of the map operation
+     * @param op  the mapping operation from {@code V} to {@code W}
+     * @return a new DistMultiMap which consists of the result of the operation.
+     */
+    public &lt;W&gt; DistMultiMap&lt;K, W&gt; map(BiFunction&lt;K, V, W&gt; op) {
+        // TODO
+<span class="nc" id="L94">        throw new Error(&quot;not implemented yet&quot;);</span>
+        /*
+         * return new DistMultiMap[T,S](placeGroup, team, () =&gt; { val dst = new
+         * HashMap[T,List[S]](); for (entry in data.entries()) { val key =
+         * entry.getKey(); val old = entry.getValue(); val list = new
+         * ArrayList[S](old.size()); for (v in old) { list.add(op(key, v)); }
+         * dst(entry.getKey()) = list; } return dst; });
+         */
+    }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public void moveAtSync(K key, Place pl, MoveManager mm) {
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        if (pl.equals(here())) {</span>
+<span class="fc" id="L108">            return;</span>
+        }
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">        if (!containsKey(key)) {</span>
+<span class="nc" id="L111">            throw new RuntimeException(&quot;DistMultiMap cannot move uncontained entry: &quot; + key);</span>
+        }
+<span class="fc" id="L113">        final DistMultiMap&lt;K, V&gt; toBranch = this; // using plh@AbstractCol</span>
+<span class="fc" id="L114">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="fc" id="L115">            final List&lt;V&gt; value = this.removeForMove(key);</span>
+            // TODO we should check values!=null before transportation
+<span class="fc" id="L117">            s.writeObject(key);</span>
+<span class="fc" id="L118">            s.writeObject(value);</span>
+<span class="fc" id="L119">        };</span>
+<span class="fc" id="L120">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="fc" id="L121">            final K k = (K) ds.readObject();</span>
+            // TODO we should check values!=null before transportation
+<span class="fc" id="L123">            final List&lt;V&gt; v = (List&lt;V&gt;) ds.readObject();</span>
+<span class="fc" id="L124">            toBranch.putForMove(k, v);</span>
+<span class="fc" id="L125">        };</span>
+<span class="fc" id="L126">        mm.request(pl, serialize, deserialize);</span>
+<span class="fc" id="L127">    }</span>
+
+    /**
+     * Puts a new value to the list of specified entry.
+     *
+     * @param key   the key of the entry
+     * @param value the new value to be added to the mappings of {@code key}.
+     * @return {@code true} as the collection is modified as a result (as specified
+     *         by {@link Collection#add(Object)}.
+     */
+    public boolean put1(K key, V value) {
+<span class="fc" id="L138">        List&lt;V&gt; list = data.get(key);</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">        if (list == null) {</span>
+<span class="fc" id="L140">            list = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L141">            data.put(key, list);</span>
+        }
+<span class="fc" id="L143">        return list.add(value);</span>
+    }
+
+    /**
+     * Request that the specified value be put in the list of the given key on the
+     * specified place when the method {@link CollectiveMoveManager#sync()} of the
+     * specified {@link CollectiveMoveManager} instance is called.
+     *
+     * @param key   the key of the list.
+     * @param value the value to be added to the mapping of {@code key}
+     * @param pl    the destination place
+     * @param mm    MoveManagerLocal handling the data transfers
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public void putAtSync(K key, V value, Place pl, CollectiveMoveManager mm) {
+<span class="nc" id="L158">        final DistMultiMap&lt;K, V&gt; toBranch = this; // using plh@AbstractCol</span>
+<span class="nc" id="L159">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="nc" id="L160">            s.writeObject(key);</span>
+<span class="nc" id="L161">            s.writeObject(value);</span>
+<span class="nc" id="L162">        };</span>
+<span class="nc" id="L163">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="nc" id="L164">            final K k = (K) ds.readObject();</span>
+<span class="nc" id="L165">            final V v = (V) ds.readObject();</span>
+<span class="nc" id="L166">            toBranch.put1(k, v);</span>
+<span class="nc" id="L167">        };</span>
+<span class="nc" id="L168">        mm.request(pl, serialize, deserialize);</span>
+<span class="nc" id="L169">    }</span>
+
+    public boolean putForMove(K key, Collection&lt;V&gt; values) {
+<span class="fc" id="L172">        List&lt;V&gt; list = data.get(key);</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        if (list == null) {</span>
+<span class="fc" id="L174">            list = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L175">            data.put(key, list);</span>
+        }
+        // TODO we should check values!=null before transportation
+<span class="fc bfc" id="L178" title="All 2 branches covered.">        if (values != null) {</span>
+<span class="fc" id="L179">            list.addAll(values);</span>
+        }
+<span class="fc" id="L181">        return false;</span>
+    }
+
+    /**
+     * Removes the entry corresponding to the specified key.
+     *
+     * @param key the key whose mapping need to be removed from this instance
+     * @return the list of all the mappings to the specified key.
+     */
+    public List&lt;V&gt; removeForMove(K key) {
+<span class="fc" id="L191">        final List&lt;V&gt; list = data.remove(key);</span>
+<span class="fc" id="L192">        return list;</span>
+    }
+
+    @Override
+    public Object writeReplace() throws ObjectStreamException {
+<span class="fc" id="L197">        final TeamedPlaceGroup pg1 = placeGroup;</span>
+<span class="fc" id="L198">        final GlobalID id1 = id;</span>
+<span class="fc" id="L199">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L200">            return new DistMultiMap&lt;&gt;(pg1, id1);</span>
+        });
+    }
+
+    /**
+     * Reduce the all the local elements using given function.
+     *
+     * @param op   the operation.
+     * @param unit the zero value of the reduction.
+     * @return the result of the reduction.
+     */
+    /*
+     * public def reduceLocal[S](op: (S,U)=&gt;S, unit: S): S { var accum: S = unit;
+     * for (entry in data.entries()) { for (value in entry.getValue()) { accum =
+     * op(accum, value); } } return accum; }
+     *
+     * def create(placeGroup: PlaceGroup, team: TeamOperations, init: ()=&gt;Map[T,
+     * List[U]]){ // return new DistMultiMap[T,U](placeGroup, init) as
+     * AbstractDistCollection[Map[T,List[U]]]; return null as
+     * AbstractDistCollection[Map[T, List[U]]]; }
+     *
+     * public def versioningMapList(srcName : String){ // return new
+     * BranchingManager[DistMultiMap[T,U], Map[T,List[U]]](srcName, this); return
+     * null as BranchingManager[DistMultiMap[T,U], Map[T,List[U]]]; }
+     */
+    // TODO
+    // In the cunnrent implementation of balance(),
+    // DistIdMap treat the number of key as the load of the PE, not using the number
+    // of elements in the value lists.
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

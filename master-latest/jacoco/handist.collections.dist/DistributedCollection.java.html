@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistributedCollection.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistributedCollection.java</span></div><h1>DistributedCollection.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist;
+
+import java.io.ObjectStreamException;
+import java.util.ArrayList;
+
+import apgas.util.GlobalID;
+import handist.collections.dist.util.IntLongPair;
+import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.function.SerializableConsumer;
+
+/**
+ * Interface representing the most basic characteristics of a distributed
+ * collection
+ *
+ * @author Patrick Finnerty
+ *
+ * @param &lt;T&gt; type of the object contained in the distributed collection
+ * @param &lt;C&gt; the underlying collection itself (used for reflective operations)
+ */
+public interface DistributedCollection&lt;T, C extends DistributedCollection&lt;T, C&gt;&gt; {
+
+    static int _debug_level = 5;
+
+    // @TransientInitExpr(getLocalData())
+
+    // TODO keep these members in implementations
+    // final GlobalID id;
+    // public transient float[] locality;
+    // public final TeamedPlaceGroup placeGroup; // may be packed into T? or
+    // globalID??
+
+    /*
+     * Ensure calling updateDist() before balance() balance() should be called in
+     * all places
+     */
+
+    public default void balanceSpecCheck(final float[] balance) {
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        if (balance.length != placeGroup().size) {</span>
+<span class="nc" id="L49">            throw new RuntimeException(&quot;[AbstractDistCollection&quot;);</span>
+        }
+<span class="nc" id="L51">    }</span>
+
+    /**
+     * Destroy an instance of AbstractDistCollection.
+     */
+    public default void destroy() {
+<span class="fc" id="L57">        placeGroup().remove(id());</span>
+<span class="fc" id="L58">    }</span>
+
+    /**
+     * Performs the specified action on every instance contained by the local handle
+     * of this distributed collection.
+     *
+     * @param action action to perform on each instance
+     */
+    public void forEach(SerializableConsumer&lt;T&gt; action);
+
+    /**
+     * Returns a handle to global operations of a distributed collection
+     *
+     * @return handle to &quot;global&quot; operations
+     */
+    public GlobalOperations&lt;T, C&gt; global();
+
+    /**
+     * Places the local size of each local handle of the distributed object in the
+     * provided array
+     *
+     * @param result the array inside which the result will be places, it should
+     *               have the same length as the number of places in the place group
+     *               on which the distributed collection operates
+     */
+    // this method is now implemented in GlobalOperations and TeamOperations
+    // abstract public void distSize(long[] result);
+
+    /**
+     * Retuns the global ID that identifies this distributed collection on all hosts
+     *
+     * @return {@link GlobalID} of this distributed collection
+     */
+    public GlobalID id();
+
+    /**
+     * Returns the locality of the distributed collection
+     *
+     * @return float array representing the locality of the distributed collection
+     */
+    public float[] locality();
+
+    public abstract void moveAtSyncCount(final ArrayList&lt;IntLongPair&gt; moveList, final MoveManager mm) throws Exception;
+
+    // TODO
+    // public abstract void integrate(T src);
+
+    /**
+     * Performs the specified action on every instance contained by the local handle
+     * of this distributed collection in parallel.
+     *
+     * @param action action to perform on each instance
+     */
+    public void parallelForEach(SerializableConsumer&lt;T&gt; action);
+
+    /**
+     * Return the PlaceGroup on which this distributed collection was built
+     *
+     * @return PlaceGroup.
+     */
+    public TeamedPlaceGroup placeGroup();
+
+    /**
+     * Returns a handle to teamed operations of a distributed collection
+     *
+     * @return handle to &quot;teamed&quot; operations
+     */
+    public TeamOperations&lt;T, C&gt; team();
+
+    /*
+     * public final def printAllData(){ for(p in placeGroup){ at(p){
+     * printLocalData(); } } }
+     */
+
+    /**
+     * Method used to create an object which will be transferred to a remote place.
+     * &lt;p&gt;
+     * This method is present in interface {@link DistributedCollection} to force
+     * the implementation in implementing classes. Implementation should return a
+     * {@link LazyObjectReference} instance capable of initializing the local handle
+     * of the implementing class on the remote place
+     *
+     * @return a {@link LazyObjectReference} of the implementing class (left to
+     *         programmer's good-will)
+     * @throws ObjectStreamException if such an exception is thrown during the
+     *                               process
+     */
+    abstract public Object writeReplace() throws ObjectStreamException;
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TeamOperations.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">TeamOperations.java</span></div><h1>TeamOperations.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import apgas.Place;
+import handist.collections.dist.util.IntFloatPair;
+import handist.collections.dist.util.IntLongPair;
+
+/**
+ * Interface which defines the &quot;team&quot; operations that distributed collections
+ * provide.
+ *
+ * @param &lt;T&gt; type of the objects contained in the distributed collection
+ * @param &lt;C&gt; type of the local handle on which the TeamOperations operate
+ */
+public abstract class TeamOperations&lt;T, C extends DistributedCollection&lt;T, C&gt;&gt; {
+
+<span class="fc" id="L29">    static int _debug_level = 5;</span>
+
+    protected final C handle;
+
+    /**
+     * Super constructor. Needs to be called by all implementations to initialize
+     * the necessary members common to all Team handles.
+     *
+     * @param localObject local handle of the distributed collection
+     */
+<span class="fc" id="L39">    public TeamOperations(C localObject) {</span>
+<span class="fc" id="L40">        handle = localObject;</span>
+<span class="fc" id="L41">    }</span>
+
+    /**
+     * Computes and gathers the size of each local collection into the provided
+     * array. This operation usually requires that all the hosts that are
+     * manipulating the distributed collection call this method before it returns on
+     * any host. This is due to the fact some communication between the
+     * {@link Place}s in the collection's {@link TeamedPlaceGroup} is needed to
+     * compute/gather the result.
+     *
+     * @param result long array in which the result will be gathered
+     */
+    public abstract void size(long[] result);
+
+    public void teamedBalance() {
+<span class="nc" id="L56">        teamedBalance(new CollectiveMoveManager(handle.placeGroup()));</span>
+<span class="nc" id="L57">    }</span>
+
+    public void teamedBalance(final float[] balance) {
+<span class="nc" id="L60">        teamedBalance(balance, new CollectiveMoveManager(handle.placeGroup()));</span>
+<span class="nc" id="L61">    }</span>
+
+    public void teamedBalance(final float[] newLocality, final CollectiveMoveManager mm) {
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        if (newLocality.length != handle.placeGroup().size()) {</span>
+<span class="nc" id="L65">            throw new RuntimeException(&quot;[DistCol] the size of newLocality must be the same with placeGroup.size()&quot;);</span>
+        }
+<span class="nc" id="L67">        System.arraycopy(newLocality, 0, handle.locality(), 0, handle.locality().length);</span>
+<span class="nc" id="L68">        teamedBalance(mm);</span>
+<span class="nc" id="L69">    }</span>
+
+    /**
+     * Redisitributes all the entries of the underlying distributed collection
+     * between the places.
+     *
+     * @param mm move manager in charge of the transfer
+     */
+    /*
+     * TODO maybe these methods should move to the interface like
+     * RelocatableCollection or RelocatableMap as default methods.
+     */
+    public void teamedBalance(CollectiveMoveManager mm) {
+<span class="nc" id="L82">        final int pgSize = handle.placeGroup().size();</span>
+<span class="nc" id="L83">        final IntFloatPair[] listPlaceLocality = new IntFloatPair[pgSize];</span>
+<span class="nc" id="L84">        float localitySum = 0.0f;</span>
+<span class="nc" id="L85">        long globalDataSize = 0;</span>
+<span class="nc" id="L86">        final long[] localDataSize = new long[pgSize];</span>
+
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        for (int i = 0; i &lt; pgSize; i++) {</span>
+<span class="nc" id="L89">            localitySum += handle.locality()[i];</span>
+        }
+<span class="nc" id="L91">        size(localDataSize);</span>
+
+<span class="nc bnc" id="L93" title="All 2 branches missed.">        for (int i = 0; i &lt; pgSize; i++) {</span>
+<span class="nc" id="L94">            globalDataSize += localDataSize[i];</span>
+<span class="nc" id="L95">            final float normalizeLocality = handle.locality()[i] / localitySum;</span>
+<span class="nc" id="L96">            listPlaceLocality[i] = new IntFloatPair(i, normalizeLocality);</span>
+        }
+<span class="nc" id="L98">        Arrays.sort(listPlaceLocality, (IntFloatPair a1, IntFloatPair a2) -&gt; {</span>
+<span class="nc" id="L99">            return Float.compare(a1.second, a2.second);</span>
+        });
+
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">            for (final IntFloatPair pair : listPlaceLocality) {</span>
+<span class="nc" id="L104">                System.out.print(&quot;(&quot; + pair.first + &quot;, &quot; + pair.second + &quot;) &quot;);</span>
+            }
+<span class="nc" id="L106">            System.out.println();</span>
+<span class="nc" id="L107">            handle.placeGroup().barrier(); // for debug print</span>
+        }
+
+<span class="nc" id="L110">        final IntFloatPair[] cumulativeLocality = new IntFloatPair[pgSize];</span>
+<span class="nc" id="L111">        float sumLocality = 0.0f;</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        for (int i = 0; i &lt; pgSize; i++) {</span>
+<span class="nc" id="L113">            sumLocality += listPlaceLocality[i].second;</span>
+<span class="nc" id="L114">            cumulativeLocality[i] = new IntFloatPair(listPlaceLocality[i].first, sumLocality);</span>
+        }
+<span class="nc" id="L116">        cumulativeLocality[pgSize - 1] = new IntFloatPair(listPlaceLocality[pgSize - 1].first, 1.0f);</span>
+
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">            for (int i = 0; i &lt; pgSize; i++) {</span>
+<span class="nc" id="L120">                final IntFloatPair pair = cumulativeLocality[i];</span>
+<span class="nc" id="L121">                System.out.print(&quot;(&quot; + pair.first + &quot;, &quot; + pair.second + &quot;, &quot; + localDataSize[pair.first] + &quot;/&quot;</span>
+                        + globalDataSize + &quot;) &quot;);
+            }
+<span class="nc" id="L124">            System.out.println();</span>
+<span class="nc" id="L125">            handle.placeGroup().barrier(); // for debug print</span>
+        }
+
+<span class="nc" id="L128">        final ArrayList&lt;ArrayList&lt;IntLongPair&gt;&gt; moveList = new ArrayList&lt;&gt;(pgSize); // ArrayList(index of dest Place,</span>
+        // num
+        // data to export)
+<span class="nc" id="L131">        final ArrayList&lt;IntLongPair&gt; stagedData = new ArrayList&lt;&gt;(); // ArrayList(index of src, num data to export)</span>
+<span class="nc" id="L132">        long previousCumuNumData = 0;</span>
+
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        for (int i = 0; i &lt; pgSize; i++) {</span>
+<span class="nc" id="L135">            moveList.add(new ArrayList&lt;IntLongPair&gt;());</span>
+        }
+
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        for (int i = 0; i &lt; pgSize; i++) {</span>
+<span class="nc" id="L139">            final int placeIdx = cumulativeLocality[i].first;</span>
+<span class="nc" id="L140">            final float placeLocality = cumulativeLocality[i].second;</span>
+<span class="nc" id="L141">            final long cumuNumData = (long) ((globalDataSize) * placeLocality);</span>
+<span class="nc" id="L142">            final long targetNumData = cumuNumData - previousCumuNumData;</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">            if (localDataSize[placeIdx] &gt; targetNumData) {</span>
+<span class="nc" id="L144">                stagedData.add(new IntLongPair(placeIdx, localDataSize[placeIdx] - targetNumData));</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">                if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L146">                    System.out.print(</span>
+                            &quot;stage src: &quot; + placeIdx + &quot; num: &quot; + (localDataSize[placeIdx] - targetNumData) + &quot;, &quot;);
+                }
+            }
+<span class="nc" id="L150">            previousCumuNumData = cumuNumData;</span>
+        }
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L153">            System.out.println();</span>
+<span class="nc" id="L154">            handle.placeGroup().barrier(); // for debug print</span>
+        }
+
+<span class="nc" id="L157">        previousCumuNumData = 0;</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        for (int i = 0; i &lt; pgSize; i++) {</span>
+<span class="nc" id="L159">            final int placeIdx = cumulativeLocality[i].first;</span>
+<span class="nc" id="L160">            final float placeLocality = cumulativeLocality[i].second;</span>
+<span class="nc" id="L161">            final long cumuNumData = (long) ((globalDataSize) * placeLocality);</span>
+<span class="nc" id="L162">            final long targetNumData = cumuNumData - previousCumuNumData;</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            if (targetNumData &gt; localDataSize[placeIdx]) {</span>
+<span class="nc" id="L164">                long numToImport = targetNumData - localDataSize[placeIdx];</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">                while (numToImport &gt; 0) {</span>
+<span class="nc" id="L166">                    final IntLongPair pair = stagedData.remove(0);</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">                    if (pair.second &gt; numToImport) {</span>
+<span class="nc" id="L168">                        moveList.get(pair.first).add(new IntLongPair(placeIdx, numToImport));</span>
+<span class="nc" id="L169">                        stagedData.add(new IntLongPair(pair.first, pair.second - numToImport));</span>
+<span class="nc" id="L170">                        numToImport = 0;</span>
+                    } else {
+<span class="nc" id="L172">                        moveList.get(pair.first).add(new IntLongPair(placeIdx, pair.second));</span>
+<span class="nc" id="L173">                        numToImport -= pair.second;</span>
+                    }
+<span class="nc" id="L175">                }</span>
+            }
+<span class="nc" id="L177">            previousCumuNumData = cumuNumData;</span>
+        }
+
+<span class="nc bnc" id="L180" title="All 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc bnc" id="L181" title="All 2 branches missed.">            for (int i = 0; i &lt; pgSize; i++) {</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">                for (final IntLongPair pair : moveList.get(i)) {</span>
+<span class="nc" id="L183">                    System.out.print(&quot;src: &quot; + i + &quot; dest: &quot; + pair.first + &quot; size: &quot; + pair.second + &quot;, &quot;);</span>
+<span class="nc" id="L184">                }</span>
+            }
+<span class="nc" id="L186">            System.out.println();</span>
+<span class="nc" id="L187">            handle.placeGroup().barrier(); // for debug print</span>
+        }
+
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L191">            final long[] diffNumData = new long[pgSize];</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">            for (int i = 0; i &lt; pgSize; i++) {</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">                for (final IntLongPair pair : moveList.get(i)) {</span>
+<span class="nc" id="L194">                    diffNumData[i] -= pair.second;</span>
+<span class="nc" id="L195">                    diffNumData[pair.first] += pair.second;</span>
+<span class="nc" id="L196">                }</span>
+            }
+<span class="nc bnc" id="L198" title="All 2 branches missed.">            for (final IntFloatPair pair : listPlaceLocality) {</span>
+<span class="nc" id="L199">                System.out.print(&quot;(&quot; + pair.first + &quot;, &quot; + pair.second + &quot;, &quot;</span>
+
+                        + (localDataSize[pair.first] + diffNumData[pair.first]) + &quot;/&quot; + globalDataSize + &quot;) &quot;);
+            }
+<span class="nc" id="L203">            System.out.println();</span>
+        }
+
+        try {
+<span class="nc" id="L207">            handle.moveAtSyncCount(moveList.get(handle.placeGroup().myrank), mm);</span>
+<span class="nc" id="L208">        } catch (final Exception e) {</span>
+<span class="nc" id="L209">            e.printStackTrace();</span>
+<span class="nc" id="L210">            throw new Error(&quot;[AbstractDistCollection] data transfer error raised.&quot;);</span>
+<span class="nc" id="L211">        }</span>
+<span class="nc" id="L212">    }</span>
+
+    /**
+     * Updates the distribution information of all local handles.
+     */
+    public abstract void updateDist();
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

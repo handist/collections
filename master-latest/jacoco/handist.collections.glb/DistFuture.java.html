@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistFuture.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb</a> &gt; <span class="el_source">DistFuture.java</span></div><h1>DistFuture.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.glb;
+
+import java.io.Serializable;
+import java.util.List;
+
+import javax.naming.OperationNotSupportedException;
+
+/**
+ * DistFuture represents the progress of an operation that can take place under
+ * GLB
+ *
+ * @author Patrick Finnerty
+ * @param &lt;R&gt; type of the distributed collection returned by the operation
+ *            taking place
+ *
+ */
+public class DistFuture&lt;R&gt; implements Serializable {
+
+    /** Serial Version UID */
+    private static final long serialVersionUID = -3891000966480486556L;
+    /** Member keeping the internal GLB operation this DistFuture represents */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    GlbOperation operation;
+    /** Member keeping the result expected by this DistFuture */
+    private final R result;
+
+    /**
+     * Constructor with a handle to the distributed collection in which the result
+     * of the operation will be stored
+     *
+     * @param r distributed collection handle
+     */
+<span class="fc" id="L43">    DistFuture(R r) {</span>
+<span class="fc" id="L44">        result = r;</span>
+<span class="fc" id="L45">    }</span>
+
+    /**
+     * Places a dependency on the operation represented by this instance. This
+     * operation will not start until the operation passed as parameter has
+     * completed globally
+     *
+     * @param dependency the operation that needs to complete for this operation to
+     *                   start
+     * @return this instance
+     * @throws OperationNotSupportedException is still in development
+     */
+    public DistFuture&lt;R&gt; after(DistFuture&lt;?&gt; dependency) throws OperationNotSupportedException {
+<span class="fc" id="L58">        GlobalLoadBalancer.glb.scheduleOperationAfter(dependency.operation, this.operation);</span>
+<span class="fc" id="L59">        return this;</span>
+    }
+
+    /**
+     * Returns the exceptions thrown by the user-provided lambda expression during
+     * the computation. If the computation was not previously started, or if it is
+     * ongoing, this method will block until the operation terminates and return the
+     * exceptions that were thrown during the operation.
+     *
+     * @return All {@link Throwable}s thrown during the operation
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public List&lt;Throwable&gt; getErrors() {
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">        if (!operation.finished()) {</span>
+<span class="fc" id="L73">            waitGlobalTermination();</span>
+        }
+<span class="fc" id="L75">        return operation.getErrors();</span>
+    }
+
+    /**
+     * Yields back the result of the operation submitted to the GLB which this
+     * instance represents.
+     *
+     * @return distributed collection handle
+     */
+    public R result() {
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        if (!operation.finished()) {</span>
+<span class="fc" id="L86">            waitGlobalTermination();</span>
+        }
+<span class="fc" id="L88">        return result;</span>
+    }
+
+    /**
+     * Blocks the progress of the GLB program until the operation represented by
+     * this instance has completed on each host.
+     * &lt;p&gt;
+     * Calling this method in a GLB program will cause all previously submitted
+     * operations to start.
+     */
+    public void waitGlobalTermination() {
+<span class="fc" id="L99">        GlobalLoadBalancer.startAndWait(operation);</span>
+<span class="fc" id="L100">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

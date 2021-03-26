@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GlobalLoadBalancer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb</a> &gt; <span class="el_source">GlobalLoadBalancer.java</span></div><h1>GlobalLoadBalancer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.glb;
+
+import static apgas.Constructs.*;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.concurrent.ForkJoinPool;
+
+import apgas.SerializableJob;
+import handist.collections.glb.GlbOperation.OperationCompletionManagedBlocker;
+import handist.collections.glb.GlbOperation.State;
+
+/**
+ * Class presenting the static method under which GLB operations can operate.
+ * Programmers may choose to statically impoirt this class to avoid the lengthy
+ * {@code GlobalLoadBalancer#underGLB(SerializableJob)} call in their program.
+ *
+ * @author Patrick Finnerty
+ *
+ */
+public class GlobalLoadBalancer {
+    /**
+     * Singleton
+     */
+<span class="fc" id="L35">    static GlobalLoadBalancer glb = null;</span>
+
+    /**
+     * Helper method used to launch the computations submitted to the global load
+     * balancer.
+     */
+    static void start() {
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        while (!glb.operationsStaged.isEmpty()) {</span>
+<span class="fc" id="L43">            final GlbOperation&lt;?, ?, ?, ?, ?&gt; op = glb.operationsStaged.poll();</span>
+            boolean needsToBeLaunched;
+<span class="fc" id="L45">            synchronized (op) {</span>
+<span class="fc" id="L46">                op.state = GlbOperation.State.RUNNING;</span>
+<span class="fc bfc" id="L47" title="All 2 branches covered.">                needsToBeLaunched = !op.hasDependencies();</span>
+<span class="fc" id="L48">            }</span>
+
+<span class="fc bfc" id="L50" title="All 2 branches covered.">            if (needsToBeLaunched) {</span>
+<span class="fc" id="L51">                async(() -&gt; op.compute());</span>
+            }
+<span class="fc" id="L53">        }</span>
+<span class="fc" id="L54">    }</span>
+
+    /**
+     * Helper method used to launch the operations submitted to the global load
+     * balancer. In addition, this method will only return when the specified
+     * operation completes
+     *
+     * @param operation the operation whose global termination is be waited upon
+     */
+    static void startAndWait(GlbOperation&lt;?, ?, ?, ?, ?&gt; operation) {
+        // Install a hook on the operation on which we are going to wait
+<span class="fc" id="L65">        OperationCompletionManagedBlocker b = null;</span>
+<span class="fc" id="L66">        synchronized (operation) {</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">            if (operation.state != State.TERMINATED) {</span>
+                // Install a hook to &quot;unblock the SempaphoreBlocker
+<span class="fc" id="L69">                b = new OperationCompletionManagedBlocker();</span>
+<span class="fc" id="L70">                final OperationCompletionManagedBlocker blocker = b; // final field for lambda expression</span>
+<span class="fc" id="L71">                operation.addHook(() -&gt; blocker.unblock());</span>
+            }
+<span class="fc" id="L73">        }</span>
+
+<span class="fc" id="L75">        start(); // Start all other operations that were submitted to the GLB</span>
+
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        if (b != null) { // b is different from null iff the operation has not yet terminated</span>
+            try {
+                // Block until woken up by the installed hook
+<span class="fc" id="L80">                ForkJoinPool.managedBlock(b);</span>
+<span class="nc" id="L81">            } catch (final InterruptedException e) {</span>
+<span class="nc" id="L82">                e.printStackTrace();</span>
+<span class="fc" id="L83">            }</span>
+        }
+<span class="fc" id="L85">    }</span>
+
+    /**
+     * Method to call to launch a GLB program. A single call to this method can be
+     * made at the time. If a second call is made while a program is under way, this
+     * second call will be blocked.
+     *
+     * @param program program to launch under GLB
+     * @return collection of all the Exceptions that occurred during the glb program
+     */
+    public static ArrayList&lt;Exception&gt; underGLB(SerializableJob program) {
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">        if (GlobalLoadBalancer.glb == null) {</span>
+            // Create a new GlobalLoadBalancer instance that will handle the program
+<span class="fc" id="L98">            glb = new GlobalLoadBalancer();</span>
+
+            // Also initialize the GlbComputer on all hosts before trying to submit anything
+<span class="fc" id="L101">            GlbComputer.getComputer();</span>
+
+<span class="fc" id="L103">            final ArrayList&lt;Exception&gt; exc = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L104">            finish(() -&gt; {</span>
+                try {
+<span class="fc" id="L106">                    program.run();</span>
+<span class="fc" id="L107">                    start(); // This launches any submitted operation that have not been explicitly launched</span>
+                    // inside the provided program
+<span class="fc" id="L109">                } catch (final Exception e) {</span>
+<span class="fc" id="L110">                    System.err.println(&quot;ERROR during GLB program execution&quot;);</span>
+<span class="fc" id="L111">                    e.printStackTrace();</span>
+<span class="fc" id="L112">                    exc.add(e);</span>
+                } finally {
+<span class="fc" id="L114">                    glb = null; // Destroy the singleton for a new one to be created next time this method is</span>
+                    // called
+                }
+<span class="fc" id="L117">            });</span>
+<span class="fc" id="L118">            return exc;</span>
+        } else {
+<span class="nc" id="L120">            throw new IllegalStateException(&quot;Method was called even though another glb program is already running&quot;);</span>
+        }
+    }
+
+    /**
+     * Collection containing the operation that have been submitted to the GLB as
+     * part of a program given to {@link #underGLB(SerializableJob)}.
+     */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    private final LinkedList&lt;GlbOperation&gt; operationsStaged;
+
+    /**
+     * Private constructor to preserve the singleton pattern
+     */
+<span class="fc" id="L134">    private GlobalLoadBalancer() {</span>
+<span class="fc" id="L135">        operationsStaged = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L136">    }</span>
+
+    /**
+     * Makes the global load balancer start the operation given as second argument
+     * after the operation represented by the first argument had completed globally.
+     *
+     * @param before operation to terminate before the second argument can start
+     * @param then   operation to start after the first argument has completed
+     */
+    void scheduleOperationAfter(GlbOperation&lt;?, ?, ?, ?, ?&gt; before, GlbOperation&lt;?, ?, ?, ?, ?&gt; then) {
+<span class="fc" id="L146">        GlbOperation.makeDependency(before, then);</span>
+<span class="fc" id="L147">    }</span>
+
+    /**
+     * Helper method used by the various Glb handles of the distributed collections
+     * to submit an operation to the Glb.
+     *
+     * @param operation operation to perform on a distributed collection
+     */
+    void submit(@SuppressWarnings(&quot;rawtypes&quot;) GlbOperation operation) {
+<span class="fc" id="L156">        operationsStaged.add(operation);</span>
+<span class="fc" id="L157">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LongRangeDistribution.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">LongRangeDistribution.java</span></div><h1>LongRangeDistribution.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import apgas.Place;
+import handist.collections.LongRange;
+
+public class LongRangeDistribution implements RangedDistribution&lt;LongRange&gt; {
+
+    private final HashMap&lt;LongRange, Place&gt; dist;
+
+    /**
+     * Copy constructor
+     *
+     * @param distribution instance to copy
+     */
+<span class="nc" id="L28">    public LongRangeDistribution(LongRangeDistribution distribution) {</span>
+<span class="nc" id="L29">        dist = new HashMap&lt;&gt;(distribution.dist);</span>
+<span class="nc" id="L30">    }</span>
+
+<span class="nc" id="L32">    public LongRangeDistribution(Map&lt;LongRange, Place&gt; originalHashMap) {</span>
+<span class="nc" id="L33">        dist = new HashMap&lt;&gt;(originalHashMap);</span>
+<span class="nc" id="L34">    }</span>
+
+    /**
+     * Returns a copy of this instance using the copy constructor
+     * {@link #LongRangeDistribution(LongRangeDistribution)}.
+     */
+    @Override
+    public LongRangeDistribution clone() {
+<span class="nc" id="L42">        return new LongRangeDistribution(this);</span>
+    }
+
+    public HashMap&lt;LongRange, Place&gt; getHashMap() {
+<span class="nc" id="L46">        return dist;</span>
+    }
+
+    @Override
+    public Map&lt;LongRange, Place&gt; placeRanges(LongRange range) {
+<span class="nc" id="L51">        final Map&lt;LongRange, Place&gt; listPlaceRange = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">        for (final LongRange mappedRange : dist.keySet()) {</span>
+<span class="nc" id="L53">            final Place mappedPlace = dist.get(mappedRange);</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">            if (mappedRange.from &lt;= range.from) {</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">                if (range.from &lt; mappedRange.to) { // if (range.min &lt;= mappedRange.max) {</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">                    if (range.to &lt;= mappedRange.to) {</span>
+<span class="nc" id="L57">                        listPlaceRange.put(range, mappedPlace);</span>
+                    } else {
+<span class="nc" id="L59">                        listPlaceRange.put(new LongRange(range.from, mappedRange.to), mappedPlace);</span>
+                    }
+                }
+            } else {
+<span class="nc bnc" id="L63" title="All 2 branches missed.">                if (mappedRange.from &lt; range.to) { // if (mappedRange.min &lt;= range.max) {</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">                    if (range.to &lt;= mappedRange.to) {</span>
+<span class="nc" id="L65">                        listPlaceRange.put(new LongRange(mappedRange.from, range.to), mappedPlace);</span>
+                    } else {
+<span class="nc" id="L67">                        listPlaceRange.put(mappedRange, mappedPlace);</span>
+                    }
+                }
+            }
+<span class="nc" id="L71">        }</span>
+<span class="nc" id="L72">        return listPlaceRange;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

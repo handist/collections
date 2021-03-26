@@ -1,18 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistIdMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistIdMap.java</span></div><h1>DistIdMap.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
  *
- * This program and the accompanying materials are made available to you under 
- * the terms of the Eclipse Public License 1.0 which accompanies this 
- * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
  *
  * SPDX-License-Identifier: EPL-1.0
- *******************************************************************************/
+ ******************************************************************************/
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
 
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,131 +23,68 @@ import java.util.function.Function;
 
 import apgas.Place;
 import apgas.util.GlobalID;
+import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.SerializableConsumer;
+import handist.collections.function.Serializer;
 
 /**
- * Distributed Map using {@link Long} as key and type &lt;code&gt;V&lt;/code&gt; as value. 
- * 
- *  @param &lt;V&gt; the type of the value mappings of this instance 
+ * Distributed Map using {@link Long} as key and type &lt;code&gt;V&lt;/code&gt; as value.
+ *
+ * @param &lt;V&gt; the type of the value mappings of this instance
  */
-public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt;
+public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
 //TODO
-/* implements ManagedDistribution[Long] */
-{
+    /* implements ManagedDistribution[Long] */
 
-<span class="fc" id="L38">    private static int _debug_level = 0;</span>
-    transient DistManager.Index ldist;
+<span class="fc" id="L42">    private static int _debug_level = 0;</span>
+    transient DistManager&lt;Long&gt; ldist;
     transient float[] locality;
 
-<span class="nc" id="L42">    public Map&lt;Long, Place&gt; getDist() { return ldist.dist; }</span>
-<span class="nc" id="L43">    Map&lt;Long, Integer&gt; getDiff() { return ldist.diff; }</span>
-<span class="nc" id="L44">    public DistributionLong getDistributionLong() { return new DistributionLong(getDist()); }</span>
-
-    public Object writeReplace() throws ObjectStreamException {
-<span class="fc" id="L47">        final TeamedPlaceGroup pg1 = placeGroup;</span>
-<span class="fc" id="L48">        final GlobalID id1 = id;</span>
-<span class="fc" id="L49">            return new AbstractDistCollection.LazyObjectReference&lt;DistIdMap&lt;V&gt;&gt;(pg1, id1, ()-&gt; {</span>
-<span class="fc" id="L50">                return new DistIdMap&lt;V&gt;(pg1, id1);</span>
-        });
-    }
-
     /**
-     * Construct a DistIdMap.
-     * Place.places() is used as the PlaceGroup of the new instance.
+     * Construct a DistIdMap. {@link TeamedPlaceGroup#getWorld()} is used as the
+     * PlaceGroup of the new instance, a new {@link GlobalID} will also be created
+     * for this new collection.
      */
     public DistIdMap() {
-<span class="nc" id="L59">        this(TeamedPlaceGroup.getWorld());</span>
-<span class="nc" id="L60">    }</span>
+<span class="fc" id="L52">        this(TeamedPlaceGroup.getWorld());</span>
+<span class="fc" id="L53">    }</span>
 
     /**
-     * Construct a DistIdMap with the given argument.
-     * Team(placeGroup) is used as the PlaceGroup of the new instance.
+     * Construct a DistIdMap with the given argument. TeamOperations(placeGroup) is
+     * used as the PlaceGroup of the new instance.
      *
      * @param placeGroup the PlaceGroup.
      */
     public DistIdMap(TeamedPlaceGroup placeGroup) {
-<span class="fc" id="L69">        super(placeGroup);</span>
-        //TODO
-<span class="fc" id="L71">        this.ldist = new DistManager.Index();</span>
-<span class="fc" id="L72">        ldist.setup(data.keySet());</span>
-<span class="fc" id="L73">        locality = new float[placeGroup.size()];</span>
-<span class="fc" id="L74">        Arrays.fill(locality, 1.0f);</span>
-<span class="fc" id="L75">    }</span>
+<span class="fc" id="L62">        super(placeGroup);</span>
+        // TODO
+<span class="fc" id="L64">        this.ldist = new DistManager&lt;&gt;();</span>
+<span class="fc" id="L65">        ldist.setup(data.keySet());</span>
+<span class="fc" id="L66">        locality = new float[placeGroup.size()];</span>
+<span class="fc" id="L67">        Arrays.fill(locality, 1.0f);</span>
+<span class="fc" id="L68">    }</span>
 
     protected DistIdMap(TeamedPlaceGroup placeGroup, GlobalID id) {
-<span class="fc" id="L78">        super(placeGroup, id);</span>
-        //TODO
-<span class="fc" id="L80">        this.ldist = new DistManager.Index();</span>
-<span class="fc" id="L81">        ldist.setup(data.keySet());</span>
-<span class="fc" id="L82">        locality = new float[placeGroup.size()];</span>
-<span class="fc" id="L83">        Arrays.fill(locality, 1.0f);</span>
-<span class="fc" id="L84">    }</span>
-
+<span class="fc" id="L71">        super(placeGroup, id);</span>
+        // TODO
+<span class="fc" id="L73">        this.ldist = new DistManager&lt;&gt;();</span>
+<span class="fc" id="L74">        ldist.setup(data.keySet());</span>
+<span class="fc" id="L75">        locality = new float[placeGroup.size()];</span>
+<span class="fc" id="L76">        Arrays.fill(locality, 1.0f);</span>
+<span class="fc" id="L77">    }</span>
 
     /**
      * Remove the all local entries.
      */
+    @Override
     public void clear() {
-<span class="nc" id="L91">        super.clear();</span>
-<span class="nc" id="L92">        this.ldist.clear();</span>
-<span class="nc" id="L93">        Arrays.fill(locality, 1.0f);</span>
-<span class="nc" id="L94">    }</span>
-
-    /*
-     * Get the corresponding value of the specified id.
-     *
-     * @param id a Long type value.
-     * @return the corresponding value of the specified id.
-     */
-    public V get(long id) {
-<span class="nc" id="L103">        return data.get(id);</span>
-    }
-
-    /*
-     * Put a new entry.
-     *
-     * @param id a Long type value.
-     * @param value a value.
-     */
-    public V put(long id, V value) throws Exception {
-<span class="pc bpc" id="L113" title="1 of 2 branches missed.">        if (data.containsKey(id)) {</span>
-<span class="nc" id="L114">            return data.put(id, value);</span>
-        }
-<span class="fc" id="L116">        ldist.add(id);</span>
-<span class="fc" id="L117">        return data.put(id, value);</span>
-    }
-
-    private V putForMove(long key, byte mType, V value) throws Exception {
-<span class="pc bpc" id="L121" title="2 of 3 branches missed.">        switch (mType) {</span>
-        case DistManager.MOVE_NEW:
-<span class="fc" id="L123">            ldist.moveInNew(key);</span>
-<span class="fc" id="L124">            break;</span>
-        case DistManager.MOVE_OLD:
-<span class="nc" id="L126">            ldist.moveInOld(key);</span>
-<span class="nc" id="L127">            break;</span>
-        default:
-<span class="nc" id="L129">            throw new Exception(&quot;SystemError when calling putForMove &quot; + key);</span>
-        }
-<span class="fc" id="L131">        return data.put(key, value);</span>
-    }
-
-    public boolean delete(long id) {
-<span class="nc" id="L135">        ldist.remove(id);</span>
-<span class="nc" id="L136">        return super.delete(id);</span>
-    }
-
-    /*
-     * Remove the corresponding value of the specified id.
-     *
-     * @param id a Long type value.
-     */
-    public V remove(long id) {
-<span class="fc" id="L145">        ldist.remove(id);</span>
-<span class="fc" id="L146">        return super.remove(id);</span>
-    }
-
-    private V removeForMove(long id) {
-<span class="fc" id="L150">        return data.remove(id);</span>
-    }
+<span class="nc" id="L84">        super.clear();</span>
+<span class="nc" id="L85">        this.ldist.clear();</span>
+<span class="nc" id="L86">        Arrays.fill(locality, 1.0f);</span>
+<span class="nc" id="L87">    }</span>
 
     /*
      * Return true if the entry corresponding to the specified id is local.
@@ -156,7 +92,75 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt;
      * @return true or false.
      */
     public boolean containsId(long id) {
-<span class="nc" id="L159">        return super.containsKey(id);</span>
+<span class="nc" id="L95">        return super.containsKey(id);</span>
+    }
+
+    public boolean delete(long id) {
+<span class="nc" id="L99">        ldist.remove(id);</span>
+<span class="nc" id="L100">        return super.delete(id);</span>
+    }
+
+    /*
+     * Ensure calling updateDist() before balance() balance() should be called in
+     * all places
+     */
+    public void distSize(long[] result) {
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        for (final Map.Entry&lt;Long, Place&gt; entry : ldist.dist.entrySet()) {</span>
+            // val k = entry.getKey();
+<span class="nc" id="L110">            final Place v = entry.getValue();</span>
+<span class="nc" id="L111">            result[placeGroup.rank(v)] += 1;</span>
+<span class="nc" id="L112">        }</span>
+<span class="nc" id="L113">    }</span>
+
+    /**
+     * Execute the specified operation with the corresponding value of the specified
+     * id.
+     * &lt;ul&gt;
+     * &lt;li&gt;If the entry is stored at local, the operation is executed sequentially.
+     * &lt;li&gt;If the entry is stored at a remote place, the operation is asynchronously
+     * executed on the remote place
+     * &lt;/ul&gt;
+     * &lt;p&gt;
+     * In the remote case, this method returns immediately. Actual completion of the
+     * operation can only be guaranteed if this method's enclosing
+     * {@link apgas.Constructs#finish(apgas.Job)} has returned.
+     *
+     * @param id a Long type value.
+     * @param op the operation.
+     */
+    public void execAt(long id, SerializableConsumer&lt;V&gt; op) {
+<span class="nc" id="L132">        final Place place = getPlace(id);</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (place.equals(here())) {</span>
+<span class="nc" id="L134">            op.accept(data.get(id));</span>
+<span class="nc" id="L135">            return;</span>
+        }
+<span class="nc" id="L137">        asyncAt(place, () -&gt; {</span>
+<span class="nc" id="L138">            op.accept(data.get(id));</span>
+<span class="nc" id="L139">        });</span>
+<span class="nc" id="L140">    }</span>
+
+    /**
+     * Get the corresponding value of the specified id in the local collection.
+     *
+     * @param id long index to retrieve
+     * @return the corresponding value of the specified index, or {@code null} if
+     *         the corresponding mapping was null or if there is no such mapping in
+     *         the local collection
+     */
+    public V get(long id) {
+<span class="nc" id="L151">        return data.get(id);</span>
+    }
+
+    Map&lt;Long, Integer&gt; getDiff() {
+<span class="nc" id="L155">        return ldist.diff;</span>
+    }
+
+    public Map&lt;Long, Place&gt; getDist() {
+<span class="nc" id="L159">        return ldist.dist;</span>
+    }
+
+    public LongDistribution getDistributionLong() {
+<span class="nc" id="L163">        return new LongDistribution(getDist());</span>
     }
 
     /*
@@ -164,10 +168,11 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt;
      * Return null when it doesn't exist.
      *
      * @param id a Long type value.
+     *
      * @return the Place.
      */
     public Place getPlace(long id) {
-<span class="nc" id="L170">        return ldist.dist.get(id);</span>
+<span class="nc" id="L175">        return ldist.dist.get(id);</span>
     }
 
     /*
@@ -176,325 +181,311 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt;
      * @return the Set of local ids.
      */
     public Set&lt;Long&gt; idSet() {
-<span class="nc" id="L179">        return keySet();</span>
+<span class="nc" id="L184">        return keySet();</span>
     }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public void moveAtSync(Collection&lt;Long&gt; keys, Place dest, MoveManager mm) {
+<span class="nc bnc" id="L190" title="All 2 branches missed.">        if (dest.equals(here())) {</span>
+<span class="nc" id="L191">            return;</span>
+        }
+<span class="nc" id="L193">        final DistIdMap&lt;V&gt; collection = this;</span>
+<span class="nc" id="L194">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="nc" id="L195">            final int size = keys.size();</span>
+<span class="nc" id="L196">            s.writeInt(size);</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">            for (final Long key : keys) {</span>
+<span class="nc" id="L198">                final V value = collection.removeForMove(key);</span>
+<span class="nc" id="L199">                final byte mType = ldist.moveOut(key, dest);</span>
+<span class="nc" id="L200">                s.writeLong(key);</span>
+<span class="nc" id="L201">                s.writeByte(mType);</span>
+<span class="nc" id="L202">                s.writeObject(value);</span>
+<span class="nc" id="L203">            }</span>
+<span class="nc" id="L204">        };</span>
+<span class="nc" id="L205">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="nc" id="L206">            final int size = ds.readInt();</span>
+<span class="nc bnc" id="L207" title="All 2 branches missed.">            for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L208">                final long key = ds.readLong();</span>
+<span class="nc" id="L209">                final byte mType = ds.readByte();</span>
+<span class="nc" id="L210">                final V value = (V) ds.readObject();</span>
+<span class="nc" id="L211">                collection.putForMove(key, mType, value);</span>
+            }
+<span class="nc" id="L213">        };</span>
+<span class="nc" id="L214">        mm.request(dest, serialize, deserialize);</span>
+<span class="nc" id="L215">    }</span>
+
+    @Override
+    public void moveAtSync(Distribution&lt;Long&gt; dist, MoveManager mm) {
+<span class="nc" id="L219">        final Function&lt;Long, Place&gt; rule = (Long key) -&gt; {</span>
+<span class="nc" id="L220">            return dist.place(key);</span>
+        };
+<span class="nc" id="L222">        moveAtSync(rule, mm);</span>
+<span class="nc" id="L223">    }</span>
+
+    @Override
+    public void moveAtSync(Function&lt;Long, Place&gt; rule, MoveManager mm) {
+<span class="nc" id="L227">        final DistIdMap&lt;V&gt; collection = this;</span>
+<span class="nc" id="L228">        final HashMap&lt;Place, ArrayList&lt;Long&gt;&gt; keysToMove = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L229">        collection.forEach((Long key, V value) -&gt; {</span>
+<span class="nc" id="L230">            final Place destination = rule.apply(key);</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">            if (!keysToMove.containsKey(destination)) {</span>
+<span class="nc" id="L232">                keysToMove.put(destination, new ArrayList&lt;Long&gt;());</span>
+            }
+<span class="nc" id="L234">            keysToMove.get(destination).add(key);</span>
+<span class="nc" id="L235">        });</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">        for (final Place p : keysToMove.keySet()) {</span>
+<span class="nc" id="L237">            moveAtSync(keysToMove.get(p), p, mm);</span>
+<span class="nc" id="L238">        }</span>
+<span class="nc" id="L239">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public void moveAtSync(final long key, Place dest, MoveManager mm) {
+<span class="fc bfc" id="L243" title="All 2 branches covered.">        if (dest.equals(here())) {</span>
+<span class="fc" id="L244">            return;</span>
+        }
+
+<span class="fc" id="L247">        final DistIdMap&lt;V&gt; toBranch = this;</span>
+<span class="fc" id="L248">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="fc" id="L249">            final V value = this.removeForMove(key);</span>
+<span class="fc" id="L250">            final byte mType = ldist.moveOut(key, dest);</span>
+<span class="fc" id="L251">            s.writeLong(key);</span>
+<span class="fc" id="L252">            s.writeByte(mType);</span>
+<span class="fc" id="L253">            s.writeObject(value);</span>
+<span class="fc" id="L254">        };</span>
+<span class="fc" id="L255">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="fc" id="L256">            final long k = ds.readLong();</span>
+<span class="fc" id="L257">            final byte mType = ds.readByte();</span>
+<span class="fc" id="L258">            final V v = (V) ds.readObject();</span>
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">            if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L260">                System.err.println(&quot;[&quot; + here() + &quot;] putForMove key: &quot; + k + &quot; keyType: &quot; + mType + &quot; value: &quot; + v);</span>
+            }
+<span class="fc" id="L262">            toBranch.putForMove(k, mType, v);</span>
+<span class="fc" id="L263">        };</span>
+<span class="fc" id="L264">        mm.request(dest, serialize, deserialize);</span>
+<span class="fc" id="L265">    }</span>
+
+    @Override
+    public void moveAtSync(Long key, Place dest, MoveManager mm) {
+<span class="fc" id="L269">        moveAtSync(key.longValue(), dest, mm);</span>
+<span class="fc" id="L270">    }</span>
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public void moveAtSyncCount(int count, Place dest, MoveManager mm) {
+<span class="nc bnc" id="L275" title="All 2 branches missed.">        if (dest.equals(here())) {</span>
+<span class="nc" id="L276">            return;</span>
+        }
+<span class="nc" id="L278">        final DistIdMap&lt;V&gt; collection = this;</span>
+<span class="nc" id="L279">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="nc" id="L280">            final int size = count;</span>
+<span class="nc" id="L281">            s.writeInt(size);</span>
+<span class="nc" id="L282">            final long[] keys = new long[size];</span>
+<span class="nc" id="L283">            final Object[] values = new Object[size];</span>
+
+<span class="nc" id="L285">            int i = 0;</span>
+<span class="nc bnc" id="L286" title="All 2 branches missed.">            for (final Map.Entry&lt;Long, V&gt; entry : data.entrySet()) {</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">                if (i == size) {</span>
+<span class="nc" id="L288">                    break;</span>
+                }
+<span class="nc" id="L290">                keys[i] = entry.getKey();</span>
+<span class="nc" id="L291">                values[i] = entry.getValue();</span>
+<span class="nc" id="L292">                i += 1;</span>
+<span class="nc" id="L293">            }</span>
+<span class="nc bnc" id="L294" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L295">                s.writeLong(keys[j]);</span>
+            }
+<span class="nc bnc" id="L297" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L298">                s.writeObject(values[j]);</span>
+            }
+<span class="nc bnc" id="L300" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L301">                final long key = keys[j];</span>
+<span class="nc" id="L302">                collection.removeForMove(key);</span>
+<span class="nc" id="L303">                final byte mType = ldist.moveOut(key, dest);</span>
+<span class="nc" id="L304">                s.writeByte(mType);</span>
+            }
+<span class="nc" id="L306">        };</span>
+<span class="nc" id="L307">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="nc" id="L308">            final int size = ds.readInt();</span>
+<span class="nc" id="L309">            final long[] keys = new long[size];</span>
+<span class="nc" id="L310">            final Object[] values = new Object[size];</span>
+
+<span class="nc bnc" id="L312" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L313">                keys[j] = ds.readLong();</span>
+            }
+<span class="nc bnc" id="L315" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L316">                values[j] = ds.readObject();</span>
+            }
+<span class="nc bnc" id="L318" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L319">                final byte mType = ds.readByte();</span>
+<span class="nc" id="L320">                collection.putForMove(keys[j], mType, (V) values[j]);</span>
+            }
+<span class="nc" id="L322">        };</span>
+<span class="nc" id="L323">        mm.request(dest, serialize, deserialize);</span>
+<span class="nc" id="L324">    }</span>
 
     /**
-     * Execute the specified operation with the corresponding value of the specified id.
-     * If the entry is stored at local, the operation is executed sequaltially.
-     * If the entry is stored at a remote place, the operation is asynchronously executed at the place.
+     * Put a new entry into the local map entry
+     *
+     * @param id    a Long type value.
+     * @param value a value.
+     */
+    public V put(long id, V value) throws Exception {
+<span class="pc bpc" id="L333" title="1 of 2 branches missed.">        if (data.containsKey(id)) {</span>
+<span class="nc" id="L334">            return data.put(id, value);</span>
+        }
+<span class="fc" id="L336">        ldist.add(id);</span>
+<span class="fc" id="L337">        return data.put(id, value);</span>
+    }
+
+    private V putForMove(long key, byte mType, V value) throws Exception {
+<span class="pc bpc" id="L341" title="2 of 3 branches missed.">        switch (mType) {</span>
+        case DistManager.MOVE_NEW:
+<span class="fc" id="L343">            ldist.moveInNew(key);</span>
+<span class="fc" id="L344">            break;</span>
+        case DistManager.MOVE_OLD:
+<span class="nc" id="L346">            ldist.moveInOld(key);</span>
+<span class="nc" id="L347">            break;</span>
+        default:
+<span class="nc" id="L349">            throw new Exception(&quot;SystemError when calling putForMove &quot; + key);</span>
+        }
+<span class="fc" id="L351">        return data.put(key, value);</span>
+    }
+
+    /*
+     * Remove the corresponding value of the specified id.
      *
      * @param id a Long type value.
-     * @param op the operation.
      */
-    public void execAt(long id, SerializableConsumer&lt;V&gt; op) {
-<span class="nc" id="L191">        Place place = getPlace(id);</span>
-<span class="nc bnc" id="L192" title="All 2 branches missed.">        if (place.equals(here())) {</span>
-<span class="nc" id="L193">            op.accept(data.get(id));</span>
-<span class="nc" id="L194">            return;</span>
-        }
-<span class="nc" id="L196">        asyncAt(place, ()-&gt;  {</span>
-<span class="nc" id="L197">            op.accept(data.get(id));</span>
-<span class="nc" id="L198">        });</span>
-<span class="nc" id="L199">    }</span>
-    @Override
-    public void moveAtSync(Long key, Place dest, MoveManagerLocal mm) {
-<span class="fc" id="L202">	moveAtSync(key.longValue(), dest, mm);</span>
-<span class="fc" id="L203">    }</span>
-    
-    @SuppressWarnings(&quot;unchecked&quot;)
-    public void moveAtSync(final long key, Place dest, MoveManagerLocal mm) {
-<span class="fc bfc" id="L207" title="All 2 branches covered.">        if (dest.equals(here()))</span>
-<span class="fc" id="L208">            return;</span>
-
-<span class="fc" id="L210">        final DistIdMap&lt;V&gt; toBranch = this;</span>
-<span class="fc" id="L211">        Serializer serialize = (ObjectOutputStream s) -&gt; {</span>
-<span class="fc" id="L212">            V value = this.removeForMove(key);</span>
-<span class="fc" id="L213">            byte mType = ldist.moveOut(key, dest);</span>
-<span class="fc" id="L214">            s.writeLong(key);</span>
-<span class="fc" id="L215">            s.writeByte(mType);</span>
-<span class="fc" id="L216">            s.writeObject(value);</span>
-<span class="fc" id="L217">        };</span>
-<span class="fc" id="L218">        DeSerializer deserialize = (ObjectInputStream ds) -&gt; {</span>
-<span class="fc" id="L219">            long k = ds.readLong();</span>
-<span class="fc" id="L220">            byte mType = ds.readByte();</span>
-<span class="fc" id="L221">            V v = (V) ds.readObject();</span>
-<span class="pc bpc" id="L222" title="1 of 2 branches missed.">            if (_debug_level &gt; 5) {</span>
-<span class="nc" id="L223">                System.err.println(&quot;[&quot; + here() + &quot;] putForMove key: &quot; + k + &quot; keyType: &quot; + mType + &quot; value: &quot; + v);</span>
-            }
-<span class="fc" id="L225">            toBranch.putForMove(k, mType, v);</span>
-<span class="fc" id="L226">        };</span>
-<span class="fc" id="L227">        mm.request(dest, serialize, deserialize);</span>
-<span class="fc" id="L228">    }</span>
-    
-    @Override 
-    @SuppressWarnings(&quot;unchecked&quot;)
-    public void moveAtSync(Collection&lt;Long&gt; keys, Place dest, MoveManagerLocal mm) {
-<span class="nc bnc" id="L233" title="All 2 branches missed.">        if (dest.equals(here())) return;</span>
-<span class="nc" id="L234">        final DistIdMap&lt;V&gt; collection = this;</span>
-<span class="nc" id="L235">        Serializer serialize = (ObjectOutputStream s) -&gt; {</span>
-<span class="nc" id="L236">            int size = keys.size();</span>
-<span class="nc" id="L237">            s.writeInt(size);</span>
-<span class="nc bnc" id="L238" title="All 2 branches missed.">            for (Long key: keys) {</span>
-<span class="nc" id="L239">                V value = collection.removeForMove(key);</span>
-<span class="nc" id="L240">                byte mType = ldist.moveOut(key, dest);</span>
-<span class="nc" id="L241">                s.writeLong(key);</span>
-<span class="nc" id="L242">                s.writeByte(mType);</span>
-<span class="nc" id="L243">                s.writeObject(value);</span>
-<span class="nc" id="L244">            }</span>
-<span class="nc" id="L245">        };</span>
-<span class="nc" id="L246">        DeSerializer deserialize = (ObjectInputStream ds) -&gt; {</span>
-<span class="nc" id="L247">            int size = ds.readInt();</span>
-<span class="nc bnc" id="L248" title="All 2 branches missed.">            for (int i =0; i&lt;size; i++) {</span>
-<span class="nc" id="L249">                long key = ds.readLong();</span>
-<span class="nc" id="L250">                byte mType = ds.readByte();</span>
-<span class="nc" id="L251">                V value = (V)ds.readObject();</span>
-<span class="nc" id="L252">                collection.putForMove(key, mType, value);</span>
-            }
-<span class="nc" id="L254">        };</span>
-<span class="nc" id="L255">        mm.request(dest, serialize, deserialize);</span>
-<span class="nc" id="L256">    }</span>
-
-    @SuppressWarnings(&quot;unchecked&quot;)
-    public void moveAtSyncCount(int count, Place dest, MoveManagerLocal mm) {
-<span class="nc bnc" id="L260" title="All 2 branches missed.">        if (dest.equals(here())) return;</span>
-<span class="nc" id="L261">        final DistIdMap&lt;V&gt; collection = this;</span>
-<span class="nc" id="L262">        Serializer serialize = (ObjectOutputStream s) -&gt; {</span>
-<span class="nc" id="L263">            int size = count;</span>
-<span class="nc" id="L264">            s.writeInt(size);</span>
-<span class="nc" id="L265">            long[] keys = new long[size];</span>
-<span class="nc" id="L266">            Object[] values = new Object[size];</span>
-
-<span class="nc" id="L268">            int i = 0;</span>
-<span class="nc bnc" id="L269" title="All 2 branches missed.">            for (Map.Entry&lt;Long, V&gt; entry: data.entrySet()) {</span>
-<span class="nc bnc" id="L270" title="All 2 branches missed.">                if (i == size) break;</span>
-<span class="nc" id="L271">                keys[i] = entry.getKey();</span>
-<span class="nc" id="L272">                values[i] = entry.getValue();</span>
-<span class="nc" id="L273">                i += 1;</span>
-<span class="nc" id="L274">            }</span>
-<span class="nc bnc" id="L275" title="All 2 branches missed.">            for (int j=0; j&lt;size; j++) {</span>
-<span class="nc" id="L276">                s.writeLong(keys[j]);</span>
-            }
-<span class="nc bnc" id="L278" title="All 2 branches missed.">            for (int j=0; j&lt;size; j++) {</span>
-<span class="nc" id="L279">                s.writeObject(values[j]);</span>
-            }
-<span class="nc bnc" id="L281" title="All 2 branches missed.">            for (int j=0; j&lt;size; j++) {</span>
-<span class="nc" id="L282">                long key = keys[j];</span>
-<span class="nc" id="L283">                collection.removeForMove(key);</span>
-<span class="nc" id="L284">                byte mType = ldist.moveOut(key, dest);</span>
-<span class="nc" id="L285">                s.writeByte(mType);</span>
-            }
-<span class="nc" id="L287">        };</span>
-<span class="nc" id="L288">        DeSerializer deserialize = (ObjectInputStream ds) -&gt; {</span>
-<span class="nc" id="L289">            int size = ds.readInt();</span>
-<span class="nc" id="L290">            long[] keys = new long[size];</span>
-<span class="nc" id="L291">            Object[] values = new Object[size];</span>
-
-<span class="nc bnc" id="L293" title="All 2 branches missed.">            for (int j=0; j&lt;size; j++) {</span>
-<span class="nc" id="L294">                keys[j]= ds.readLong();</span>
-            }
-<span class="nc bnc" id="L296" title="All 2 branches missed.">            for (int j=0; j&lt;size; j++) {</span>
-<span class="nc" id="L297">                values[j] = ds.readObject();</span>
-            }
-<span class="nc bnc" id="L299" title="All 2 branches missed.">            for (int j=0; j&lt;size; j++) {</span>
-<span class="nc" id="L300">                byte mType = ds.readByte();</span>
-<span class="nc" id="L301">                collection.putForMove(keys[j], mType, (V)values[j]);</span>
-            }
-<span class="nc" id="L303">        };</span>
-<span class="nc" id="L304">        mm.request(dest, serialize, deserialize);</span>
-<span class="nc" id="L305">    }</span>
-    @Override
-    public void moveAtSync(Function&lt;Long, Place&gt; rule, MoveManagerLocal mm) {
-<span class="nc" id="L308">        final DistIdMap&lt;V&gt; collection = this;</span>
-<span class="nc" id="L309">        HashMap&lt;Place, ArrayList&lt;Long&gt;&gt; keysToMove = new HashMap&lt;&gt;();</span>
-<span class="nc" id="L310">        collection.forEach((Long key, V value) -&gt; {</span>
-<span class="nc" id="L311">            Place destination = rule.apply(key);</span>
-<span class="nc bnc" id="L312" title="All 2 branches missed.">            if (!keysToMove.containsKey(destination)) {</span>
-<span class="nc" id="L313">                keysToMove.put(destination, new ArrayList&lt;Long&gt;());</span>
-            }
-<span class="nc" id="L315">            keysToMove.get(destination).add(key);</span>
-<span class="nc" id="L316">        });</span>
-<span class="nc bnc" id="L317" title="All 2 branches missed.">        for (Place p: keysToMove.keySet()) {</span>
-<span class="nc" id="L318">            moveAtSync(keysToMove.get(p), p, mm);</span>
-<span class="nc" id="L319">        }</span>
-<span class="nc" id="L320">    }</span>
-    @Override
-    public void moveAtSync(Distribution&lt;Long&gt; dist, MoveManagerLocal mm) {
-<span class="nc" id="L323">        Function&lt;Long,Place&gt; rule = (Long key) -&gt; { return dist.place(key);};</span>
-<span class="nc" id="L324">        moveAtSync(rule, mm);</span>
-<span class="nc" id="L325">    }</span>
-
-    /* will be implemented in Java using TreeMap
-    public def moveAtSync(range: LongRange, place: Place, mm:MoveManagerLocal) {U haszero}: void {
-
+    public V remove(long id) {
+<span class="fc" id="L360">        ldist.remove(id);</span>
+<span class="fc" id="L361">        return super.remove(id);</span>
     }
-    */
-    // TODO???
-    //public def moveAtSync(dist:Distribution[LongRange], mm:MoveManagerLocal): void {
-    // no need for sparse array
 
+    private V removeForMove(long id) {
+<span class="fc" id="L365">        return data.remove(id);</span>
+    }
+
+    /*
+     * will be implemented in Java using TreeMap public def moveAtSync(range:
+     * LongRange, place: Place, mm:MoveManagerLocal) {U haszero}: void {
+     *
+     * }
+     */
+    // TODO???
+    // public def moveAtSync(dist:Distribution[LongRange], mm:MoveManagerLocal):
+    // void {
+    // no need for sparse array
 
     /**
      * Update the distribution information of the entries.
      */
     public void updateDist() {
-<span class="nc" id="L341">        ldist.updateDist(placeGroup);</span>
-<span class="nc" id="L342">    }</span>
+<span class="nc" id="L383">        ldist.updateDist(placeGroup);</span>
+<span class="nc" id="L384">    }</span>
 
     /*
-    public def versioningIdMap(srcName : String){
-        // return new BranchingManager[DistIdMap[T], Map[Long,T]](srcName, this);
-        return null as BranchingManager[DistIdMap[T], Map[Long, T]];
-    }*/
-
-    /* Ensure calling updateDist() before balance()
-     * balance() should be called in all places
+     * public def versioningIdMap(srcName : String){ // return new
+     * BranchingManager[DistIdMap[T], Map[Long,T]](srcName, this); return null as
+     * BranchingManager[DistIdMap[T], Map[Long, T]]; }
      */
-    public void checkDistInfo(long[] result) {
-<span class="nc bnc" id="L354" title="All 2 branches missed.">        for (Map.Entry&lt;Long, Place&gt; entry : ldist.dist.entrySet()) {</span>
-            // val k = entry.getKey();
-<span class="nc" id="L356">            Place v = entry.getValue();</span>
-<span class="nc" id="L357">            result[placeGroup.rank(v)] += 1;</span>
-<span class="nc" id="L358">        }</span>
-<span class="nc" id="L359">    }</span>
 
-/*
-    //TODO different naming convention of balance methods with DistMap
-    public void balance(MoveManagerLocal mm) throws Exception {
-        int pgSize = placeGroup.size();
-        ArrayList&lt;IFPair&gt; listPlaceLocality = new ArrayList&lt;&gt;();
-        float localitySum = 0.0f;
-        long globalDataSize =0;
-        long[] localDataSize = new long[pgSize];
-
-        for (int i = 0; i&lt;locality.length; i++) {
-            localitySum += locality[i];
-        }
- 
-
-        for (int i=0; i&lt; pgSize; i++) {
-            globalDataSize += localDataSize[i];
-            float normalizeLocality = locality[i] / localitySum;
-            listPlaceLocality.add(new IFPair(i, normalizeLocality));
-        }
-
-        listPlaceLocality.sort((IFPair a1, IFPair a2)-&gt;{
-            return (a1.second &lt; a2.second) ? -1 : (a1.second &gt; a1.second) ? 1 : 0;
+    @Override
+    public Object writeReplace() throws ObjectStreamException {
+<span class="fc" id="L394">        final TeamedPlaceGroup pg1 = placeGroup;</span>
+<span class="fc" id="L395">        final GlobalID id1 = id;</span>
+<span class="fc" id="L396">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L397">            return new DistIdMap&lt;&gt;(pg1, id1);</span>
         });
-
-        if (_debug_level &gt; 5) {
-            for (IFPair pair: listPlaceLocality) {
-                System.out.print(&quot;(&quot; + pair.first + &quot;, &quot; + pair.second + &quot;) &quot;);
-            }
-            System.out.println();
-            placeGroup.barrier(); // for debug print
-        }
-
-        IFPair[] cumulativeLocality = new IFPair[pgSize];
-        float sumLocality = 0.0f;
-        for (int i=0; i&lt;pgSize; i++) {
-            sumLocality += listPlaceLocality.get(i).second;
-            cumulativeLocality[i] = new IFPair(listPlaceLocality.get(i).first, sumLocality);
-        }
-        cumulativeLocality[pgSize - 1] = new IFPair(listPlaceLocality.get(pgSize - 1).first, 1.0f);
-
-        if (_debug_level &gt; 5) {
-            for (int i=0; i&lt;pgSize; i++) {
-                IFPair pair = cumulativeLocality[i];
-                System.out.print(&quot;(&quot; + pair.first + &quot;, &quot; + pair.second + &quot;, &quot; + localDataSize[pair.first] + &quot;/&quot; + globalDataSize + &quot;) &quot;);
-            }
-            System.out.println();
-            placeGroup.barrier(); // for debug print
-        }
-
-        ArrayList&lt;ArrayList&lt;ILPair&gt;&gt; moveList = new ArrayList&lt;&gt;(pgSize); // ArrayList(index of dest Place, num data to export)
-        LinkedList&lt;ILPair&gt; stagedData = new LinkedList&lt;&gt;(); // ArrayList(index of src, num data to export)
-        long previousCumuNumData = 0;
-
-        for (int i=0; i&lt;pgSize; i++) {
-            moveList.add(new ArrayList&lt;ILPair&gt;());
-        }
-
-        for (int i=0; i&lt;pgSize; i++) {
-            int placeIdx = cumulativeLocality[i].first;
-            float placeLocality = cumulativeLocality[i].second;
-            long cumuNumData = (long) (((float)globalDataSize) * placeLocality);
-            long targetNumData = cumuNumData - previousCumuNumData;
-            if (localDataSize[placeIdx] &gt; targetNumData) {
-                stagedData.add(new ILPair(placeIdx, localDataSize[placeIdx] - targetNumData));
-                if (_debug_level &gt; 5) {
-                    System.out.print(&quot;stage src: &quot; + placeIdx + &quot; num: &quot; + (localDataSize[placeIdx] - targetNumData) + &quot;, &quot;);
-                }
-            }
-            previousCumuNumData = cumuNumData;
-        }
-        if (_debug_level &gt; 5) {
-            System.out.println();
-            placeGroup.barrier(); // for debug print
-        }
-
-        previousCumuNumData = 0;
-        for (int i=0; i&lt;pgSize; i++) {
-            int placeIdx = cumulativeLocality[i].first;
-            float placeLocality = cumulativeLocality[i].second;
-            long cumuNumData = (long)(((float)globalDataSize) * placeLocality);
-            long targetNumData = cumuNumData - previousCumuNumData;
-            if (targetNumData &gt; localDataSize[placeIdx]) {
-                long numToImport = targetNumData - localDataSize[placeIdx];
-                while (numToImport &gt; 0) {
-                    ILPair pair = stagedData.removeFirst();
-                    if (pair.second &gt; numToImport) {
-                        moveList.get(pair.first).add(new ILPair(placeIdx, numToImport));
-                        stagedData.add(new ILPair(pair.first, pair.second - numToImport));
-                        numToImport = 0;
-                    } else {
-                        moveList.get(pair.first).add(new ILPair(placeIdx, pair.second));
-                        numToImport -= pair.second;
-                    }
-                }
-            }
-            previousCumuNumData = cumuNumData;
-        }
-
-        if (_debug_level &gt; 5) {
-            for (int i=0; i&lt;pgSize; i++) {
-                for (ILPair pair: moveList.get(i)) {
-                    System.out.print(&quot;src: &quot; + i + &quot; dest: &quot; + pair.first + &quot; size: &quot; + pair.second + &quot;, &quot;);
-                }
-            }
-            System.out.println();
-            placeGroup.barrier(); // for debug print
-        }
-
-
-        if (_debug_level &gt; 5) {
-            long[] diffNumData = new long[pgSize];
-            for (int i=0; i&lt;pgSize; i++) {
-                for (ILPair pair: moveList.get(i)) {
-                    diffNumData[i] -= pair.second;
-                    diffNumData[pair.first] += pair.second;
-                }
-            }
-            for (IFPair pair: listPlaceLocality) {
-                System.out.print(&quot;(&quot; + pair.first + &quot;, &quot; + pair.second + &quot;, &quot; + (localDataSize[pair.first] + diffNumData[pair.first]) + &quot;/&quot; + globalDataSize + &quot;) &quot;);
-            }
-            System.out.println();
-            placeGroup.barrier(); // for debug print
-        }
-
-        // Move Data
-        for (int i=0; i&lt;pgSize; i++) {
-            if (placeGroup.get(i).equals(here())) {
-
-            }
-        }
-
     }
 
-    public void balance(float[] newLocality, MoveManagerLocal mm) throws Exception {
-        System.arraycopy(newLocality, 0, locality, 0, placeGroup().size);
-        balance(mm);
-    }
-*/
+    /*
+     * //TODO different naming convention of balance methods with DistMap public
+     * void balance(MoveManagerLocal mm) throws Exception { int pgSize =
+     * placeGroup.size(); ArrayList&lt;IntFloatPair&gt; listPlaceLocality = new
+     * ArrayList&lt;&gt;(); float localitySum = 0.0f; long globalDataSize =0; long[]
+     * localDataSize = new long[pgSize];
+     *
+     * for (int i = 0; i&lt;locality.length; i++) { localitySum += locality[i]; }
+     *
+     *
+     * for (int i=0; i&lt; pgSize; i++) { globalDataSize += localDataSize[i]; float
+     * normalizeLocality = locality[i] / localitySum; listPlaceLocality.add(new
+     * IntFloatPair(i, normalizeLocality)); }
+     *
+     * listPlaceLocality.sort((IntFloatPair a1, IntFloatPair a2)-&gt;{ return
+     * (a1.second &lt; a2.second) ? -1 : (a1.second &gt; a1.second) ? 1 : 0; });
+     *
+     * if (_debug_level &gt; 5) { for (IntFloatPair pair: listPlaceLocality) {
+     * System.out.print(&quot;(&quot; + pair.first + &quot;, &quot; + pair.second + &quot;) &quot;); }
+     * System.out.println(); placeGroup.barrier(); // for debug print }
+     *
+     * IntFloatPair[] cumulativeLocality = new IntFloatPair[pgSize]; float
+     * sumLocality = 0.0f; for (int i=0; i&lt;pgSize; i++) { sumLocality +=
+     * listPlaceLocality.get(i).second; cumulativeLocality[i] = new
+     * IntFloatPair(listPlaceLocality.get(i).first, sumLocality); }
+     * cumulativeLocality[pgSize - 1] = new
+     * IntFloatPair(listPlaceLocality.get(pgSize - 1).first, 1.0f);
+     *
+     * if (_debug_level &gt; 5) { for (int i=0; i&lt;pgSize; i++) { IntFloatPair pair =
+     * cumulativeLocality[i]; System.out.print(&quot;(&quot; + pair.first + &quot;, &quot; + pair.second
+     * + &quot;, &quot; + localDataSize[pair.first] + &quot;/&quot; + globalDataSize + &quot;) &quot;); }
+     * System.out.println(); placeGroup.barrier(); // for debug print }
+     *
+     * ArrayList&lt;ArrayList&lt;IntLongPair&gt;&gt; moveList = new ArrayList&lt;&gt;(pgSize); //
+     * ArrayList(index of dest Place, num data to export) LinkedList&lt;IntLongPair&gt;
+     * stagedData = new LinkedList&lt;&gt;(); // ArrayList(index of src, num data to
+     * export) long previousCumuNumData = 0;
+     *
+     * for (int i=0; i&lt;pgSize; i++) { moveList.add(new ArrayList&lt;IntLongPair&gt;()); }
+     *
+     * for (int i=0; i&lt;pgSize; i++) { int placeIdx = cumulativeLocality[i].first;
+     * float placeLocality = cumulativeLocality[i].second; long cumuNumData = (long)
+     * (((float)globalDataSize) * placeLocality); long targetNumData = cumuNumData -
+     * previousCumuNumData; if (localDataSize[placeIdx] &gt; targetNumData) {
+     * stagedData.add(new IntLongPair(placeIdx, localDataSize[placeIdx] -
+     * targetNumData)); if (_debug_level &gt; 5) { System.out.print(&quot;stage src: &quot; +
+     * placeIdx + &quot; num: &quot; + (localDataSize[placeIdx] - targetNumData) + &quot;, &quot;); } }
+     * previousCumuNumData = cumuNumData; } if (_debug_level &gt; 5) {
+     * System.out.println(); placeGroup.barrier(); // for debug print }
+     *
+     * previousCumuNumData = 0; for (int i=0; i&lt;pgSize; i++) { int placeIdx =
+     * cumulativeLocality[i].first; float placeLocality =
+     * cumulativeLocality[i].second; long cumuNumData =
+     * (long)(((float)globalDataSize) * placeLocality); long targetNumData =
+     * cumuNumData - previousCumuNumData; if (targetNumData &gt;
+     * localDataSize[placeIdx]) { long numToImport = targetNumData -
+     * localDataSize[placeIdx]; while (numToImport &gt; 0) { IntLongPair pair =
+     * stagedData.removeFirst(); if (pair.second &gt; numToImport) {
+     * moveList.get(pair.first).add(new IntLongPair(placeIdx, numToImport));
+     * stagedData.add(new IntLongPair(pair.first, pair.second - numToImport));
+     * numToImport = 0; } else { moveList.get(pair.first).add(new
+     * IntLongPair(placeIdx, pair.second)); numToImport -= pair.second; } } }
+     * previousCumuNumData = cumuNumData; }
+     *
+     * if (_debug_level &gt; 5) { for (int i=0; i&lt;pgSize; i++) { for (IntLongPair pair:
+     * moveList.get(i)) { System.out.print(&quot;src: &quot; + i + &quot; dest: &quot; + pair.first +
+     * &quot; size: &quot; + pair.second + &quot;, &quot;); } } System.out.println();
+     * placeGroup.barrier(); // for debug print }
+     *
+     *
+     * if (_debug_level &gt; 5) { long[] diffNumData = new long[pgSize]; for (int i=0;
+     * i&lt;pgSize; i++) { for (IntLongPair pair: moveList.get(i)) { diffNumData[i] -=
+     * pair.second; diffNumData[pair.first] += pair.second; } } for (IntFloatPair
+     * pair: listPlaceLocality) { System.out.print(&quot;(&quot; + pair.first + &quot;, &quot; +
+     * pair.second + &quot;, &quot; + (localDataSize[pair.first] + diffNumData[pair.first]) +
+     * &quot;/&quot; + globalDataSize + &quot;) &quot;); } System.out.println(); placeGroup.barrier();
+     * // for debug print }
+     *
+     * // Move Data for (int i=0; i&lt;pgSize; i++) { if
+     * (placeGroup.get(i).equals(here())) {
+     *
+     * } }
+     *
+     * }
+     *
+     * public void balance(float[] newLocality, MoveManagerLocal mm) throws
+     * Exception { System.arraycopy(newLocality, 0, locality, 0, placeGroup().size);
+     * balance(mm); }
+     */
 }
-</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

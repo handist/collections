@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistColGlb.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb</a> &gt; <span class="el_source">DistColGlb.java</span></div><h1>DistColGlb.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.glb;
+
+import java.io.Serializable;
+import java.util.function.Consumer;
+
+import handist.collections.Chunk;
+import handist.collections.LongRange;
+import handist.collections.dist.DistBag;
+import handist.collections.dist.DistCol;
+import handist.collections.function.SerializableBiConsumer;
+import handist.collections.function.SerializableConsumer;
+import handist.collections.function.SerializableFunction;
+import handist.collections.function.SerializableLongTBiConsumer;
+import handist.collections.function.SerializableSupplier;
+
+/**
+ * This class proposes various operations that operate on all the elements of a
+ * {@link DistCol} as part of a GLB program. Any call to methods of this class
+ * should be made from within a
+ * {@link GlobalLoadBalancer#underGLB(apgas.SerializableJob)} method.
+ *
+ * @author Patrick Finnerty
+ * @param &lt;T&gt; type of the elements contained in the underlying distributed
+ *            collection
+ */
+public class DistColGlb&lt;T&gt; extends AbstractGlbHandle implements Serializable {
+
+    /**
+     * Runtime exception used when a {@link Throwable} is thrown from a closure
+     * given as parameter of a Glb operation.
+     *
+     * @author Patrick Finnerty
+     *
+     */
+    public static class DistColGlbError extends RuntimeException implements Serializable {
+
+        /** Serial Version UID */
+        private static final long serialVersionUID = -6284960496356484016L;
+
+        /** Index in the {@link DistCol} on which a problem was encountered */
+        public final long index;
+
+        /**
+         * Range on which the assignment was operating at the time the exception was
+         * encountered
+         */
+        public final LongRange assignmentRange;
+
+        /**
+         * Constructor
+         * &lt;p&gt;
+         * This constructor is made private as instances of this class do not need to be
+         * created outside of {@link DistColGlb}.
+         *
+         * @param lr range on which the assignment was operating
+         * @param l  index at which the throwable was thrown
+         * @param t  the {@link Throwable} thrown by the user-supplied closure
+         */
+        private DistColGlbError(LongRange lr, long l, Throwable t) {
+<span class="fc" id="L70">            super(t.getMessage() + &quot; at index &quot; + l + &quot; in assignment on range &quot; + lr, t);</span>
+<span class="fc" id="L71">            assignmentRange = new LongRange(lr.from, lr.to);</span>
+<span class="fc" id="L72">            index = l;</span>
+<span class="fc" id="L73">        }</span>
+    }
+
+    /** Serial Version UID */
+    private static final long serialVersionUID = 612021438330155918L;
+
+    /** Underlying collection on which the operations of this class operate */
+    DistCol&lt;T&gt; col;
+
+    /**
+     * Constructor
+     *
+     * @param c collection on which this handle will operate
+     */
+<span class="fc" id="L87">    public DistColGlb(DistCol&lt;T&gt; c) {</span>
+<span class="fc" id="L88">        col = c;</span>
+<span class="fc" id="L89">    }</span>
+
+    /**
+     * Applies the specified action to all the elements contained in the
+     * {@link DistCol} and returns the underlying collection
+     *
+     * @param action action to perform on each element
+     * @return future representing this &quot;forEach&quot; operation which will return the
+     *         underlying {@link DistCol} collection upon termination
+     */
+    public DistFuture&lt;DistCol&lt;T&gt;&gt; forEach(SerializableConsumer&lt;T&gt; action) {
+<span class="fc" id="L100">        final GlobalLoadBalancer glb = getGlb();</span>
+
+        // Initialize the future returned to the programmer in the underGLB method
+        // In this operation, the collection involved is the handle itself
+<span class="fc" id="L104">        final DistFuture&lt;DistCol&lt;T&gt;&gt; future = new DistFuture&lt;&gt;(col);</span>
+
+<span class="fc" id="L106">        final SerializableSupplier&lt;GlbTask&gt; initGlbTask = () -&gt; {</span>
+<span class="fc" id="L107">            return new DistColGlbTask(col);</span>
+        };
+
+        // We transform the action to accept a LongRange as parameter, retrieve
+        // the T at the each index, and apply the lambda given as parameter to these Ts
+        // The second argument (WorkerService) provided by the GLB runtime is unused for
+        // this operation
+<span class="fc" id="L114">        final SerializableBiConsumer&lt;LongRange, WorkerService&gt; realAction = (lr, ws) -&gt; {</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">            for (long l = lr.from; l &lt; lr.to; l++) {</span>
+                try {
+<span class="fc" id="L117">                    action.accept(col.get(l));</span>
+<span class="fc" id="L118">                } catch (final Throwable t) {</span>
+<span class="fc" id="L119">                    ws.throwableInOperation(new DistColGlbError(lr, l, t));</span>
+<span class="fc" id="L120">                }</span>
+            }
+<span class="fc" id="L122">        };</span>
+
+        // Create the operation with all the types/arguments
+<span class="fc" id="L125">        final GlbOperation&lt;DistCol&lt;T&gt;, T, LongRange, LongRange, DistCol&lt;T&gt;&gt; operation = new GlbOperation&lt;&gt;(col,</span>
+                realAction, future, initGlbTask, null);
+        // Submit the operation to the GLB
+<span class="fc" id="L128">        glb.submit(operation);</span>
+
+        // return the future to the programmer
+<span class="fc" id="L131">        return future;</span>
+    }
+
+    /**
+     * Applies the specified action to all the elements contained in the
+     * {@link DistCol} and returns the underlying collection
+     *
+     * @param action action to perform on each element, taking the index and the
+     *               object as parameter
+     * @return future representing this &quot;forEach&quot; operation which will return the
+     *         underlying {@link DistCol} collection upon termination
+     */
+    public DistFuture&lt;DistCol&lt;T&gt;&gt; forEach(SerializableLongTBiConsumer&lt;T&gt; action) {
+<span class="fc" id="L144">        final GlobalLoadBalancer glb = getGlb();</span>
+
+        // Initialize the future returned to the programmer in the underGLB method
+        // In this operation, the collection involved is the handle itself
+<span class="fc" id="L148">        final DistFuture&lt;DistCol&lt;T&gt;&gt; future = new DistFuture&lt;&gt;(col);</span>
+
+<span class="fc" id="L150">        final SerializableSupplier&lt;GlbTask&gt; initGlbTask = () -&gt; {</span>
+<span class="fc" id="L151">            return new DistColGlbTask(col);</span>
+        };
+
+        // We transform the action to accept a LongRange as parameter, retrieve
+        // the T at the each index, and apply the lambda given as parameter to these Ts
+        // The second argument (WorkerService) provided by the GLB runtime is unused for
+        // this operation
+<span class="fc" id="L158">        final SerializableBiConsumer&lt;LongRange, WorkerService&gt; realAction = (lr, ws) -&gt; {</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">            for (long l = lr.from; l &lt; lr.to; l++) {</span>
+                try {
+<span class="fc" id="L161">                    action.accept(l, col.get(l));</span>
+<span class="nc" id="L162">                } catch (final Throwable t) {</span>
+<span class="nc" id="L163">                    ws.throwableInOperation(new DistColGlbError(lr, l, t));</span>
+<span class="fc" id="L164">                }</span>
+            }
+<span class="fc" id="L166">        };</span>
+
+        // Create the operation with all the types/arguments
+<span class="fc" id="L169">        final GlbOperation&lt;DistCol&lt;T&gt;, T, LongRange, LongRange, DistCol&lt;T&gt;&gt; operation = new GlbOperation&lt;&gt;(col,</span>
+                realAction, future, initGlbTask, null);
+        // Submit the operation to the GLB
+<span class="fc" id="L172">        glb.submit(operation);</span>
+
+        // return the future to the programmer
+<span class="fc" id="L175">        return future;</span>
+    }
+
+    /**
+     * GLB operation which creates a new {@link DistCol} using the mapping operation
+     * provided as parameter. The resulting {@link DistCol} will contain the same
+     * indices as this collection. The value stored at each index of the resulting
+     * collection will be the result of the provided mapping operation for this
+     * collection at the same index. As part of the GLB consists in moving entries
+     * from place to place, it is possible for the distribution of the resulting
+     * collection and this collection to differ.
+     *
+     * @param &lt;U&gt; type of the result of the map function provided as parameter
+     * @param map function which takes an object T as input and returns a instance
+     *            of type U
+     * @return a {@link DistFuture}
+     */
+    public &lt;U&gt; DistFuture&lt;DistCol&lt;U&gt;&gt; map(SerializableFunction&lt;T, U&gt; map) {
+<span class="fc" id="L193">        final GlobalLoadBalancer glb = getGlb();</span>
+
+        // Create new collection to contain the result
+<span class="fc" id="L196">        final DistCol&lt;U&gt; resultCollection = new DistCol&lt;&gt;(col.placeGroup());</span>
+
+        // Adapt the provided map to represent what the glb workers will actually
+        // perform.
+        // The second argument (WorkerService) provided by the GLB runtime is unused for
+        // this operation
+<span class="fc" id="L202">        final SerializableBiConsumer&lt;LongRange, WorkerService&gt; realAction = (lr, ws) -&gt; {</span>
+            // First, initialize a Chunk to place the mappings
+<span class="fc" id="L204">            final Chunk&lt;U&gt; c = new Chunk&lt;&gt;(lr);</span>
+
+            /*
+             * FIXME ChunkedList (parent of DistCol) does not support concurrent insertion
+             * of chunks As a result, inserting a chunk in the result collection must be
+             * done in mutual exclusion with any other worker inserting chunks in this
+             * collection on the local host
+             */
+<span class="fc" id="L212">            synchronized (resultCollection) {</span>
+<span class="fc" id="L213">                resultCollection.add(c);</span>
+<span class="fc" id="L214">            }</span>
+
+            // Iterate on the elements
+<span class="fc bfc" id="L217" title="All 2 branches covered.">            for (long l = lr.from; l &lt; lr.to; l++) {</span>
+                try {
+<span class="fc" id="L219">                    final T t = col.get(l);</span>
+<span class="fc" id="L220">                    final U u = map.apply(t);</span>
+<span class="fc" id="L221">                    c.set(l, u);</span>
+<span class="nc" id="L222">                } catch (final Throwable t) {</span>
+<span class="nc" id="L223">                    ws.throwableInOperation(new DistColGlbError(lr, l, t));</span>
+<span class="fc" id="L224">                }</span>
+            }
+<span class="fc" id="L226">        };</span>
+
+        // Initialize the future returned to the programmer in the underGLB method
+        // In this operation, the collection involved is the handle itself
+<span class="fc" id="L230">        final DistFuture&lt;DistCol&lt;U&gt;&gt; future = new DistFuture&lt;&gt;(resultCollection);</span>
+
+<span class="fc" id="L232">        final SerializableSupplier&lt;GlbTask&gt; initGlbTask = () -&gt; {</span>
+<span class="fc" id="L233">            return new DistColGlbTask(col);</span>
+        };
+
+        // Create the operation with all the types/arguments
+<span class="fc" id="L237">        final GlbOperation&lt;DistCol&lt;T&gt;, T, LongRange, LongRange, DistCol&lt;U&gt;&gt; operation = new GlbOperation&lt;&gt;(col,</span>
+                realAction, future, initGlbTask, null);
+
+        // Submit the operation to the GLB
+<span class="fc" id="L241">        glb.submit(operation);</span>
+
+        // return the future to the programmer
+<span class="fc" id="L244">        return future;</span>
+    }
+
+    /**
+     * Applies the given function to every element contained in this distributed
+     * collection and places the results in a new {@link DistBag} collection.
+     *
+     * @param &lt;U&gt;      type of the objects produced by the function given as
+     *                 parameter
+     * @param function function taking type T as input and returning U
+     * @return a {@link DistFuture} producing a DistBag as a result
+     */
+    public &lt;U&gt; DistFuture&lt;DistBag&lt;U&gt;&gt; toBag(SerializableFunction&lt;T, U&gt; function) {
+<span class="fc" id="L257">        final GlobalLoadBalancer glb = getGlb();</span>
+
+        // Create new collection to contain the result
+<span class="fc" id="L260">        final DistBag&lt;U&gt; resultCollection = new DistBag&lt;&gt;(col.placeGroup());</span>
+
+        // Initialization for workers to be made before the computation starts.
+        // This will bind a handle to place the U elements into the DistBag to each
+        // worker in the system.
+<span class="fc" id="L265">        final SerializableConsumer&lt;WorkerService&gt; workerInit = (w) -&gt; w.attachOperationObject(resultCollection,</span>
+<span class="fc" id="L266">                resultCollection.getReceiver());</span>
+
+        // Adapt the provided function to represent what the glb workers will actually
+        // perform
+<span class="fc" id="L270">        final SerializableBiConsumer&lt;LongRange, WorkerService&gt; realAction = (lr, ws) -&gt; {</span>
+            // First, retrieve the consumer of U which is bound to the worker
+            // The object used as key to retrieve the object bound to workers is the result
+            // collection
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L275">            final Consumer&lt;U&gt; destination = (Consumer&lt;U&gt;) ws.retrieveOperationObject(resultCollection);</span>
+
+            // Iterate on the elements
+<span class="fc bfc" id="L278" title="All 2 branches covered.">            for (long l = lr.from; l &lt; lr.to; l++) {</span>
+                try {
+<span class="fc" id="L280">                    final T t = col.get(l);</span>
+<span class="fc" id="L281">                    final U u = function.apply(t);</span>
+<span class="fc" id="L282">                    destination.accept(u);</span>
+<span class="nc" id="L283">                } catch (final Throwable t) {</span>
+<span class="nc" id="L284">                    ws.throwableInOperation(new DistColGlbError(lr, l, t));</span>
+<span class="fc" id="L285">                }</span>
+            }
+<span class="fc" id="L287">        };</span>
+
+        // Initialize the future returned to the programmer in the underGLB method
+        // The result of this operation is the DistBag &quot;resultCollection&quot;
+<span class="fc" id="L291">        final DistFuture&lt;DistBag&lt;U&gt;&gt; future = new DistFuture&lt;&gt;(resultCollection);</span>
+
+        // Initializer for GlbTask of this DistCol in case it is not yet initialized
+<span class="fc" id="L294">        final SerializableSupplier&lt;GlbTask&gt; initGlbTask = () -&gt; {</span>
+<span class="fc" id="L295">            return new DistColGlbTask(col);</span>
+        };
+
+        // Create the operation with all the types/arguments
+<span class="fc" id="L299">        final GlbOperation&lt;DistCol&lt;T&gt;, T, LongRange, LongRange, DistBag&lt;U&gt;&gt; operation = new GlbOperation&lt;&gt;(col,</span>
+                realAction, future, initGlbTask, workerInit);
+
+        // Submit the operation to the GLB
+<span class="fc" id="L303">        glb.submit(operation);</span>
+
+        // return the future to the programmer
+<span class="fc" id="L306">        return future;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

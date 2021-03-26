@@ -1,36 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LongTBiConsumer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.function</a> &gt; <span class="el_source">LongTBiConsumer.java</span></div><h1>LongTBiConsumer.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
  *
- * This program and the accompanying materials are made available to you under 
- * the terms of the Eclipse Public License 1.0 which accompanies this 
- * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
  *
  * SPDX-License-Identifier: EPL-1.0
- *******************************************************************************/
+ ******************************************************************************/
 package handist.collections.function;
 
 import handist.collections.RangedList;
 
 /**
- * Functional interface for actions taking a {@code long} and a generic type T 
- * as parameter. This is used to perform actions on {@link RangedList}s where 
+ * Functional interface for actions taking a {@code long} and a generic type T
+ * as parameter. This is used to perform actions on {@link RangedList}s where
  * the {@code long} index and the element are used.
  * &lt;p&gt;
- * This interface removes the boxing and un-boxing operations that would 
- * otherwise occur when using the standard 
- * {@link java.util.function.BiConsumer} with types {@link Long} and T as 
- * generic parameter types. 
+ * This interface removes the boxing and un-boxing operations that would
+ * otherwise occur when using the standard {@link java.util.function.BiConsumer}
+ * with types {@link Long} and T as generic parameter types.
  *
  * @param &lt;T&gt; type of the object used as second parameter
  */
 public interface LongTBiConsumer&lt;T&gt; {
-	/**
-	 * Performs an action with the given {@code long} index and object of 
-	 * generic type T.
-	 *  
-	 * @param l index of the object in the {@link RangedList}
-	 * @param t object
-	 */
+    /**
+     * Performs an action with the given {@code long} index and object of generic
+     * type T.
+     *
+     * @param l index of the object in the {@link RangedList}
+     * @param t object
+     */
     void accept(long l, T t);
 
     default LongTBiConsumer&lt;T&gt; andThen(LongTBiConsumer&lt;? super T&gt; after) {
@@ -43,4 +43,4 @@ public interface LongTBiConsumer&lt;T&gt; {
         };
     }
 }
-</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

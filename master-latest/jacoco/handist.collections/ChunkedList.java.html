@@ -1,683 +1,1041 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChunkedList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">ChunkedList.java</span></div><h1>ChunkedList.java</h1><pre class="source lang-java linenums">/*******************************************************************************
- * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
  *
- * This program and the accompanying materials are made available to you under 
- * the terms of the Eclipse Public License 1.0 which accompanies this 
- * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
  *
  * SPDX-License-Identifier: EPL-1.0
- *******************************************************************************/
+ ******************************************************************************/
 package handist.collections;
 
-import java.util.AbstractCollection;
+import static apgas.Constructs.*;
+
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import handist.collections.FutureN.ReturnGivenResult;
 import handist.collections.function.LongTBiConsumer;
 
-<span class="fc bfc" id="L29" title="All 2 branches covered.">public class ChunkedList&lt;T&gt; extends AbstractCollection&lt;T&gt; {</span>
+/**
+ * Large collection containing multiple {@link Chunk}s. This overcomes the
+ * storing limitation of individual {@link Chunk}s. A {@link ChunkedList} can
+ * hold multiple {@link Chunk}s, adjacent or not. However, it cannot contain
+ * Chunks whose bounds overlap. This is necessary to avoid having potentially
+ * multiple values associated with a single ({@code long}) index.
+ *
+ * @param &lt;T&gt; The type of the elements handled by the {@link Chunk}s the
+ *            {@link ChunkedList} contains, and by extension, the type of
+ *            elements handled by the {@link ChunkedList}
+ */
+<span class="fc bfc" id="L45" title="All 2 branches covered.">public class ChunkedList&lt;T&gt; implements Iterable&lt;T&gt;, Serializable {</span>
 
-	private static class It&lt;S&gt; implements Iterator&lt;S&gt; {
-		public TreeMap&lt;LongRange, RangedList&lt;S&gt;&gt; chunks;
-		private Iterator&lt;S&gt; cIter;
-		private LongRange range;
+    /**
+     * Iterator class for {@link ChunkedList}. Iterates on two levels between the
+     * chunks contained in the {@link ChunkedList} and the elements contained in the
+     * {@link Chunk}s.
+     *
+     * @param &lt;S&gt; type of the elements handled by the {@link ChunkedList}
+     */
+    private static class It&lt;S&gt; implements Iterator&lt;S&gt; {
+        public ConcurrentSkipListMap&lt;LongRange, RangedList&lt;S&gt;&gt; chunks;
+        private Iterator&lt;S&gt; cIter;
+        private LongRange range;
 
-<span class="fc" id="L36">		public It(TreeMap&lt;LongRange, RangedList&lt;S&gt;&gt; chunks) {</span>
-<span class="fc" id="L37">			this.chunks = chunks;</span>
-<span class="fc" id="L38">			Map.Entry&lt;LongRange, RangedList&lt;S&gt;&gt; firstEntry = chunks.firstEntry();</span>
-<span class="fc bfc" id="L39" title="All 2 branches covered.">			if (firstEntry != null) {</span>
-<span class="fc" id="L40">				RangedList&lt;S&gt; firstChunk = firstEntry.getValue();</span>
-<span class="fc" id="L41">				range = firstChunk.getRange();</span>
-<span class="fc" id="L42">				cIter = firstChunk.iterator();</span>
-<span class="fc" id="L43">			} else {</span>
-<span class="fc" id="L44">				range = null;</span>
-<span class="fc" id="L45">				cIter = null;</span>
-			}
-<span class="fc" id="L47">		}</span>
+<span class="fc" id="L59">        public It(ConcurrentSkipListMap&lt;LongRange, RangedList&lt;S&gt;&gt; chunks) {</span>
+<span class="fc" id="L60">            this.chunks = chunks;</span>
+<span class="fc" id="L61">            final Map.Entry&lt;LongRange, RangedList&lt;S&gt;&gt; firstEntry = chunks.firstEntry();</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">            if (firstEntry != null) {</span>
+<span class="fc" id="L63">                final RangedList&lt;S&gt; firstChunk = firstEntry.getValue();</span>
+<span class="fc" id="L64">                range = firstChunk.getRange();</span>
+<span class="fc" id="L65">                cIter = firstChunk.iterator();</span>
+<span class="fc" id="L66">            } else {</span>
+<span class="fc" id="L67">                range = null;</span>
+<span class="fc" id="L68">                cIter = null;</span>
+            }
+<span class="fc" id="L70">        }</span>
 
-		@Override
-		public boolean hasNext() {
-<span class="fc bfc" id="L51" title="All 2 branches covered.">			if (range == null) {</span>
-<span class="fc" id="L52">				return false;</span>
-			}
-<span class="fc bfc" id="L54" title="All 2 branches covered.">			if (cIter.hasNext()) {</span>
-<span class="fc" id="L55">				return true;</span>
-			}
-<span class="fc" id="L57">			Map.Entry&lt;LongRange, RangedList&lt;S&gt;&gt; nextEntry = chunks.higherEntry(range);</span>
-<span class="fc bfc" id="L58" title="All 2 branches covered.">			if (nextEntry == null) {</span>
-<span class="fc" id="L59">				range = null;</span>
-<span class="fc" id="L60">				cIter = null;</span>
-<span class="fc" id="L61">				return false;</span>
-			}
-<span class="fc" id="L63">			range = nextEntry.getKey();</span>
-<span class="fc" id="L64">			cIter = nextEntry.getValue().iterator();</span>
-<span class="fc" id="L65">			return cIter.hasNext();</span>
-		}
+        @Override
+        public boolean hasNext() {
+<span class="fc bfc" id="L74" title="All 2 branches covered.">            if (range == null) {</span>
+<span class="fc" id="L75">                return false;</span>
+            }
+<span class="fc bfc" id="L77" title="All 2 branches covered.">            if (cIter.hasNext()) {</span>
+<span class="fc" id="L78">                return true;</span>
+            }
+<span class="fc" id="L80">            final Map.Entry&lt;LongRange, RangedList&lt;S&gt;&gt; nextEntry = chunks.higherEntry(range);</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">            if (nextEntry == null) {</span>
+<span class="fc" id="L82">                range = null;</span>
+<span class="fc" id="L83">                cIter = null;</span>
+<span class="fc" id="L84">                return false;</span>
+            }
+<span class="fc" id="L86">            range = nextEntry.getKey();</span>
+<span class="fc" id="L87">            cIter = nextEntry.getValue().iterator();</span>
+<span class="fc" id="L88">            return cIter.hasNext();</span>
+        }
 
-		@Override
-		public S next() {
-<span class="fc bfc" id="L70" title="All 2 branches covered.">			if (hasNext()) {</span>
-<span class="fc" id="L71">				return cIter.next();</span>
-			}
-<span class="fc" id="L73">			throw new IndexOutOfBoundsException();</span>
-		}
+        @Override
+        public S next() {
+<span class="fc bfc" id="L93" title="All 2 branches covered.">            if (hasNext()) {</span>
+<span class="fc" id="L94">                return cIter.next();</span>
+            }
+<span class="fc" id="L96">            throw new IndexOutOfBoundsException();</span>
+        }
 
-	}
-	// private List&lt;RangedList&lt;T&gt;&gt; chunks;
-	private TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt; chunks;
+    }
 
-<span class="pc" id="L80">	private long size = 0;</span>
+    /** Serial Version UID */
+    private static final long serialVersionUID = 6899796587031337979L;
 
-<span class="fc" id="L82">	public ChunkedList() {</span>
-		//chunks = new TreeMap&lt;&gt;(Comparator.comparingLong(r -&gt; r.from));
-<span class="fc" id="L84">		chunks = new TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt;();</span>
-<span class="fc" id="L85">	}</span>
+    /**
+     * Chunks contained by this instance. They are sorted using the
+     * {@link LongRange} ordering.
+     */
+    private final ConcurrentSkipListMap&lt;LongRange, RangedList&lt;T&gt;&gt; chunks;
 
-<span class="nc" id="L87">	public ChunkedList(TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt; chunks) {</span>
-<span class="nc" id="L88">		this.chunks = chunks;</span>
-<span class="nc" id="L89">	}</span>
+    /**
+     * Running tally of how many elements can be contained in the ChunkedList. It is
+     * equal to the sum of the size of each individual chunk.
+     */
+    private final AtomicLong size;
 
-	@Override
-	public boolean add(T element) {
-<span class="fc" id="L93">		throw new UnsupportedOperationException();</span>
-	}
+    /**
+     * Default constructor. Prepares the contained for the {@link Chunk}s this
+     * instance is going to receive.
+     */
+<span class="fc" id="L120">    public ChunkedList() {</span>
+<span class="fc" id="L121">        chunks = new ConcurrentSkipListMap&lt;&gt;();</span>
+<span class="fc" id="L122">        size = new AtomicLong(0l);</span>
+<span class="fc" id="L123">    }</span>
 
-	@Override
-	public boolean addAll(Collection&lt;? extends T&gt; c) {
-<span class="fc" id="L98">		throw new UnsupportedOperationException();</span>
-	}
+    /**
+     * Constructor which takes an initial {@link ConcurrentSkipListMap} of
+     * {@link LongRange} mapped to {@link RangedList}.
+     *
+     * @param chunks initial mappings of {@link LongRange} and {@link Chunk}s
+     */
+<span class="fc" id="L131">    public ChunkedList(ConcurrentSkipListMap&lt;LongRange, RangedList&lt;T&gt;&gt; chunks) {</span>
+<span class="fc" id="L132">        this.chunks = chunks;</span>
+<span class="fc" id="L133">        long accumulator = 0l;</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">        for (final LongRange r : chunks.keySet()) {</span>
+<span class="fc" id="L135">            accumulator += r.size();</span>
+<span class="fc" id="L136">        }</span>
+<span class="fc" id="L137">        size = new AtomicLong(accumulator);</span>
+<span class="fc" id="L138">    }</span>
 
-	public void addChunk(RangedList&lt;T&gt; c) {
-<span class="fc" id="L102">		LongRange desired = c.getRange();</span>
-<span class="fc" id="L103">		LongRange intersection = checkOverlap(desired);</span>
-<span class="fc bfc" id="L104" title="All 2 branches covered.">		if (intersection != null) {</span>
-<span class="fc" id="L105">			throw new RuntimeException(&quot;LongRange &quot; + desired + &quot; &quot;</span>
-					+ &quot;overlaps &quot; + intersection + &quot; which is already present in&quot;
-					+ &quot; this ChunkedList&quot;);
-		}
-<span class="fc" id="L109">		chunks.put(desired, c);</span>
-<span class="fc" id="L110">		size += c.longSize();</span>
-<span class="fc" id="L111">	}</span>
+    /**
+     * Add a chunk to this instance. The provided chunk should not intersect with
+     * any other already present in this instance, a {@link RuntimeException} will
+     * be thrown otherwise.
+     *
+     * @param c the chunk to add to this instance
+     * @throws RuntimeException if the range on which the provided {@link Chunk} is
+     *                          defined intersects with another {@link Chunk}
+     *                          already present in this instance
+     */
+    public void add(RangedList&lt;T&gt; c) {
+<span class="fc" id="L151">        final LongRange desired = c.getRange();</span>
+<span class="fc" id="L152">        final LongRange intersection = checkOverlap(desired);</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">        if (intersection != null) {</span>
+            // TODO
+<span class="fc" id="L155">            throw new ElementOverlapException(&quot;LongRange &quot; + desired + &quot; overlaps &quot; + intersection</span>
+                    + &quot; which is already present in this ChunkedList&quot;);
+        }
+<span class="fc" id="L158">        chunks.put(desired, c);</span>
+<span class="fc" id="L159">        size.addAndGet(c.size());</span>
+<span class="fc" id="L160">    }</span>
 
-	public Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads, Consumer&lt;? super T&gt; action) {
-<span class="fc" id="L114">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L115">			sub.forEach(action);</span>
-<span class="fc" id="L116">		});</span>
-<span class="fc" id="L117">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;T&gt;&gt;(futures,  this);</span>
-	}
+    /**
+     * Places the given ranged list without performing any checks.
+     * &lt;p&gt;
+     * This is useful, particularly when splitting chunks as cannot afford a moment
+     * between which the original chunk is removed from the collection and the newer
+     * chunks are placed into the collection. As the newer chunks need to be placed
+     * first, for a brief instant, the ChunkedList will contain multiple ranges
+     * which overlap.
+     *
+     * @param c the chunk to place in the collection
+     */
+    protected void add_unchecked(RangedList&lt;T&gt; c) {
+<span class="fc" id="L174">        chunks.put(c.getRange(), c);</span>
+<span class="fc" id="L175">        size.addAndGet(c.size());</span>
+<span class="fc" id="L176">    }</span>
 
-	public &lt;U&gt; Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads, BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action,
-			final MultiReceiver&lt;U&gt; toStore) {
-<span class="fc" id="L122">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L123">			sub.forEach(action,toStore.getReceiver());</span>
-<span class="fc" id="L124">		});</span>
-<span class="fc" id="L125">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;T&gt;&gt;(futures, this);</span>
-	}
+    public &lt;U&gt; void asyncForEach(BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
+            final ParallelReceiver&lt;? super U&gt; toStore) {
+<span class="nc" id="L180">        forEachParallelBody((ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="nc" id="L181">            sub.forEach(action, toStore.getReceiver());</span>
+<span class="nc" id="L182">        });</span>
+<span class="nc" id="L183">    }</span>
 
-	public Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads, LongTBiConsumer&lt;? super T&gt; action) {
-<span class="fc" id="L129">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L130">			sub.forEach(action);</span>
-<span class="fc" id="L131">		});</span>
-<span class="fc" id="L132">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;T&gt;&gt;(futures, this);</span>
-	}
+    public void asyncForEach(Consumer&lt;? super T&gt; action) {
+<span class="nc" id="L186">        forEachParallelBody((ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="nc" id="L187">            sub.forEach(action);</span>
+<span class="nc" id="L188">        });</span>
+<span class="nc" id="L189">    }</span>
 
-	public &lt;S&gt; Future&lt;ChunkedList&lt;S&gt;&gt; asyncMap(ExecutorService pool, int nthreads,
-			Function&lt;? super T, ? extends S&gt; func) {
-<span class="fc" id="L137">		final ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
-<span class="fc" id="L138">		final List&lt;Future&lt;?&gt;&gt; futures = mapParallelBody(pool, nthreads, func, result);</span>
+    /**
+     * Performs the provided action on every element in the collection
+     * asynchronously using the provided executor service and the specified degree
+     * of parallelism. This method returns a {@link FutureN.ReturnGivenResult} which
+     * will wait on every asynchronous task spawned to complete before returning
+     * this instance. The provided action may initialize or extract a type U from
+     * the data contained in individual elements and give this type U to its second
+     * parameter (a {@link Consumer} of U) which will in turn place these instances
+     * in {@code toStore}. Note that if you do not need to extract any information
+     * from the elements in this collection, you should use method
+     * {@link #asyncForEach(ExecutorService, int, Consumer)} instead.
+     *
+     * @param &lt;U&gt;      the type of the information to extract from the instances
+     * @param pool     executor service in charge or performing the operation
+     * @param nthreads the degree of parallelism for this action, corresponds to the
+     *                 number of pieces in which this instance contents will be
+     *                 split to be handled by parallel threads
+     * @param action   to action to perform on each individual element contained in
+     *                 this instance, which may include placing a newly created
+     *                 instance of type U into the {@link Consumer} (second
+     *                 parameter of the lambda expression).
+     * @param toStore  instance which supplies the {@link Consumer} used the lambda
+     *                 expression to every parallel thread and will collect all the
+     *                 U instances given to those {@link Consumer}s.
+     * @return a {@link ReturnGivenResult} which waits on the completion of all
+     *         asynchronous tasks before returning this instance. Programmers should
+     *         also wait on the completion of this {@link FutureN} to make sure that
+     *         no more U instances are placed into {@code toStore}.
+     */
+    public &lt;U&gt; Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads,
+            BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action, final ParallelReceiver&lt;? super U&gt; toStore) {
+<span class="fc" id="L222">        final List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L223">            sub.forEach(action, toStore.getReceiver());</span>
+<span class="fc" id="L224">        });</span>
+<span class="fc" id="L225">        return new FutureN.ReturnGivenResult&lt;&gt;(futures, this);</span>
+    }
 
-<span class="fc bfc" id="L140" title="All 2 branches covered.">		for (Future&lt;?&gt; f : futures) {</span>
-			try {
-<span class="fc" id="L142">				f.get();</span>
-<span class="nc" id="L143">			} catch (InterruptedException | ExecutionException e) {</span>
-<span class="nc" id="L144">				e.printStackTrace();</span>
-<span class="nc" id="L145">				throw new RuntimeException(&quot;[ChunkedList] exception raised by worker threads.&quot;);</span>
-<span class="fc" id="L146">			}</span>
-<span class="fc" id="L147">		}</span>
-<span class="fc" id="L148">		return new FutureN.ReturnGivenResult&lt;ChunkedList&lt;S&gt;&gt;(futures, result);</span>
-	}
+    /**
+     * Performs the provided action on every element in the collection
+     * asynchronously using the provided executor service and the specified degree
+     * of parallelism. This method returns a {@link FutureN.ReturnGivenResult} which
+     * will wait on every asynchronous task spawned to complete before returning
+     * this instance.
+     *
+     * @param pool     executor service in charge or performing the operation
+     * @param nthreads the degree of parallelism for this action, corresponds to the
+     *                 number of pieces in which this instance contents will be
+     *                 split to be handled by parallel threads
+     * @param action   to action to perform on each individual element contained in
+     *                 this instance
+     * @return a {@link ReturnGivenResult} which waits on the completion of all
+     *         asynchronous tasks before returning this instance
+     */
+    @Deprecated
+    public Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads, Consumer&lt;? super T&gt; action) {
+<span class="fc" id="L246">        final List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L247">            sub.forEach(action);</span>
+<span class="fc" id="L248">        });</span>
+<span class="fc" id="L249">        return new FutureN.ReturnGivenResult&lt;&gt;(futures, this);</span>
+    }
 
-	/**
-	 * Checks if the provided {@link LongRange} intersects with one of the keys
-	 * contained by this instance. Returns the intersecting key, or {@code null} 
-	 * if there are no such  intersecting key. 
-	 * 
-	 * @param range the LongRange instance to check
-	 * @return a LongRange key of this object that intersects the provided 
-	 * 	{@link LongRange}, or {@code null} if there are so such key.
-	 */
-	private LongRange checkOverlap(LongRange range) {
-<span class="fc" id="L161">		LongRange floorKey = chunks.floorKey(range);</span>
-<span class="fc bfc" id="L162" title="All 4 branches covered.">		if (floorKey != null &amp;&amp; floorKey.isOverlapped(range)) {</span>
-<span class="fc" id="L163">			return floorKey;</span>
-		}
-<span class="fc" id="L165">		LongRange nextKey = chunks.higherKey(range);</span>
-<span class="fc bfc" id="L166" title="All 4 branches covered.">		if (nextKey != null &amp;&amp; nextKey.isOverlapped(range)) {</span>
-<span class="fc" id="L167">			return nextKey;</span>
-		}
-<span class="fc" id="L169">		return null;</span>
-	}
+    /**
+     * Performs the provided action on every (long) key and (T) value in the
+     * collection asynchronously using the provided executor service and the
+     * specified degree of parallelism. This method returns a
+     * {@link FutureN.ReturnGivenResult} which will wait on every asynchronous task
+     * spawned to complete before returning this instance.
+     *
+     * @param pool     executor service in charge or performing the operation
+     * @param nthreads the degree of parallelism for this action, corresponds to the
+     *                 number of pieces in which this instance contents will be
+     *                 split to be handled by parallel threads
+     * @param action   to action to perform on each pair of ({@code long} key and
+     *                 (T) element contained in this instance
+     * @return a {@link ReturnGivenResult} which waits on the completion of all
+     *         asynchronous tasks before returning this instance
+     */
+    @Deprecated
+    public Future&lt;ChunkedList&lt;T&gt;&gt; asyncForEach(ExecutorService pool, int nthreads, LongTBiConsumer&lt;? super T&gt; action) {
+<span class="fc" id="L270">        final List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L271">            sub.forEach(action);</span>
+<span class="fc" id="L272">        });</span>
+<span class="fc" id="L273">        return new FutureN.ReturnGivenResult&lt;&gt;(futures, this);</span>
+    }
 
-	/**
-	 * Clear the local elements
-	 */
-	@Override
-	public void clear() {
-<span class="fc" id="L177">		throw new UnsupportedOperationException();</span>
-	}
+    public void asyncForEach(LongTBiConsumer&lt;? super T&gt; action) {
+<span class="nc" id="L277">        forEachParallelBody((ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="nc" id="L278">            sub.forEach(action);</span>
+<span class="nc" id="L279">        });</span>
+<span class="nc" id="L280">    }</span>
 
-	/**
-	 * Return a Container that has the same values in the DistCol.
-	 *
-	 * @return a Container that has the same values in the DistCol.
-	 */
-	@Override
-	protected Object clone() {
-<span class="nc" id="L187">		TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt; newChunks = new TreeMap&lt;&gt;();</span>
-<span class="nc bnc" id="L188" title="All 2 branches missed.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="nc" id="L189">			newChunks.put(c.getRange(), ((Chunk&lt;T&gt;) c).clone());</span>
-<span class="nc" id="L190">		}</span>
-<span class="nc" id="L191">		return new ChunkedList&lt;T&gt;(newChunks);</span>
-	}
+    /**
+     * Creates a new ChunkedList defined on the same {@link LongRange}s as this
+     * instance by performing the mapping function on each element contained in this
+     * instance. This method applies the user-provided function in parallel using
+     * the threads in the provided {@link ExecutorService} with the set degree of
+     * parallelism by splitting the values contained in this instance into
+     * equal-size portions. These portions correspond to futures that complete when
+     * the portion has been dealt with. This method returns a
+     * {@link ReturnGivenResult} which will return the newly created
+     * {@link ChunkedList} once all the individual futures have completed.
+     *
+     * @param &lt;S&gt;      the type handled by the newly created map
+     * @param pool     the executor service in charge of processing this ChunkedList
+     *                 in parallel
+     * @param nthreads the degree of parallelism desired for this operation
+     * @param func     the mapping function from type T to type S from which the
+     *                 elements of the {@link ChunkedList} to create will be
+     *                 initialized
+     * @return a {@link ReturnGivenResult} which will return the new
+     *         {@link ChunkedList} once all parallel mapping operations have
+     *         completed
+     */
+    public &lt;S&gt; Future&lt;ChunkedList&lt;S&gt;&gt; asyncMap(ExecutorService pool, int nthreads,
+            Function&lt;? super T, ? extends S&gt; func) {
+<span class="fc" id="L306">        final ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
+<span class="fc" id="L307">        final List&lt;Future&lt;?&gt;&gt; futures = mapParallelBody(pool, nthreads, func, result);</span>
 
-	@Override
-	public boolean contains(Object o) {
-<span class="fc bfc" id="L196" title="All 2 branches covered.">		for (RangedList&lt;T&gt; chunk : chunks.values()) {</span>
-<span class="fc bfc" id="L197" title="All 2 branches covered.">			if (chunk.contains(o)) {</span>
-<span class="fc" id="L198">				return true;</span>
-			}
-<span class="fc" id="L200">		}</span>
-<span class="fc" id="L201">		return false;</span>
-	}
+<span class="fc bfc" id="L309" title="All 2 branches covered.">        for (final Future&lt;?&gt; f : futures) {</span>
+            try {
+<span class="fc" id="L311">                f.get();</span>
+<span class="nc" id="L312">            } catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L313">                throw new ParallelExecutionException(&quot;[ChunkedList] exception raised by worker threads.&quot;, e);</span>
+<span class="fc" id="L314">            }</span>
+<span class="fc" id="L315">        }</span>
+<span class="fc" id="L316">        return new FutureN.ReturnGivenResult&lt;&gt;(futures, result);</span>
+    }
 
-	@Override
-	public boolean containsAll(Collection&lt;?&gt; c) {
-		// cf.
-		// https://stackoverflow.com/questions/10199772/what-is-the-cost-of-containsall-in-java
-<span class="fc" id="L208">		Iterator&lt;?&gt; e = c.iterator();</span>
-<span class="fc bfc" id="L209" title="All 2 branches covered.">		while (e.hasNext()) {</span>
-<span class="fc bfc" id="L210" title="All 2 branches covered.">			if (!this.contains(e.next())) {</span>
-<span class="fc" id="L211">				return false;</span>
-			}
-		}
-<span class="fc" id="L214">		return true;</span>
-	}
+    /**
+     * Checks if the provided {@link LongRange} intersects with the range of one of
+     * the chunks contained by this instance. Returns the intersecting
+     * {@link LongRange}, or {@code null} if there are no intersecting
+     * {@link Chunk}s.
+     *
+     * @param range the LongRange instance to check
+     * @return a LongRange on which one of the Chunks of this object is defined that
+     *         intersects with the provided {@link LongRange}, or {@code null} if
+     *         there are no such intersecting {@link Chunk}s
+     */
+    private LongRange checkOverlap(LongRange range) {
+<span class="fc" id="L331">        return range.findOverlap(chunks);</span>
+    }
 
-	/**
-	 * Return whether this chunked list contains the given chunk.
-	 * @param c the {@link RangedList} whose inclusion in this instance needs to
-	 * 	be checked
-	 * @return {@code true} if the provided {@link RangedList} is contained in 
-	 * 	this instance, {@code false} otherwise
-	 */
-	public boolean containsChunk(RangedList&lt;T&gt; c) {
-<span class="fc" id="L225">		return chunks.containsValue(c);</span>
-	}
+    /**
+     * Removes all the chunks contained in this instance. This instance is
+     * effectively empty as a result and a subsequent call to {@link #isEmpty()}
+     * will return {@code true}, calling {@link #size()} will return {@code 0l}.
+     */
+    public void clear() {
+<span class="fc" id="L340">        size.set(0l);</span>
+<span class="fc" id="L341">        chunks.clear();</span>
+<span class="fc" id="L342">    }</span>
 
-	public boolean containsIndex(long i) {
-<span class="fc" id="L229">		LongRange r = new LongRange(i);</span>
-<span class="fc" id="L230">		Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
-<span class="pc bpc" id="L231" title="1 of 4 branches missed.">		if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L232">			entry = chunks.ceilingEntry(r);</span>
-<span class="fc bfc" id="L233" title="All 4 branches covered.">			if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L234">				return false;</span>
-			}
-		}
-<span class="fc" id="L237">		return true;</span>
-	}
+    /**
+     * Returns a new {@link ChunkedList} which contains the same {@link Chunk}s as
+     * this instance.
+     *
+     * @return a ChunkedList which holds the same Chunks as this instance
+     */
+    @Override
+    protected Object clone() {
+<span class="nc" id="L352">        final ConcurrentSkipListMap&lt;LongRange, RangedList&lt;T&gt;&gt; newChunks = new ConcurrentSkipListMap&lt;&gt;();</span>
+<span class="nc bnc" id="L353" title="All 2 branches missed.">        for (final RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="nc" id="L354">            newChunks.put(c.getRange(), ((Chunk&lt;T&gt;) c).clone());</span>
+<span class="nc" id="L355">        }</span>
+<span class="nc" id="L356">        return new ChunkedList&lt;&gt;(newChunks);</span>
+    }
 
-	/*
-    public Map&lt;LongRange, RangedList&lt;T&gt;&gt; filterChunk0(Predicate&lt;RangedList&lt;? super T&gt;&gt; filter) {
-        TreeMap&lt;LongRange, RangedList&lt;T&gt;&gt; map = new TreeMap&lt;&gt;();
-        for (RangedList&lt;T&gt; c : chunks.values()) {
-            if (filter.test(c)) {
-                map.put(c.getRange(), c);
+    /**
+     * Checks if the provided object is contained within one of the Chunks this
+     * instance holds. More formally, returns true if at least one of the chunks in
+     * this instance contains at least one element 'e' such that (o==null ? e==null
+     * : o.equals(e)). Of course, there may be several such elements 'e' in this
+     * instance located in a single and/or multiple chunks.
+     *
+     * @param o object whose presence is to be checked
+     * @return true if the provided object is contained in at least one of the
+     *         chunks contained in this instance
+     */
+    public boolean contains(Object o) {
+<span class="fc bfc" id="L371" title="All 2 branches covered.">        for (final RangedList&lt;T&gt; chunk : chunks.values()) {</span>
+<span class="fc bfc" id="L372" title="All 2 branches covered.">            if (chunk.contains(o)) {</span>
+<span class="fc" id="L373">                return true;</span>
+            }
+<span class="fc" id="L375">        }</span>
+<span class="fc" id="L376">        return false;</span>
+    }
+
+    /**
+     * Checks if all the elements provided in the collection are present in this
+     * instance.
+     * &lt;p&gt;
+     * In its current implementation, it is equivalent to calling method
+     * {@link #contains(Object)} with each element in the collection until either an
+     * element is not found in this collection (at which point the method returns
+     * {@code false} without checking the remaining objects in the collection) or
+     * all the elements in the provided collection are found in this instance (at
+     * which point this method returns {@code true}. If programmer can place the
+     * elements that are more likely to be absent from this instance at the
+     * beginning of the collection (in the order used by the {@link Iterator}, it
+     * may save considerable execution time.
+     *
+     * @param c elements whose presence in this instance is to be checked
+     * @return true if every instance in the provided collection is present in this
+     *         collection
+     */
+    public boolean containsAll(Collection&lt;?&gt; c) {
+        // cf
+        // https://stackoverflow.com/questions/10199772/what-is-the-cost-of-containsall-in-java
+<span class="fc" id="L400">        final Iterator&lt;?&gt; e = c.iterator();</span>
+<span class="fc bfc" id="L401" title="All 2 branches covered.">        while (e.hasNext()) {</span>
+<span class="fc bfc" id="L402" title="All 2 branches covered.">            if (!this.contains(e.next())) {</span>
+<span class="fc" id="L403">                return false;</span>
             }
         }
-        return map;
-    }*/
-	public List&lt;RangedList&lt;T&gt;&gt; filterChunk(Predicate&lt;RangedList&lt;? super T&gt;&gt; filter) {
-<span class="fc" id="L251">		List&lt;RangedList&lt;T&gt;&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L252" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc bfc" id="L253" title="All 2 branches covered.">			if (filter.test(c)) {</span>
-<span class="fc" id="L254">				result.add(c);</span>
-			}
-<span class="fc" id="L256">		}</span>
-<span class="fc" id="L257">		return result;</span>
-	}
+<span class="fc" id="L406">        return true;</span>
+    }
 
-	public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action, final Collection&lt;? super U&gt; toStore) {
-<span class="fc" id="L261">		forEach(action, new Consumer&lt;U&gt;() {</span>
-			@Override
-			public void accept(U u) {
-<span class="fc" id="L264">				toStore.add(u);</span>
-<span class="fc" id="L265">			}</span>
-		});
-<span class="fc" id="L267">	}</span>
+    /**
+     * Returns whether this {@link ChunkedList} contains the given
+     * {@link RangedList}.
+     *
+     * @param c the {@link RangedList} whose inclusion in this instance needs to be
+     *          checked
+     * @return {@code true} if the provided {@link RangedList} is contained in this
+     *         instance, {@code false} otherwise
+     */
+    public boolean containsChunk(RangedList&lt;T&gt; c) {
+<span class="fc bfc" id="L419" title="All 2 branches covered.">        if (c == null) {</span>
+<span class="fc" id="L420">            return false;</span>
+        }
+<span class="fc" id="L422">        return chunks.containsValue(c);</span>
+    }
 
-	public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action, Consumer&lt;U&gt; receiver) {
-<span class="fc bfc" id="L270" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc" id="L271">			c.forEach(t -&gt; action.accept((T) t, receiver));</span>
-<span class="fc" id="L272">		}</span>
-<span class="fc" id="L273">	}</span>
+    public boolean containsIndex(long i) {
+<span class="fc" id="L426">        final LongRange r = new LongRange(i);</span>
+<span class="fc" id="L427">        Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
+<span class="fc bfc" id="L428" title="All 4 branches covered.">        if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L429">            entry = chunks.ceilingEntry(r);</span>
+<span class="fc bfc" id="L430" title="All 4 branches covered.">            if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L431">                return false;</span>
+            }
+        }
+<span class="fc" id="L434">        return true;</span>
+    }
 
-	public void forEach(Consumer&lt;? super T&gt; action) {
-<span class="fc bfc" id="L276" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc" id="L277">			c.forEach(action);</span>
-<span class="fc" id="L278">		}</span>
-<span class="fc" id="L279">	}</span>
+    public boolean containsRange(LongRange range) {
+<span class="nc" id="L438">        return range.contained(chunks);</span>
+    }
 
-	public &lt;U&gt; void forEach(ExecutorService pool, int nthreads, BiConsumer&lt;? super T, Consumer&lt;U&gt;&gt; action,
-			final MultiReceiver&lt;U&gt; toStore) {
-<span class="fc" id="L283">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L284">			sub.forEach(action,toStore.getReceiver());</span>
-<span class="fc" id="L285">		});</span>
-<span class="fc" id="L286">		waitNfutures(futures);</span>
-<span class="fc" id="L287">	}</span>
+    /*
+     * public Map&lt;LongRange, RangedList&lt;T&gt;&gt; filterChunk0(Predicate&lt;RangedList&lt;?
+     * super T&gt;&gt; filter) { ConcurrentSkipListMap&lt;LongRange, RangedList&lt;T&gt;&gt; map = new
+     * ConcurrentSkipListMap&lt;&gt;(); for (RangedList&lt;T&gt; c : chunks.values()) { if
+     * (filter.test(c)) { map.put(c.getRange(), c); } } return map; }
+     */
 
-	public void forEach(ExecutorService pool, int nthreads, Consumer&lt;? super T&gt; action) {
-<span class="fc" id="L290">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L291">			sub.forEach(action);</span>
-<span class="fc" id="L292">		});</span>
-<span class="fc" id="L293">		waitNfutures(futures);</span>
-<span class="fc" id="L294">	}</span>
+    @Override
+    public boolean equals(Object o) {
+<span class="pc bpc" id="L450" title="2 of 4 branches missed.">        if (o == null || !(o instanceof ChunkedList)) {</span>
+<span class="nc" id="L451">            return false;</span>
+        }
+        // FIXME very slow
+<span class="fc" id="L454">        final ChunkedList&lt;?&gt; target = (ChunkedList&lt;?&gt;) o;</span>
+<span class="pc bpc" id="L455" title="1 of 2 branches missed.">        if (size() != target.size()) {</span>
+<span class="nc" id="L456">            return false;</span>
+        }
+<span class="fc bfc" id="L458" title="All 2 branches covered.">        for (final LongRange range : chunks.keySet()) {</span>
+<span class="fc bfc" id="L459" title="All 2 branches covered.">            for (final long index : range) {</span>
+<span class="fc" id="L460">                final T mine = get(index);</span>
+<span class="fc" id="L461">                final Object yours = target.get(index);</span>
+<span class="pc bpc" id="L462" title="3 of 4 branches missed.">                if (mine == null &amp;&amp; yours != null) {</span>
+<span class="nc" id="L463">                    return false;</span>
+                }
+<span class="pc bpc" id="L465" title="2 of 4 branches missed.">                if (mine != null &amp;&amp; !mine.equals(yours)) {</span>
+<span class="nc" id="L466">                    return false;</span>
+                }
+<span class="fc" id="L468">            }</span>
+<span class="fc" id="L469">        }</span>
+<span class="fc" id="L470">        return true;</span>
+    }
 
-	public void forEach(ExecutorService pool, int nthreads, LongTBiConsumer&lt;? super T&gt; action) {
-<span class="fc" id="L297">		List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
-<span class="fc" id="L298">			sub.forEach(action);</span>
-<span class="fc" id="L299">		});</span>
-<span class="fc" id="L300">		waitNfutures(futures);</span>
-<span class="fc" id="L301">	}</span>
+    /**
+     * Returns the list of {@link Chunk} that pass the provided filter. Chunks are
+     * included if the filter returns {@code true}.
+     *
+     * @param filter the filter deciding if a given chunk should be included in the
+     *               returned list
+     * @return the {@link Chunk}s contained in this instance which passed the
+     *         provided filter
+     */
+    public List&lt;RangedList&lt;T&gt;&gt; filterChunk(Predicate&lt;RangedList&lt;? super T&gt;&gt; filter) {
+<span class="fc" id="L483">        final List&lt;RangedList&lt;T&gt;&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L484" title="All 2 branches covered.">        for (final RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc bfc" id="L485" title="All 2 branches covered.">            if (filter.test(c)) {</span>
+<span class="fc" id="L486">                result.add(c);</span>
+            }
+<span class="fc" id="L488">        }</span>
+<span class="fc" id="L489">        return result;</span>
+    }
 
+    /**
+     * Performs the provided action on each element of this collection. As part of
+     * this operation, some information of type U can be created or extracted from
+     * elements and potentially stored into the provided collection using the
+     * Consumer of U (second argument of the lambda expression). These elements will
+     * be added using method {@link Collection#add(Object)}.
+     * &lt;p&gt;
+     * As a variant, you may also directly supply a Consumer&amp;lt;U&amp;gt; rather than a
+     * collection using method {@link #forEach(BiConsumer, Consumer)}
+     *
+     * @param &lt;U&gt;     the type of the information to extract
+     * @param action  action to perform on each element of the collection
+     * @param toStore the collection in which the information extracted will be
+     *                stored
+     * @see #forEach(BiConsumer, Consumer)
+     */
+    public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action, final Collection&lt;? super U&gt; toStore) {
+<span class="fc" id="L509">        forEach(action, new Consumer&lt;U&gt;() {</span>
+            @Override
+            public void accept(U u) {
+<span class="fc" id="L512">                toStore.add(u);</span>
+<span class="fc" id="L513">            }</span>
+        });
+<span class="fc" id="L515">    }</span>
 
-	public void forEach(LongTBiConsumer&lt;? super T&gt; action) {
-<span class="fc bfc" id="L305" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc" id="L306">			c.forEach(c.getRange(), action);</span>
-<span class="fc" id="L307">		}</span>
-<span class="fc" id="L308">	}</span>
+    /**
+     * Performs the provided action o neach element of this collection. As part of
+     * this operation, some information of type U can be created or extracted from
+     * elements and given to the Consumer&amp;lt;U&amp;gt; (second argument of the lambda
+     * expression). This {@link Consumer} available in the lambda expression is the
+     * one given as second parameter of this method.
+     * &lt;p&gt;
+     * As an alternative, you can use method
+     * {@link #forEach(BiConsumer, Collection)} to provide a {@link Collection}
+     * rather than a {@link Consumer} as the second argument of the method.
+     *
+     * @param &lt;U&gt;      the type of the result extracted from the elements in this
+     *                 collection
+     * @param action   the action to perform on each element of this collection
+     * @param receiver the receiver which will accept the U instances extracted from
+     *                 the elements of this collection
+     */
+    public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action, Consumer&lt;? super U&gt; receiver) {
+<span class="fc bfc" id="L535" title="All 2 branches covered.">        for (final RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc" id="L536">            c.forEach(t -&gt; action.accept(t, receiver));</span>
+<span class="fc" id="L537">        }</span>
+<span class="fc" id="L538">    }</span>
 
-	public void forEachChunk(Consumer&lt;RangedList&lt;T&gt;&gt; op) {
-<span class="fc bfc" id="L311" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc" id="L312">			op.accept(c);</span>
-<span class="fc" id="L313">		}</span>
-<span class="fc" id="L314">	}</span>
+    /**
+     * Performs the provided action sequentially on the instances contained by this
+     * {@link ChunkedList}, allowing for the by-product of the operation to be
+     * stored in the specified {@link ParallelReceiver}.
+     * &lt;p&gt;
+     * This method is necessary as the manner in which instances are placed inside a
+     * {@link ParallelReceiver} differs from that of a normal collection. Although
+     * the features that handle parallel insertion of values are not leveraged in
+     * this sequential method, the preparations needed to insert instances into the
+     * {@link ParallelReceiver} remain necessary.
+     *
+     * @param &lt;U&gt;     the type of the data produced from the instances contained in
+     *                this collection and stored in the provided
+     *                {@link ParallelReceiver}
+     * @param action  the action performed on all the elements contained in this
+     *                collection. U instances may be created and given to the
+     *                Consumer&amp;lt;U&amp;gt; as part of this action
+     * @param toStore the parallel receiver which will receive all the U instances
+     *                which are created as part of the action applied on the
+     *                elements of this collection
+     */
+    public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action, ParallelReceiver&lt;? super U&gt; toStore) {
+<span class="fc" id="L562">        final Consumer&lt;? super U&gt; receiver = toStore.getReceiver();</span>
+<span class="fc" id="L563">        forEach(action, receiver);</span>
+<span class="fc" id="L564">    }</span>
 
-	private List&lt;Future&lt;?&gt;&gt; forEachParallelBody(ExecutorService pool, int nthreads, Consumer&lt;ChunkedList&lt;T&gt;&gt; run) {
-<span class="fc" id="L317">		List&lt;ChunkedList&lt;T&gt;&gt; separated = this.separate(nthreads);</span>
-<span class="fc" id="L318">		List&lt;Future&lt;?&gt;&gt; futures = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L319" title="All 2 branches covered.">		for (ChunkedList&lt;T&gt; sub: separated) {</span>
-<span class="fc" id="L320">			futures.add(pool.submit(() -&gt; {</span>
-<span class="fc" id="L321">				run.accept(sub);</span>
-<span class="fc" id="L322">			}));</span>
-<span class="fc" id="L323">		}</span>
-<span class="fc" id="L324">		return futures;</span>
-	}
+    /**
+     * Performs the provided action on every element contained in this collection.
+     *
+     * @param action action to perform on each element contained in this instance
+     */
+    @Override
+    public void forEach(Consumer&lt;? super T&gt; action) {
+<span class="fc bfc" id="L573" title="All 2 branches covered.">        for (final RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc" id="L574">            c.forEach(action);</span>
+<span class="fc" id="L575">        }</span>
+<span class="fc" id="L576">    }</span>
 
-	public T get(long i) {
-<span class="fc" id="L328">		LongRange r = new LongRange(i);</span>
-<span class="fc" id="L329">		Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
-<span class="fc bfc" id="L330" title="All 4 branches covered.">		if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L331">			entry = chunks.ceilingEntry(r);</span>
-<span class="pc bpc" id="L332" title="1 of 4 branches missed.">			if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L333">				throw new IndexOutOfBoundsException(&quot;ChunkedList: index &quot; + i + &quot; is out of range of &quot; + chunks);</span>
-			}
-		}
-<span class="fc" id="L336">		RangedList&lt;T&gt; chunk = entry.getValue();</span>
-<span class="fc" id="L337">		return chunk.get(i);</span>
-	}
+    /**
+     * Performs the provided action on each element of this collection in parallel
+     * using the provided {@link ExecutorService} with the specified degree of
+     * parallelism. This action may involve extracting some information of type U
+     * from individual elements and placing these into the Consumer (second argument
+     * of the lambda expression). This {@link Consumer} used in the lambda exression
+     * is obtained from the provided {@link ParallelReceiver} which will receive all
+     * the U instances produced during this method. This method returns when all the
+     * elements in the collection have been treated.
+     *
+     * @param &lt;U&gt;      type of the information extracted from individual elements
+     * @param pool     executor service in charge of processing the elements of this
+     *                 instance in parallel
+     * @param nthreads degree of parallelism desired for this operation
+     * @param action   action to perform on individual elements of this collection,
+     *                 potentially extracting some information of type U and giving
+     *                 it to the {@link Consumer}, the second argument of the action
+     * @param toStore  {@link ParallelReceiver} instance which provides the
+     *                 {@link Consumer}s of each thread that will process the
+     *                 elements of this library and receive all the U elements
+     *                 extracted from this collection
+     */
+    @Deprecated
+    public &lt;U&gt; void forEach(ExecutorService pool, int nthreads, BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
+            final ParallelReceiver&lt;U&gt; toStore) {
+<span class="fc" id="L603">        final List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L604">            sub.forEach(action, toStore.getReceiver());</span>
+<span class="fc" id="L605">        });</span>
+<span class="fc" id="L606">        waitNfutures(futures);</span>
+<span class="fc" id="L607">    }</span>
 
-	@Override
-	public boolean isEmpty() {
-<span class="fc bfc" id="L342" title="All 2 branches covered.">		return size == 0;</span>
-	}
+    /**
+     * Performs the provided action on every eleement in the collection in parallel
+     * using the provided {@link ExecutorService} and the set degree of parallelism.
+     * Returns when all operations have finished.
+     *
+     * @param pool     executor service in charge or performing the operation
+     * @param nthreads the degree of parallelism for this action, corresponds to the
+     *                 number of pieces in which this instance contents will be
+     *                 split to be handled by parallel threads
+     * @param action   to action to perform on element contained in this instance
+     */
+    @Deprecated
+    public void forEach(ExecutorService pool, int nthreads, Consumer&lt;? super T&gt; action) {
+<span class="fc" id="L622">        final List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L623">            sub.forEach(action);</span>
+<span class="fc" id="L624">        });</span>
+<span class="fc" id="L625">        waitNfutures(futures);</span>
+<span class="fc" id="L626">    }</span>
 
-	@Override
-	public Iterator&lt;T&gt; iterator() {
-<span class="fc" id="L347">		return new It&lt;T&gt;(chunks);</span>
-	}
-	public long longSize() {
-<span class="fc" id="L350">		return size;</span>
-	}
+    /**
+     * Performs the provided action on every (long) key and (T) value in the
+     * collection in parallel using the provided {@link ExecutorService} and the set
+     * degree of parallelism. Returns when all operations have finished.
+     *
+     * @param pool     executor service in charge or performing the operation
+     * @param nthreads the degree of parallelism for this action, corresponds to the
+     *                 number of pieces in which this instance contents will be
+     *                 split to be handled by parallel threads
+     * @param action   to action to perform on each pair of ({@code long} key and
+     *                 (T) element contained in this instance
+     */
+    @Deprecated
+    public void forEach(ExecutorService pool, int nthreads, LongTBiConsumer&lt;? super T&gt; action) {
+<span class="fc" id="L642">        final List&lt;Future&lt;?&gt;&gt; futures = forEachParallelBody(pool, nthreads, (ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L643">            sub.forEach(action);</span>
+<span class="fc" id="L644">        });</span>
+<span class="fc" id="L645">        waitNfutures(futures);</span>
+<span class="fc" id="L646">    }</span>
 
-	public &lt;S&gt; ChunkedList&lt;S&gt; map(ExecutorService pool, int nthreads, Function&lt;? super T, ? extends S&gt; func) {
-<span class="fc" id="L354">		ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
-<span class="fc" id="L355">		List&lt;Future&lt;?&gt;&gt; futures = mapParallelBody(pool, nthreads, func, result);</span>
-<span class="fc bfc" id="L356" title="All 2 branches covered.">		for (Future&lt;?&gt; f : futures) {</span>
-			try {
-<span class="fc" id="L358">				f.get();</span>
-<span class="nc" id="L359">			} catch (InterruptedException | ExecutionException e) {</span>
-<span class="nc" id="L360">				e.printStackTrace();</span>
-<span class="nc" id="L361">				throw new RuntimeException(&quot;[ChunkedList] exception raised by worker threads.&quot;);</span>
-<span class="fc" id="L362">			}</span>
-<span class="fc" id="L363">		}</span>
-<span class="fc" id="L364">		return result;</span>
-	}
+    /**
+     * Performs the provided action on every (long) key and (T) value in the
+     * collection serquentially and returns.
+     *
+     * @param action to action to perform on each pair of ({@code long} key and (T)
+     *               element contained in this instance
+     */
+    public void forEach(LongTBiConsumer&lt;? super T&gt; action) {
+<span class="fc bfc" id="L656" title="All 2 branches covered.">        for (final RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc" id="L657">            c.forEach(c.getRange(), action);</span>
+<span class="fc" id="L658">        }</span>
+<span class="fc" id="L659">    }</span>
 
-	public &lt;S&gt; ChunkedList&lt;S&gt; map(Function&lt;? super T, ? extends S&gt; func) {
-<span class="fc" id="L368">		ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
-<span class="fc" id="L369">		forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
-<span class="fc" id="L370">			RangedList&lt;S&gt; r = c.map(func);</span>
-<span class="fc" id="L371">			result.addChunk(r);</span>
-<span class="fc" id="L372">		});</span>
-<span class="fc" id="L373">		return result;</span>
-	}
+    /**
+     * Performs the provided operation on each {@link Chunk} contained in this
+     * instance and returns.
+     *
+     * @param op operation to make on each chunk
+     */
+    public void forEachChunk(Consumer&lt;RangedList&lt;T&gt;&gt; op) {
+<span class="fc bfc" id="L668" title="All 2 branches covered.">        for (final RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc" id="L669">            op.accept(c);</span>
+<span class="fc" id="L670">        }</span>
+<span class="fc" id="L671">    }</span>
 
-	private &lt;S&gt; List&lt;Future&lt;?&gt;&gt; mapParallelBody(ExecutorService pool, int nthreads,
-			Function&lt;? super T, ? extends S&gt; func, ChunkedList&lt;S&gt; result) {
-<span class="fc" id="L378">		forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
-<span class="fc" id="L379">			result.addChunk(new Chunk&lt;S&gt;(c.getRange()));</span>
-<span class="fc" id="L380">		});</span>
-<span class="fc" id="L381">		List&lt;ChunkedList&lt;T&gt;&gt; separatedIn = this.separate(nthreads);</span>
-<span class="fc" id="L382">		List&lt;ChunkedList&lt;S&gt;&gt; separatedOut = result.separate(nthreads);</span>
-<span class="fc" id="L383">		List&lt;Future&lt;?&gt;&gt; futures = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L384" title="All 2 branches covered.">		for (int i = 0; i &lt; nthreads; i++) {</span>
-<span class="fc" id="L385">			final int i0 = i;</span>
-<span class="fc" id="L386">			futures.add(pool.submit(() -&gt; {</span>
-<span class="fc" id="L387">				ChunkedList&lt;T&gt; from = separatedIn.get(i0);</span>
-<span class="fc" id="L388">				ChunkedList&lt;S&gt; to = separatedOut.get(i0);</span>
-<span class="fc" id="L389">				from.mapTo(to, func);</span>
-<span class="fc" id="L390">				return null;</span>
-			}));
-		}
-<span class="fc" id="L393">		return futures;</span>
-	}
+    private void forEachParallelBody(Consumer&lt;ChunkedList&lt;T&gt;&gt; run) {
+<span class="fc" id="L674">        final List&lt;ChunkedList&lt;T&gt;&gt; separated = this.separate(Runtime.getRuntime().availableProcessors() * 2);</span>
+<span class="fc bfc" id="L675" title="All 2 branches covered.">        for (final ChunkedList&lt;T&gt; sub : separated) {</span>
+<span class="fc" id="L676">            async(() -&gt; {</span>
+<span class="fc" id="L677">                run.accept(sub);</span>
+<span class="fc" id="L678">            });</span>
+<span class="fc" id="L679">        }</span>
+<span class="fc" id="L680">    }</span>
 
-	private &lt;S&gt; void mapTo(ChunkedList&lt;S&gt; to, Function&lt;? super T, ? extends S&gt; func) {
-<span class="fc" id="L397">		Iterator&lt;RangedList&lt;T&gt;&gt; fromIter = chunks.values().iterator();</span>
-<span class="fc" id="L398">		Iterator&lt;RangedList&lt;S&gt;&gt; toIter = to.chunks.values().iterator();</span>
-<span class="fc bfc" id="L399" title="All 2 branches covered.">		while (fromIter.hasNext()) {</span>
-<span class="pc bpc" id="L400" title="2 of 4 branches missed.">			assert (toIter.hasNext());</span>
-<span class="fc" id="L401">			RangedList&lt;T&gt; fromChunk = fromIter.next();</span>
-<span class="fc" id="L402">			RangedList&lt;S&gt; toChunk = toIter.next();</span>
-<span class="fc" id="L403">			toChunk.setupFrom(fromChunk, func);</span>
-<span class="fc" id="L404">		}</span>
-<span class="fc" id="L405">	}</span>
+    @Deprecated
+    private List&lt;Future&lt;?&gt;&gt; forEachParallelBody(ExecutorService pool, int nthreads, Consumer&lt;ChunkedList&lt;T&gt;&gt; run) {
+<span class="fc" id="L684">        final List&lt;ChunkedList&lt;T&gt;&gt; separated = this.separate(nthreads);</span>
+<span class="fc" id="L685">        final List&lt;Future&lt;?&gt;&gt; futures = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L686" title="All 2 branches covered.">        for (final ChunkedList&lt;T&gt; sub : separated) {</span>
+<span class="fc" id="L687">            futures.add(pool.submit(() -&gt; {</span>
+<span class="fc" id="L688">                run.accept(sub);</span>
+<span class="fc" id="L689">            }));</span>
+<span class="fc" id="L690">        }</span>
+<span class="fc" id="L691">        return futures;</span>
+    }
 
-	public int numChunks() {
-<span class="fc" id="L408">		return chunks.size();</span>
-	}
+    /**
+     * Finds the chunk containing the provided index and returns the associated
+     * value.
+     *
+     * @param i long index whose associated value should be returned
+     * @return the value associated with the provided index
+     * @throws IndexOutOfBoundsException if the provided index is not contained by
+     *                                   any chunk in this instance
+     * @see #containsIndex(long)
+     */
+    public T get(long i) {
+<span class="fc" id="L705">        final LongRange r = new LongRange(i);</span>
+<span class="fc" id="L706">        Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
+<span class="fc bfc" id="L707" title="All 4 branches covered.">        if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L708">            entry = chunks.ceilingEntry(r);</span>
+<span class="fc bfc" id="L709" title="All 4 branches covered.">            if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L710">                throw new IndexOutOfBoundsException(</span>
+                        &quot;ChunkedList: index &quot; + i + &quot; is not within the range of any chunk&quot;);
+            }
+        }
+<span class="fc" id="L714">        final RangedList&lt;T&gt; chunk = entry.getValue();</span>
+<span class="fc" id="L715">        return chunk.get(i);</span>
+    }
 
-	/**
-	 * Return the logical range assined end local.
-	 *
-	 * @return an instance of LongRange.
-	 */
-	public Collection&lt;LongRange&gt; ranges() {
-<span class="fc" id="L417">		return chunks.keySet();</span>
-	}
+    @Override
+    public int hashCode() {
+<span class="nc" id="L720">        int hashCode = 1;</span>
+        // code from JavaAPI doc of List
+<span class="nc bnc" id="L722" title="All 2 branches missed.">        for (final RangedList&lt;?&gt; c : chunks.values()) {</span>
+<span class="nc bnc" id="L723" title="All 2 branches missed.">            hashCode = 31 * hashCode + (c == null ? 0 : c.hashCode());</span>
+<span class="nc" id="L724">        }</span>
+<span class="nc" id="L725">        return hashCode;</span>
+    }
 
-	@Override
-	public boolean remove(Object o) {
-<span class="fc" id="L422">		throw new UnsupportedOperationException();</span>
-	}
+    /**
+     * Indicates if this instance does not contain any chunk
+     *
+     * @return {@code true} if this instance does not contain any chunk
+     */
+    public boolean isEmpty() {
+<span class="fc bfc" id="L734" title="All 2 branches covered.">        return size.get() == 0;</span>
+    }
 
-	@Override
-	public boolean removeAll(Collection&lt;?&gt; c) {
-<span class="fc" id="L427">		throw new UnsupportedOperationException();</span>
-	}
+    /**
+     * Returns an iterator on the values contained by every chunk in this instance.
+     *
+     * @return an iterator on the elements contained in this {@link ChunkedList}
+     */
+    @Override
+    public Iterator&lt;T&gt; iterator() {
+<span class="fc" id="L744">        return new It&lt;&gt;(chunks);</span>
+    }
 
-	public RangedList&lt;T&gt; removeChunk(RangedList&lt;T&gt; c) {
-<span class="fc" id="L431">		RangedList&lt;T&gt; removed = chunks.remove(c.getRange());</span>
-<span class="fc bfc" id="L432" title="All 2 branches covered.">		if (removed != null) {</span>
-<span class="fc" id="L433">			size -=removed.longSize();</span>
-		}
-<span class="fc" id="L435">		return removed;</span>
-	}
+    /**
+     * Creates a new {@link ChunkedList} by applying the provided map function in
+     * parallel to every element of every {@link Chunk} contained by this instance.
+     *
+     * @param &lt;S&gt;      the type produced by the map function
+     * @param pool     the executor service in charge of realizing the parallel
+     *                 operation
+     * @param nthreads the degree of parallelism allowed for this operation. The
+     *                 {@link ChunkedList}'s Chunks will be split into the specified
+     *                 number of portions that contain roughly same number of
+     *                 indices.
+     * @param func     the mapping function taking a T as parameter and returning a
+     *                 S
+     * @return a newly created ChunkedList which contains the result of mapping the
+     *         elements of this instance
+     */
+    public &lt;S&gt; ChunkedList&lt;S&gt; map(ExecutorService pool, int nthreads, Function&lt;? super T, ? extends S&gt; func) {
+<span class="fc" id="L764">        final ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
+<span class="fc" id="L765">        final List&lt;Future&lt;?&gt;&gt; futures = mapParallelBody(pool, nthreads, func, result);</span>
+<span class="fc bfc" id="L766" title="All 2 branches covered.">        for (final Future&lt;?&gt; f : futures) {</span>
+            try {
+<span class="fc" id="L768">                f.get();</span>
+<span class="nc" id="L769">            } catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L770">                throw new ParallelExecutionException(&quot;[ChunkedList] exception raised by worker threads.&quot;, e);</span>
+<span class="fc" id="L771">            }</span>
+<span class="fc" id="L772">        }</span>
+<span class="fc" id="L773">        return result;</span>
+    }
 
-	@Override
-	public boolean retainAll(Collection&lt;?&gt; c) {
-<span class="fc" id="L440">		throw new UnsupportedOperationException();</span>
-	}
+    /**
+     * Creates a new {@link ChunkedList} by applying the provided map function to
+     * every element of every {@link Chunk} contained by this instance.
+     *
+     * @param &lt;S&gt;  the type produced by the map function
+     * @param func the mapping function taking a T as parameter and returning a S
+     * @return a newly created ChunkedList which contains the result of mapping the
+     *         elements of this instance
+     */
+    public &lt;S&gt; ChunkedList&lt;S&gt; map(Function&lt;? super T, ? extends S&gt; func) {
+<span class="fc" id="L786">        final ChunkedList&lt;S&gt; result = new ChunkedList&lt;&gt;();</span>
+<span class="fc" id="L787">        forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
+<span class="fc" id="L788">            final RangedList&lt;S&gt; r = c.map(func);</span>
+<span class="fc" id="L789">            result.add(r);</span>
+<span class="fc" id="L790">        });</span>
+<span class="fc" id="L791">        return result;</span>
+    }
 
-	/**
-	 * Seperates the contents of the ChunkedList in &lt;em&gt;n&lt;/em&gt; parts.
-	 * This can be used to apply a forEach method in parallel using 'n' threads
-	 * for instance. The method returns &lt;em&gt;n&lt;/em&gt; lists, each containing a
-	 * {@link ChunkedList} of &lt;em&gt;T&lt;/em&gt;s.
-	 *
-	 * @param n the number of parts in which to split the ChunkedList
-	 * @return &lt;em&gt;n&lt;/em&gt; {@link ChunkedList}s containing the same number of
-	 * 	elements
-	 */
-	public List&lt;ChunkedList&lt;T&gt;&gt; separate(int n) {
-<span class="fc" id="L454">		long totalNum = size();</span>
-<span class="fc" id="L455">		long rem = totalNum % n;</span>
-<span class="fc" id="L456">		long quo = totalNum / n;</span>
-<span class="fc" id="L457">		List&lt;ChunkedList&lt;T&gt;&gt; result = new ArrayList&lt;ChunkedList&lt;T&gt;&gt;(n);</span>
-<span class="fc" id="L458">		RangedList&lt;T&gt; c = chunks.firstEntry().getValue();</span>
-<span class="fc" id="L459">		long used = 0;</span>
+    private &lt;S&gt; List&lt;Future&lt;?&gt;&gt; mapParallelBody(ExecutorService pool, int nthreads,
+            Function&lt;? super T, ? extends S&gt; func, ChunkedList&lt;S&gt; result) {
+<span class="fc" id="L796">        forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
+<span class="fc" id="L797">            result.add(new Chunk&lt;S&gt;(c.getRange()));</span>
+<span class="fc" id="L798">        });</span>
+<span class="fc" id="L799">        final List&lt;ChunkedList&lt;T&gt;&gt; separatedIn = this.separate(nthreads);</span>
+<span class="fc" id="L800">        final List&lt;ChunkedList&lt;S&gt;&gt; separatedOut = result.separate(nthreads);</span>
+<span class="fc" id="L801">        final List&lt;Future&lt;?&gt;&gt; futures = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L802" title="All 2 branches covered.">        for (int i = 0; i &lt; nthreads; i++) {</span>
+<span class="fc" id="L803">            final int i0 = i;</span>
+<span class="fc" id="L804">            futures.add(pool.submit(() -&gt; {</span>
+<span class="fc" id="L805">                final ChunkedList&lt;T&gt; from = separatedIn.get(i0);</span>
+<span class="fc" id="L806">                final ChunkedList&lt;S&gt; to = separatedOut.get(i0);</span>
+<span class="fc" id="L807">                from.mapTo(to, func);</span>
+<span class="fc" id="L808">                return null;</span>
+            }));
+        }
+<span class="fc" id="L811">        return futures;</span>
+    }
 
-<span class="fc bfc" id="L461" title="All 2 branches covered.">		for (int i = 0; i &lt; n; i++) {</span>
-<span class="fc" id="L462">			ChunkedList&lt;T&gt; r = new ChunkedList&lt;&gt;();</span>
-<span class="fc" id="L463">			result.add(r);</span>
-<span class="fc bfc" id="L464" title="All 2 branches covered.">			long rest = quo + ((i &lt; rem) ? 1 : 0);</span>
-<span class="fc bfc" id="L465" title="All 2 branches covered.">			while (rest &gt; 0) {</span>
-<span class="fc" id="L466">				LongRange range = c.getRange();</span>
-<span class="fc bfc" id="L467" title="All 2 branches covered.">				if (c.longSize() - used &lt; rest) { // not enough</span>
-<span class="fc" id="L468">					long from = range.from + used;</span>
-<span class="fc bfc" id="L469" title="All 2 branches covered.">					if (from != range.to) {</span>
-<span class="fc" id="L470">						r.addChunk(c.subList(from, range.to));	</span>
-					}
-<span class="fc" id="L472">					rest -= c.longSize() - used;</span>
-<span class="fc" id="L473">					used = 0;</span>
-					// TODO should use iterator??
-<span class="fc" id="L475">					c = chunks.higherEntry(range).getValue();</span>
-<span class="fc" id="L476">				} else {</span>
-<span class="fc" id="L477">					long from = range.from + used;</span>
-<span class="fc" id="L478">					long to = from + rest;</span>
-<span class="pc bpc" id="L479" title="1 of 2 branches missed.">					if (from != to) {</span>
-<span class="fc" id="L480">						r.addChunk(c.subList(from, to));	</span>
-					}
-<span class="fc" id="L482">					used += rest;</span>
-<span class="fc" id="L483">					rest = 0;</span>
-				}
+    private &lt;S&gt; void mapTo(ChunkedList&lt;S&gt; to, Function&lt;? super T, ? extends S&gt; func) {
+<span class="fc" id="L815">        final Iterator&lt;RangedList&lt;T&gt;&gt; fromIter = chunks.values().iterator();</span>
+<span class="fc" id="L816">        final Iterator&lt;RangedList&lt;S&gt;&gt; toIter = to.chunks.values().iterator();</span>
+<span class="fc bfc" id="L817" title="All 2 branches covered.">        while (fromIter.hasNext()) {</span>
+<span class="pc bpc" id="L818" title="2 of 4 branches missed.">            assert (toIter.hasNext());</span>
+<span class="fc" id="L819">            final RangedList&lt;T&gt; fromChunk = fromIter.next();</span>
+<span class="fc" id="L820">            final RangedList&lt;S&gt; toChunk = toIter.next();</span>
+<span class="fc" id="L821">            toChunk.setupFrom(fromChunk, func);</span>
+<span class="fc" id="L822">        }</span>
+<span class="fc" id="L823">    }</span>
 
-<span class="fc" id="L486">			}</span>
-		}
-<span class="fc" id="L488">		return result;</span>
-	}
+    /**
+     * Returns the number of chunks contained in this instance
+     *
+     * @return number of chunks in this instance
+     */
+    public int numChunks() {
+<span class="fc" id="L831">        return chunks.size();</span>
+    }
 
-	public T set(long i, T value) {
-<span class="fc" id="L492">		LongRange r = new LongRange(i);</span>
-<span class="fc" id="L493">		Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
-<span class="fc bfc" id="L494" title="All 4 branches covered.">		if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L495">			entry = chunks.ceilingEntry(r);</span>
-<span class="pc bpc" id="L496" title="1 of 4 branches missed.">			if (entry == null || !entry.getKey().contains(i)) {</span>
-<span class="fc" id="L497">				throw new IndexOutOfBoundsException(&quot;ChunkedList: index &quot; + i + &quot; is out of range of &quot; + chunks);</span>
-			}
-		}
-<span class="fc" id="L500">		RangedList&lt;T&gt; chunk = entry.getValue();</span>
-<span class="fc" id="L501">		return chunk.set(i, value);</span>
-	}
+    /**
+     * Performs the provided action on each element of this collection in parallel
+     * using the provided {@link ExecutorService} with the specified degree of
+     * parallelism. This action may involve extracting some information of type U
+     * from individual elements and placing these into the Consumer (second argument
+     * of the lambda expression). This {@link Consumer} used in the lambda exression
+     * is obtained from the provided {@link ParallelReceiver} which will receive all
+     * the U instances produced during this method. This method returns when all the
+     * elements in the collection have been treated.
+     *
+     * @param &lt;U&gt;     type of the information extracted from individual elements
+     * @param action  action to perform on individual elements of this collection,
+     *                potentially extracting some information of type U and giving
+     *                it to the {@link Consumer}, the second argument of the action
+     * @param toStore {@link ParallelReceiver} instance which provides the
+     *                {@link Consumer}s of each thread that will process the
+     *                elements of this library and receive all the U elements
+     *                extracted from this collection
+     */
+    public &lt;U&gt; void parallelForEach(BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
+            final ParallelReceiver&lt;? super U&gt; toStore) {
+<span class="fc" id="L855">        finish(() -&gt; {</span>
+<span class="fc" id="L856">            forEachParallelBody((ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L857">                sub.forEach(action, toStore.getReceiver());</span>
+<span class="fc" id="L858">            });</span>
+<span class="fc" id="L859">        });</span>
+<span class="fc" id="L860">    }</span>
 
-	/**
-	 * Return the number of local elements.
-	 *
-	 * @return the number of local elements.
-	 */
-	@Override
-	public int size() {
-<span class="fc" id="L511">		return (int) longSize();</span>
-	}
+    /**
+     * Performs the provided action on every eleement in the collection in parallel
+     * using the apgas finish-async. Returns when all operations have finished.
+     *
+     * @param action to action to perform on element contained in this instance
+     */
+    public void parallelForEach(Consumer&lt;? super T&gt; action) {
+<span class="fc" id="L869">        finish(() -&gt; {</span>
+<span class="fc" id="L870">            forEachParallelBody((ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L871">                sub.forEach(action);</span>
+<span class="fc" id="L872">            });</span>
+<span class="fc" id="L873">        });</span>
+<span class="fc" id="L874">    }</span>
 
-	@Override
-	public Object[] toArray() {
-		//        return new Object[0];
-<span class="fc" id="L517">		throw new UnsupportedOperationException();</span>
-	}
+    /**
+     * Performs the provided action on every (long) key and (T) value in the
+     * collection in parallel using the apgas finish-async. Returns when all
+     * operations have finished
+     *
+     * @param action to action to perform on each pair of ({@code long} key and (T)
+     *               element contained in this instance
+     */
+    public void parallelForEach(LongTBiConsumer&lt;? super T&gt; action) {
+<span class="fc" id="L885">        finish(() -&gt; {</span>
+<span class="fc" id="L886">            forEachParallelBody((ChunkedList&lt;T&gt; sub) -&gt; {</span>
+<span class="fc" id="L887">                sub.forEach(action);</span>
+<span class="fc" id="L888">            });</span>
+<span class="fc" id="L889">        });</span>
+<span class="fc" id="L890">    }</span>
 
-	@Override
-	public &lt;T1&gt; T1[] toArray(T1[] a) {
-		//        return null;
-<span class="fc" id="L523">		throw new UnsupportedOperationException();</span>
-	}
+    /**
+     * Return the ranges on which the chunks of this instance are defined in a
+     * collection
+     *
+     * @return the {@link LongRange}s on which each {@link Chunk} contains in this
+     *         instance are defined, in a collection
+     */
+    public Collection&lt;LongRange&gt; ranges() {
+<span class="fc" id="L900">        return chunks.keySet();</span>
+    }
 
-	@Override
-	public String toString() {
-<span class="fc" id="L528">		StringBuilder sb = new StringBuilder();</span>
-<span class="fc" id="L529">		sb.append(&quot;[ChunkedList(&quot; + chunks.size() + &quot;)&quot;);</span>
-<span class="fc bfc" id="L530" title="All 2 branches covered.">		for (RangedList&lt;T&gt; c : chunks.values()) {</span>
-<span class="fc" id="L531">			sb.append(&quot;,&quot; + c);</span>
-<span class="fc" id="L532">		}</span>
-<span class="fc" id="L533">		sb.append(&quot;]&quot;);</span>
-<span class="fc" id="L534">		return sb.toString();</span>
-	}
-	
-	private void waitNfutures(List&lt;Future&lt;?&gt;&gt; futures) {
-<span class="fc bfc" id="L538" title="All 2 branches covered.">		for (Future&lt;?&gt; f : futures) {</span>
-			try {
-<span class="fc" id="L540">				f.get();</span>
-<span class="nc" id="L541">			} catch (InterruptedException | ExecutionException e) {</span>
-<span class="nc" id="L542">				e.printStackTrace();</span>
-<span class="nc" id="L543">				throw new RuntimeException(&quot;[ChunkedList] exception raised by worker threads.&quot;);</span>
-<span class="fc" id="L544">			}</span>
-<span class="fc" id="L545">		}</span>
-<span class="fc" id="L546">	}</span>
-/*
-	public static void main(String[] args) {
+    /**
+     * Removes and returns the chunk contained in this instance which is defined the
+     * range provided as parameter. The specified range must match the exact bounds
+     * of a chunk contained in this instance. If there are no chunks defined on the
+     * specified range contained in this instance, returns null.
+     *
+     * @param range the range needs to be removed
+     * @return the removed chunk, or null if there was no such chunk contained in
+     *         this instance
+     */
+    public RangedList&lt;T&gt; remove(LongRange range) {
+<span class="fc" id="L914">        final RangedList&lt;T&gt; removed = chunks.remove(range);</span>
+<span class="fc bfc" id="L915" title="All 2 branches covered.">        if (removed != null) {</span>
+<span class="fc" id="L916">            size.addAndGet(-removed.size());</span>
+        }
+<span class="fc" id="L918">        return removed;</span>
+    }
 
-		ChunkedList&lt;String&gt; cl5 = new ChunkedList&lt;&gt;();
+    /**
+     * Removes and returns a chunk whose {@link LongRange} on which it is defined
+     * matches the one on which the provided {@link RangedList} is defined.
+     *
+     * @param c the chunk whose matching range needs to be removed
+     * @return the removed chunk, or null if there was no such chunk contained in
+     *         this instance
+     */
+    @Deprecated
+    public RangedList&lt;T&gt; remove(RangedList&lt;T&gt; c) {
+<span class="fc" id="L931">        final RangedList&lt;T&gt; removed = chunks.remove(c.getRange());</span>
+<span class="pc bpc" id="L932" title="1 of 2 branches missed.">        if (removed != null) {</span>
+<span class="fc" id="L933">            size.addAndGet(-removed.size());</span>
+        }
+<span class="fc" id="L935">        return removed;</span>
+    }
 
-		// Test1: Add Chunks
+    /**
+     * Separates the contents of the ChunkedList in &lt;em&gt;n&lt;/em&gt; parts. This can be
+     * used to apply a forEach method in parallel using 'n' threads for instance.
+     * The method returns &lt;em&gt;n&lt;/em&gt; lists, each containing a {@link ChunkedList} of
+     * &lt;em&gt;T&lt;/em&gt;s.
+     *
+     * @param n the number of parts in which to split the ChunkedList
+     * @return &lt;em&gt;n&lt;/em&gt; {@link ChunkedList}s containing the same number of
+     *         elements
+     */
+    public List&lt;ChunkedList&lt;T&gt;&gt; separate(int n) {
+<span class="fc" id="L949">        final long totalNum = size();</span>
+<span class="fc" id="L950">        final long rem = totalNum % n;</span>
+<span class="fc" id="L951">        final long quo = totalNum / n;</span>
+<span class="fc" id="L952">        final List&lt;ChunkedList&lt;T&gt;&gt; result = new ArrayList&lt;&gt;(n);</span>
+<span class="fc bfc" id="L953" title="All 2 branches covered.">        if (chunks.isEmpty()) {</span>
+<span class="fc" id="L954">            return result;</span>
+        }
+<span class="fc" id="L956">        RangedList&lt;T&gt; c = chunks.firstEntry().getValue();</span>
+<span class="fc" id="L957">        long used = 0;</span>
 
-		System.out.println(&quot;Test1&quot;);
-		for (int i = 0; i &lt; 10; i++) {
-			if (i % 2 == 1) {
-				continue;
-			}
-			long begin = i * 5;
-			long end = (i + 1) * 5;
-			Chunk&lt;String&gt; c = new Chunk&lt;&gt;(new LongRange(begin, end));
-			for (long index = begin; index &lt; end; index++) {
-				c.set(index, String.valueOf(index));
-			}
-			cl5.addChunk(c);
-		}
-		System.out.println(cl5.toString());
+<span class="fc bfc" id="L959" title="All 2 branches covered.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc" id="L960">            final ChunkedList&lt;T&gt; r = new ChunkedList&lt;&gt;();</span>
+<span class="fc" id="L961">            result.add(r);</span>
+<span class="fc bfc" id="L962" title="All 2 branches covered.">            long rest = quo + ((i &lt; rem) ? 1 : 0);</span>
+<span class="fc bfc" id="L963" title="All 2 branches covered.">            while (rest &gt; 0) {</span>
+<span class="fc" id="L964">                final LongRange range = c.getRange();</span>
+<span class="fc bfc" id="L965" title="All 2 branches covered.">                if (c.size() - used &lt; rest) { // not enough</span>
+<span class="fc" id="L966">                    final long from = range.from + used;</span>
+<span class="fc bfc" id="L967" title="All 2 branches covered.">                    if (from != range.to) {</span>
+<span class="fc" id="L968">                        r.add(c.subList(from, range.to));</span>
+                    }
+<span class="fc" id="L970">                    rest -= c.size() - used;</span>
+<span class="fc" id="L971">                    used = 0;</span>
+                    // TODO should we use iterator instead ?
+<span class="fc" id="L973">                    c = chunks.higherEntry(range).getValue();</span>
+<span class="fc" id="L974">                } else {</span>
+<span class="fc" id="L975">                    final long from = range.from + used;</span>
+<span class="fc" id="L976">                    final long to = from + rest;</span>
+<span class="pc bpc" id="L977" title="1 of 2 branches missed.">                    if (from != to) {</span>
+<span class="fc" id="L978">                        r.add(c.subList(from, to));</span>
+                    }
+<span class="fc" id="L980">                    used += rest;</span>
+<span class="fc" id="L981">                    rest = 0;</span>
+                }
 
-		// Test2: Iterate using each()
+<span class="fc" id="L984">            }</span>
+        }
+<span class="fc" id="L986">        return result;</span>
+    }
 
-		System.out.println(&quot;Test2&quot;);
-		StringBuilder sb2 = new StringBuilder();
-		cl5.forEach(value -&gt; sb2.append(value + &quot;,&quot;));
-		System.out.println(sb2.toString());
+    /**
+     * Finds the matching chunk and sets the provided value at the specified index.
+     *
+     * @param i     the index at which the value should be set
+     * @param value the value to set at the specified index
+     * @return the former value stored at this index, {@code null} if there were no
+     *         previous value or if the previous value was {@code null}
+     */
+    public T set(long i, T value) {
+<span class="fc" id="L998">        final LongRange r = new LongRange(i);</span>
+<span class="fc" id="L999">        Map.Entry&lt;LongRange, RangedList&lt;T&gt;&gt; entry = chunks.floorEntry(r);</span>
+<span class="fc bfc" id="L1000" title="All 4 branches covered.">        if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L1001">            entry = chunks.ceilingEntry(r);</span>
+<span class="pc bpc" id="L1002" title="1 of 4 branches missed.">            if (entry == null || !entry.getKey().contains(i)) {</span>
+<span class="fc" id="L1003">                throw new IndexOutOfBoundsException(&quot;ChunkedList: index &quot; + i + &quot; is out of range of &quot; + chunks);</span>
+            }
+        }
+<span class="fc" id="L1006">        final RangedList&lt;T&gt; chunk = entry.getValue();</span>
+<span class="fc" id="L1007">        return chunk.set(i, value);</span>
+    }
 
-		// Test3: Iterate using iterator()
+    /**
+     * Return to total number of mappings contained in this instance, i.e. the sum
+     * of the size of each individual {@link Chunk} this instance holds.
+     *
+     * @return size of this instance as a {@code long}
+     */
+    public long size() {
+<span class="fc" id="L1017">        return size.get();</span>
+    }
 
-		System.out.println(&quot;Test3&quot;);
-		StringBuilder sb3 = new StringBuilder();
-		Iterator&lt;String&gt; it = cl5.iterator();
-		while (it.hasNext()) {
-			sb3.append(it.next() + &quot;,&quot;);
-		}
-		System.out.println(sb3.toString());
+    @Override
+    public String toString() {
+<span class="fc" id="L1022">        final StringBuilder sb = new StringBuilder();</span>
+<span class="fc" id="L1023">        sb.append(&quot;[ChunkedList(&quot; + chunks.size() + &quot;)&quot;);</span>
+<span class="fc bfc" id="L1024" title="All 2 branches covered.">        for (final RangedList&lt;T&gt; c : chunks.values()) {</span>
+<span class="fc" id="L1025">            sb.append(&quot;,&quot; + c);</span>
+<span class="fc" id="L1026">        }</span>
+<span class="fc" id="L1027">        sb.append(&quot;]&quot;);</span>
+<span class="fc" id="L1028">        return sb.toString();</span>
+    }
 
-		// Test4: Raise exception
-
-		System.out.println(&quot;Test4&quot;);
-		for (int i = 0; i &lt; 10; i++) {
-
-			long begin = i * 5 - 1;
-			long end = i * 5 + 1;
-			Chunk&lt;String&gt; c = new Chunk&lt;&gt;(new LongRange(begin, end));
-			try {
-				cl5.addChunk(c);
-				System.out.println(&quot;--- FAIL ---&quot;);
-			} catch (IllegalArgumentException e) {
-				// do nothing
-			}
-		}
-		for (int i = 0; i &lt; 10; i++) {
-
-			long begin = i * 5 - 1;
-			long end = i * 5 + 5;
-			Chunk&lt;String&gt; c = new Chunk&lt;&gt;(new LongRange(begin, end));
-			try {
-				cl5.addChunk(c);
-				System.out.println(&quot;--- FAIL ---&quot;);
-			} catch (IllegalArgumentException e) {
-				// do nothing
-			}
-		}
-		for (int i = 0; i &lt; 10; i++) {
-
-			long begin = i * 5 - 1;
-			long end = i * 5 + 10;
-			Chunk&lt;String&gt; c = new Chunk&lt;&gt;(new LongRange(begin, end));
-			try {
-				cl5.addChunk(c);
-				System.out.println(&quot;--- FAIL ---&quot;);
-			} catch (IllegalArgumentException e) {
-				// do nothing
-			}
-		}
-		System.out.println(&quot;--- OK ---&quot;);
-		// Test5: Add RangedListView
-
-		System.out.println(&quot;Test5&quot;);
-		Chunk&lt;String&gt; c0 = new Chunk&lt;&gt;(new LongRange(0, 10 * 5));
-		for (long i = 0; i &lt; 10 * 5; i++) {
-			c0.set(i, String.valueOf(i));
-		}
-		for (int i = 0; i &lt; 10; i++) {
-			if (i % 2 == 0) {
-				continue;
-			}
-			long begin = i * 5;
-			long end = (i + 1) * 5;
-			RangedList&lt;String&gt; rl = c0.subList(begin, end);
-			cl5.addChunk(rl);
-		}
-		System.out.println(cl5.toString());
-
-		// Test6: Iterate combination of Chunk and RangedListView
-		System.out.println(&quot;Test6&quot;);
-		StringBuilder sb6 = new StringBuilder();
-		Iterator&lt;String&gt; it6 = cl5.iterator();
-		while (it6.hasNext()) {
-			sb6.append(it6.next() + &quot;,&quot;);
-		}
-		System.out.println(sb6.toString());
-
-		// Test7: Raise exception on ChunkedList with continuous range
-
-		System.out.println(&quot;Test7&quot;);
-		for (int i = 0; i &lt; 10 * 5; i++) {
-			long begin = i - 1;
-			long end = i + 1;
-			Chunk&lt;String&gt; c = new Chunk&lt;&gt;(new LongRange(begin, end));
-			try {
-				cl5.addChunk(c);
-				System.out.println(&quot;--- FAIL --- &quot; + begin + &quot;,&quot; + end);
-			} catch (IllegalArgumentException e) {
-				// do nothing
-			}
-		}
-		for (int i = 0; i &lt; 10 * 5; i++) {
-			long begin = i - 1;
-			long end = i + 6;
-			Chunk&lt;String&gt; c = new Chunk&lt;&gt;(new LongRange(begin, end));
-			try {
-				cl5.addChunk(c);
-				System.out.println(&quot;--- FAIL --- &quot; + begin + &quot;,&quot; + end);
-			} catch (IllegalArgumentException e) {
-				// do nothing
-			}
-		}
-		System.out.println(&quot;--- OK ---&quot;);
-
-	}
-*/
+    private void waitNfutures(List&lt;Future&lt;?&gt;&gt; futures) {
+<span class="fc bfc" id="L1032" title="All 2 branches covered.">        for (final Future&lt;?&gt; f : futures) {</span>
+            try {
+<span class="fc" id="L1034">                f.get();</span>
+<span class="nc" id="L1035">            } catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L1036">                throw new ParallelExecutionException(&quot;[ChunkedList] exception raised by worker threads.&quot;, e);</span>
+<span class="fc" id="L1037">            }</span>
+<span class="fc" id="L1038">        }</span>
+<span class="fc" id="L1039">    }</span>
 }
-</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.5.201910111838</span></div></body></html>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>
