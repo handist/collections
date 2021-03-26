@@ -81,10 +81,10 @@ publish:
     - mvn $MAVEN_CLI_OPTS site
     - cd target
     - git clone --single-branch --branch gh-pages https://github.com/handist/collections.git
-    - rm -rf handistCollections/master-latest
-    - mkdir handistCollections/master-latest
-    - cp -r site/* handistCollections/master-latest/
-    - cd handistCollections
+    - rm -rf collections/master-latest
+    - mkdir collections/master-latest
+    - cp -r site/* collections/master-latest/
+    - cd collections
     - git add master-latest
     - git commit -m "${CI_COMMIT_MESSAGE}"
     - git remote set-url origin https://${GITHUB_USER}:${GITHUB_OAUTH}@github.com/handist/collections.git
