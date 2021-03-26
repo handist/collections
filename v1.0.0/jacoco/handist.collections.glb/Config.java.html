@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Config.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb</a> &gt; <span class="el_source">Config.java</span></div><h1>Config.java</h1><pre class="source lang-java linenums">package handist.collections.glb;
+
+import handist.collections.glb.lifeline.Loop;
+
+/**
+ * Helper class for the settings that influence the behavior of the Global Load
+ * Balancer. All the settings presented here can be set by passing -D arguments
+ * to the java command. As an alternative, you could also set them with
+ * {@link System#setProperty(String, String)}. In the later case, be aware that
+ * parts of the program may have already performed initializations based on the
+ * value present before you made the change. Also, make sure that you make your
+ * changes consistent across all hosts participating in the computation.
+ *
+ * @author Patrick Finnerty
+ *
+ */
+<span class="nc" id="L17">public class Config {</span>
+
+    /**
+     * Handy enumarator used by the GLB routines to determine which mode should be
+     * used to make lifeline answers
+     */
+<span class="fc" id="L23">    enum LifelineAnswerMode {</span>
+<span class="fc" id="L24">        KRYO, MPI</span>
+    }
+
+    /**
+     * Option used to activate traces in the GLB
+     */
+    public static final String ACTIVATE_TRACE = &quot;glb.trace&quot;;
+
+    /**
+     * Option used to set the granularity, that is the number of elements workers
+     * process before checking the runtime.
+     */
+    public static final String GRANULARITY = &quot;glb.grain&quot;;
+
+    /**
+     * Default value for {@link #GRANULARITY} option.
+     */
+    public static final int GRANULARITY_DEFAULT = 100;
+
+    /**
+     * Option used to set the work-stealing network between the hosts involved in
+     * the computation.
+     */
+    public static final String LIFELINE_STRATEGY = &quot;glb.lifeline&quot;;
+
+    /**
+     * Default value for {@link #LIFELINE_STRATEGY}. Is class {@link Loop}.
+     */
+<span class="fc" id="L52">    public static final String LIFELINE_STRATEGY_DEFAULT = Loop.class.getCanonicalName();</span>
+
+    /**
+     * Option used to set the maximum number of concurrent workers used by the load
+     * balancer. By default, the value returned by
+     * {@link Runtime#availableProcessors()} is used.
+     */
+    public static final String MAXIMUM_WORKER_COUNT = &quot;glb.workers&quot;;
+    /**
+     * Determines the technique used to answer lifelines. Options are:
+     * &lt;ul&gt;
+     * &lt;li&gt;{@value #SERIALIZATION_KRYO} (default option) which uses normal lambda
+     * serialization to transmit instances
+     * &lt;li&gt;{@value #SERIALIZATION_MPI} which relies on MPI to transmit the byte
+     * array into which the object instances have been serialized
+     * &lt;/ul&gt;
+     */
+    public static final String SERIALIZATION = &quot;glb.serialization&quot;;
+    /** Option for setting {@link #SERIALIZATION} */
+    public static final String SERIALIZATION_MPI = &quot;mpi&quot;;
+
+    /** Option for setting {@link #SERIALIZATION} */
+    public static final String SERIALIZATION_KRYO = &quot;kryo&quot;;
+
+    /**
+     * Retrieves the granularity to use as defined either by the
+     * {@link #GRANULARITY_DEFAULT} property (if set) or by the default value
+     * {@value #GRANULARITY_DEFAULT}.
+     *
+     * @return the granularity to be used by the GLB as an integer
+     */
+    static int getGranularity() {
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        if (System.getProperties().containsKey(GRANULARITY)) {</span>
+<span class="fc" id="L85">            return Integer.parseInt(System.getProperty(GRANULARITY));</span>
+        } else {
+<span class="fc" id="L87">            return GRANULARITY_DEFAULT;</span>
+        }
+    }
+
+    /**
+     * Indicates which type of lifeline answer should be made
+     *
+     * @return a value indicating which type of lifeline answer should be made
+     */
+    static LifelineAnswerMode getLifelineSerializationMode() {
+<span class="fc" id="L97">        final String setting = System.getProperty(SERIALIZATION, SERIALIZATION_KRYO);</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        if (SERIALIZATION_MPI.equals(setting)) {</span>
+<span class="fc" id="L99">            return LifelineAnswerMode.MPI;</span>
+        } else {
+<span class="fc" id="L101">            return LifelineAnswerMode.KRYO;</span>
+        }
+    }
+
+    /**
+     * Returns the number of concurrent workers with which the GLB is configured to
+     * run. Checks if the {@value #MAXIMUM_WORKER_COUNT} property was set. If so,
+     * parses this property. Otherwise, uses the value returned by
+     * {@link Runtime#availableProcessors()}.
+     *
+     * @return the number of concurrent workers with which the GLB can run
+     */
+    static int getMaximumConcurrentWorkers() {
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        if (System.getProperties().containsKey(MAXIMUM_WORKER_COUNT)) {</span>
+<span class="fc" id="L115">            return Integer.parseInt(System.getProperty(MAXIMUM_WORKER_COUNT));</span>
+        } else {
+<span class="fc" id="L117">            return Runtime.getRuntime().availableProcessors();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

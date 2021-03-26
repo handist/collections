@@ -1,0 +1,462 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LongRange.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">LongRange.java</span></div><h1>LongRange.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.function.Consumer;
+import java.util.function.LongConsumer;
+import java.util.stream.LongStream;
+
+/**
+ * Class {@link LongRange} describes an interval over {@code long} values.
+ * &lt;p&gt;
+ * The lower bound is included and the upper bound is excluded from the
+ * interval, meaning that for two {@code long} values a and b (a&amp;lt;b), all the
+ * {@code long} values l such that a &amp;le; l &amp;lt; b are contained within the
+ * {@link LongRange} [a,b).
+ * &lt;p&gt;
+ * It is possible to create &quot;empty&quot; {@link LongRange} instances where the lower
+ * bound is equal to the upper bound. In this case it is considered that there
+ * are no {@code long} values included in the {@link LongRange}.
+ */
+public class LongRange implements Comparable&lt;LongRange&gt;, Iterable&lt;Long&gt;, Serializable {
+    /**
+     * Iterator on the {@code long} indices contained in a {@link LongRange}
+     */
+    class It implements Iterator&lt;Long&gt; {
+        long current;
+
+<span class="fc" id="L41">        It() {</span>
+<span class="fc" id="L42">            current = from;</span>
+<span class="fc" id="L43">        }</span>
+
+        @Override
+        public boolean hasNext() {
+<span class="fc bfc" id="L47" title="All 2 branches covered.">            return current &lt; to;</span>
+        }
+
+        @Override
+        public Long next() {
+<span class="fc" id="L52">            return current++;</span>
+        }
+    }
+
+    /** Serial Version UID */
+    private static final long serialVersionUID = 6430187870603427655L;
+
+    /**
+     * Splits the {@link LongRange} provided in the list into &lt;em&gt;n&lt;/em&gt; lists of
+     * {@link LongRange} instances such that the accumulated size of each list's
+     * {@link LongRange} are the same.
+     * &lt;p&gt;
+     * To achieve this, {@link LongRange} instances may be split into several
+     * instances that will placed in different lists.
+     * &lt;p&gt;
+     * The {@link LongRange} instances given as parameter are not
+     *
+     * @param n          number of lists of equal sizes
+     * @param longRanges {@link LongRange} instances to distribute into the lists
+     * @return lists of {@link LongRange} instances of equivalent
+     */
+    public static List&lt;List&lt;LongRange&gt;&gt; splitList(int n, List&lt;LongRange&gt; longRanges) {
+<span class="fc" id="L74">        long totalNum = 0;</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        for (final LongRange item : longRanges) {</span>
+<span class="fc" id="L76">            totalNum += item.size();</span>
+<span class="fc" id="L77">        }</span>
+<span class="fc" id="L78">        final long rem = totalNum % n;</span>
+<span class="fc" id="L79">        final long quo = totalNum / n;</span>
+<span class="fc" id="L80">        final List&lt;List&lt;LongRange&gt;&gt; result = new ArrayList&lt;&gt;(n);</span>
+<span class="fc" id="L81">        final Iterator&lt;LongRange&gt; iter = longRanges.iterator();</span>
+<span class="fc" id="L82">        LongRange c = iter.next();</span>
+<span class="fc" id="L83">        long used = 0;</span>
+
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc" id="L86">            final List&lt;LongRange&gt; r = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L87">            result.add(r);</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">            long rest = quo + ((i &lt; rem) ? 1 : 0);</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">            while (rest &gt; 0) {</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">                if (c.size() - used &lt;= rest) {</span>
+<span class="fc" id="L91">                    final long from = c.from + used;</span>
+<span class="fc" id="L92">                    r.add(new LongRange(from, c.to));</span>
+<span class="fc" id="L93">                    rest -= c.size() - used;</span>
+<span class="fc" id="L94">                    used = 0;</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">                    if (!iter.hasNext()) {</span>
+                        // Avoids calling iter.next when the last LongRange has
+                        // been used. Is necessary due to this &quot;border&quot; case
+<span class="fc" id="L98">                        break;</span>
+                    }
+<span class="fc" id="L100">                    c = iter.next();</span>
+<span class="fc" id="L101">                } else {</span>
+<span class="fc" id="L102">                    final long from = c.from + used;</span>
+<span class="fc" id="L103">                    final long to = from + rest;</span>
+<span class="fc" id="L104">                    r.add(new LongRange(from, to));</span>
+<span class="fc" id="L105">                    used += rest;</span>
+<span class="fc" id="L106">                    rest = 0;</span>
+<span class="fc" id="L107">                }</span>
+            }
+        }
+<span class="fc" id="L110">        return result;</span>
+    }
+
+    /** Lower bound of the interval (included) */
+    public final long from;
+
+    /** Upper bound of the interval (excluded) */
+    public final long to;
+
+    /**
+     * Constructs an empty LongRange using a single point for a bound. Mainly used
+     * for comparison or search.
+     *
+     * @param index the lower and upper bound of the LongRange to create.
+     */
+<span class="fc" id="L125">    public LongRange(long index) {</span>
+<span class="fc" id="L126">        from = to = index;</span>
+<span class="fc" id="L127">    }</span>
+
+    /**
+     * Constructs a LongRange with the provided parameters.
+     *
+     * @param from lower bound of the range (inclusive)
+     * @param to   upper bound of the range (exclusive)
+     * @throws IllegalArgumentException if the provided lower bound is superior
+     *                                  (striclty) to the upper bound
+     */
+<span class="fc" id="L137">    public LongRange(long from, long to) {</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        if (from &gt; to) {</span>
+<span class="fc" id="L139">            throw new IllegalArgumentException(&quot;Cannot create LongRange from &quot; + from + &quot; to &quot; + to);</span>
+        }
+<span class="fc" id="L141">        this.from = from;</span>
+<span class="fc" id="L142">        this.to = to;</span>
+<span class="fc" id="L143">    }</span>
+
+    /**
+     * Compares the provided instance to this instance and returns an integer
+     * indicating if the provided instance is less than, equal to, or greater than
+     * this instance.
+     * &lt;p&gt;
+     * The implementation relies on ordering the lower bounds first before using the
+     * ordering of the upper bounds. The implemented ordering of {@link LongRange}
+     * is consistent with equals. To illustrate the ordering, consider the following
+     * examples:
+     * &lt;ul&gt;
+     * &lt;li&gt;[0,0) &amp;lt; [0,100) &amp;lt; [1,1) &amp;lt; [1,20) &amp;lt; [1,21)
+     * &lt;li&gt;[0,0) == [0,0)
+     * &lt;li&gt;[0,10) == [0,10)
+     * &lt;/ul&gt;
+     * &lt;p&gt;
+     *
+     * @param r the object to be compared
+     * @return a negative integer, zero, or a positive integer as this object is
+     *         less than, equal to, or greater than the specified object
+     * @throws NullPointerException if the instance given as parameter is null
+     */
+    @Override
+    public int compareTo(LongRange r) {
+        // if (to &lt;= r.from &amp;&amp; from != to ) {
+        // return -1;
+        // } else if (r.to &lt;= from &amp;&amp; from != to) {
+        // return 1;
+        // }
+        // The LongRange instances overlap,
+        // We order them based on &quot;from&quot; first and &quot;to&quot; second
+<span class="fc" id="L175">        final int fromComparison = Long.compare(from, r.from);</span>
+<span class="fc bfc" id="L176" title="All 2 branches covered.">        return (fromComparison == 0) ? Long.compare(to, r.to) : fromComparison;</span>
+    }
+
+    /**
+     * Scans intersections between this instance and the key sets of the provided
+     * {@code ConcurrentSkipListMap&lt;LongRange, S&gt; rmap} and applies
+     * {@code Consumer&lt;LongRange&gt; consumer} to each intersection range.
+     *
+     * @param rmap     tree map whose intersection with this instance will be
+     *                 processed
+     * @param consumer the action to perform on the {@link LongRange} index
+     *                 instersections
+     */
+    public void computeOnOverlap(ConcurrentSkipListMap&lt;LongRange, ?&gt; rmap, Consumer&lt;LongRange&gt; consumer) {
+<span class="nc" id="L190">        long current = from;</span>
+        while (true) {
+<span class="nc" id="L192">            final LongRange tmp = new LongRange(current, current);</span>
+<span class="nc" id="L193">            final LongRange result = tmp.findOverlap(rmap);</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">            if (result == null) {</span>
+<span class="nc" id="L195">                break;</span>
+            }
+<span class="nc" id="L197">            final LongRange inter = intersection(result);</span>
+<span class="nc" id="L198">            consumer.accept(inter);</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">            if (result.to &gt;= to) {</span>
+<span class="nc" id="L200">                return;</span>
+            }
+<span class="nc" id="L202">            current = result.to;</span>
+<span class="nc" id="L203">        }</span>
+<span class="nc" id="L204">    }</span>
+
+    /**
+     * Scans intersections between this instance and the key sets of the provided
+     * {@code ConcurrentSkipListMap&lt;LongRange, S&gt; rmap} and apply
+     * {@code LongConsumer consumer} to each index in the intersections.
+     *
+     * @param rmap     tree map whose intersection with this instance will be
+     *                 processed
+     * @param consumer the action to perform on each index in the intersection
+     *                 between the this instance and provided key {@code rmap} keys
+     */
+    public void computeOnOverlap(ConcurrentSkipListMap&lt;LongRange, ?&gt; rmap, LongConsumer consumer) {
+<span class="nc" id="L217">        computeOnOverlap(rmap, (LongRange range) -&gt; {</span>
+<span class="nc" id="L218">            range.forEach(consumer);</span>
+<span class="nc" id="L219">        });</span>
+<span class="nc" id="L220">    }</span>
+
+    /**
+     * Checks if all the indices in this range are included in one of the keys
+     * contained by the provided {@code ConcurrentSkipListMap}.
+     *
+     * @param rmap the ConcurrentSkipListMap instance to check
+     * @return a LongRange key of the provided ConcurrentSkipListMap instance that
+     *         intersects this instance, or {@code null} if there are so such key.
+     */
+    public boolean contained(ConcurrentSkipListMap&lt;LongRange, ?&gt; rmap) {
+<span class="nc" id="L231">        long current = from;</span>
+        while (true) {
+<span class="nc" id="L233">            final LongRange tmp = new LongRange(current, current);</span>
+<span class="nc" id="L234">            final LongRange result = tmp.findOverlap(rmap);</span>
+<span class="nc bnc" id="L235" title="All 2 branches missed.">            if (result == null) {</span>
+<span class="nc" id="L236">                break;</span>
+            }
+<span class="nc bnc" id="L238" title="All 2 branches missed.">            if (result.to &gt;= to) {</span>
+<span class="nc" id="L239">                return true;</span>
+            }
+<span class="nc" id="L241">            current = result.to;</span>
+<span class="nc" id="L242">        }</span>
+<span class="nc" id="L243">        return false;</span>
+    }
+
+    /**
+     * Indicates if the provided index is included in this instance. A {@code long}
+     * l is contained in a {@link LongRange} [a,b) (a &amp;lt; b) iff a &amp;le; l &amp;lt; b.
+     * If the {@link LongRange} has identical lower and upper bound, it does not
+     * contain any index.
+     *
+     * @param index the long value whose inclusion in this instance is to be checked
+     * @return {@code true} if the index is included within the bounds of this
+     *         {@link LongRange}, {@code false} otherwise
+     */
+    public boolean contains(long index) {
+<span class="fc bfc" id="L257" title="All 4 branches covered.">        return (from &lt;= index) &amp;&amp; (index &lt; to);</span>
+    }
+
+    /**
+     * Indicates if the provided {@link LongRange} is included within this instance.
+     * A LongRange is included inside this instance iff its lower bound is greater
+     * than or equal to this instance lower bound, and if its upper bound is less
+     * than or equal to this instance upper bound.
+     *
+     * @param range the range whose inclusion into this instance needs to be checked
+     * @return true if all the indices of the provided long range are present in
+     *         this instance.
+     */
+    public boolean contains(LongRange range) {
+<span class="fc bfc" id="L271" title="All 4 branches covered.">        return (from &lt;= range.from) &amp;&amp; (range.to &lt;= to);</span>
+    }
+
+    /**
+     * Checks whether the provided instance and this instance are equal. Two
+     * {@link LongRange} instances are equal if they share the same upper and lower
+     * bounds.
+     *
+     * @return true if the provided instance and this instance are equal
+     */
+    @Override
+    public boolean equals(Object o) {
+<span class="fc bfc" id="L283" title="All 2 branches covered.">        if (!(o instanceof LongRange)) {</span>
+<span class="fc" id="L284">            return false;</span>
+        }
+<span class="fc" id="L286">        final LongRange range2 = (LongRange) o;</span>
+<span class="fc bfc" id="L287" title="All 4 branches covered.">        return from == range2.from &amp;&amp; to == range2.to;</span>
+    }
+
+    // TODO
+    // I cannot find a way to convert ConcurrentSkipListMap to TreeSet (or something
+    // having
+    // floor/ceiling).
+    // (I think TreeSet used ConcurrentSkipListMap in its implementation.)
+    // prepare TreeSet version of the following methods
+    // OR
+    // prepare LongRangeSet having such facilities
+    /**
+     * Checks if this instance intersects with one of the keys contained by the
+     * provided {@code ConcurrentSkipListMap&lt;LongRange, S&gt; rmap}. Returns one of the
+     * intersecting keys, or {@code null} if there are no such intersecting key.
+     *
+     * @param rmap the ConcurrentSkipListMap instance to check
+     * @return a LongRange key of the provided ConcurrentSkipListMap instance that
+     *         intersects this instance, or {@code null} if there are so such key.
+     */
+    public LongRange findOverlap(ConcurrentSkipListMap&lt;LongRange, ?&gt; rmap) {
+<span class="fc" id="L308">        final LongRange floorKey = rmap.floorKey(this);</span>
+<span class="fc bfc" id="L309" title="All 4 branches covered.">        if (floorKey != null &amp;&amp; floorKey.isOverlapped(this)) {</span>
+<span class="fc" id="L310">            return floorKey;</span>
+        }
+<span class="fc" id="L312">        final LongRange nextKey = rmap.higherKey(this);</span>
+<span class="fc bfc" id="L313" title="All 4 branches covered.">        if (nextKey != null &amp;&amp; nextKey.isOverlapped(this)) {</span>
+<span class="fc" id="L314">            return nextKey;</span>
+        }
+<span class="fc" id="L316">        return null;</span>
+    }
+
+    /**
+     * Calls the provided function with every {@code long} index contained in this
+     * instance.
+     * &lt;p&gt;
+     * Calling this function on empty {@link LongRange} instances will not result in
+     * any call to the function.
+     *
+     * @param func the function to apply with every index of this instance
+     */
+    public void forEach(LongConsumer func) {
+<span class="fc bfc" id="L329" title="All 2 branches covered.">        for (long current = from; current &lt; to; current++) {</span>
+<span class="fc" id="L330">            func.accept(current);</span>
+        }
+<span class="fc" id="L332">    }</span>
+
+    /**
+     * Returns a hash code for the {@link LongRange}. The hash-code is generated
+     * based on some bit shift operations on the {@link #from lower} and {@link #to
+     * upper bound} of the {@link LongRange}.
+     *
+     * @return hash-code for this instance
+     */
+    @Override
+    public int hashCode() {
+<span class="fc" id="L343">        return (int) ((from &lt;&lt; 4) + (from &gt;&gt; 16) + to);</span>
+    }
+
+    /**
+     * Return the intersection range of this instance ad the provided one. If there
+     * are no indices that belongs to either ranges, returns null;
+     * &lt;p&gt;
+     * If either {@code this} or the provided argument are singular point
+     * LongRanges, the result will always be {@code null}.
+     *
+     * @param range the range whose intersection with this instance is to be checked
+     * @return a {@link LongRange} representing the intersection between this and
+     *         the provided instance, {@code null} if there is no intersection
+     */
+    public LongRange intersection(LongRange range) {
+<span class="fc" id="L358">        final long from = Math.max(range.from, this.from);</span>
+<span class="fc" id="L359">        final long to = Math.min(range.to, this.to);</span>
+<span class="fc bfc" id="L360" title="All 2 branches covered.">        if (from &gt;= to) {</span>
+<span class="fc" id="L361">            return null;</span>
+        }
+<span class="fc" id="L363">        return new LongRange(from, to);</span>
+    }
+
+    /**
+     * Returns true if the provided {@link LongRange} and this instance are
+     * overlapped. This operation is symmetric, meaning that calling this method
+     * with two instances a and b, the result produced by {@code a.isOverlapped(b)}
+     * is the same as {@code b.isOverlapped(a)}.
+     * &lt;p&gt;
+     * Two {@link LongRange} a and b are overlapped if they share some indices, that
+     * is if there exist a {@code long} l such that a.contains(l) and b.contains(l)
+     * return true.
+     * &lt;p&gt;
+     * In cases where an empty {@link LongRange} and a non-empty {@link LongRange}
+     * are considered, this method returns true if the lower bound (or upper bound
+     * as it has the same value) of the empty instance is between the lower bound
+     * (included) and the upper bound (excluded) of the other instance.
+     * &lt;p&gt;
+     * If both considered {@link LongRange} are empty, returns true if they have the
+     * same bounds.
+     *
+     * @param range the range whose overlap with this instance is to be checked
+     * @return true if the provided LongRange and this instance overlap
+     */
+    public boolean isOverlapped(LongRange range) {
+<span class="fc bfc" id="L388" title="All 2 branches covered.">        if (equals(range)) {</span>
+<span class="fc" id="L389">            return true;</span>
+<span class="fc bfc" id="L390" title="All 2 branches covered.">        } else if (from == to) {</span>
+<span class="fc bfc" id="L391" title="All 4 branches covered.">            return from &gt;= range.from &amp;&amp; from &lt; range.to;</span>
+<span class="fc bfc" id="L392" title="All 2 branches covered.">        } else if (range.from == range.to) {</span>
+<span class="fc bfc" id="L393" title="All 4 branches covered.">            return range.from &gt;= from &amp;&amp; range.from &lt; to;</span>
+        } else {
+<span class="fc bfc" id="L395" title="All 6 branches covered.">            return (from &lt; range.from) ? (to &gt; range.from) : (from &lt; range.to);</span>
+        }
+    }
+
+    /**
+     * Returns an iterator on the {@code long} indices contained in this instance
+     *
+     * @return a new iterator starting at {@link #from} and whose last value is the
+     *         long preceding {@link #to}
+     */
+    @Override
+    public Iterator&lt;Long&gt; iterator() {
+<span class="fc" id="L407">        return new It();</span>
+    }
+
+    /**
+     * Returns the size of the LongRange, i.e. how many different indices are
+     * contained between its lower bound and its upper bound. In practice, returns
+     * the difference between {@link #to} and {@link #from}.
+     *
+     * @return size of the {@link LongRange}
+     */
+    public long size() {
+<span class="fc" id="L418">        return to - from;</span>
+    }
+
+    /**
+     * Splits the LongRange into &lt;em&gt;n&lt;/em&gt; LongRange instances of equal size (or
+     * near equal size if the size of this instance is not divisible by &lt;em&gt;n&lt;/em&gt;.
+     *
+     * @param n the number of LongRange instance in which to split this instance
+     * @return a list of &lt;em&gt;n&lt;/em&gt; consecutive LongRange instances
+     */
+    public List&lt;LongRange&gt; split(int n) {
+<span class="fc" id="L429">        final ArrayList&lt;LongRange&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L430">        final long rem = size() % n;</span>
+<span class="fc" id="L431">        final long quo = size() / n;</span>
+<span class="fc" id="L432">        long c = from;</span>
+
+<span class="fc bfc" id="L434" title="All 2 branches covered.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc bfc" id="L435" title="All 2 branches covered.">            final long given = quo + ((i &lt; rem) ? 1 : 0);</span>
+<span class="fc" id="L436">            result.add(new LongRange(c, c + given));</span>
+<span class="fc" id="L437">            c += given;</span>
+        }
+<span class="fc" id="L439">        return result;</span>
+    }
+
+    /**
+     * Streams every {@code long} index contained in this instance.
+     *
+     * @return a {@link LongStream} of every index contained in this instance
+     */
+    public LongStream stream() {
+<span class="fc" id="L448">        return LongStream.range(from, to);</span>
+    }
+
+    /**
+     * Returns this LongRange printed in the following format:
+     * [lower_bound,upper_bound)
+     *
+     * @return the range of this {@link LongRange} as &quot;[lower_bound,upper_bound)&quot;
+     */
+    @Override
+    public String toString() {
+<span class="fc" id="L459">        return &quot;[&quot; + from + &quot;,&quot; + to + &quot;)&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Hypercube.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb.lifeline</a> &gt; <span class="el_source">Hypercube.java</span></div><h1>Hypercube.java</h1><pre class="source lang-java linenums">package handist.collections.glb.lifeline;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+import apgas.Place;
+import handist.collections.dist.TeamedPlaceGroup;
+
+/**
+ * Hypercube lifeline strategy. Under this lifeline strategy, all hosts are
+ * numbered from 0 to n-1. Hosts share a lifeline with the hosts that with the
+ * neighbors that have at most one digit difference in their rank written in
+ * binary.
+ * &lt;p&gt;
+ * Using 4 hosts, this lifeline strategy describes a square between the hosts.
+ * Using 8 hosts, a 3D cube is drawn between the hosts.
+ *
+ * @author Patrick Finnerty
+ *
+ */
+public class Hypercube extends Lifeline implements Serializable {
+
+    /** Serial Version UID */
+    private static final long serialVersionUID = 7684362314472294594L;
+
+    /**
+     * Constructor
+     *
+     * @param pg the group of places under consideration
+     */
+    public Hypercube(TeamedPlaceGroup pg) {
+<span class="fc" id="L33">        super(pg);</span>
+<span class="fc" id="L34">    }</span>
+
+    @Override
+    public List&lt;Place&gt; lifeline(Place p) {
+<span class="fc" id="L38">        final int index = sortedListOfPlaces.indexOf(p);</span>
+<span class="fc" id="L39">        final ArrayList&lt;Place&gt; lifeline = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L41">        for (int mask = 1;; mask *= 2) { // Loop exited with a break</span>
+<span class="fc" id="L42">            final int lifelineIndex = index ^ mask;</span>
+<span class="fc bfc" id="L43" title="All 2 branches covered.">            if (lifelineIndex &lt; sortedListOfPlaces.size()) {</span>
+<span class="fc" id="L44">                lifeline.add(sortedListOfPlaces.get(lifelineIndex));</span>
+            } else {
+                break;
+            }
+        }
+<span class="fc" id="L49">        return lifeline;</span>
+    }
+
+    /*
+     * In the case of the hypercube lifeline, if A has a lifeline of B, then B has a
+     * lifeline on A. As it is a reciprocal relationship, we do not not need to
+     * reimplement this method and instead rely on the existing {@link
+     * #lifeline(Place)} method.
+     */
+    @Override
+    public List&lt;Place&gt; reverseLifeline(Place p) {
+<span class="fc" id="L60">        return lifeline(p);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

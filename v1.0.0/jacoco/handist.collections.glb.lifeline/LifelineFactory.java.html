@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LifelineFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb.lifeline</a> &gt; <span class="el_source">LifelineFactory.java</span></div><h1>LifelineFactory.java</h1><pre class="source lang-java linenums">package handist.collections.glb.lifeline;
+
+import static handist.collections.glb.Config.*;
+
+import java.lang.reflect.Constructor;
+
+import handist.collections.dist.TeamedPlaceGroup;
+
+/**
+ * Class in charge of performing the reflection operations necessary to
+ * instanciate lifeline instance.
+ *
+ * @author Patrick Finnerty
+ *
+ */
+<span class="nc" id="L16">public class LifelineFactory {</span>
+    /**
+     * Constructor used to produce new Lifeline instances when the need arises.
+     */
+<span class="fc" id="L20">    private static Constructor&lt;Lifeline&gt; constructor = null;</span>
+
+    /**
+     * Factory method returning a new instance of the lifeline implementation
+     * specified through property settings.
+     *
+     * @param pg the place group among which a lifeline network needs to be
+     *           established
+     * @return a new Lifeline implementation instance prepared for the specified
+     *         group of laces
+     * @throws Exception if thrown while making a reflection operation
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static Lifeline newLifeline(TeamedPlaceGroup pg) throws Exception {
+<span class="fc bfc" id="L34" title="All 2 branches covered.">        if (constructor == null) {</span>
+            @SuppressWarnings(&quot;rawtypes&quot;)
+<span class="fc" id="L36">            final Class lifelineClass = Class.forName(System.getProperty(LIFELINE_STRATEGY, LIFELINE_STRATEGY_DEFAULT));</span>
+<span class="fc" id="L37">            constructor = lifelineClass.getConstructor(TeamedPlaceGroup.class);</span>
+        }
+
+<span class="fc" id="L40">        return constructor.newInstance(pg);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

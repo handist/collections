@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MemberOfLazyObjectReference.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist.util</a> &gt; <span class="el_source">MemberOfLazyObjectReference.java</span></div><h1>MemberOfLazyObjectReference.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist.util;
+
+import java.io.ObjectStreamException;
+import java.io.Serializable;
+
+import apgas.SerializableCallable;
+import apgas.util.GlobalID;
+import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.function.SerializableFunction;
+
+/**
+ * Variation on {@link LazyObjectReference} which allows us to serialize an
+ * object which is a member of a {@link LazyObjectReference}.
+ *
+ * @param &lt;T&gt; type of the object used a lazy reference
+ * @param &lt;M&gt; type of the member being serialized
+ * @see LazyObjectReference
+ */
+public class MemberOfLazyObjectReference&lt;T, M&gt; extends LazyObjectReference&lt;T&gt; implements Serializable {
+    /** Serial Version UID */
+    private static final long serialVersionUID = 8438658670591463576L;
+
+    /**
+     * Function which retrieves the member of the serialized object after the object
+     * has been initialized on the remote host
+     */
+    SerializableFunction&lt;T, M&gt; getMember;
+
+    /**
+     * Constructor
+     *
+     * @param pg           place group on which this object may be serialized and
+     *                     send to
+     * @param id           global id used to identify the various instances of the
+     *                     parent lazy object reference
+     * @param initializer  initializer for object T
+     * @param memberAccess function taking am object T as parameter and returning
+     *                     the member M of that object
+     */
+    public MemberOfLazyObjectReference(TeamedPlaceGroup pg, GlobalID id, SerializableCallable&lt;T&gt; initializer,
+            SerializableFunction&lt;T, M&gt; memberAccess) {
+<span class="fc" id="L52">        super(pg, id, initializer);</span>
+<span class="fc" id="L53">        getMember = memberAccess;</span>
+<span class="fc" id="L54">    }</span>
+
+    @Override
+    protected Object readResolve() throws ObjectStreamException {
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L59">        final T t = (T) super.readResolve();</span>
+<span class="fc" id="L60">        return getMember.apply(t);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

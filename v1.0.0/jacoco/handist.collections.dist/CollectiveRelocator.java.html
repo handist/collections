@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CollectiveRelocator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">CollectiveRelocator.java</span></div><h1>CollectiveRelocator.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
+import apgas.Constructs;
+import apgas.Place;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.DeSerializerUsingPlace;
+import handist.collections.function.Serializer;
+import mpi.MPI;
+import mpi.MPIException;
+
+/**
+ * Class wrapping utilities used to relocate object instances that rely on pairs
+ * of serializers and deserializers and MPI functions.
+ *
+ * @author Patrick Finnerty
+ *
+ */
+@SuppressWarnings(&quot;deprecation&quot;)
+<span class="nc" id="L35">class CollectiveRelocator {</span>
+
+    private static final boolean DEBUG = false;
+
+    static void allgatherSer(TeamedPlaceGroup pg, Serializer ser, DeSerializerUsingPlace deser) {
+<span class="fc" id="L40">        final int numPlaces = pg.size();</span>
+<span class="fc" id="L41">        final ByteArrayOutputStream out0 = new ByteArrayOutputStream();</span>
+<span class="fc" id="L42">        final ObjectOutput out = new ObjectOutput(out0);</span>
+        try {
+<span class="fc" id="L44">            ser.accept(out);</span>
+<span class="nc" id="L45">        } catch (final IOException exp) {</span>
+<span class="nc" id="L46">            throw new Error(&quot;This should not occur!.&quot;);</span>
+        } finally {
+<span class="fc" id="L48">            out.close();</span>
+        }
+<span class="fc" id="L50">        final byte[] buf = out0.toByteArray();</span>
+<span class="fc" id="L51">        final int size = buf.length;</span>
+<span class="fc" id="L52">        final int[] tmpCounts = new int[1];</span>
+<span class="fc" id="L53">        tmpCounts[0] = size;</span>
+<span class="fc" id="L54">        final int[] recvCounts = new int[numPlaces];</span>
+<span class="fc" id="L55">        final int[] recvDispls = new int[numPlaces];</span>
+        try {
+<span class="fc" id="L57">            pg.comm.Allgather(tmpCounts, 0, 1, MPI.INT, recvCounts, 0, 1, MPI.INT);</span>
+<span class="nc" id="L58">        } catch (final MPIException e) {</span>
+<span class="nc" id="L59">            e.printStackTrace();</span>
+<span class="nc" id="L60">            throw new Error(&quot;[CollectiveRelocator] MPIException&quot;);</span>
+<span class="fc" id="L61">        }</span>
+
+<span class="fc" id="L63">        int total = 0;</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        for (int i = 0; i &lt; recvCounts.length; i++) {</span>
+<span class="fc" id="L65">            recvDispls[i] = total;</span>
+<span class="fc" id="L66">            total += recvCounts[i];</span>
+        }
+<span class="fc" id="L68">        final byte[] rbuf = new byte[total];</span>
+        try {
+<span class="fc" id="L70">            pg.comm.Allgatherv(buf, 0, size, MPI.BYTE, rbuf, 0, recvCounts, recvDispls, MPI.BYTE);</span>
+<span class="nc" id="L71">        } catch (final MPIException e) {</span>
+<span class="nc" id="L72">            e.printStackTrace();</span>
+<span class="nc" id="L73">            throw new Error(&quot;[CollectiveRelocator] MPIException&quot;);</span>
+<span class="fc" id="L74">        }</span>
+
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        for (int i = 0; i &lt; recvCounts.length; i++) {</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">            if (Constructs.here().equals(pg.get(i))) {</span>
+<span class="fc" id="L78">                continue;</span>
+            }
+<span class="fc" id="L80">            final ByteArrayInputStream in0 = new ByteArrayInputStream(rbuf, recvDispls[i], recvCounts[i]);</span>
+<span class="fc" id="L81">            final ObjectInput in = new ObjectInput(in0);</span>
+            try {
+<span class="fc" id="L83">                deser.accept(in, pg.get(i));</span>
+<span class="nc" id="L84">            } catch (final Exception e) {</span>
+<span class="nc" id="L85">                e.printStackTrace();</span>
+<span class="nc" id="L86">                throw new Error(&quot;[CollectiveRelocator] DeSerialize error handled.&quot;);</span>
+            } finally {
+<span class="fc" id="L88">                in.close();</span>
+            }
+        }
+<span class="fc" id="L91">    }</span>
+
+    static void bcastSer(TeamedPlaceGroup pg, Place root, Serializer ser, DeSerializer des) throws MPIException {
+<span class="fc" id="L94">        final int[] tmpBuf = new int[1];</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        if (Constructs.here().equals(root)) {</span>
+<span class="fc" id="L96">            final ByteArrayOutputStream out0 = new ByteArrayOutputStream();</span>
+<span class="fc" id="L97">            final ObjectOutput out = new ObjectOutput(out0);</span>
+            try {
+<span class="fc" id="L99">                ser.accept(out);</span>
+<span class="nc" id="L100">            } catch (final IOException e) {</span>
+<span class="nc" id="L101">                e.printStackTrace();</span>
+<span class="nc" id="L102">                throw new Error(&quot;[CollectiveRelocator] Serialize error raised.&quot;);</span>
+            } finally {
+<span class="fc" id="L104">                out.close();</span>
+            }
+<span class="fc" id="L106">            tmpBuf[0] = out0.size();</span>
+<span class="fc" id="L107">            pg.comm.Bcast(tmpBuf, 0, 1, MPI.INT, pg.rank(root));</span>
+<span class="fc" id="L108">            pg.comm.Bcast(out0.toByteArray(), 0, out0.size(), MPI.BYTE, pg.rank(root));</span>
+<span class="fc" id="L109">        } else {</span>
+<span class="fc" id="L110">            pg.comm.Bcast(tmpBuf, 0, 1, MPI.INT, pg.rank(root));</span>
+<span class="fc" id="L111">            final byte[] buf = new byte[tmpBuf[0]];</span>
+<span class="fc" id="L112">            pg.comm.Bcast(buf, 0, buf.length, MPI.BYTE, pg.rank(root));</span>
+<span class="fc" id="L113">            final ObjectInput in = new ObjectInput(new ByteArrayInputStream(buf));</span>
+            try {
+<span class="fc" id="L115">                des.accept(in);</span>
+<span class="nc" id="L116">            } catch (final Exception e) {</span>
+<span class="nc" id="L117">                e.printStackTrace();</span>
+<span class="nc" id="L118">                throw new Error(&quot;[CollectiveRelocator] DeSerialize error raised.&quot;);</span>
+            } finally {
+<span class="fc" id="L120">                in.close();</span>
+            }
+        }
+<span class="fc" id="L123">    }</span>
+
+    /**
+     * Transfers some bytes from and to all the places in the place group, returning
+     * a byte array containing all the bytes sent by the other places in the group
+     * to this place.
+     * &lt;p&gt;
+     * This method is actually implemented with 2 successive MPI calls. The first
+     * one is used to exchange information about the number of bytes each place want
+     * to transmit to every other place. With this information, each place prepares
+     * a receiver array of the appropriate size. The second MPI call is when the
+     * actual byte transfer occurs.
+     *
+     * @param placeGroup group of places participating in the exchange
+     * @param byteArray  array containing the bytes that this place want to send
+     * @param sendOffset offsets indicating the starting position in the array for
+     *                   the bytes that need to be transferred to every other place
+     *                   in the group
+     * @param sendSize   number of bytes in the array to be sent to every host
+     * @param rcvOffset  array in which the offsets indicating where the bytes
+     *                   received from every place start will be placed. This
+     *                   parameter needs to be an array initialized with a size that
+     *                   matches the number of places in this group.
+     * @param rcvSize    number of bytes received from each host in the group. This
+     *                   parameter needs to be an array initialized with a size that
+     *                   matches the number of places in this group.
+     * @return an array containing the bytes received from every place
+     * @throws MPIException
+     */
+    static byte[] exchangeBytesWithinGroup(TeamedPlaceGroup placeGroup, byte[] byteArray, int[] sendOffset,
+            int[] sendSize, int[] rcvOffset, int[] rcvSize) throws MPIException {
+<span class="fc" id="L154">        placeGroup.comm.Alltoall(sendSize, 0, 1, MPI.INT, rcvSize, 0, 1, MPI.INT);</span>
+        if (DEBUG) {
+            final StringBuffer buf = new StringBuffer();
+            buf.append(Constructs.here() + &quot;::&quot;);
+            for (int j = 0; j &lt; rcvSize.length; j++) {
+                buf.append(&quot;:&quot; + rcvSize[j]);
+            }
+            System.out.println(buf.toString());
+        }
+
+<span class="fc" id="L164">        int current = 0;</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">        for (int i = 0; i &lt; rcvSize.length; i++) {</span>
+<span class="fc" id="L166">            rcvOffset[i] = current; // Set the receiver offsets</span>
+<span class="fc" id="L167">            current += rcvSize[i]; // Count the total number of bytes which this place is going to receive</span>
+        }
+
+        // Initialize a reception array of the adequate size
+<span class="fc" id="L171">        final byte[] recvbuf = new byte[current];</span>
+
+        // Do the transfer
+<span class="fc" id="L174">        placeGroup.Alltoallv(byteArray, 0, sendSize, sendOffset, MPI.BYTE, recvbuf, 0, rcvSize, rcvOffset, MPI.BYTE);</span>
+
+        // Return the initialized receiver array which now contains the received bytes.
+<span class="fc" id="L177">        return recvbuf;</span>
+    }
+
+    static void gatherSer(TeamedPlaceGroup pg, Place root, Serializer ser, DeSerializerUsingPlace deser) {
+<span class="nc" id="L181">        final int numPlaces = pg.size();</span>
+<span class="nc" id="L182">        final ByteArrayOutputStream out0 = new ByteArrayOutputStream();</span>
+<span class="nc" id="L183">        final ObjectOutput out = new ObjectOutput(out0);</span>
+        try {
+<span class="nc" id="L185">            ser.accept(out);</span>
+<span class="nc" id="L186">        } catch (final IOException exp) {</span>
+<span class="nc" id="L187">            throw new Error(&quot;This should not occur!.&quot;);</span>
+        } finally {
+<span class="nc" id="L189">            out.close();</span>
+        }
+<span class="nc" id="L191">        final byte[] buf = out0.toByteArray();</span>
+<span class="nc" id="L192">        final int size = buf.length;</span>
+<span class="nc" id="L193">        final int[] tmpCounts = new int[1];</span>
+<span class="nc" id="L194">        tmpCounts[0] = size;</span>
+<span class="nc" id="L195">        final int[] recvCounts = new int[numPlaces];</span>
+<span class="nc" id="L196">        final int[] recvDispls = new int[numPlaces];</span>
+        try {
+<span class="nc" id="L198">            pg.comm.Gather(tmpCounts, 0, 1, MPI.INT, recvCounts, 0, 1, MPI.INT, pg.rank(root));</span>
+<span class="nc" id="L199">        } catch (final MPIException e) {</span>
+<span class="nc" id="L200">            e.printStackTrace();</span>
+<span class="nc" id="L201">            throw new Error(&quot;[CollectiveRelocator] MPIException&quot;);</span>
+<span class="nc" id="L202">        }</span>
+
+<span class="nc" id="L204">        int total = 0;</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">        for (int i = 0; i &lt; recvCounts.length; i++) {</span>
+<span class="nc" id="L206">            recvDispls[i] = total;</span>
+<span class="nc" id="L207">            total += recvCounts[i];</span>
+        }
+<span class="nc bnc" id="L209" title="All 2 branches missed.">        final byte[] rbuf = Constructs.here().equals(root) ? new byte[total] : null;</span>
+        try {
+<span class="nc" id="L211">            pg.comm.Gatherv(buf, 0, size, MPI.BYTE, rbuf, 0, recvCounts, recvDispls, MPI.BYTE, pg.rank(root));</span>
+<span class="nc" id="L212">        } catch (final MPIException e) {</span>
+<span class="nc" id="L213">            e.printStackTrace();</span>
+<span class="nc" id="L214">            throw new Error(&quot;[CollectiveRelocator] MPIException&quot;);</span>
+<span class="nc" id="L215">        }</span>
+
+<span class="nc bnc" id="L217" title="All 2 branches missed.">        if (!Constructs.here().equals(root)) {</span>
+<span class="nc" id="L218">            return;</span>
+        }
+<span class="nc bnc" id="L220" title="All 2 branches missed.">        for (int i = 0; i &lt; recvCounts.length; i++) {</span>
+<span class="nc bnc" id="L221" title="All 2 branches missed.">            if (Constructs.here().equals(pg.get(i))) {</span>
+<span class="nc" id="L222">                continue;</span>
+            }
+<span class="nc" id="L224">            final ByteArrayInputStream in0 = new ByteArrayInputStream(rbuf, recvDispls[i], recvCounts[i]);</span>
+<span class="nc" id="L225">            final ObjectInput in = new ObjectInput(in0);</span>
+            try {
+<span class="nc" id="L227">                deser.accept(in, pg.get(i));</span>
+<span class="nc" id="L228">            } catch (final Exception e) {</span>
+<span class="nc" id="L229">                e.printStackTrace();</span>
+<span class="nc" id="L230">                throw new Error(&quot;[CollectiveRelocator] DeSerialize error raised.&quot;);</span>
+            } finally {
+<span class="nc" id="L232">                in.close();</span>
+            }
+        }
+<span class="nc" id="L235">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

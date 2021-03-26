@@ -1,0 +1,791 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistCol.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistCol.java</span></div><h1>DistCol.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist;
+
+import static apgas.Constructs.*;
+
+import java.io.ObjectStreamException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+
+import com.esotericsoftware.kryo.DefaultSerializer;
+import com.esotericsoftware.kryo.serializers.JavaSerializer;
+
+import apgas.Place;
+import apgas.util.GlobalID;
+import apgas.util.SerializableWithReplace;
+import handist.collections.ChunkedList;
+import handist.collections.ElementOverlapException;
+import handist.collections.LongRange;
+import handist.collections.RangedList;
+import handist.collections.dist.util.IntLongPair;
+import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.dist.util.MemberOfLazyObjectReference;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+import handist.collections.dist.util.Pair;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.SerializableBiConsumer;
+import handist.collections.function.SerializableConsumer;
+import handist.collections.function.Serializer;
+import handist.collections.glb.DistColGlb;
+
+/**
+ * A class for handling objects at multiple places. It is allowed to add new
+ * elements dynamically. This class provides the method for load balancing.
+ * &lt;p&gt;
+ * Note: In the current implementation, there are some limitations.
+ * &lt;ul&gt;
+ * &lt;li&gt;There is only one load balancing method: the method flattens the number
+ * of elements of the all places.
+ * &lt;/ul&gt;
+ *
+ * @param &lt;T&gt; the type of elements handled by this {@link DistCol}
+ */
+@DefaultSerializer(JavaSerializer.class)
+public class DistCol&lt;T&gt; extends ChunkedList&lt;T&gt;
+        implements DistributedCollection&lt;T, DistCol&lt;T&gt;&gt;, RangeRelocatable&lt;LongRange&gt;, SerializableWithReplace {
+
+    /**
+     * Class used to identify pieces of chunks when a chunk is split in two and each
+     * instance is transferred to another place. This class implements a sort of
+     * view of the separated pieces.
+     *
+     * @param &lt;T&gt; type of the individual element contained in the chunk
+     * @see ChunkExtractMiddle
+     * @see ChunkExtractRight
+     */
+    static class ChunkExtractLeft&lt;T&gt; {
+        /** Original RangedList that was split */
+        public RangedList&lt;T&gt; original;
+        /** index at which the ranged list was split */
+        public long splitPoint;
+
+        /**
+         * Constructor. The original ranged list and the index at which it was split are
+         * specified as parameters
+         *
+         * @param original   ranged list which is being split
+         * @param splitPoint index at which the ranged list is split
+         */
+<span class="fc" id="L87">        ChunkExtractLeft(final RangedList&lt;T&gt; original, final long splitPoint) {</span>
+<span class="fc" id="L88">            this.original = original;</span>
+<span class="fc" id="L89">            this.splitPoint = splitPoint;</span>
+<span class="fc" id="L90">        }</span>
+
+        /**
+         * Obtain the various RangedList that are now being handled as a result of
+         * separating a Ranged list at the index specified by this instance
+         *
+         * @return the multiple ranged list that result of the original being split at
+         *         the index specified
+         */
+        List&lt;RangedList&lt;T&gt;&gt; extract() {
+<span class="fc" id="L100">            return original.splitRange(splitPoint);</span>
+        }
+    }
+
+    /**
+     * Class used to identify pieces of chunks when a chunk is split in two and each
+     * instance is transferred to another place. This class implements a sort of
+     * view of the separated pieces.
+     *
+     * @param &lt;T&gt; type of the individual element contained in the chunk
+     * @see ChunkExtractLeft
+     * @see ChunkExtractRight
+     */
+    static class ChunkExtractMiddle&lt;T&gt; {
+        /** Original RangedList whose piece is being considered for splitting */
+        public RangedList&lt;T&gt; original;
+        /** First index at which the ranged list is being split */
+        public long splitPoint1;
+        /** First index at which the ranged list is being split */
+        public long splitPoint2;
+
+        /**
+         * Constructor. The original ranged list and the index at which it was split are
+         * specified as parameters
+         *
+         * @param original    ranged list which is being split
+         * @param splitPoint1 first index at which the ranged list is split
+         * @param splitPoint2 second index at which the ranged list is split
+         */
+<span class="fc" id="L129">        ChunkExtractMiddle(final RangedList&lt;T&gt; original, final long splitPoint1, final long splitPoint2) {</span>
+<span class="fc" id="L130">            this.original = original;</span>
+<span class="fc" id="L131">            this.splitPoint1 = splitPoint1;</span>
+<span class="fc" id="L132">            this.splitPoint2 = splitPoint2;</span>
+<span class="fc" id="L133">        }</span>
+
+        /**
+         * Obtain the various RangedList that are now being handled as a result of
+         * separating a Ranged list at the index specified by this instance
+         *
+         * @return the multiple ranged list that result of the original being split at
+         *         the indices specified
+         */
+        List&lt;RangedList&lt;T&gt;&gt; extract() {
+<span class="fc" id="L143">            return original.splitRange(splitPoint1, splitPoint2);</span>
+        }
+    }
+
+    /**
+     * Class used to identify pieces of chunks when a chunk is split in two and each
+     * instance is transferred to another place. This class implements a sort of
+     * view of the separated pieces.
+     *
+     * @param &lt;T&gt; type of the individual element contained in the chunk
+     * @see ChunkExtractLeft
+     * @see ChunkExtractMiddle
+     */
+    static class ChunkExtractRight&lt;T&gt; {
+        /** Original ranged list considered for splitting */
+        public RangedList&lt;T&gt; original;
+        /** Index at which the ranged list is being split */
+        public long splitPoint;
+
+        /**
+         * Constructor. The original ranged list and the index at which it was split are
+         * specified as parameters
+         *
+         * @param original   ranged list which is being split
+         * @param splitPoint index at which the ranged list is split
+         */
+<span class="fc" id="L169">        ChunkExtractRight(final RangedList&lt;T&gt; original, final long splitPoint) {</span>
+<span class="fc" id="L170">            this.original = original;</span>
+<span class="fc" id="L171">            this.splitPoint = splitPoint;</span>
+<span class="fc" id="L172">        }</span>
+
+        /**
+         * Obtain the various RangedList that are now being handled as a result of
+         * separating a Ranged list at the index specified by this instance
+         *
+         * @return the multiple ranged list that result of the original being split at
+         *         the index specified
+         */
+        List&lt;RangedList&lt;T&gt;&gt; extract() {
+<span class="fc" id="L182">            return original.splitRange(splitPoint);</span>
+        }
+    }
+
+    /**
+     * Global handle for the {@link DistCol} class. This class make operations
+     * operating on all the local handles of the distributed collections accessible.
+     *
+     * @author Patrick Finnerty
+     *
+     */
+    public class DistColGlobal extends GlobalOperations&lt;T, DistCol&lt;T&gt;&gt; implements Serializable {
+        /** Serial Version UID */
+        private static final long serialVersionUID = 4584810477237588857L;
+
+        /**
+         * Constructor
+         *
+         * @param handle handle to the local DistCol instance
+         */
+<span class="fc" id="L202">        public DistColGlobal(DistCol&lt;T&gt; handle) {</span>
+<span class="fc" id="L203">            super(handle);</span>
+<span class="fc" id="L204">        }</span>
+
+        @Override
+        public void onLocalHandleDo(SerializableBiConsumer&lt;Place, DistCol&lt;T&gt;&gt; action) {
+<span class="nc" id="L208">            localHandle.placeGroup().broadcastFlat(() -&gt; {</span>
+<span class="nc" id="L209">                action.accept(here(), localHandle);</span>
+<span class="nc" id="L210">            });</span>
+<span class="nc" id="L211">        }</span>
+
+        @Override
+        public Object writeReplace() throws ObjectStreamException {
+<span class="fc" id="L215">            final TeamedPlaceGroup pg1 = localHandle.placeGroup();</span>
+<span class="fc" id="L216">            final GlobalID id1 = localHandle.id();</span>
+<span class="fc" id="L217">            return new MemberOfLazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="nc" id="L218">                return new DistCol&lt;&gt;(pg1, id1);</span>
+            }, (instanceOfDistCol) -&gt; {
+<span class="fc" id="L220">                return instanceOfDistCol.GLOBAL;</span>
+            });
+        }
+
+    }
+
+    /**
+     * TEAM handle for methods that can be called concurrently to other methods on
+     * all local handles of {@link DistCol}
+     *
+     * @author Patrick Finnerty
+     *
+     */
+    public class DistColTeam extends TeamOperations&lt;T, DistCol&lt;T&gt;&gt; implements Serializable {
+
+        /** Serial Version UID */
+        private static final long serialVersionUID = -5392694230295904290L;
+
+        /**
+         * Constructor
+         *
+         * @param handle local handle of {@link DistCol} that this instance is managing
+         */
+<span class="fc" id="L243">        DistColTeam(DistCol&lt;T&gt; handle) {</span>
+<span class="fc" id="L244">            super(handle);</span>
+<span class="fc" id="L245">        }</span>
+
+        @Override
+        public void size(long[] result) {
+<span class="fc bfc" id="L249" title="All 2 branches covered.">            for (final Map.Entry&lt;LongRange, Place&gt; entry : ldist.dist.entrySet()) {</span>
+<span class="fc" id="L250">                final LongRange k = entry.getKey();</span>
+<span class="fc" id="L251">                final Place p = entry.getValue();</span>
+<span class="fc" id="L252">                result[manager.placeGroup.rank(p)] += k.size();</span>
+<span class="fc" id="L253">            }</span>
+<span class="fc" id="L254">        }</span>
+
+        @Override
+        public void updateDist() {
+<span class="fc" id="L258">            team_updateDist();</span>
+<span class="fc" id="L259">        }</span>
+    }
+
+    static class DistributionManager&lt;T&gt; extends GeneralDistManager&lt;DistCol&lt;T&gt;&gt; implements Serializable {
+
+        /** Serial Version UID */
+        private static final long serialVersionUID = 456677767130722164L;
+
+        public DistributionManager(TeamedPlaceGroup placeGroup, GlobalID id, DistCol&lt;T&gt; branch) {
+<span class="fc" id="L268">            super(placeGroup, id, branch);</span>
+<span class="fc" id="L269">        }</span>
+
+        @Override
+        public void checkDistInfo(long[] result) {
+<span class="nc bnc" id="L273" title="All 2 branches missed.">            for (final Map.Entry&lt;LongRange, Place&gt; entry : branch.ldist.dist.entrySet()) {</span>
+<span class="nc" id="L274">                final LongRange k = entry.getKey();</span>
+<span class="nc" id="L275">                final Place p = entry.getValue();</span>
+<span class="nc" id="L276">                result[placeGroup.rank(p)] += k.size();</span>
+<span class="nc" id="L277">            }</span>
+<span class="nc" id="L278">        }</span>
+
+        @Override
+        protected void moveAtSyncCount(ArrayList&lt;IntLongPair&gt; moveList, CollectiveMoveManager mm) throws Exception {
+<span class="nc" id="L282">            branch.moveAtSyncCount(moveList, mm);</span>
+<span class="nc" id="L283">        }</span>
+
+    }
+
+<span class="fc" id="L287">    private static int _debug_level = 5;</span>
+
+    private static float[] initialLocality(final int size) {
+<span class="fc" id="L290">        final float[] result = new float[size];</span>
+<span class="fc" id="L291">        Arrays.fill(result, 1.0f);</span>
+<span class="fc" id="L292">        return result;</span>
+    }
+
+    /**
+     * Handle to operations that can benefit from load balance when called inside an
+     * &quot;underGLB&quot; method.
+     */
+    public transient final DistColGlb&lt;T&gt; GLB;
+
+    /**
+     * Handle to Global Operations implemented by {@link DistCol}.
+     */
+    public transient final DistColGlobal GLOBAL;
+
+    /**
+     * Internal class that handles distribution-related operations.
+     */
+    protected final transient DistManager&lt;LongRange&gt; ldist;
+
+    protected transient DistributionManager&lt;T&gt; manager;
+
+    /**
+     * Function kept and used when the local handle does not contain the specified
+     * index in method {@link #get(long)}. This proxy will return a value to be
+     * returned by the {@link #get(long)} method rather than throwing an
+     * {@link Exception}.
+     */
+    private Function&lt;Long, T&gt; proxyGenerator;
+
+    /**
+     * Handle to Team Operations implemented by {@link DistCol}.
+     */
+    public final transient DistColTeam TEAM;
+
+    /**
+     * Create a new DistCol. All the hosts participating in the distributed
+     * computation are susceptible to handle the created instance. This constructor
+     * is equivalent to calling {@link #DistCol(TeamedPlaceGroup)} with
+     * {@link TeamedPlaceGroup#getWorld()} as argument.
+     */
+    public DistCol() {
+<span class="fc" id="L333">        this(TeamedPlaceGroup.getWorld());</span>
+<span class="fc" id="L334">    }</span>
+
+    /**
+     * Constructor for {@link DistCol} whose handles are restricted to the
+     * {@link TeamedPlaceGroup} passed as parameter.
+     *
+     * @param placeGroup the places on which the DistCol will hold handles.
+     */
+    public DistCol(final TeamedPlaceGroup placeGroup) {
+<span class="fc" id="L343">        this(placeGroup, new GlobalID());</span>
+<span class="fc" id="L344">    }</span>
+
+    /**
+     * Private constructor by which the locality and the GlobalId associated with
+     * the {@link DistCol} are explicitly given. This constructor should only be
+     * used internally when creating the local handle of a DistCol already created
+     * on a remote place. Calling this constructor with an existing {@link GlobalID}
+     * which is already linked with existing and potentially different objects could
+     * prove disastrous.
+     *
+     * @param placeGroup the hosts on which the distributed collection the created
+     *                   instance may have handles on
+     * @param id         the global id used to identify all the local handles
+     */
+    private DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id) {
+<span class="fc" id="L359">        super();</span>
+<span class="fc" id="L360">        id.putHere(this);</span>
+<span class="fc" id="L361">        manager = new DistributionManager&lt;&gt;(placeGroup, id, this);</span>
+<span class="fc" id="L362">        manager.locality = initialLocality(placeGroup.size);</span>
+<span class="fc" id="L363">        ldist = new DistManager&lt;&gt;();</span>
+<span class="fc" id="L364">        TEAM = new DistColTeam(this);</span>
+<span class="fc" id="L365">        GLOBAL = new DistColGlobal(this);</span>
+<span class="fc" id="L366">        GLB = new DistColGlb&lt;&gt;(this);</span>
+<span class="fc" id="L367">    }</span>
+
+    @Override
+    public void add(final RangedList&lt;T&gt; c) throws ElementOverlapException {
+<span class="fc" id="L371">        ldist.add(c.getRange());</span>
+<span class="fc" id="L372">        super.add(c);</span>
+<span class="fc" id="L373">    }</span>
+
+    @Override
+    public void add_unchecked(RangedList&lt;T&gt; c) {
+<span class="fc" id="L377">        ldist.add(c.getRange());</span>
+<span class="fc" id="L378">        super.add_unchecked(c);</span>
+<span class="fc" id="L379">    }</span>
+
+    @Override
+    public void clear() {
+<span class="nc" id="L383">        super.clear();</span>
+<span class="nc" id="L384">        ldist.clear();</span>
+<span class="nc" id="L385">        Arrays.fill(manager.locality, 1.0f);</span>
+<span class="nc" id="L386">    }</span>
+
+    @Override
+    public void forEach(SerializableConsumer&lt;T&gt; action) {
+<span class="fc" id="L390">        super.forEach(action);</span>
+<span class="fc" id="L391">    }</span>
+
+    /**
+     * Return the value corresponding to the specified index.
+     *
+     * If the specified index is not located on this place, a
+     * {@link IndexOutOfBoundsException} will be raised, except if a proxy generator
+     * was set for this instance, in which case the value generated by the proxy is
+     * returned.
+     *
+     * @param index index whose value needs to be retrieved
+     * @throws IndexOutOfBoundsException if the specified index is not contained in
+     *                                   this local collection and no proxy was
+     *                                   defined
+     * @return the value corresponding to the provided index, or the value generated
+     *         by the proxy if it was defined and the specified index is outside the
+     *         range of indices of this local instance
+     * @see #setProxyGenerator(Function)
+     */
+    @Override
+    public T get(long index) {
+<span class="fc bfc" id="L412" title="All 2 branches covered.">        if (proxyGenerator == null) {</span>
+<span class="fc" id="L413">            return super.get(index);</span>
+        } else {
+            try {
+<span class="fc" id="L416">                return super.get(index);</span>
+<span class="fc" id="L417">            } catch (final IndexOutOfBoundsException e) {</span>
+<span class="fc" id="L418">                return proxyGenerator.apply(index);</span>
+            }
+        }
+    }
+
+    @Override
+    public Collection&lt;LongRange&gt; getAllRanges() {
+<span class="fc" id="L425">        return ranges();</span>
+    }
+
+    Map&lt;LongRange, Integer&gt; getDiff() {
+<span class="nc" id="L429">        return ldist.diff;</span>
+    }
+
+    public ConcurrentHashMap&lt;LongRange, Place&gt; getDist() {
+<span class="nc" id="L433">        return ldist.dist;</span>
+    }
+
+    public LongDistribution getDistributionLong() {
+<span class="nc" id="L437">        return LongDistribution.convert(getDist());</span>
+    }
+
+    public LongRangeDistribution getRangedDistributionLong() {
+<span class="nc" id="L441">        return new LongRangeDistribution(getDist());</span>
+    }
+
+    @Override
+    public GlobalOperations&lt;T, DistCol&lt;T&gt;&gt; global() {
+<span class="nc" id="L446">        return GLOBAL;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L451">        return (int) id().gid();</span>
+    }
+
+    @Override
+    public GlobalID id() {
+<span class="fc" id="L456">        return manager.id;</span>
+    }
+
+    @Override
+    public float[] locality() {
+        // TODO check if this is correct
+<span class="nc" id="L462">        return manager.locality;</span>
+    }
+
+    @Deprecated
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private void moveAtSync(final List&lt;RangedList&lt;T&gt;&gt; cs, final Place dest, final MoveManager mm) {
+<span class="pc bpc" id="L468" title="1 of 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L469">            System.out.print(&quot;[&quot; + here().id + &quot;] moveAtSync List[RangedList[T]]: &quot;);</span>
+<span class="nc bnc" id="L470" title="All 2 branches missed.">            for (final RangedList&lt;T&gt; rl : cs) {</span>
+<span class="nc" id="L471">                System.out.print(&quot;&quot; + rl.getRange() + &quot;, &quot;);</span>
+<span class="nc" id="L472">            }</span>
+<span class="nc" id="L473">            System.out.println(&quot; dest: &quot; + dest.id);</span>
+        }
+
+<span class="fc bfc" id="L476" title="All 2 branches covered.">        if (dest.equals(here())) {</span>
+<span class="fc" id="L477">            return;</span>
+        }
+
+<span class="fc" id="L480">        final DistCol&lt;T&gt; toBranch = this; // using plh@AbstractCol</span>
+<span class="fc" id="L481">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="fc" id="L482">            final ArrayList&lt;Byte&gt; keyTypeList = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L483" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; c : cs) {</span>
+<span class="fc" id="L484">                keyTypeList.add(ldist.moveOut(c.getRange(), dest));</span>
+<span class="fc" id="L485">                this.removeForMove(c.getRange());</span>
+<span class="fc" id="L486">            }</span>
+<span class="fc" id="L487">            s.writeObject(keyTypeList);</span>
+<span class="fc" id="L488">            s.writeObject(cs);</span>
+<span class="fc" id="L489">        };</span>
+<span class="fc" id="L490">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="fc" id="L491">            final List&lt;Byte&gt; keyTypeList = (List&lt;Byte&gt;) ds.readObject();</span>
+<span class="fc" id="L492">            final Iterator&lt;Byte&gt; keyTypeListIt = keyTypeList.iterator();</span>
+<span class="fc" id="L493">            final List&lt;RangedList&lt;T&gt;&gt; chunks = (List&lt;RangedList&lt;T&gt;&gt;) ds.readObject();</span>
+<span class="fc bfc" id="L494" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; c : chunks) {</span>
+<span class="fc" id="L495">                final byte keyType = keyTypeListIt.next();</span>
+<span class="fc" id="L496">                final LongRange key = c.getRange();</span>
+<span class="pc bpc" id="L497" title="1 of 2 branches missed.">                if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L498">                    System.out.println(&quot;[&quot; + here() + &quot;] putForMove key: &quot; + key + &quot; keyType: &quot; + keyType);</span>
+                }
+<span class="fc" id="L500">                toBranch.putForMove(c, keyType);</span>
+<span class="fc" id="L501">            }</span>
+<span class="fc" id="L502">        };</span>
+<span class="fc" id="L503">        mm.request(dest, serialize, deserialize);</span>
+<span class="fc" id="L504">    }</span>
+
+    @Override
+    public void moveAtSyncCount(final ArrayList&lt;IntLongPair&gt; moveList, final MoveManager mm) throws Exception {
+        // TODO -&gt;LinkedList? sort??
+<span class="nc" id="L509">        final ArrayList&lt;LongRange&gt; localKeys = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L510">        localKeys.addAll(ranges());</span>
+<span class="nc" id="L511">        localKeys.sort((LongRange range1, LongRange range2) -&gt; {</span>
+<span class="nc" id="L512">            final long len1 = range1.to - range1.from;</span>
+<span class="nc" id="L513">            final long len2 = range2.to - range2.from;</span>
+<span class="nc" id="L514">            return (int) (len1 - len2);</span>
+        });
+<span class="nc bnc" id="L516" title="All 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L517">            System.out.print(&quot;[&quot; + here() + &quot;] &quot;);</span>
+<span class="nc bnc" id="L518" title="All 2 branches missed.">            for (int i = 0; i &lt; localKeys.size(); i++) {</span>
+<span class="nc" id="L519">                System.out.print(&quot;&quot; + localKeys.get(i).from + &quot;..&quot; + localKeys.get(i).to + &quot;, &quot;);</span>
+            }
+<span class="nc" id="L521">            System.out.println();</span>
+        }
+<span class="nc bnc" id="L523" title="All 2 branches missed.">        for (final IntLongPair moveinfo : moveList) {</span>
+<span class="nc" id="L524">            final long count = moveinfo.second;</span>
+<span class="nc" id="L525">            final Place dest = manager.placeGroup.get(moveinfo.first);</span>
+<span class="nc bnc" id="L526" title="All 2 branches missed.">            if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L527">                System.out.println(&quot;[&quot; + here() + &quot;] move count=&quot; + count + &quot; to dest &quot; + dest.id);</span>
+            }
+<span class="nc bnc" id="L529" title="All 2 branches missed.">            if (dest.equals(here())) {</span>
+<span class="nc" id="L530">                continue;</span>
+            }
+<span class="nc" id="L532">            long sizeToSend = count;</span>
+<span class="nc bnc" id="L533" title="All 2 branches missed.">            while (sizeToSend &gt; 0) {</span>
+<span class="nc" id="L534">                final LongRange lk = localKeys.remove(0);</span>
+<span class="nc" id="L535">                final long len = lk.to - lk.from;</span>
+<span class="nc bnc" id="L536" title="All 2 branches missed.">                if (len &gt; sizeToSend) {</span>
+<span class="nc" id="L537">                    moveRangeAtSync(new LongRange(lk.from, lk.from + sizeToSend), dest, mm);</span>
+<span class="nc" id="L538">                    localKeys.add(0, new LongRange(lk.from + sizeToSend, lk.to));</span>
+<span class="nc" id="L539">                    break;</span>
+                } else {
+<span class="nc" id="L541">                    moveRangeAtSync(lk, dest, mm);</span>
+<span class="nc" id="L542">                    sizeToSend -= len;</span>
+                }
+<span class="nc" id="L544">            }</span>
+<span class="nc" id="L545">        }</span>
+<span class="nc" id="L546">    }</span>
+
+    public void moveRangeAtSync(final Distribution&lt;Long&gt; dist, final CollectiveMoveManager mm) {
+<span class="nc" id="L549">        moveRangeAtSync((LongRange range) -&gt; {</span>
+<span class="nc" id="L550">            final ArrayList&lt;Pair&lt;Place, LongRange&gt;&gt; listPlaceRange = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L551" title="All 2 branches missed.">            for (final Long key : range) {</span>
+<span class="nc" id="L552">                listPlaceRange.add(new Pair&lt;&gt;(dist.place(key), new LongRange(key, key + 1)));</span>
+<span class="nc" id="L553">            }</span>
+<span class="nc" id="L554">            return listPlaceRange;</span>
+        }, mm);
+<span class="nc" id="L556">    }</span>
+
+    public void moveRangeAtSync(Function&lt;LongRange, List&lt;Pair&lt;Place, LongRange&gt;&gt;&gt; rule, CollectiveMoveManager mm) {
+<span class="nc" id="L559">        final DistCol&lt;T&gt; collection = this;</span>
+<span class="nc" id="L560">        final HashMap&lt;Place, ArrayList&lt;LongRange&gt;&gt; rangesToMove = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L562">        collection.forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
+<span class="nc" id="L563">            final List&lt;Pair&lt;Place, LongRange&gt;&gt; destinationList = rule.apply(c.getRange());</span>
+<span class="nc bnc" id="L564" title="All 2 branches missed.">            for (final Pair&lt;Place, LongRange&gt; destination : destinationList) {</span>
+<span class="nc" id="L565">                final Place destinationPlace = destination.first;</span>
+<span class="nc" id="L566">                final LongRange destinationRange = destination.second;</span>
+<span class="nc bnc" id="L567" title="All 2 branches missed.">                if (!rangesToMove.containsKey(destinationPlace)) {</span>
+<span class="nc" id="L568">                    rangesToMove.put(destinationPlace, new ArrayList&lt;LongRange&gt;());</span>
+
+                }
+<span class="nc" id="L571">                rangesToMove.get(destinationPlace).add(destinationRange);</span>
+<span class="nc" id="L572">            }</span>
+<span class="nc" id="L573">        });</span>
+<span class="nc bnc" id="L574" title="All 2 branches missed.">        for (final Place place : rangesToMove.keySet()) {</span>
+<span class="nc bnc" id="L575" title="All 2 branches missed.">            for (final LongRange range : rangesToMove.get(place)) {</span>
+<span class="nc" id="L576">                moveRangeAtSync(range, place, mm);</span>
+<span class="nc" id="L577">            }</span>
+<span class="nc" id="L578">        }</span>
+<span class="nc" id="L579">    }</span>
+
+    @Override
+    public void moveRangeAtSync(final LongRange range, final Place dest, final MoveManager mm) {
+<span class="pc bpc" id="L583" title="1 of 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L584">            System.out.println(&quot;[&quot; + here().id + &quot;] moveAtSync range: &quot; + range + &quot; dest: &quot; + dest.id);</span>
+        }
+
+<span class="fc" id="L587">        final ArrayList&lt;RangedList&lt;T&gt;&gt; chunksToMove = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L588">        final ArrayList&lt;ChunkExtractLeft&lt;T&gt;&gt; chunksToExtractLeft = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L589">        final ArrayList&lt;ChunkExtractMiddle&lt;T&gt;&gt; chunksToExtractMiddle = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L590">        final ArrayList&lt;ChunkExtractRight&lt;T&gt;&gt; chunksToExtractRight = new ArrayList&lt;&gt;();</span>
+        
+        // This method needs to be protected against concurrent calls
+        // We don't to risk splitting the same Chunk concurrently (as could be the case
+        // with the GLB)
+<span class="fc" id="L595">        synchronized (this) {</span>
+<span class="fc" id="L596">            forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
+<span class="fc" id="L597">                final LongRange cRange = c.getRange();</span>
+<span class="fc bfc" id="L598" title="All 2 branches covered.">                if (cRange.from &lt;= range.from) {</span>
+<span class="fc bfc" id="L599" title="All 2 branches covered.">                    if (cRange.to &lt;= range.from) { // cRange.max &lt; range.min) {</span>
+                        // skip
+                    } else {
+                        // range.min &lt;= cRange.max
+<span class="fc bfc" id="L603" title="All 2 branches covered.">                        if (cRange.from == range.from) {</span>
+<span class="fc bfc" id="L604" title="All 2 branches covered.">                            if (cRange.to &lt;= range.to) {</span>
+                                // add cRange.min..cRange.max
+<span class="fc" id="L606">                                chunksToMove.add(c);</span>
+                            } else {
+                                // range.max &lt; cRange.max
+                                // split at range.max/range.max+1
+                                // add cRange.min..range.max
+<span class="fc" id="L611">                                chunksToExtractLeft.add(new ChunkExtractLeft&lt;&gt;(c, range.to/* max + 1 */));</span>
+                            }
+                        } else {
+                            // cRange.min &lt; range.min
+<span class="fc bfc" id="L615" title="All 2 branches covered.">                            if (range.to &lt; cRange.to) {</span>
+                                // split at range.min-1/range.min
+                                // split at range.max/range.max+1
+                                // add range.min..range.max
+<span class="fc" id="L619">                                chunksToExtractMiddle</span>
+<span class="fc" id="L620">                                        .add(new ChunkExtractMiddle&lt;&gt;(c, range.from, range.to/* max + 1 */));</span>
+                            } else {
+                                // split at range.min-1/range.min
+                                // cRange.max =&lt; range.max
+                                // add range.min..cRange.max
+<span class="fc" id="L625">                                chunksToExtractRight.add(new ChunkExtractRight&lt;&gt;(c, range.from));</span>
+                            }
+                        }
+                    }
+                } else {
+                    // range.min &lt; cRange.min
+<span class="fc bfc" id="L631" title="All 2 branches covered.">                    if (range.to &lt;= cRange.from) { // range.max &lt; cRange.min) {</span>
+                        // skip
+                    } else {
+                        // cRange.min &lt;= range.max
+<span class="fc bfc" id="L635" title="All 2 branches covered.">                        if (cRange.to &lt;= range.to) {</span>
+                            // add cRange.min..cRange.max
+<span class="fc" id="L637">                            chunksToMove.add(c);</span>
+                        } else {
+                            // split at range.max/range.max+1
+                            // add cRange.min..range.max
+<span class="fc" id="L641">                            chunksToExtractLeft.add(new ChunkExtractLeft&lt;&gt;(c, range.to/* max + 1 */));</span>
+                        }
+                    }
+                }
+<span class="fc" id="L645">            });</span>
+
+<span class="fc bfc" id="L647" title="All 2 branches covered.">            for (final ChunkExtractLeft&lt;T&gt; chunkToExtractLeft : chunksToExtractLeft) {</span>
+<span class="fc" id="L648">                final RangedList&lt;T&gt; original = chunkToExtractLeft.original;</span>
+<span class="fc" id="L649">                final List&lt;RangedList&lt;T&gt;&gt; splits = chunkToExtractLeft.extract();</span>
+                // System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.first.getRange());
+<span class="fc" id="L651">                add_unchecked(splits.get(0)/* first */);</span>
+                // System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.second.getRange());
+<span class="fc" id="L653">                add_unchecked(splits.get(1)/* second */);</span>
+
+                // System.out.println(&quot;[&quot; + here.id + &quot;] removeChunk &quot; + original.getRange());
+<span class="fc" id="L656">                remove(original);</span>
+<span class="fc" id="L657">                chunksToMove.add(splits.get(0)/* first */);</span>
+<span class="fc" id="L658">            }</span>
+
+<span class="fc bfc" id="L660" title="All 2 branches covered.">            for (final ChunkExtractMiddle&lt;T&gt; chunkToExtractMiddle : chunksToExtractMiddle) {</span>
+<span class="fc" id="L661">                final RangedList&lt;T&gt; original = chunkToExtractMiddle.original;</span>
+<span class="fc" id="L662">                final List&lt;RangedList&lt;T&gt;&gt; splits = chunkToExtractMiddle.extract();</span>
+                // System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.first.getRange());
+<span class="fc" id="L664">                add_unchecked(splits.get(0)/* first */);</span>
+                // System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.second.getRange());
+<span class="fc" id="L666">                add_unchecked(splits.get(1)/* second */);</span>
+                // System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.third.getRange());
+<span class="fc" id="L668">                add_unchecked(splits.get(2)/* third */);</span>
+
+                // System.out.println(&quot;[&quot; + here.id + &quot;] removeChunk &quot; + original.getRange());
+<span class="fc" id="L671">                remove(original);</span>
+<span class="fc" id="L672">                chunksToMove.add(splits.get(1)/* second */);</span>
+<span class="fc" id="L673">            }</span>
+
+<span class="fc bfc" id="L675" title="All 2 branches covered.">            for (final ChunkExtractRight&lt;T&gt; chunkToExtractRight : chunksToExtractRight) {</span>
+<span class="fc" id="L676">                final RangedList&lt;T&gt; original = chunkToExtractRight.original;</span>
+<span class="fc" id="L677">                final List&lt;RangedList&lt;T&gt;&gt; splits = chunkToExtractRight.extract();</span>
+                // System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.first.getRange());
+<span class="fc" id="L679">                add_unchecked(splits.get(0)/* first */);</span>
+                // System.out.println(&quot;[&quot; + here.id + &quot;] putChunk &quot; + splits.second.getRange());
+<span class="fc" id="L681">                add_unchecked(splits.get(1)/* second */);</span>
+                // System.out.println(&quot;[&quot; + here.id + &quot;] removeChunk &quot; + original.getRange());
+<span class="fc" id="L683">                remove(original);</span>
+
+<span class="fc" id="L685">                chunksToMove.add(splits.get(1)/* second */);</span>
+<span class="fc" id="L686">            }</span>
+<span class="fc" id="L687">        } // End of the synchronized block</span>
+<span class="fc" id="L688">        moveAtSync(chunksToMove, dest, mm);</span>
+<span class="fc" id="L689">    }</span>
+
+    public void moveRangeAtSync(final RangedDistribution&lt;LongRange&gt; dist, final CollectiveMoveManager mm)
+            throws Exception {
+<span class="nc" id="L693">        moveRangeAtSync((LongRange range) -&gt; {</span>
+<span class="nc" id="L694">            return dist.placeRanges(range);</span>
+        }, mm);
+<span class="nc" id="L696">    }</span>
+
+    @Override
+    public void parallelForEach(SerializableConsumer&lt;T&gt; action) {
+<span class="fc" id="L700">        super.parallelForEach(action);</span>
+<span class="fc" id="L701">    }</span>
+
+    @Override
+    public TeamedPlaceGroup placeGroup() {
+<span class="fc" id="L705">        return manager.placeGroup;</span>
+    }
+
+    private void putForMove(final RangedList&lt;T&gt; c, final byte mType) throws Exception {
+<span class="fc" id="L709">        final LongRange key = c.getRange();</span>
+<span class="pc bpc" id="L710" title="1 of 3 branches missed.">        switch (mType) {</span>
+        case DistManager.MOVE_NEW:
+<span class="fc" id="L712">            ldist.moveInNew(key);</span>
+<span class="fc" id="L713">            break;</span>
+        case DistManager.MOVE_OLD:
+<span class="fc" id="L715">            ldist.moveInOld(key);</span>
+<span class="fc" id="L716">            break;</span>
+        default:
+<span class="nc" id="L718">            throw new Exception(&quot;SystemError when calling putForMove &quot; + key);</span>
+        }
+<span class="fc" id="L720">        super.add(c);</span>
+<span class="fc" id="L721">    }</span>
+
+    // Method moved to GLOBAL and TEAM operations
+    // @Override
+    // public void distSize(long[] result) {
+    // for (final Map.Entry&lt;LongRange, Place&gt; entry : ldist.dist.entrySet()) {
+    // final LongRange k = entry.getKey();
+    // final Place p = entry.getValue();
+    // result[manager.placeGroup.rank(p)] += k.size();
+    // }
+    // }
+
+    @Override
+    public RangedList&lt;T&gt; remove(final LongRange r) {
+<span class="fc" id="L735">        ldist.remove(r);</span>
+<span class="fc" id="L736">        return super.remove(r);</span>
+    }
+
+    @Deprecated
+    @Override
+    public RangedList&lt;T&gt; remove(final RangedList&lt;T&gt; c) {
+<span class="fc" id="L742">        ldist.remove(c.getRange());</span>
+<span class="fc" id="L743">        return super.remove(c);</span>
+    }
+
+    private void removeForMove(final LongRange r) {
+<span class="pc bpc" id="L747" title="1 of 2 branches missed.">        if (super.remove(r) == null) {</span>
+<span class="nc" id="L748">            throw new RuntimeException(&quot;DistCol#removeForMove&quot;);</span>
+        }
+<span class="fc" id="L750">    }</span>
+
+    /**
+     * Sets this instance's proxy generator.
+     *
+     * The proxy feature is used to prepare an element when access to an index that
+     * is not contained in the local range. Instead of throwing an
+     * {@link IndexOutOfBoundsException}, the value generated by the proxy will be
+     * used. It resembles `getOrDefault(key, defaultValue)`.
+     *
+     * @param proxyGenerator function that takes a {@link Long} index as parameter
+     *                       and returns a T
+     */
+    public void setProxyGenerator(Function&lt;Long, T&gt; proxyGenerator) {
+<span class="fc" id="L764">        this.proxyGenerator = proxyGenerator;</span>
+<span class="fc" id="L765">    }</span>
+
+    @Override
+    public TeamOperations&lt;T, DistCol&lt;T&gt;&gt; team() {
+<span class="fc" id="L769">        return TEAM;</span>
+    }
+
+    // TODO make private
+    private void team_updateDist() {
+<span class="fc" id="L774">        ldist.updateDist(manager.placeGroup);</span>
+<span class="fc" id="L775">    }</span>
+
+    @Override
+    public String toString() {
+<span class="nc" id="L779">        return getClass().getSimpleName() + &quot;:&quot; + id();</span>
+    }
+
+    @Override
+    public Object writeReplace() throws ObjectStreamException {
+<span class="fc" id="L784">        final TeamedPlaceGroup pg1 = manager.placeGroup;</span>
+<span class="fc" id="L785">        final GlobalID id1 = id();</span>
+<span class="fc" id="L786">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L787">            return new DistCol&lt;&gt;(pg1, id1);</span>
+        });
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>
