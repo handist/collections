@@ -1,655 +1,417 @@
 /*******************************************************************************
- * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
  *
- * This program and the accompanying materials are made available to you under 
- * the terms of the Eclipse Public License 1.0 which accompanies this 
- * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
  *
  * SPDX-License-Identifier: EPL-1.0
- *******************************************************************************/
+ ******************************************************************************/
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
+import static org.junit.Assert.*;
 
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-
+import apgas.MultipleException;
 import apgas.Place;
-import handist.collections.LongRange;
 import handist.collections.Chunk;
+import handist.collections.LongRange;
 import handist.collections.RangedList;
+import handist.collections.function.SerializableFunction;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
 
+/**
+ * Tests for the distributed features of {@link DistCol}
+ *
+ * @author Patrick Finnerty
+ *
+ */
 @RunWith(MpiRunner.class)
-@MpiConfig(ranks=2, launcher=TestLauncher.class)
+@MpiConfig(ranks = 2, launcher = TestLauncher.class)
 public class IT_DistCol implements Serializable {
 
-	/** Serial Version UID */
-	private static final long serialVersionUID = -9076195681727813858L;
-	
-	TeamedPlaceGroup placeGroup;
-	long NPLACES0;
-	long rangeSize0 = 10;
-	long rangeSkip0 = 5;
-	long numChunk0 = 50;
+    /** Number of Chunks used in the test */
+    static final long chunkNumber = 50;
+    /** Range of each individual chunk */
+    static final long rangeSize = 10;
+    /** Size of the range skipped between chunks */
+    static final long rangeSkip = 5;
 
-	DistCol<String> distCol0;
-	DistBag<List<String> > distBag0;
+    /** Serial Version UID */
+    private static final long serialVersionUID = -9076195681727813858L;
 
-	@Before
-	public void setup() {
-		placeGroup = TeamedPlaceGroup.world;
-		NPLACES0 = placeGroup.size();
-		distCol0 = new DistCol<String>(placeGroup);
-		distBag0 = new DistBag<List<String> >(placeGroup);
-	}
+    /** Object instance under test, initially empty */
+    DistBag<List<String>> distBag;
+    /** Object instance under test, initially empty */
+    DistCol<String> distCol;
+    /** Number of processes on which this test is running */
+    int NPLACES;
+    /** PlaceGroup representing the whole world */
+    TeamedPlaceGroup placeGroup = TeamedPlaceGroup.getWorld();
 
-	public static void main(String[] args) {
-		IT_DistCol test = new IT_DistCol();
-		test.setup();
-		test.run();
-		System.out.println("----finish");
-	}
+    /**
+     * Prepares new instance of DistCol for the test
+     */
+    @Before
+    public void setup() {
+        placeGroup = TeamedPlaceGroup.world;
+        NPLACES = placeGroup.size();
+        distCol = new DistCol<>(placeGroup);
+        distBag = new DistBag<>(placeGroup);
+    }
 
-	@Test
-	public void run() {
-		TeamedPlaceGroup pg = this.placeGroup;
-		long NPLACES =  NPLACES0;
-		long rangeSize = rangeSize0;
-		long rangeSkip = rangeSkip0;
-		long numChunk = numChunk0;
+    /**
+     * Destroys the distributed collections that were initialized
+     */
+    @After
+    public void tearDown() {
+        distCol.destroy();
+        distBag.destroy();
+    }
 
-		DistCol<String> distCol=distCol0;
+    /**
+     * Makes a number of instance transfers from place to place
+     *
+     * @throws Throwable if thrown during the test
+     */
+    @Test(timeout = 100000)
+    public void testRun() throws Throwable {
+        // Prepare initial population
+        long rangeBegin = 0; // inclusive
+        long rangeEnd; // exclusive
+        try {
+            for (long i = 0; i < chunkNumber; i++) {
+                rangeEnd = rangeBegin + rangeSize - 1;
+                final Chunk<String> c = new Chunk<>(new LongRange(rangeBegin, rangeEnd), "<empty>");
+                for (long j = rangeBegin; j < rangeEnd; j++) {
+                    c.set(j, "" + j + "/" + i);
+                }
+                distCol.add(c);
+                rangeBegin = rangeBegin + rangeSize + rangeSkip;
+            }
+        } catch (final Exception e) {
+            System.err.println("Error on " + here());
+            e.printStackTrace();
+            throw e;
+        }
+        final long INITIAL_SIZE = distCol.size();
 
-		// Create initial data at Place 0
-		System.out.println("### Create initial data at Place 0");
+        // Check that the expected number of entries are indeed in DistCol
+        try {
+            placeGroup.broadcastFlat(() -> {
+                final long expected = placeGroup.rank(here()) == 0 ? INITIAL_SIZE : 0l;
+                assertEquals(expected, distCol.size());
+            });
+        } catch (final MultipleException me) {
+            throw me.getSuppressed()[0];
+        }
 
-		long rangeBegin = 0; // inclusive
-		long rangeEnd; // exclusive
+        // Distribute all entries
+        z_distributeChunks();
 
-		try {
-			for (long i = 0; i < numChunk; i++) {
-				rangeEnd = rangeBegin + rangeSize - 1;
-				Chunk<String> c = new Chunk<String>(new LongRange(rangeBegin, rangeEnd), "<empty>");
-				for (long j = rangeBegin; j < rangeEnd; j++) {
-					c.set(j, "" + j + "/" + i);
-				}
-				distCol.addChunk(c);
-				rangeBegin = rangeBegin + rangeSize + rangeSkip;
-			}
-		} catch (Exception e) {
-			System.err.println("Error on "+here());
-			e.printStackTrace();
-		}
+        // Check that each place got 1 out of 2 chunk
+        x_checkSize((h) -> {
+            return INITIAL_SIZE / 2;
+        });
+        // Check that the expected shift is correct
+        x_checkShift(0l);
 
-		//	val gather = new GatherDistCol[String](pg, distCol);
-		//	gather.gather();
-		//	gather.print();
-		//	gather.setCurrentAsInit();
+        // Move all entries to the next place
+        z_updateDist();
+        z_moveToNextPlace();
 
-		// ---------------------------------------------------------------------------
-		// Distribute all entries
-		System.out.println("");
-		System.out.println("### MoveAtSync // Distribute all entries");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				distCol.forEachChunk((RangedList<String> c) -> {
-					LongRange r = c.getRange();
-					String s = c.get(r.from);
-					long d = (Long.parseLong(s.split("/")[0])) % NPLACES;
-					ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
-					cs.add(c);
-					System.out.println("[" + r.from + ".." + r.to + ") to " + d);
-					try {
-						distCol.moveAtSync(cs, pg.get((int)d), mm);
-					} catch (Exception e) {
-						System.err.println("Error on " + here());
-						e.printStackTrace();
-						//throw e;
-					}
-				});
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//	        val cblock = key / (rangeSize + rangeSkip);
-		//		val d = cblock % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    System.out.println("VALIDATE 1-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 1-1: FAIL");
-		//	}
+        x_checkSize((h) -> {
+            return INITIAL_SIZE / 2;
+        });
+        x_checkShift(1l);
 
-		System.out.println("");
-		System.out.println("### Update dist // Distribute all entries");
-		pg.broadcastFlat(() -> {
-			try {
-				distCol.updateDist();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+        // Move all entries to the next-next place");
+        z_updateDist();
+        z_moveToNextPlace();
+        z_moveToNextPlace();
+        z_updateDist();
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    System.out.println("VALIDATE 1-2: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 1-2: FAIL");
-		//	}
+        x_checkSize((h) -> {
+            return INITIAL_SIZE / 2;
+        });
+        x_checkShift(3l);
 
-		// ---------------------------------------------------------------------------
+        // ---------------------------------------------------------------------------
 
-		// Move all entries to the next place
-		System.out.println("");
-		System.out.println("### MoveAtSync // Move all entries to the next place");
-		pg.broadcastFlat(() -> {
-			//		System.out.println("Line 147:"+distCol.ldist.toString() +"@"+here());
+        z_moveToNextPlace();
 
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				int rank = pg.rank(here());
-				Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
-				distCol.forEachChunk((RangedList<String> c) -> {
-					LongRange r = c.getRange();
-					ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
-					cs.add(c);
-					System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
-					try {
-						distCol.moveAtSync(cs, destination, mm);
-					} catch (Exception e) {
-						System.err.println("Error on " + here());
-						e.printStackTrace();
-						//throw e;
-					}
-				});
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+        x_checkSize((h) -> {
+            return INITIAL_SIZE / 2;
+        });
+        x_checkShift(4l);
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//	        val cblock = key / (rangeSize + rangeSkip);
-		//		val d = (cblock + 1) % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    System.out.println("VALIDATE 2-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 2-1: FAIL");
-		//	}
+        z_updateDist();
 
-		System.out.println("");
-		System.out.println("### Update dist // Move all entries to the next place");
-		pg.broadcastFlat(() -> {
-			try {
-				// System.out.println("BeforeUpdateDist: "+distCol.ldist.toString() +"@"+here());		    
-				distCol.updateDist();
-				// System.out.println("AfterUpdateDist: "+distCol.ldist.toString() +"@"+here());
+        // ---------------------------------------------------------------------------
+        // Move all entries to place 0
+        z_moveToPlaceZero();
 
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+        // All the entries should be on place 0, size 0 elsewhere
+        x_checkSize((h) -> {
+            return h.id == 0 ? INITIAL_SIZE : 0l;
+        });
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    System.out.println("VALIDATE 2-2: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 2-2: FAIL");
-		//	}
+        z_updateDist();
 
-		// ---------------------------------------------------------------------------
+        // ---------------------------------------------------------------------------
+        // Generate additional key/value pair
+        long newEntriesCount = 0l;
+        for (long i = chunkNumber; i < chunkNumber * 2; i++) {
+            rangeEnd = rangeBegin + rangeSize;
+            final Chunk<String> c = new Chunk<>(new LongRange(rangeBegin, rangeEnd), "<empty>");
+            for (long j = rangeBegin; j < rangeEnd; j++) {
+                c.set(j, "" + j + "/" + i);
+            }
+            newEntriesCount += c.size();
+            distCol.add(c);
+            rangeBegin = rangeBegin + rangeSize + rangeSkip;
+        }
+        final long ADDED_ENTRIES = newEntriesCount;
+        x_checkSize((h) -> {
+            return h.id == 0 ? INITIAL_SIZE + ADDED_ENTRIES : 0l;
+        });
 
-		// Move all entries to the next to next place
-		System.out.println("");
-		System.out.println("### MoveAtSync // Move all entries to the next to next place");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				int rank = pg.rank(here());
-				Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
-				distCol.forEachChunk((RangedList<String> c) -> {
-					LongRange r = c.getRange();
-					ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
-					cs.add(c);
-					System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
-					try {
-						distCol.moveAtSync(cs, destination, mm);
-					} catch (Exception e) {
-						System.err.println("Error on " + here());
-						e.printStackTrace();
-						//throw e;
-					}
-				});
-				mm.sync();
-				distCol.forEachChunk((RangedList<String> c) -> {
-					LongRange r = c.getRange();
-					ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
-					cs.add(c);
-					System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
-					try {
-						distCol.moveAtSync(cs, destination, mm);
-					} catch (Exception e) {
-						System.err.println("Error on " + here());
-						e.printStackTrace();
-						//throw e;
-					}
-				});
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+        // Distribute all entries with the additional keys/values
+        z_distributeChunks();
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//	        val cblock = key / (rangeSize + rangeSkip);
-		//		val d = (cblock + 3) % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    System.out.println("VALIDATE 3-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 3-1: FAIL");
-		//	}
+        // CHECK THAT THE DISTRIBUTION IS CORRECT
+        x_checkShift(0l);
+        x_checkSize((h) -> {
+            return (INITIAL_SIZE + ADDED_ENTRIES) / 2;
+        });
+        // Then remove the additional key/value
+        placeGroup.broadcastFlat(() -> {
+            try {
+                final ArrayList<RangedList<String>> chunkList = new ArrayList<>();
+                distCol.forEachChunk((RangedList<String> c) -> {
+                    final LongRange r = c.getRange();
+                    if (r.from / (rangeSize + rangeSkip) >= chunkNumber) {
+                        chunkList.add(c);
+                    }
+                });
+                for (final RangedList<String> chunk : chunkList) {
+                    distCol.remove(chunk.getRange());
+                }
+            } catch (final Exception e) {
+                System.err.println("Error on " + here());
+                e.printStackTrace();
+                throw e;
+            }
+        });
 
-		System.out.println("");
-		System.out.println("### Update dist // Move all entries to the next to next place");
-		pg.broadcastFlat(() -> {
-			try {
-				distCol.updateDist();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+        z_updateDist();
+        x_checkSize((h) -> {
+            return INITIAL_SIZE / 2;
+        });
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    System.out.println("VALIDATE 3-2: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 3-2: FAIL");
-		//	}
+        // ---------------------------------------------------------------------------
+        // Split range into large ranges
+        final long splitSizeLarge = rangeSize * (chunkNumber / 3);
+        final LongRange AllRange = new LongRange(0, ((rangeSize + rangeSkip) * chunkNumber));
 
-		// ---------------------------------------------------------------------------
+        placeGroup.broadcastFlat(() -> {
+            try {
+                final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
+                LongRange range = new LongRange(0, splitSizeLarge);
+                long dest = 0;
+                while (range.from < AllRange.to) {
+                    distCol.moveRangeAtSync(range, placeGroup.get((int) dest), mm);
+                    range = new LongRange(range.from + splitSizeLarge, range.to + splitSizeLarge);
+                    dest = (dest + 1) % NPLACES;
+                }
+                mm.sync();
+            } catch (final Exception e) {
+                System.err.println("Error on " + here());
+                e.printStackTrace();
+                throw e;
+            }
+        });
+        z_updateDist();
+        // TODO check
 
-		// Move all entries to the NPLACES times next place
-		System.out.println("");
-		System.out.println("### MoveAtSync // Move all entries to the NPLACES times next place");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				int rank = pg.rank(here());
-				Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
-				for (long i = 0; i < NPLACES; i++) {
-					distCol.forEachChunk((RangedList<String> c) -> {
-						LongRange r = c.getRange();
-						ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
-						cs.add(c);
-						System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
-						try {
-							distCol.moveAtSync(cs, destination, mm);
-						} catch (Exception e) {
-							System.err.println("Error on " + here());
-							e.printStackTrace();
-							//throw e;
-						}
-					});
-					mm.sync();
-				}
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+        // ---------------------------------------------------------------------------
+        // Split range into smaller ranges
+        final long splitSizeSmall = 4;
+        placeGroup.broadcastFlat(() -> {
+            try {
+                final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
+                LongRange range = new LongRange(0, splitSizeSmall);
+                long dest = 0;
+                while (range.from < AllRange.to) {
+                    distCol.moveRangeAtSync(range, placeGroup.get((int) dest), mm);
+                    range = new LongRange(range.from + splitSizeSmall, range.to + splitSizeSmall);
+                    dest = (dest + 1) % NPLACES;
+                }
+                mm.sync();
+            } catch (final Exception e) {
+                System.err.println("Error on " + here());
+                e.printStackTrace();
+                throw e;
+            }
+        });
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//	        val cblock = key / (rangeSize + rangeSkip);
-		//		val d = (cblock + 3) % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    System.out.println("VALIDATE 4-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 4-1: FAIL");
-		//	}
+        z_updateDist();
+        // TODO CHECK
+    }
 
-		System.out.println("");
-		System.out.println("### Update dist // Move all entries to the NPLACES times next place");
-		pg.broadcastFlat(() -> {
-			try {
-				distCol.updateDist();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+    private void x_checkShift(final long expectedShift) throws Throwable {
+        try {
+            placeGroup.broadcastFlat(() -> {
+                final long shift = (expectedShift + here().id) % NPLACES;
+                try {
+                    // Check that each key/pair is on the right place
+                    for (final LongRange lr : distCol.getAllRanges()) {
+                        final long chunkNumber = lr.from / (rangeSize + rangeSkip);
+                        final long apparentShift = (chunkNumber % NPLACES);
+                        assertEquals(shift, apparentShift);
+                    }
+                } catch (final Throwable e) {
+                    final RuntimeException re = new RuntimeException("Error on " + here());
+                    re.initCause(e);
+                    throw re;
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
+    }
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    System.out.println("VALIDATE 4-2: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 4-2: FAIL");
-		//	}
+    /**
+     * Subroutine which checks that every place holds half of the total instances
+     *
+     * @param INITIAL_SIZE total size of the distributed collection
+     * @throws Throwable if thrown during the check
+     */
+    private void x_checkSize(final SerializableFunction<Place, Long> size) throws Throwable {
+        try {
+            placeGroup.broadcastFlat(() -> {
+                final long expected = size.apply(here());
+                try {
+                    assertEquals(expected, distCol.size());
+                } catch (final Throwable e) {
+                    final RuntimeException re = new RuntimeException("Error on " + here());
+                    re.initCause(e);
+                    throw re;
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
+    }
 
-		// ---------------------------------------------------------------------------
+    private void z_distributeChunks() throws Throwable {
+        try {
+            placeGroup.broadcastFlat(() -> {
 
-		// Move all entries to place 0
-		System.out.println("");
-		System.out.println("### MoveAtSync // Move all entries to place 0");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				//int rank = pg.rank(here());
-				Place destination = pg.get(0);
-				distCol.forEachChunk((RangedList<String> c) -> {
-					LongRange r = c.getRange();
-					ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
-					cs.add(c);
-					System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
-					try {
-						distCol.moveAtSync(cs, destination, mm);
-					} catch (Exception e) {
-						System.err.println("Error on " + here());
-						e.printStackTrace();
-						//throw e;
-					}
-				});
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+                try {
+                    final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
+                    distCol.forEachChunk((RangedList<String> c) -> {
+                        final LongRange r = c.getRange();
+                        final String s = c.get(r.from);
+                        // Every other chunk is sent to place 0 / 1
+                        final int destination = (Integer.parseInt(s.split("/")[0])) % NPLACES;
+                        // final ArrayList<RangedList<String>> cs = new ArrayList<>();
+                        // cs.add(c);
+                        // try {
+                        distCol.moveRangeAtSync(r, placeGroup.get(destination), mm);
+                        // } catch (final Exception e) {
+                        // System.err.println("Error on " + here());
+                        // e.printStackTrace();
+                        // }
+                    });
+                    mm.sync();
+                } catch (final Exception e) {
+                    System.err.println("Error on " + here());
+                    e.printStackTrace();
+                    throw e;
+                }
+            });
+        } catch (final MultipleException me) {
+            throw me.getSuppressed()[0];
+        }
+    }
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//		return 0n;
-		//    	})) {
-		//	    System.out.println("VALIDATE 5-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 5-1: FAIL");
-		//	}
+    private void z_moveToNextPlace() {
+        placeGroup.broadcastFlat(() -> {
 
-		System.out.println("");
-		System.out.println("### Update dist // Move all entries to place 0");
-		pg.broadcastFlat(() -> {
-			try {
-				distCol.updateDist();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+            try {
+                final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
+                final int rank = placeGroup.rank(here());
+                final Place destination = placeGroup.get(rank + 1 == placeGroup.size() ? 0 : rank + 1);
+                distCol.forEachChunk((c) -> {
+                    // final ArrayList<RangedList<String>> cs = new ArrayList<>();
+                    // cs.add(c);
+                    // try {
+                    distCol.moveRangeAtSync(c.getRange(), destination, mm);
+                    // } catch (final Exception e) {
+                    // System.err.println("Error on " + here());
+                    // e.printStackTrace();
+                    // throw e;
+                    // }
+                });
+                mm.sync();
+            } catch (final Exception e) {
+                System.err.println("Error on " + here());
+                e.printStackTrace();
+                throw e;
+            }
+        });
+    }
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    System.out.println("VALIDATE 5-2: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 5-2: FAIL");
-		//	}
+    private void z_moveToPlaceZero() {
+        placeGroup.broadcastFlat(() -> {
+            try {
+                final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
+                final Place destination = placeGroup.get(0);
+                distCol.forEachChunk((c) -> {
+                    // final ArrayList<RangedList<String>> cs = new ArrayList<>();
+                    // cs.add(c);
+                    // System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
+                    // try {
+                    distCol.moveRangeAtSync(c.getRange(), destination, mm);
+                    // } catch (final Exception e) {
+                    // System.err.println("Error on " + here());
+                    // e.printStackTrace();
+                    // throw e;
+                    // }
+                });
+                mm.sync();
+            } catch (final Exception e) {
+                System.err.println("Error on " + here());
+                e.printStackTrace();
+                throw e;
+            }
+        });
+    }
 
-		// ---------------------------------------------------------------------------
-
-		// Generate additional key/value pair
-		try {
-			for (long i = numChunk; i < numChunk * 2; i++) {
-				rangeEnd = rangeBegin + rangeSize;
-				Chunk<String> c = new Chunk<String>(new LongRange(rangeBegin, rangeEnd), "<empty>");
-				for (long j = rangeBegin; j < rangeEnd; j++) {
-					c.set(j, "" + j + "/" + i);
-				}
-				distCol.addChunk(c);
-				rangeBegin = rangeBegin + rangeSize + rangeSkip;
-			}
-		} catch (Exception e) {
-			System.err.println("Error on "+here());
-			e.printStackTrace();
-		}
-
-		// Distribute all entries with additional key/value
-		System.out.println("");
-		System.out.println("### Distribute all entries with additional key/value");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				distCol.forEachChunk((RangedList<String> c) -> {
-					LongRange r = c.getRange();
-					String s = c.get(r.from);
-					long d = (Long.parseLong(s.split("/")[0])) % NPLACES;
-					ArrayList<RangedList<String> > cs = new ArrayList<RangedList<String> >();
-					cs.add(c);
-					System.out.println("[" + r.from + ".." + r.to + ") to " + d);
-					try {
-						distCol.moveAtSync(cs, pg.get((int)d), mm);
-					} catch (Exception e) {
-						System.err.println("Error on " + here());
-						e.printStackTrace();
-						//throw e;
-					}
-				});
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-
-		// Then remove additional key/value
-		System.out.println("");
-		System.out.println("### Then remove additional key/value");
-		pg.broadcastFlat(() -> {
-			try {
-				ArrayList<RangedList<String> > chunkList = new ArrayList<RangedList<String> >();
-				distCol.forEachChunk((RangedList<String> c) -> {
-					LongRange r = c.getRange();
-					if (r.from / (rangeSize + rangeSkip) >= numChunk) {
-						chunkList.add(c);
-					}
-				});	    
-				for (RangedList<String> chunk : chunkList) {
-					distCol.removeChunk(chunk);
-				}
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//	        val cblock = key / (rangeSize + rangeSkip);
-		//		val d = cblock % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    System.out.println("VALIDATE 6-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 6-1: FAIL");
-		//	}
-
-		System.out.println("");
-		System.out.println("### Update dist // Distribute all entries again and remove additional data");
-		pg.broadcastFlat(() -> {
-			try {
-				distCol.updateDist();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//	        val cblock = key / (rangeSize + rangeSkip);
-		//		val d = cblock % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    System.out.println("VALIDATE 6-2: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 6-2: FAIL");
-		//	}
-
-		// ---------------------------------------------------------------------------
-		// split range into large pieces
-		long splitSizeLarge = rangeSize * (numChunk / 3);
-		LongRange AllRange = new LongRange(0, ((rangeSize + rangeSkip) * numChunk));
-
-		System.out.println("");
-		System.out.println("### Split range into large pieces splitSizeLarge: " + splitSizeLarge);
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				LongRange range = new LongRange(0, splitSizeLarge);
-				long dest = 0;
-				while (range.from < AllRange.to) {
-					distCol.moveAtSync(range, pg.get((int)dest), mm);
-					range = new LongRange(range.from + splitSizeLarge, range.to + splitSizeLarge);
-					dest = (dest + 1) % NPLACES;
-				}
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				//throw e;
-			}
-		});
-
-		//	gather.gather();
-		//	gather.print();
-
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//	        val d = (key / splitSizeLarge) % NPLACES;	    
-		//		return d as Int;
-		//	    })) {
-		//	    System.out.println("VALIDATE 7-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 7-1: FAIL");
-		//	}
-
-		System.out.println("");
-		System.out.println("### Update dist // Split range into large pieces");
-		pg.broadcastFlat(() -> {
-			try {
-				distCol.updateDist();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    System.out.println("VALIDATE 7-2: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 7-2: FAIL");
-		//	}
-
-		// ---------------------------------------------------------------------------
-		// split range into small pieces
-		long splitSizeSmall = 4;
-
-		System.out.println("");
-		System.out.println("### Split range into small pieces splitSizeSmall: " + splitSizeSmall);
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				LongRange range = new LongRange(0, splitSizeSmall);
-				long dest = 0;
-				while (range.from < AllRange.to) {
-					distCol.moveAtSync(range, pg.get((int)dest), mm);
-					range = new LongRange(range.from + splitSizeSmall, range.to + splitSizeSmall);
-					dest = (dest + 1) % NPLACES;
-				}
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				//throw e;
-			}
-		});
-		//	gather.gather();
-		//	gather.print();
-
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: Long, pid: Int) => {
-		//	        val d = (key / splitSizeSmall) % NPLACES;	    
-		//		return d as Int;
-		//	    })) {
-		//	    System.out.println("VALIDATE 8-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 8-1: FAIL");
-		//	}
-		System.out.println("");
-		System.out.println("### Update dist // Split range into small pieces");
-		pg.broadcastFlat(() -> {
-			try {
-				distCol.updateDist();
-			} catch (Exception e) {
-				System.err.println("Error on " + here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() && gather.validateAfterUpdateDist()) {
-		//	    System.out.println("VALIDATE 8-2: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 8-2: FAIL");
-		//	}
-	}
+    private void z_updateDist() {
+        placeGroup.broadcastFlat(() -> {
+            try {
+                distCol.team().updateDist();
+            } catch (final Exception e) {
+                System.err.println("Error on " + here());
+                e.printStackTrace();
+                throw e;
+            }
+        });
+    }
 }

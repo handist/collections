@@ -1,243 +1,250 @@
 /*******************************************************************************
- * Copyright (c) 2020 Handy Tools for Distributed Computing (HanDist) project.
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
  *
- * This program and the accompanying materials are made available to you under 
- * the terms of the Eclipse Public License 1.0 which accompanies this 
- * distribution, and is available at https://www.eclipse.org/legal/epl-v10.html
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
  *
  * SPDX-License-Identifier: EPL-1.0
- *******************************************************************************/
+ ******************************************************************************/
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
+import static org.junit.Assert.*;
 
 import java.io.Serializable;
 import java.util.Random;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import apgas.MultipleException;
 import apgas.Place;
+import handist.collections.function.SerializableFunction;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
 
 @RunWith(MpiRunner.class)
-@MpiConfig(ranks=2, launcher=TestLauncher.class)
+@MpiConfig(ranks = 2, launcher = TestLauncher.class)
 public class IT_DistMap implements Serializable {
 
-	/** Serial Version UID */
-	private static final long serialVersionUID = -762013040337361823L;
+    /** Number of places this test is running on */
+    static int NPLACES;
 
-	TeamedPlaceGroup placeGroup;
-	long numData = 200;
+    /** Number of initial data entries places into the map */
+    final static long numData = 200;
 
-	Random random;
-	private DistMap<String, String> distMap;
+    /** Random instance used to populate the map with initial data */
+    final static Random random = new Random(12345l);
+    /** Serial Version UID */
+    private static final long serialVersionUID = -762013040337361823L;
 
+    /**
+     * Helper method used to generate strings with the specified prefix
+     *
+     * @param prefix prefix of the returned string
+     * @return a randomly generated string which starts with the specified string
+     */
+    public static String genRandStr(String prefix) {
+        final long rand = random.nextLong();
+        return prefix + rand;
+    }
 
-	/**
-	 * Constructor used when this class is run as a Junit test class.
-	 * The actual member initialization is done in the {@link #setup()} method. 
-	 */
-	public IT_DistMap() {
-	}
+    /** Map which undergoes the various tests */
+    private DistMap<String, String> distMap;
 
-	@Before
-	public void setup() {
-		placeGroup = TeamedPlaceGroup.getWorld();
-		random = new Random(12345);
-		distMap = new DistMap<String, String>(placeGroup);
-	}
+    /** PlaceGroup on which the DistMap is defined on */
+    TeamedPlaceGroup pg = TeamedPlaceGroup.getWorld();
 
-//	public ITDistMap(TeamedPlaceGroup placeGroup) {
-//		this.placeGroup = placeGroup;
-//		this.random = new Random(12345);
-//		this.distMap = new DistMap<String, String>(placeGroup);
-//	}
+    @Test
+    public void run() throws Throwable {
+        // ---------------------------------------------------------------------------
+        // Create initial data at Place 0
+        for (int i = 0; i < numData; i++) {
+            distMap.put(genRandStr("k"), genRandStr("v"));
+        }
+        // Check that indeed there are numData entries on place 0, 0 elsewhere
+        x_checkSize((j) -> {
+            return j == 0 ? numData : 0l;
+        });
 
-	public static void main(String[] args) {
-		IT_DistMap test = new IT_DistMap();
-		test.setup();
-		test.run();
-	}
+        // ---------------------------------------------------------------------------
+        // Distribute all entries
+        z_distribute();
 
-	public String genRandStr(String header) {
-		long rand = random.nextLong();
-		return header + rand;
-	}
+        // We track the number of entries received by each place in an array
+        // Due to the distribution based on a hash, the distribution is not
+        // perfectly uniform
+        final long size[] = new long[pg.size()];
+        int i = 0;
+        for (final Place p : pg.places()) {
+            size[i++] = at(p, () -> {
+                return distMap.size();
+            });
+        }
 
-	@Test
-	public void run() {
-		// Create initial data at Place 0
-		final TeamedPlaceGroup pg = this.placeGroup;
-		final DistMap<String,String> distMap2 = this.distMap;
-		finish(()->{
-			pg.broadcastFlat(() -> {
-				System.out.println("hello:" + here() + ", " + pg);
-			});
-		});
+        // Check that the keys received correspond to what is expected based on the hash
+        x_checkKeyShift(0);
 
-		System.out.println("### Create initial data at Place 0");
+        // ---------------------------------------------------------------------------
+        // Move all entries to the next place
+        pg.broadcastFlat(() -> {
+            try {
+                final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
+                final int rank = pg.rank(here());
+                final Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
+                distMap.forEach((String key, String value) -> {
+                    distMap.moveAtSync(key, destination, mm);
+                });
 
-		for (int i=0; i<numData; i++) {
-			distMap2.put(genRandStr("k"), genRandStr("v"));
-		}
+                mm.sync();
+            } catch (final Exception e) {
+                System.err.println("Error on " + here());
+                e.printStackTrace();
+                throw e;
+            }
+        });
 
-		//  	val gather = new GatherDistMap[String, String](pg, distMap2);
-		//  	gather.gather();
-		//  	gather.print();
-		//  	gather.setCurrentAsInit();
+        // Number of entries / place have now shifted
+        x_checkSize((j) -> {
+            return size[(j + 1) % distMap.placeGroup().size()];
+        });
+        // Check that the keys have shifted by 1
+        x_checkKeyShift(1);
 
-		// Distribute all entries
-		System.out.println("");
-		System.out.println("### MoveAtSync // Distribute all entries");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				distMap2.forEach((String key, String value) -> {
-					int h = key.hashCode();
-					int d = Math.abs(h) % pg.size();
-					System.out.println("" + here() + " moves key: " + key + " to " + d);
-					//distMap2.moveAtSync(key, pg.places().get(d), mm);
-					distMap2.moveAtSync(key, pg.get(d), mm); // Place with  rank `d`, not the Place with id==d
-				});
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+        // ---------------------------------------------------------------------------
+        // Move all entries to the next place, twice
+        pg.broadcastFlat(() -> {
+            try {
+                final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
+                final int rank = pg.rank(here());
+                final Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: String, pid: Int) => {
-		//		val h = key.hashCode() as Long;
-		//		val d = Math.abs(h) % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    System.out.println("VALIDATE 1-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 1-1: FAIL");
-		//	}
-		//
+                distMap.forEach((String key, String value) -> {
+                    distMap.moveAtSync(key, destination, mm);
+                });
+                mm.sync();
+                distMap.forEach((String key, String value) -> {
+                    distMap.moveAtSync(key, destination, mm);
+                });
+                mm.sync();
+            } catch (final Exception e) {
+                System.err.println("Error on " + here());
+                e.printStackTrace();
+                throw e;
+            }
+        });
 
-		// ---------------------------------------------------------------------------
-		// Move all entries to the next place
-		System.out.println("");
-		System.out.println("### MoveAtSync // Move all entries to the next place");
+        // Number of entries / place have now shifted
+        x_checkSize((j) -> {
+            return size[(j + 3) % distMap.placeGroup().size()];
+        });
+        // Check that the keys have shifted by 1
+        x_checkKeyShift(3);
 
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				//val destination = Place.places().next(here);
-				int rank = pg.rank(here());
-				Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
-				distMap2.forEach((String key, String value) -> {
-					System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-					distMap2.moveAtSync(key, destination, mm);
-				});
+        // ---------------------------------------------------------------------------
+        // Move all entries to place 0
+        pg.broadcastFlat(() -> {
+            try {
+                final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
+                final Place destination = pg.get(0);
+                distMap.forEach((String key, String value) -> {
+                    distMap.moveAtSync(key, destination, mm);
+                });
+                mm.sync();
+            } catch (final Exception e) {
+                System.err.println("Error on " + here());
+                e.printStackTrace();
+                throw e;
+            }
+        });
 
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+        // All entries should be back on Place 0
+        x_checkSize((j) -> {
+            return j == 0 ? numData : 0l;
+        });
+    }
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: String, pid: Int) => {
-		//		val h = key.hashCode() as Long;
-		//		val d = (Math.abs(h) + 1) % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    System.out.println("VALIDATE 2-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 2-1: FAIL");
-		//	}
-		//
+    @Before
+    public void setup() {
+        NPLACES = pg.size();
+        distMap = new DistMap<>(pg);
+    }
 
-		// ---------------------------------------------------------------------------
-		// Move all entries to the next to next place
-		System.out.println("");
-		System.out.println("### MoveAtSync // Move all entries to the next to next place");
+    @After
+    public void tearDown() {
+        distMap.destroy();
+    }
 
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				//val destination = Place.places().next(here);
-				int rank = pg.rank(here());
-				Place destination = pg.get(rank + 1 == pg.size() ? 0 : rank + 1);
+    private void x_checkKeyShift(int expectedShift) throws Throwable {
+        try {
+            pg.broadcastFlat(() -> {
+                final int PLACES = distMap.placeGroup.size();
+                final int shift = (expectedShift + pg.rank()) % PLACES;
+                try {
+                    // Check that each key/pair is on the right place
+                    for (final String key : distMap.getAllKeys()) {
+                        final int hash = Math.abs(key.hashCode());
+                        final int apparentShift = (hash % PLACES);
+                        assertEquals(shift, apparentShift);
+                    }
+                } catch (final Throwable e) {
+                    System.err.println("Error on " + here());
+                    e.printStackTrace();
+                    throw e;
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
+    }
 
-				distMap2.forEach((String key, String value) -> {
-					System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-					distMap2.moveAtSync(key, destination, mm);
-				});
-				mm.sync();
-				distMap2.forEach((String key, String value) -> {
-					System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-					distMap2.moveAtSync(key, destination, mm);
-				});
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
+    /**
+     * Subroutine which checks that every place holds half of the total instances
+     *
+     * @param size indicates the expected size as a function of the place provided
+     *             as parameter
+     * @throws Throwable if thrown during the check
+     */
+    private void x_checkSize(final SerializableFunction<Integer, Long> size) throws Throwable {
+        try {
+            pg.broadcastFlat(() -> {
+                final long expected = size.apply(pg.rank());
+                try {
+                    assertEquals(expected, distMap.size());
+                } catch (final Throwable e) {
+                    System.err.println("Error on " + here());
+                    e.printStackTrace();
+                    throw e;
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
+    }
 
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: String, pid: Int) => {
-		//		val h = key.hashCode() as Long;
-		//		val d = (Math.abs(h) + 3) % NPLACES;
-		//		return d as Int;
-		//	    })) {
-		//	    System.out.println("VALIDATE 3-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 3-1: FAIL");
-		//	}
-		//
-
-		// ---------------------------------------------------------------------------
-		// Move all entries to place 0
-		System.out.println("");
-		System.out.println("### MoveAtSync // Move all entries to place 0");
-		pg.broadcastFlat(() -> {
-			try {
-				MoveManagerLocal mm = new MoveManagerLocal(pg);
-				Place destination = pg.get(0);
-				distMap2.forEach((String key, String value) -> {
-					System.out.println("" + here() + " moves key: " + key + " to " + destination.id);
-					distMap2.moveAtSync(key, destination, mm);
-				});
-				mm.sync();
-			} catch (Exception e) {
-				System.err.println("Error on "+here());
-				e.printStackTrace();
-				throw e;
-			}
-		});
-
-		//	gather.gather();
-		//	gather.print();
-		//	if (gather.validate() &&
-		//	    gather.validateLocationAndValue((key: String, pid: Int) => {
-		//		return 0n;
-		//	    })) {
-		//	    System.out.println("VALIDATE 4-1: SUCCESS");
-		//	} else {
-		//	    System.out.println("VALIDATE 4-1: FAIL");
-		//	}
-		//
-		System.out.println("----finish");
-	}
+    private void z_distribute() {
+        pg.broadcastFlat(() -> {
+            try {
+                final CollectiveMoveManager mm = new CollectiveMoveManager(pg);
+                distMap.forEach((String key, String value) -> {
+                    final int h = key.hashCode();
+                    final int d = Math.abs(h) % distMap.placeGroup().size();
+                    distMap.moveAtSync(key, distMap.placeGroup().get(d), mm); // Place with rank `d`, not the Place with
+                    // id==d
+                });
+                mm.sync();
+            } catch (final Exception e) {
+                System.err.println("Error on " + here());
+                e.printStackTrace();
+                throw e;
+            }
+        });
+    }
 }
-
