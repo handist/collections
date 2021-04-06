@@ -15,6 +15,7 @@ import static apgas.Constructs.*;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -98,6 +99,29 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
     }
 
+    /**
+     * Class which defines the order in which Chunks are stored in the underlying
+     * {@link ConcurrentSkipListMap}. Contrary to the default ordering of class
+     * {@link LongRange}, entries in this member will be sorted by increasing
+     * {@link LongRange#from} and <em>decreasing</em> {@link LongRange#to}. This
+     * simplifies a number of retrieval operations proposed by class
+     * {@link ChunkedList} as retrieving a target range
+     *
+     * @author Patrick Finnerty
+     *
+     */
+    public static final class LongRangeOrdering implements Comparator<LongRange>, Serializable {
+        /** Serial Version UID */
+        private static final long serialVersionUID = 8092975204762862773L;
+
+        @Override
+        public int compare(LongRange arg0, LongRange arg1) {
+            final int fromComparison = (int) (arg0.from - arg1.from);
+            return (int) ((fromComparison) == 0 ? arg1.to - arg0.to : fromComparison);
+        }
+
+    }
+
     /** Serial Version UID */
     private static final long serialVersionUID = 6899796587031337979L;
 
@@ -105,7 +129,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * Chunks contained by this instance. They are sorted using the
      * {@link LongRange} ordering.
      */
-    private final ConcurrentSkipListMap<LongRange, RangedList<T>> chunks;
+    protected final ConcurrentSkipListMap<LongRange, RangedList<T>> chunks;
 
     /**
      * Running tally of how many elements can be contained in the ChunkedList. It is
@@ -118,7 +142,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * instance is going to receive.
      */
     public ChunkedList() {
-        chunks = new ConcurrentSkipListMap<>();
+        chunks = new ConcurrentSkipListMap<>(new LongRangeOrdering());
         size = new AtomicLong(0l);
     }
 
@@ -127,9 +151,14 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * {@link LongRange} mapped to {@link RangedList}.
      *
      * @param chunks initial mappings of {@link LongRange} and {@link Chunk}s
+     * @throws IllegalArgumentException if the provided chunks do not follow the
+     *                                  custom ordering used by {@link ChunkedList}.
      */
     public ChunkedList(ConcurrentSkipListMap<LongRange, RangedList<T>> chunks) {
         this.chunks = chunks;
+        if (!(chunks.comparator() instanceof LongRangeOrdering)) {
+            throw new IllegalArgumentException("The provided chunks does not follow the correct ordering");
+        }
         long accumulator = 0l;
         for (final LongRange r : chunks.keySet()) {
             accumulator += r.size();
@@ -151,7 +180,6 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         final LongRange desired = c.getRange();
         final LongRange intersection = checkOverlap(desired);
         if (intersection != null) {
-            // TODO
             throw new ElementOverlapException("LongRange " + desired + " overlaps " + intersection
                     + " which is already present in this ChunkedList");
         }
@@ -419,31 +447,28 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         if (c == null) {
             return false;
         }
+        // TODO I think we can do better than iterating over every entry in Chunks.
+        // Iterating on the Chunks that intersect the range on which the 'c' given
+        // as parameter is define would be an improvement.
         return chunks.containsValue(c);
     }
 
     public boolean containsIndex(long i) {
         final LongRange r = new LongRange(i);
-        Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
+        final Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
         if (entry == null || !entry.getKey().contains(i)) {
-            entry = chunks.ceilingEntry(r);
-            if (entry == null || !entry.getKey().contains(i)) {
-                return false;
-            }
+//            entry = chunks.ceilingEntry(r);
+//            if (entry == null || !entry.getKey().contains(i)) {
+            return false;
+//            }
         }
         return true;
     }
 
     public boolean containsRange(LongRange range) {
+        // TODO same as method #containsChunk, this method needs improvements
         return range.contained(chunks);
     }
-
-    /*
-     * public Map<LongRange, RangedList<T>> filterChunk0(Predicate<RangedList<?
-     * super T>> filter) { ConcurrentSkipListMap<LongRange, RangedList<T>> map = new
-     * ConcurrentSkipListMap<>(); for (RangedList<T> c : chunks.values()) { if
-     * (filter.test(c)) { map.put(c.getRange(), c); } } return map; }
-     */
 
     @Override
     public boolean equals(Object o) {
@@ -703,13 +728,12 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public T get(long i) {
         final LongRange r = new LongRange(i);
-        Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
+        final Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
         if (entry == null || !entry.getKey().contains(i)) {
-            entry = chunks.ceilingEntry(r);
-            if (entry == null || !entry.getKey().contains(i)) {
-                throw new IndexOutOfBoundsException(
-                        "ChunkedList: index " + i + " is not within the range of any chunk");
-            }
+//            entry = chunks.ceilingEntry(r);
+//            if (entry == null || !entry.getKey().contains(i)) {
+            throw new IndexOutOfBoundsException("ChunkedList: index " + i + " is not within the range of any chunk");
+//            }
         }
         final RangedList<T> chunk = entry.getValue();
         return chunk.get(i);
@@ -996,12 +1020,12 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public T set(long i, T value) {
         final LongRange r = new LongRange(i);
-        Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
+        final Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(r);
         if (entry == null || !entry.getKey().contains(i)) {
-            entry = chunks.ceilingEntry(r);
-            if (entry == null || !entry.getKey().contains(i)) {
-                throw new IndexOutOfBoundsException("ChunkedList: index " + i + " is out of range of " + chunks);
-            }
+//            entry = chunks.ceilingEntry(r);
+//            if (entry == null || !entry.getKey().contains(i)) {
+            throw new IndexOutOfBoundsException("ChunkedList: index " + i + " is not with the range of any chunk");
+//            }
         }
         final RangedList<T> chunk = entry.getValue();
         return chunk.set(i, value);

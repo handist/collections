@@ -10,8 +10,8 @@
  ******************************************************************************/
 package handist.collections;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -332,8 +332,8 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param splitPoints the points at which this instance needs to be cut
      * @return this instance entries split into several {@link RangedList}
      */
-    public List<RangedList<T>> splitRange(long... splitPoints) {
-        final ArrayList<RangedList<T>> toReturn = new ArrayList<>(splitPoints.length + 1);
+    public LinkedList<RangedList<T>> splitRange(long... splitPoints) {
+        final LinkedList<RangedList<T>> toReturn = new LinkedList<>();
         final LongRange range = getRange();
         long start = range.from;
         for (final long split : splitPoints) {
@@ -342,7 +342,7 @@ public abstract class RangedList<T> implements Iterable<T> {
         }
         toReturn.add(new RangedListView<>(this, new LongRange(start, range.to)));
         return toReturn;
-    };
+    }
 
     /**
      * Provides a RangedList of the elements contained in this instance from index

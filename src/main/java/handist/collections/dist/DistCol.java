@@ -19,8 +19,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
@@ -61,127 +63,6 @@ import handist.collections.glb.DistColGlb;
 @DefaultSerializer(JavaSerializer.class)
 public class DistCol<T> extends ChunkedList<T>
         implements DistributedCollection<T, DistCol<T>>, RangeRelocatable<LongRange>, SerializableWithReplace {
-
-    /**
-     * Class used to identify pieces of chunks when a chunk is split in two and each
-     * instance is transferred to another place. This class implements a sort of
-     * view of the separated pieces.
-     *
-     * @param <T> type of the individual element contained in the chunk
-     * @see ChunkExtractMiddle
-     * @see ChunkExtractRight
-     */
-    static class ChunkExtractLeft<T> {
-        /** Original RangedList that was split */
-        public RangedList<T> original;
-        /** index at which the ranged list was split */
-        public long splitPoint;
-
-        /**
-         * Constructor. The original ranged list and the index at which it was split are
-         * specified as parameters
-         *
-         * @param original   ranged list which is being split
-         * @param splitPoint index at which the ranged list is split
-         */
-        ChunkExtractLeft(final RangedList<T> original, final long splitPoint) {
-            this.original = original;
-            this.splitPoint = splitPoint;
-        }
-
-        /**
-         * Obtain the various RangedList that are now being handled as a result of
-         * separating a Ranged list at the index specified by this instance
-         *
-         * @return the multiple ranged list that result of the original being split at
-         *         the index specified
-         */
-        List<RangedList<T>> extract() {
-            return original.splitRange(splitPoint);
-        }
-    }
-
-    /**
-     * Class used to identify pieces of chunks when a chunk is split in two and each
-     * instance is transferred to another place. This class implements a sort of
-     * view of the separated pieces.
-     *
-     * @param <T> type of the individual element contained in the chunk
-     * @see ChunkExtractLeft
-     * @see ChunkExtractRight
-     */
-    static class ChunkExtractMiddle<T> {
-        /** Original RangedList whose piece is being considered for splitting */
-        public RangedList<T> original;
-        /** First index at which the ranged list is being split */
-        public long splitPoint1;
-        /** First index at which the ranged list is being split */
-        public long splitPoint2;
-
-        /**
-         * Constructor. The original ranged list and the index at which it was split are
-         * specified as parameters
-         *
-         * @param original    ranged list which is being split
-         * @param splitPoint1 first index at which the ranged list is split
-         * @param splitPoint2 second index at which the ranged list is split
-         */
-        ChunkExtractMiddle(final RangedList<T> original, final long splitPoint1, final long splitPoint2) {
-            this.original = original;
-            this.splitPoint1 = splitPoint1;
-            this.splitPoint2 = splitPoint2;
-        }
-
-        /**
-         * Obtain the various RangedList that are now being handled as a result of
-         * separating a Ranged list at the index specified by this instance
-         *
-         * @return the multiple ranged list that result of the original being split at
-         *         the indices specified
-         */
-        List<RangedList<T>> extract() {
-            return original.splitRange(splitPoint1, splitPoint2);
-        }
-    }
-
-    /**
-     * Class used to identify pieces of chunks when a chunk is split in two and each
-     * instance is transferred to another place. This class implements a sort of
-     * view of the separated pieces.
-     *
-     * @param <T> type of the individual element contained in the chunk
-     * @see ChunkExtractLeft
-     * @see ChunkExtractMiddle
-     */
-    static class ChunkExtractRight<T> {
-        /** Original ranged list considered for splitting */
-        public RangedList<T> original;
-        /** Index at which the ranged list is being split */
-        public long splitPoint;
-
-        /**
-         * Constructor. The original ranged list and the index at which it was split are
-         * specified as parameters
-         *
-         * @param original   ranged list which is being split
-         * @param splitPoint index at which the ranged list is split
-         */
-        ChunkExtractRight(final RangedList<T> original, final long splitPoint) {
-            this.original = original;
-            this.splitPoint = splitPoint;
-        }
-
-        /**
-         * Obtain the various RangedList that are now being handled as a result of
-         * separating a Ranged list at the index specified by this instance
-         *
-         * @return the multiple ranged list that result of the original being split at
-         *         the index specified
-         */
-        List<RangedList<T>> extract() {
-            return original.splitRange(splitPoint);
-        }
-    }
 
     /**
      * Global handle for the {@link DistCol} class. This class make operations
@@ -378,6 +259,171 @@ public class DistCol<T> extends ChunkedList<T>
         super.add_unchecked(c);
     }
 
+    /**
+     * Method used in preparation before transferring chunks. This method checks if
+     * a chunk contained in this object has its range exactly matching the range
+     * specified as parameter. If that is the case, returns {@code true}.
+     * <p>
+     * If that is not the case, i.e. a chunk held by this collection needs to be
+     * split so that the specified range can be sent to a remote host, attempts to
+     * make the split. If it is successful in splitting the existing chunk so that
+     * the specified range has a corresponding chunk stored in this collection,
+     * returns {@code true}. If splitting the existing range failed (due to a
+     * concurrent attempts to split that range), returns {@code false}. The caller
+     * of this method will have to call it again to attempt to make the check again.
+     * <p>
+     * The synchronizations in this method are made such that multiple calls to this
+     * method will run concurrently, as long as different chunks are targeted for
+     * splitting.
+     * <p>
+     * If two (or more) concurrent calls to this method target the same chunk, they
+     * should be made with ranges that do not intersect. For instance, assuming this
+     * collection holds a chunk mapped to range [0, 100). Calls to this method with
+     * ranges [0,50) and [50, 75) and [90, 100) in whichever order (or concurrently)
+     * is acceptable. However, calling this method with parameters [0, 50) and [25,
+     * 75) is problematic as the second one to be made (or scheduled) will fail to
+     * make the splits as the split points will be in two different chunks. However,
+     * calling this method with parameters [0, 50) and later on with [25, 50) is
+     * acceptable.
+     *
+     * @param lr the point at which there needs to be a change of chunk. This range
+     *           needs to be empty, i.e. its members "from" and "to" need to be
+     *           equal
+     * @return {@code true} if the specified range can be safely sent to a remote
+     *         place, {@code false} if this method needs to be called again to make
+     *         it happen
+     */
+    private boolean attemptSplitChunkBeforeMoveAtSinglePoint(LongRange lr) {
+        final Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(lr);
+
+        // It is possible for the requested point not to be present in any chunk
+        if (entry == null || entry.getKey().contains(lr.from)) {
+            return true;
+        }
+
+        final LongRange chunkRange = entry.getKey();
+        final boolean splitNeeded = chunkRange.from < lr.from && lr.from < chunkRange.to;
+
+        if (!splitNeeded) {
+            return true;
+        }
+
+        // Arrived here, we know that the chunk we have needs to be split
+        // We synchronize on this specific Chunk
+        synchronized (entry) {
+            // We restart the chunk acquisition process to check if we obtain the same chunk
+            // If that is not the case, another thread has modified the chunks in the
+            // ChunkedList and
+            // this method has failed to do the modification, which will have to be
+            // attempted again
+            Map.Entry<LongRange, RangedList<T>> checkEntry = chunks.floorEntry(lr);
+            if (checkEntry == null || checkEntry.getKey().to <= lr.from) {
+                checkEntry = chunks.ceilingEntry(lr);
+            }
+            if (!entry.getKey().equals(checkEntry.getKey())) {
+                return false;
+            }
+
+            // Check passed, we are the only thread which can split the targeted chunk
+            final LinkedList<RangedList<T>> splittedChunks = entry.getValue().splitRange(lr.from);
+            while (!splittedChunks.isEmpty()) {
+                // It is important to insert the splitted chunks in reverse order.
+                // Otherwise, parts of the original chunk would be shadowed due to the ordering
+                // of Chunks used in ChunkedList, concurrently calling ChunkedList(or
+                // DistCol)#get(long) would fail.
+                add_unchecked(splittedChunks.pollLast());
+            }
+            remove(entry.getKey());
+            return true;
+        }
+    }
+
+    /**
+     * Method used in preparation before transferring chunks. This method checks if
+     * a chunk contained in this object has its range exactly matching the range
+     * specified as parameter. If that is the case, returns {@code true}.
+     * <p>
+     * If that is not the case, i.e. a chunk held by this collection needs to be
+     * split so that the specified range can be sent to a remote host, attempts to
+     * make the split. If it is successful in splitting the existing chunk so that
+     * the specified range has a corresponding chunk stored in this collection,
+     * returns {@code true}. If splitting the existing range failed (due to a
+     * concurrent attempts to split that range), returns {@code false}. The caller
+     * of this method will have to call it again to attempt to make the check again.
+     * <p>
+     * The synchronizations in this method are made such that multiple calls to this
+     * method will run concurrently, as long as different chunks are targeted for
+     * splitting.
+     * <p>
+     * If two (or more) concurrent calls to this method target the same chunk, they
+     * should be made with ranges that do not intersect. For instance, assuming this
+     * collection holds a chunk mapped to range [0, 100). Calls to this method with
+     * ranges [0,50) and [50, 75) and [90, 100) in whichever order (or concurrently)
+     * is acceptable. However, calling this method with parameters [0, 50) and [25,
+     * 75) is problematic as the second one to be made (or scheduled) will fail to
+     * make the splits as the split points will be in two different chunks. However,
+     * calling this method with parameters [0, 50) and later on with [25, 50) is
+     * acceptable.
+     *
+     * @param lr the range of entries which is going to be sent away. It is assumed
+     *           that there exists a chunk in this collection which includes this
+     *           provided range.
+     * @return {@code true} if the specified range can be safely sent to a remote
+     *         place, {@code false} if this method needs to be called again to make
+     *         it happen
+     */
+    private boolean attemptSplitChunkBeforeMoveAtTwoPoints(LongRange lr) {
+        final Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(lr);
+
+        final LongRange chunkRange = entry.getKey();
+        final boolean leftSplit = chunkRange.from < lr.from;
+        final boolean rightSplit = lr.to < chunkRange.to;
+
+        long[] splitPoints;
+        if (leftSplit && rightSplit) {
+            splitPoints = new long[2];
+            splitPoints[0] = lr.from;
+            splitPoints[1] = lr.to;
+        } else if (leftSplit) {
+            splitPoints = new long[1];
+            splitPoints[0] = lr.from;
+        } else if (rightSplit) {
+            splitPoints = new long[1];
+            splitPoints[0] = lr.to;
+        } else {
+            return true;
+        }
+
+        // Arrived here, we know that the chunk we have needs to be split
+        // We synchronize on this specific Chunk
+        synchronized (entry) {
+            // We restart the chunk acquisition process to check if we obtain the same chunk
+            // If that is not the case, another thread has modified the chunks in the
+            // ChunkedList and
+            // this method has failed to do the modification, which will have to be
+            // attempted again
+            Map.Entry<LongRange, RangedList<T>> checkEntry = chunks.floorEntry(lr);
+            if (checkEntry == null || checkEntry.getKey().to <= lr.from) {
+                checkEntry = chunks.ceilingEntry(lr);
+            }
+            if (!entry.getKey().equals(checkEntry.getKey())) {
+                return false;
+            }
+
+            // Check passed, we are the only thread which can split the targeted chunk
+            final LinkedList<RangedList<T>> splittedChunks = entry.getValue().splitRange(splitPoints);
+            while (!splittedChunks.isEmpty()) {
+                // It is important to insert the splitted chunks in reverse order.
+                // Otherwise, parts of the original chunk would be shadowed due to the ordering
+                // of Chunks used in ChunkedList, concurrently calling ChunkedList(or
+                // DistCol)#get(long) would fail.
+                add_unchecked(splittedChunks.pollLast());
+            }
+            remove(entry.getKey());
+            return true;
+        }
+    }
+
     @Override
     public void clear() {
         super.clear();
@@ -462,7 +508,6 @@ public class DistCol<T> extends ChunkedList<T>
         return manager.locality;
     }
 
-    @Deprecated
     @SuppressWarnings("unchecked")
     private void moveAtSync(final List<RangedList<T>> cs, final Place dest, final MoveManager mm) {
         if (_debug_level > 5) {
@@ -578,6 +623,12 @@ public class DistCol<T> extends ChunkedList<T>
         }
     }
 
+    /**
+     * This implementation only accepts for range that either match an existing
+     * chunk contained in this collection or a range which is entirely contained
+     * within a single chunk of this collection. Ranges which span multiple chunks
+     * will cause exceptions to be thrown.
+     */
     @Override
     public void moveRangeAtSync(final LongRange range, final Place dest, final MoveManager mm) {
         if (_debug_level > 5) {
@@ -585,106 +636,45 @@ public class DistCol<T> extends ChunkedList<T>
         }
 
         final ArrayList<RangedList<T>> chunksToMove = new ArrayList<>();
-        final ArrayList<ChunkExtractLeft<T>> chunksToExtractLeft = new ArrayList<>();
-        final ArrayList<ChunkExtractMiddle<T>> chunksToExtractMiddle = new ArrayList<>();
-        final ArrayList<ChunkExtractRight<T>> chunksToExtractRight = new ArrayList<>();
-        
-        // This method needs to be protected against concurrent calls
-        // We don't to risk splitting the same Chunk concurrently (as could be the case
-        // with the GLB)
-        synchronized (this) {
-            forEachChunk((RangedList<T> c) -> {
-                final LongRange cRange = c.getRange();
-                if (cRange.from <= range.from) {
-                    if (cRange.to <= range.from) { // cRange.max < range.min) {
-                        // skip
-                    } else {
-                        // range.min <= cRange.max
-                        if (cRange.from == range.from) {
-                            if (cRange.to <= range.to) {
-                                // add cRange.min..cRange.max
-                                chunksToMove.add(c);
-                            } else {
-                                // range.max < cRange.max
-                                // split at range.max/range.max+1
-                                // add cRange.min..range.max
-                                chunksToExtractLeft.add(new ChunkExtractLeft<>(c, range.to/* max + 1 */));
-                            }
-                        } else {
-                            // cRange.min < range.min
-                            if (range.to < cRange.to) {
-                                // split at range.min-1/range.min
-                                // split at range.max/range.max+1
-                                // add range.min..range.max
-                                chunksToExtractMiddle
-                                        .add(new ChunkExtractMiddle<>(c, range.from, range.to/* max + 1 */));
-                            } else {
-                                // split at range.min-1/range.min
-                                // cRange.max =< range.max
-                                // add range.min..cRange.max
-                                chunksToExtractRight.add(new ChunkExtractRight<>(c, range.from));
-                            }
-                        }
-                    }
-                } else {
-                    // range.min < cRange.min
-                    if (range.to <= cRange.from) { // range.max < cRange.min) {
-                        // skip
-                    } else {
-                        // cRange.min <= range.max
-                        if (cRange.to <= range.to) {
-                            // add cRange.min..cRange.max
-                            chunksToMove.add(c);
-                        } else {
-                            // split at range.max/range.max+1
-                            // add cRange.min..range.max
-                            chunksToExtractLeft.add(new ChunkExtractLeft<>(c, range.to/* max + 1 */));
-                        }
-                    }
-                }
-            });
 
-            for (final ChunkExtractLeft<T> chunkToExtractLeft : chunksToExtractLeft) {
-                final RangedList<T> original = chunkToExtractLeft.original;
-                final List<RangedList<T>> splits = chunkToExtractLeft.extract();
-                // System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-                add_unchecked(splits.get(0)/* first */);
-                // System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-                add_unchecked(splits.get(1)/* second */);
+        // Two cases to handle here, whether the specified range fits into a single
+        // existing chunk or whether it spans multiple chunks
+        final Map.Entry<LongRange, RangedList<T>> lowSideEntry = chunks.floorEntry(range);
+        if (lowSideEntry != null && lowSideEntry.getKey().from <= range.from && range.to <= lowSideEntry.getKey().to) {
+            // The given range is included (or identical) to an existing Chunk.
+            // Only one Chunk needs to be split (if any).
+            while (!attemptSplitChunkBeforeMoveAtTwoPoints(range)) {
+                ;
+            }
+            chunksToMove.add(chunks.get(range));
+        } else {
+            // The given range spans multiple ranges, the check on whether chunks need to be
+            // split needs to be done separately on single points
+            final LongRange leftSplit = new LongRange(range.from);
+            final LongRange rightSplit = new LongRange(range.to);
 
-                // System.out.println("[" + here.id + "] removeChunk " + original.getRange());
-                remove(original);
-                chunksToMove.add(splits.get(0)/* first */);
+            while (!attemptSplitChunkBeforeMoveAtSinglePoint(leftSplit)) {
+                ;
+            }
+            while (!attemptSplitChunkBeforeMoveAtSinglePoint(rightSplit)) {
+                ;
             }
 
-            for (final ChunkExtractMiddle<T> chunkToExtractMiddle : chunksToExtractMiddle) {
-                final RangedList<T> original = chunkToExtractMiddle.original;
-                final List<RangedList<T>> splits = chunkToExtractMiddle.extract();
-                // System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-                add_unchecked(splits.get(0)/* first */);
-                // System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-                add_unchecked(splits.get(1)/* second */);
-                // System.out.println("[" + here.id + "] putChunk " + splits.third.getRange());
-                add_unchecked(splits.get(2)/* third */);
+            // Accumulate all the chunks that are spanned by the range specified as
+            // parameter
+            final NavigableSet<LongRange> keySet = chunks.keySet();
+            LongRange rangeToAdd = keySet.ceiling(range);
 
-                // System.out.println("[" + here.id + "] removeChunk " + original.getRange());
-                remove(original);
-                chunksToMove.add(splits.get(1)/* second */);
+            while (rangeToAdd != null && rangeToAdd.to <= range.to) {
+                chunksToMove.add(chunks.get(rangeToAdd));
+                rangeToAdd = keySet.higher(rangeToAdd);
             }
+        }
 
-            for (final ChunkExtractRight<T> chunkToExtractRight : chunksToExtractRight) {
-                final RangedList<T> original = chunkToExtractRight.original;
-                final List<RangedList<T>> splits = chunkToExtractRight.extract();
-                // System.out.println("[" + here.id + "] putChunk " + splits.first.getRange());
-                add_unchecked(splits.get(0)/* first */);
-                // System.out.println("[" + here.id + "] putChunk " + splits.second.getRange());
-                add_unchecked(splits.get(1)/* second */);
-                // System.out.println("[" + here.id + "] removeChunk " + original.getRange());
-                remove(original);
+        if (chunksToMove.isEmpty()) {
+            return;
+        }
 
-                chunksToMove.add(splits.get(1)/* second */);
-            }
-        } // End of the synchronized block
         moveAtSync(chunksToMove, dest, mm);
     }
 

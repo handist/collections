@@ -348,9 +348,14 @@ public class TestChunkedList {
         cMap.put(chunks[0].getRange(), chunks[0]);
         cMap.put(chunks[1].getRange(), chunks[1]);
         cMap.put(chunks[2].getRange(), chunks[2]);
-        final ChunkedList<Element> cList = new ChunkedList<>(cMap);
+        assertThrows(IllegalArgumentException.class, () -> new ChunkedList<>(cMap));
 
-        assertEquals(6l, cList.size());
+        final ConcurrentSkipListMap<LongRange, RangedList<Element>> correctOrderingMap = new ConcurrentSkipListMap<>(
+                new ChunkedList.LongRangeOrdering());
+        correctOrderingMap.put(chunks[0].getRange(), chunks[0]);
+        correctOrderingMap.put(chunks[1].getRange(), chunks[1]);
+        correctOrderingMap.put(chunks[2].getRange(), chunks[2]);
+        new ChunkedList<>(correctOrderingMap); // Should not throw anything as it is a correct call
     }
 
     @Test
