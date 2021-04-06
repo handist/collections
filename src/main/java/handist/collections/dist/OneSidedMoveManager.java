@@ -132,7 +132,7 @@ public class OneSidedMoveManager implements MoveManager {
 
     @Override
     public void request(Place dest, Serializer s, DeSerializer d) {
-        if (dest != destination) {
+        if (dest.id != destination.id) {
             throw new RuntimeException("OneSidedMoveManager received a request for " + dest
                     + " but is only accepting submissions for" + destination);
         }
