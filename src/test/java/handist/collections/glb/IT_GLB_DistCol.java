@@ -31,6 +31,7 @@ import handist.collections.RangedList;
 import handist.collections.dist.CollectiveMoveManager;
 import handist.collections.dist.DistBag;
 import handist.collections.dist.DistCol;
+import handist.collections.dist.Reducer;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -39,6 +40,44 @@ import handist.mpijunit.launcher.TestLauncher;
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 4, launcher = TestLauncher.class)
 public class IT_GLB_DistCol implements Serializable {
+
+    /**
+     * Dummy reduction implementation which counts the number of instances on a
+     * collection
+     *
+     * @author Patrick Finnerty
+     *
+     */
+    private static class SumReduction extends Reducer<SumReduction, Element> {
+
+        /** Serial Version UID */
+        private static final long serialVersionUID = 757110980542818596L;
+        long runningSum;
+
+        private SumReduction() {
+            runningSum = 0l;
+        }
+
+        @Override
+        public void merge(SumReduction reducer) {
+            runningSum += reducer.runningSum;
+        }
+
+        @Override
+        public SumReduction newReducer() {
+            return new SumReduction();
+        }
+
+        @Override
+        public void reduce(Element input) {
+            runningSum++;
+        }
+
+        @Override
+        public String toString() {
+            return "SumReduction: " + runningSum;
+        }
+    }
 
     /** Number of ranges to populate this collection */
     final static long LONGRANGE_COUNT = 20l;
@@ -314,6 +353,30 @@ public class IT_GLB_DistCol implements Serializable {
             if (!ex.isEmpty()) {
                 ex.get(0).printStackTrace();
                 throw ex.get(0);
+            }
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        } catch (final RuntimeException re) {
+            if (re.getCause() instanceof AssertionError) {
+                throw re.getCause();
+            } else {
+                throw re;
+            }
+        }
+    }
+
+    @Test(timeout = 10000)
+    public void testReduction() throws Throwable {
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                final SumReduction red = new SumReduction();
+
+                final SumReduction result = distCol.GLB.reduce(red).result();
+                assertEquals(red, result);
+                assertEquals(TOTAL_DATA_SIZE, result.runningSum);
+            });
+            if (!ex.isEmpty()) {
+                throw new RuntimeException(ex.get(0));
             }
         } catch (final MultipleException me) {
             printExceptionAndThrowFirst(me);

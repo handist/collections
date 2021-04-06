@@ -147,7 +147,7 @@ class GlbComputer extends PlaceLocalObject {
          * used throughout the processing of the operation. In such a case, this objects
          * is kept in this collection.
          */
-        private final Map<Object, Object> workerBoundObjects;
+        final Map<Object, Object> workerBoundObjects;
 
         /**
          * Counts the number of times this worker was spawned
@@ -493,7 +493,7 @@ class GlbComputer extends PlaceLocalObject {
      * to attach an object to each worker which is needed when this operation is
      * processed by a the workers.
      */
-    private final WorkerInfo[] workers;
+    final WorkerInfo[] workers;
 
     /**
      * Lock used to force workers to yield execution to allow other activities to

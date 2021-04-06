@@ -13,15 +13,18 @@ package handist.collections.glb;
 import java.io.Serializable;
 import java.util.function.Consumer;
 
+import apgas.util.GlobalID;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.dist.DistBag;
 import handist.collections.dist.DistCol;
+import handist.collections.dist.Reducer;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.SerializableFunction;
 import handist.collections.function.SerializableLongTBiConsumer;
 import handist.collections.function.SerializableSupplier;
+import handist.collections.glb.GlbComputer.WorkerInfo;
 
 /**
  * This class proposes various operations that operate on all the elements of a
@@ -241,6 +244,63 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         glb.submit(operation);
 
         // return the future to the programmer
+        return future;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <R extends Reducer<R, T>> DistFuture<R> reduce(final R reducer) {
+        final GlobalLoadBalancer glb = getGlb();
+        final GlobalID gid = new GlobalID();
+//        reducer.newGlobalIdAndPlaceGroup(col.placeGroup());
+//        final GlobalID gid = reducer.gid;
+        final R globalReducer = reducer;
+
+        // FIXME surely there is a more elegant way to register an instance at each host
+        // I was not able to make the LazyObjectReference work with class Reducer
+//        col.placeGroup().broadcastFlat(() -> {
+//            globalReducer.gid.putHereIfAbsent(globalReducer);
+//        });
+
+        final SerializableConsumer<WorkerService> workerInit = (w) -> w.attachOperationObject(gid,
+                globalReducer.newReducer());
+
+        final SerializableBiConsumer<LongRange, WorkerService> realAction = (lr, ws) -> {
+            final R workerLocalReducer = (R) ws.retrieveOperationObject(gid);
+
+            for (long l = lr.from; l < lr.to; l++) {
+                try {
+                    workerLocalReducer.reduce(col.get(l));
+                } catch (final Throwable t) {
+                    ws.throwableInOperation(new DistColGlbError(lr, l, t));
+                }
+            }
+        };
+
+        final DistFuture<R> future = new DistFuture<>(globalReducer);
+
+        final SerializableSupplier<GlbTask> initGlbTask = () -> {
+            return new DistColGlbTask(col);
+        };
+
+        final GlbOperation<DistCol<T>, T, LongRange, LongRange, R> operation = new GlbOperation<>(col, realAction,
+                future, initGlbTask, workerInit);
+
+        glb.submit(operation);
+
+        // This operation needs a specific hook after all the entries have been
+        // traversed. We need to reduce all the R instances that were created back into
+        // a single instance on each host, and perform the global reduction such that
+        // the given reducer contains the global result of the operation.
+        operation.addHook(() -> {
+            col.placeGroup().broadcastFlat(() -> {
+                final R localReducer = reducer; // (R) gid.getHere();
+                for (final WorkerInfo wi : GlbComputer.getComputer().workers) {
+                    localReducer.merge((R) wi.workerBoundObjects.remove(gid));
+                }
+                localReducer.teamReduction(col.placeGroup());
+            });
+        });
+
         return future;
     }
 
