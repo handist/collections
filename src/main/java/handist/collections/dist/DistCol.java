@@ -636,7 +636,6 @@ public class DistCol<T> extends ChunkedList<T>
         }
 
         final ArrayList<RangedList<T>> chunksToMove = new ArrayList<>();
-
         // Two cases to handle here, whether the specified range fits into a single
         // existing chunk or whether it spans multiple chunks
         final Map.Entry<LongRange, RangedList<T>> lowSideEntry = chunks.floorEntry(range);
@@ -695,6 +694,16 @@ public class DistCol<T> extends ChunkedList<T>
         return manager.placeGroup;
     }
 
+    // Method moved to GLOBAL and TEAM operations
+    // @Override
+    // public void distSize(long[] result) {
+    // for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
+    // final LongRange k = entry.getKey();
+    // final Place p = entry.getValue();
+    // result[manager.placeGroup.rank(p)] += k.size();
+    // }
+    // }
+
     private void putForMove(final RangedList<T> c, final byte mType) throws Exception {
         final LongRange key = c.getRange();
         switch (mType) {
@@ -709,16 +718,6 @@ public class DistCol<T> extends ChunkedList<T>
         }
         super.add(c);
     }
-
-    // Method moved to GLOBAL and TEAM operations
-    // @Override
-    // public void distSize(long[] result) {
-    // for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
-    // final LongRange k = entry.getKey();
-    // final Place p = entry.getValue();
-    // result[manager.placeGroup.rank(p)] += k.size();
-    // }
-    // }
 
     @Override
     public RangedList<T> remove(final LongRange r) {
@@ -759,7 +758,6 @@ public class DistCol<T> extends ChunkedList<T>
         return TEAM;
     }
 
-    // TODO make private
     private void team_updateDist() {
         ldist.updateDist(manager.placeGroup);
     }
