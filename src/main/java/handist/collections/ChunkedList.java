@@ -17,8 +17,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -342,6 +344,179 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             }
         }
         return new FutureN.ReturnGivenResult<>(futures, result);
+    }
+
+    /**
+     *
+     * TODO : Originally, this method was prepared for DistCol#moveRangeAtSync. The
+     * comments below are the same as they were then and needs to be modified.
+     *
+     * Method used in preparation before transferring chunks. This method checks if
+     * a chunk contained in this object has its range exactly matching the range
+     * specified as parameter. If that is the case, returns {@code true}.
+     * <p>
+     * If that is not the case, i.e. a chunk held by this collection needs to be
+     * split so that the specified range can be sent to a remote host, attempts to
+     * make the split. If it is successful in splitting the existing chunk so that
+     * the specified range has a corresponding chunk stored in this collection,
+     * returns {@code true}. If splitting the existing range failed (due to a
+     * concurrent attempts to split that range), returns {@code false}. The caller
+     * of this method will have to call it again to attempt to make the check again.
+     * <p>
+     * The synchronizations in this method are made such that multiple calls to this
+     * method will run concurrently, as long as different chunks are targeted for
+     * splitting.
+     * <p>
+     * If two (or more) concurrent calls to this method target the same chunk, they
+     * should be made with ranges that do not intersect. For instance, assuming this
+     * collection holds a chunk mapped to range [0, 100). Calls to this method with
+     * ranges [0,50) and [50, 75) and [90, 100) in whichever order (or concurrently)
+     * is acceptable. However, calling this method with parameters [0, 50) and [25,
+     * 75) is problematic as the second one to be made (or scheduled) will fail to
+     * make the splits as the split points will be in two different chunks. However,
+     * calling this method with parameters [0, 50) and later on with [25, 50) is
+     * acceptable.
+     *
+     * @param lr the point at which there needs to be a change of chunk. This range
+     *           needs to be empty, i.e. its members "from" and "to" need to be
+     *           equal
+     * @return {@code true} if the specified range can be safely sent to a remote
+     *         place, {@code false} if this method needs to be called again to make
+     *         it happen
+     */
+    protected boolean attemptSplitChunkAtSinglePoint(LongRange lr) {
+        final Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(lr);
+
+        // It is possible for the requested point not to be present in any chunk
+        if (entry == null || entry.getKey().contains(lr.from)) {
+            return true;
+        }
+
+        final LongRange chunkRange = entry.getKey();
+        final boolean splitNeeded = chunkRange.from < lr.from && lr.from < chunkRange.to;
+
+        if (!splitNeeded) {
+            return true;
+        }
+
+        // Arrived here, we know that the chunk we have needs to be split
+        // We synchronize on this specific Chunk
+        synchronized (entry) {
+            // We restart the chunk acquisition process to check if we obtain the same chunk
+            // If that is not the case, another thread has modified the chunks in the
+            // ChunkedList and
+            // this method has failed to do the modification, which will have to be
+            // attempted again
+            Map.Entry<LongRange, RangedList<T>> checkEntry = chunks.floorEntry(lr);
+            if (checkEntry == null || checkEntry.getKey().to <= lr.from) {
+                checkEntry = chunks.ceilingEntry(lr);
+            }
+            if (!entry.getKey().equals(checkEntry.getKey())) {
+                return false;
+            }
+
+            // Check passed, we are the only thread which can split the targeted chunk
+            final LinkedList<RangedList<T>> splittedChunks = entry.getValue().splitRange(lr.from);
+            while (!splittedChunks.isEmpty()) {
+                // It is important to insert the splitted chunks in reverse order.
+                // Otherwise, parts of the original chunk would be shadowed due to the ordering
+                // of Chunks used in ChunkedList, concurrently calling ChunkedList(or
+                // DistCol)#get(long) would fail.
+                add_unchecked(splittedChunks.pollLast());
+            }
+            remove(entry.getKey());
+            return true;
+        }
+    }
+
+    /**
+     *
+     * TODO : Originally, this method was prepared for DistCol#moveRangeAtSync. The
+     * comments below are the same as they were then and needs to be modified.
+     *
+     * Method used in preparation before transferring chunks. This method checks if
+     * a chunk contained in this object has its range exactly matching the range
+     * specified as parameter. If that is the case, returns {@code true}.
+     * <p>
+     * If that is not the case, i.e. a chunk held by this collection needs to be
+     * split so that the specified range can be sent to a remote host, attempts to
+     * make the split. If it is successful in splitting the existing chunk so that
+     * the specified range has a corresponding chunk stored in this collection,
+     * returns {@code true}. If splitting the existing range failed (due to a
+     * concurrent attempts to split that range), returns {@code false}. The caller
+     * of this method will have to call it again to attempt to make the check again.
+     * <p>
+     * The synchronizations in this method are made such that multiple calls to this
+     * method will run concurrently, as long as different chunks are targeted for
+     * splitting.
+     * <p>
+     * If two (or more) concurrent calls to this method target the same chunk, they
+     * should be made with ranges that do not intersect. For instance, assuming this
+     * collection holds a chunk mapped to range [0, 100). Calls to this method with
+     * ranges [0,50) and [50, 75) and [90, 100) in whichever order (or concurrently)
+     * is acceptable. However, calling this method with parameters [0, 50) and [25,
+     * 75) is problematic as the second one to be made (or scheduled) will fail to
+     * make the splits as the split points will be in two different chunks. However,
+     * calling this method with parameters [0, 50) and later on with [25, 50) is
+     * acceptable.
+     *
+     * @param lr the range of entries which is going to be sent away. It is assumed
+     *           that there exists a chunk in this collection which includes this
+     *           provided range.
+     * @return {@code true} if the specified range can be safely sent to a remote
+     *         place, {@code false} if this method needs to be called again to make
+     *         it happen
+     */
+    protected boolean attemptSplitChunkAtTwoPoints(LongRange lr) {
+        final Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(lr);
+
+        final LongRange chunkRange = entry.getKey();
+        final boolean leftSplit = chunkRange.from < lr.from;
+        final boolean rightSplit = lr.to < chunkRange.to;
+
+        long[] splitPoints;
+        if (leftSplit && rightSplit) {
+            splitPoints = new long[2];
+            splitPoints[0] = lr.from;
+            splitPoints[1] = lr.to;
+        } else if (leftSplit) {
+            splitPoints = new long[1];
+            splitPoints[0] = lr.from;
+        } else if (rightSplit) {
+            splitPoints = new long[1];
+            splitPoints[0] = lr.to;
+        } else {
+            return true;
+        }
+
+        // Arrived here, we know that the chunk we have needs to be split
+        // We synchronize on this specific Chunk
+        synchronized (entry) {
+            // We restart the chunk acquisition process to check if we obtain the same chunk
+            // If that is not the case, another thread has modified the chunks in the
+            // ChunkedList and
+            // this method has failed to do the modification, which will have to be
+            // attempted again
+            Map.Entry<LongRange, RangedList<T>> checkEntry = chunks.floorEntry(lr);
+            if (checkEntry == null || checkEntry.getKey().to <= lr.from) {
+                checkEntry = chunks.ceilingEntry(lr);
+            }
+            if (!entry.getKey().equals(checkEntry.getKey())) {
+                return false;
+            }
+
+            // Check passed, we are the only thread which can split the targeted chunk
+            final LinkedList<RangedList<T>> splittedChunks = entry.getValue().splitRange(splitPoints);
+            while (!splittedChunks.isEmpty()) {
+                // It is important to insert the splitted chunks in reverse order.
+                // Otherwise, parts of the original chunk would be shadowed due to the ordering
+                // of Chunks used in ChunkedList, concurrently calling ChunkedList(or
+                // DistCol)#get(long) would fail.
+                add_unchecked(splittedChunks.pollLast());
+            }
+            remove(entry.getKey());
+            return true;
+        }
     }
 
     /**
@@ -669,6 +844,20 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             sub.forEach(action);
         });
         waitNfutures(futures);
+    }
+
+    /**
+     * TODO : Still not sure if it works.
+     */
+    public void forEach(LongRange range, final Consumer<? super T> action) {
+        subList(range).forEach(action);
+    }
+
+    /**
+     * TODO : Still not sure if it works.
+     */
+    public void forEach(LongRange range, final LongTBiConsumer<? super T> action) {
+        subList(range).forEach(action);
     }
 
     /**
@@ -1040,6 +1229,71 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public long size() {
         return size.get();
+    }
+
+    /**
+     * TODO : Still not sure if it works.
+     */
+    public ArrayList<RangedList<T>> splitChunks(LongRange range) {
+        final ArrayList<RangedList<T>> chunksToRet = new ArrayList<>();
+        // Two cases to handle here, whether the specified range fits into a single
+        // existing chunk or whether it spans multiple chunks
+        final Map.Entry<LongRange, RangedList<T>> lowSideEntry = chunks.floorEntry(range);
+        if (lowSideEntry != null && lowSideEntry.getKey().from <= range.from && range.to <= lowSideEntry.getKey().to) {
+            // The given range is included (or identical) to an existing Chunk.
+            // Only one Chunk needs to be split (if any).
+            while (!attemptSplitChunkAtTwoPoints(range)) {
+                ;
+            }
+            chunksToRet.add(chunks.get(range));
+        } else {
+            // The given range spans multiple ranges, the check on whether chunks need to be
+            // split needs to be done separately on single points
+            final LongRange leftSplit = new LongRange(range.from);
+            final LongRange rightSplit = new LongRange(range.to);
+
+            while (!attemptSplitChunkAtSinglePoint(leftSplit)) {
+                ;
+            }
+            while (!attemptSplitChunkAtSinglePoint(rightSplit)) {
+                ;
+            }
+
+            // Accumulate all the chunks that are spanned by the range specified as
+            // parameter
+            final NavigableSet<LongRange> keySet = chunks.keySet();
+            LongRange rangeToAdd = keySet.ceiling(range);
+
+            while (rangeToAdd != null && rangeToAdd.to <= range.to) {
+                chunksToRet.add(chunks.get(rangeToAdd));
+                rangeToAdd = keySet.higher(rangeToAdd);
+            }
+        }
+
+        return chunksToRet;
+    }
+
+    /**
+     * TODO : Still not sure if it works.
+     */
+    public ChunkedList<T> subList(LongRange range) {
+        final ChunkedList<T> sub = new ChunkedList<>();
+        LongRange current = range;
+        while (true) {
+            final LongRange result = current.findOverlap(chunks);
+            if (result == null) {
+                break;
+            }
+            final LongRange inter = range.intersection(result);
+            if (inter != null) {
+                sub.add(new RangedListView(chunks.get(result), inter));
+            }
+            if (result.to >= range.to) {
+                break;
+            }
+            current = chunks.higherKey(result);
+        }
+        return sub;
     }
 
     @Override

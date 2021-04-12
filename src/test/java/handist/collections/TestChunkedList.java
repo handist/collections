@@ -641,6 +641,54 @@ public class TestChunkedList {
         }
     }
 
+    @Test
+    public void testForEachRagneLongTBiConsumer() {
+        chunkedList.set(4l, elems[4]);
+        final LongRange range = new LongRange(1, 4);
+
+        final int[] originalValues = new int[elems.length];
+        for (int i = 0; i < elems.length; i++) {
+            originalValues[i] = elems[i].n;
+        }
+
+        chunkedList.forEach(range, (l, e) -> {
+            e.increase((int) l);
+        });
+
+        for (long i = range.from; i < range.to; i++) {
+            assertEquals(originalValues[(int) i] + i, chunkedList.get(i).n);
+        }
+    }
+
+    @Test
+    public void testForEachRange() {
+        // Remove the null value
+        chunkedList.set(4l, elems[4]);
+
+        // Keep the original values of the elements on the side
+        final int[] originalValues = new int[elems.length];
+        for (int i = 0; i < elems.length; i++) {
+            originalValues[i] = elems[i].n;
+        }
+
+        // Increase each element by 2
+        chunkedList.forEach(new LongRange(-1, 4), (e) -> e.increase(2));
+
+        // Check that each element has its value increased by 2
+        for (int i = 0; i < 4; i++) {
+            assertEquals(originalValues[i] + 2, chunkedList.get(i).n);
+        }
+        for (int i = 4; i < elems.length; i++) {
+            assertEquals(originalValues[i], chunkedList.get(i).n);
+        }
+
+        chunkedList.forEach(new LongRange(10, 15), (e) -> e.increase(2));
+
+        for (int i = 0; i < 4; i++) {
+            assertEquals(originalValues[i] + 2, chunkedList.get(i).n);
+        }
+    }
+
     @Test(expected = NullPointerException.class)
     public void testForEachWithNull() {
         chunkedList.forEach((e) -> e.increase(2));
