@@ -709,6 +709,7 @@ public class TestChunkedList {
 
     @Test
     public void testHashCode() {
+        @SuppressWarnings("unchecked")
         final ChunkedList<Element> clone = (ChunkedList<Element>) chunkedList.clone();
         assertEquals(clone.hashCode(), chunkedList.hashCode());
     }

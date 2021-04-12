@@ -224,8 +224,10 @@ public class IT_ErrorsDuringGLB implements Serializable {
 
                 // Potential assertion failures would be caught in the previous forEach
                 // operation's errors.
-                assertTrue("There were <" + checkErrors.size() + "> errors when we expected <0>",
-                        checkErrors.isEmpty());
+                if (!checkErrors.isEmpty()) {
+                    checkErrors.get(0).printStackTrace();
+                    fail("There were <" + checkErrors.size() + "> errors when we expected <0>");
+                }
             });
             assertEquals(0, ex.size()); // There shouldn't be any error thrown from inside the GLB
         } catch (final MultipleException me) {

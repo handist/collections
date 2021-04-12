@@ -1,10 +1,9 @@
 package handist.collections.glb.lifeline;
 
-import static handist.collections.glb.Config.*;
-
 import java.lang.reflect.Constructor;
 
 import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.glb.Config;
 
 /**
  * Class in charge of performing the reflection operations necessary to
@@ -33,7 +32,7 @@ public class LifelineFactory {
     public static Lifeline newLifeline(TeamedPlaceGroup pg) throws Exception {
         if (constructor == null) {
             @SuppressWarnings("rawtypes")
-            final Class lifelineClass = Class.forName(System.getProperty(LIFELINE_STRATEGY, LIFELINE_STRATEGY_DEFAULT));
+            final Class lifelineClass = Class.forName(Config.getLifelineClassName());
             constructor = lifelineClass.getConstructor(TeamedPlaceGroup.class);
         }
 

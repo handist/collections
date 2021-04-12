@@ -346,6 +346,7 @@ public class IT_GLB_DistCol implements Serializable {
                     z_checkSuffixIs(result, "Test"); // The elements contained in the result should have 'Test' as
                     // prefix
                 } catch (final Throwable e) {
+                    e.printStackTrace();
                     throw new RuntimeException(e);
                 }
 
