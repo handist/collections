@@ -14,6 +14,7 @@ import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.LongConsumer;
 
 import org.junit.Before;
@@ -50,6 +51,36 @@ public class TestLongRange {
     @Test(expected = NullPointerException.class)
     public void testCompareToNullArgument() {
         range5.compareTo(null);
+    }
+
+    @Test
+    public void testComputeOnOverlap() {
+        final ConcurrentSkipListMap<LongRange, Integer> cMap = new ConcurrentSkipListMap<>();
+        cMap.put(range0to5, 1);
+        cMap.put(range0to10, 2);
+        cMap.put(range5, 3);
+
+        range0to5.computeOnOverlap(cMap, (long i) -> {
+            assertTrue(range0to5.isOverlapped(new LongRange(i, i)));
+        });
+    }
+
+    @Test
+    public void testComputeOnOverlapRange() {
+        final ConcurrentSkipListMap<LongRange, Long> cMap = new ConcurrentSkipListMap<>();
+        cMap.put(range0to5, 1l);
+        cMap.put(range0to10, 2l);
+        cMap.put(range5, 3l);
+
+        final LongRange overRange = new LongRange(-1, 11);
+        overRange.computeOnOverlap(cMap, (LongRange r) -> {
+            assertTrue(cMap.containsKey(r));
+        });
+
+        final LongRange innerRange = new LongRange(2, 4);
+        innerRange.computeOnOverlap(cMap, (LongRange r) -> {
+            assertEquals(new LongRange(2, 4), r);
+        });
     }
 
     @Test

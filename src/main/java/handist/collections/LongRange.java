@@ -187,19 +187,20 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
      *                 instersections
      */
     public void computeOnOverlap(ConcurrentSkipListMap<LongRange, ?> rmap, Consumer<LongRange> consumer) {
-        long current = from;
+        LongRange current = new LongRange(from, from);
         while (true) {
-            final LongRange tmp = new LongRange(current, current);
-            final LongRange result = tmp.findOverlap(rmap);
+            final LongRange result = current.findOverlap(rmap);
             if (result == null) {
                 break;
             }
             final LongRange inter = intersection(result);
-            consumer.accept(inter);
+            if (inter != null) {
+                consumer.accept(inter);
+            }
             if (result.to >= to) {
                 return;
             }
-            current = result.to;
+            current = rmap.ceilingKey(new LongRange(result.to, result.to));
         }
     }
 

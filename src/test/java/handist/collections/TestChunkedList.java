@@ -10,6 +10,7 @@
  ******************************************************************************/
 package handist.collections;
 
+import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.ByteArrayInputStream;
@@ -31,6 +32,7 @@ import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import handist.collections.dist.util.ObjectInput;
@@ -221,7 +223,57 @@ public class TestChunkedList {
     }
 
     @Test
-    public void testAsyncForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
+    public void testAsyncForEachBiConsumerMultiReceiver() {
+        chunkedList.set(4l, elems[4]);
+
+        final MultiIntegerReceiver accumulator = new MultiIntegerReceiver(2);
+
+        chunkedList.asyncForEach((t, consumer) -> consumer.accept(-t.n), accumulator);
+
+        assertEquals(2, accumulator.parallelAcceptors.length);
+    }
+
+    @Test
+    public void testAsyncForEachConsumer() {
+        finish(() -> {
+            chunkedList.asyncForEach((e) -> {
+                if (e != null) {
+                    e.increase(10);
+                }
+            });
+        });
+
+        assertEquals(6l, chunkedList.size());
+        assertEquals(3, chunkedList.numChunks());
+        assertEquals(10, chunkedList.get(0).n);
+        assertEquals(11, chunkedList.get(1).n);
+        assertEquals(12, chunkedList.get(2).n);
+        assertEquals(13, chunkedList.get(3).n);
+        assertEquals(null, chunkedList.get(4));
+        assertEquals(15, chunkedList.get(5).n);
+    }
+
+    @Test
+    public void testAsyncForEachLongTBiConsumer() {
+        chunkedList.set(4l, elems[4]);
+        final int[] originalValues = new int[elems.length];
+        for (int i = 0; i < elems.length; i++) {
+            originalValues[i] = elems[i].n;
+        }
+
+        finish(() -> {
+            chunkedList.asyncForEach((l, e) -> {
+                e.increase((int) l);
+            });
+        });
+
+        for (long i = 0; i < elems.length; i++) {
+            assertEquals(originalValues[(int) i] + i, chunkedList.get(i).n);
+        }
+    }
+
+    @Test
+    public void testAsyncForEachNthreadsBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
         final ExecutorService pool = Executors.newFixedThreadPool(2);
         chunkedList.set(4l, elems[4]);
 
@@ -245,7 +297,7 @@ public class TestChunkedList {
     }
 
     @Test
-    public void testAsyncForEachConsumer() {
+    public void testAsyncForEachNthreadsConsumer() {
         final ExecutorService pool = Executors.newFixedThreadPool(2);
         final Future<ChunkedList<Element>> future = chunkedList.asyncForEach(pool, 2, (e) -> {
             if (e != null) {
@@ -274,7 +326,7 @@ public class TestChunkedList {
     }
 
     @Test
-    public void testAsyncForEachLongTBiConsumer() {
+    public void testAsyncForEachNThreadsLongTBiConsumer() {
         chunkedList.set(4l, elems[4]);
         final int[] originalValues = new int[elems.length];
         for (int i = 0; i < elems.length; i++) {
@@ -343,6 +395,15 @@ public class TestChunkedList {
     }
 
     @Test
+    public void testClone() {
+        @SuppressWarnings("unchecked")
+        final ChunkedList<Element> clone = (ChunkedList<Element>) chunkedList.clone();
+        for (long i = 0; i < chunkedList.size(); i++) {
+            assertEquals(clone.get(i), chunkedList.get(i));
+        }
+    }
+
+    @Test
     public void testConstructor() {
         final ConcurrentSkipListMap<LongRange, RangedList<Element>> cMap = new ConcurrentSkipListMap<>();
         cMap.put(chunks[0].getRange(), chunks[0]);
@@ -391,6 +452,32 @@ public class TestChunkedList {
         assertTrue(chunkedList.containsIndex(5));
         assertFalse(chunkedList.containsIndex(100));
         assertFalse(chunkedList.containsIndex(-1));
+    }
+
+    @Test
+    public void testContainsRange() {
+        assertTrue(chunkedList.containsRange(new LongRange(1, 3)));
+        assertFalse(chunkedList.containsRange(new LongRange(-10, 2)));
+        assertFalse(chunkedList.containsRange(new LongRange(3, 10)));
+    }
+
+    @Test
+    public void testEquals() {
+        final ChunkedList<Element> target = new ChunkedList<>();
+        target.add(chunks[0].clone());
+        assertFalse(chunkedList.equals(target));
+        target.add(chunks[1].clone());
+        target.add(chunks[2].clone());
+
+        assertTrue(chunkedList.equals(target));
+
+        chunkedList.set(1, null);
+        assertFalse(chunkedList.equals(target));
+
+        chunkedList.set(1, new Element(-1));
+        assertFalse(chunkedList.equals(target));
+
+        assertFalse(chunkedList.equals(null));
     }
 
     @Test
@@ -573,6 +660,12 @@ public class TestChunkedList {
     }
 
     @Test
+    public void testHashCode() {
+        final ChunkedList<Element> clone = (ChunkedList<Element>) chunkedList.clone();
+        assertEquals(clone.hashCode(), chunkedList.hashCode());
+    }
+
+    @Test
     public void testIsEmpty() {
         assertFalse(chunkedList.isEmpty());
         assertTrue(newlyCreatedChunkedList.isEmpty());
@@ -735,8 +828,23 @@ public class TestChunkedList {
         }
     }
 
+    @Ignore
     @Test
     public void testRemoveChunk() {
+        RangedList<Element> chunkToRemove = chunks[1];
+        RangedList<Element> removed = chunkedList.remove(chunkToRemove);
+        for (final Element e : removed) {
+            assertTrue(removed.contains(e));
+            assertFalse(chunkedList.contains(e));
+        }
+
+        chunkToRemove = new Chunk<>(new LongRange(0, 3));
+        removed = chunkedList.remove(chunkToRemove);
+        assertNull(removed);
+    }
+
+    @Test
+    public void testRemoveRange() {
         // Chunk<Element> chunkToRemove = new Chunk<>(new LongRange(-1l, 0l));
         LongRange rangeToRemove = new LongRange(-1l, 0l);
         // Removes nothing, the indices do not intersect.
