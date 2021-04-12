@@ -929,6 +929,24 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         return chunk.get(i);
     }
 
+    /**
+     * Returns the chunk in this instance which contain the specified
+     * {@link LongRange}.
+     * <p>
+     * The specified range needs to be fully included into a single chunk contained
+     * in this instance, or exactly match the range of an existing chunk. Calling
+     * this method with a {@link LongRange} which spans multiple chunks, or which is
+     * not (even partially) included into any single chunk is undefined behavior
+     * (the method may return an arbitrary chunk or throw a
+     * {@link NullPointerException}).
+     *
+     * @param lr the targeted range
+     * @return the chunk that contains the specified range
+     */
+    public RangedList<T> getChunk(LongRange lr) {
+        return chunks.floorEntry(lr).getValue();
+    }
+
     @Override
     public int hashCode() {
         int hashCode = 1;
@@ -1286,7 +1304,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             }
             final LongRange inter = range.intersection(result);
             if (inter != null) {
-                sub.add(new RangedListView(chunks.get(result), inter));
+                sub.add(new RangedListView<>(chunks.get(result), inter));
             }
             if (result.to >= range.to) {
                 break;

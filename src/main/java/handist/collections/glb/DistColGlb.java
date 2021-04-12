@@ -16,6 +16,7 @@ import java.util.function.Consumer;
 import apgas.util.GlobalID;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
+import handist.collections.RangedList;
 import handist.collections.dist.DistBag;
 import handist.collections.dist.DistCol;
 import handist.collections.dist.Reducer;
@@ -115,9 +116,10 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         // The second argument (WorkerService) provided by the GLB runtime is unused for
         // this operation
         final SerializableBiConsumer<LongRange, WorkerService> realAction = (lr, ws) -> {
+            final RangedList<T> chunk = col.getChunk(lr);
             for (long l = lr.from; l < lr.to; l++) {
                 try {
-                    action.accept(col.get(l));
+                    action.accept(chunk.get(l));
                 } catch (final Throwable t) {
                     ws.throwableInOperation(new DistColGlbError(lr, l, t));
                 }
@@ -159,9 +161,10 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         // The second argument (WorkerService) provided by the GLB runtime is unused for
         // this operation
         final SerializableBiConsumer<LongRange, WorkerService> realAction = (lr, ws) -> {
+            final RangedList<T> chunk = col.getChunk(lr);
             for (long l = lr.from; l < lr.to; l++) {
                 try {
-                    action.accept(l, col.get(l));
+                    action.accept(l, chunk.get(l));
                 } catch (final Throwable t) {
                     ws.throwableInOperation(new DistColGlbError(lr, l, t));
                 }
@@ -206,20 +209,13 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
             // First, initialize a Chunk to place the mappings
             final Chunk<U> c = new Chunk<>(lr);
 
-            /*
-             * FIXME ChunkedList (parent of DistCol) does not support concurrent insertion
-             * of chunks As a result, inserting a chunk in the result collection must be
-             * done in mutual exclusion with any other worker inserting chunks in this
-             * collection on the local host
-             */
-            synchronized (resultCollection) {
-                resultCollection.add(c);
-            }
+            resultCollection.add(c);
 
             // Iterate on the elements
+            final RangedList<T> chunk = col.getChunk(lr);
             for (long l = lr.from; l < lr.to; l++) {
                 try {
-                    final T t = col.get(l);
+                    final T t = chunk.get(l);
                     final U u = map.apply(t);
                     c.set(l, u);
                 } catch (final Throwable t) {
@@ -251,15 +247,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
     public <R extends Reducer<R, T>> DistFuture<R> reduce(final R reducer) {
         final GlobalLoadBalancer glb = getGlb();
         final GlobalID gid = new GlobalID();
-//        reducer.newGlobalIdAndPlaceGroup(col.placeGroup());
-//        final GlobalID gid = reducer.gid;
         final R globalReducer = reducer;
-
-        // FIXME surely there is a more elegant way to register an instance at each host
-        // I was not able to make the LazyObjectReference work with class Reducer
-//        col.placeGroup().broadcastFlat(() -> {
-//            globalReducer.gid.putHereIfAbsent(globalReducer);
-//        });
 
         final SerializableConsumer<WorkerService> workerInit = (w) -> w.attachOperationObject(gid,
                 globalReducer.newReducer());
@@ -267,9 +255,10 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         final SerializableBiConsumer<LongRange, WorkerService> realAction = (lr, ws) -> {
             final R workerLocalReducer = (R) ws.retrieveOperationObject(gid);
 
+            final RangedList<T> chunk = col.getChunk(lr);
             for (long l = lr.from; l < lr.to; l++) {
                 try {
-                    workerLocalReducer.reduce(col.get(l));
+                    workerLocalReducer.reduce(chunk.get(l));
                 } catch (final Throwable t) {
                     ws.throwableInOperation(new DistColGlbError(lr, l, t));
                 }
@@ -335,9 +324,10 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
             final Consumer<U> destination = (Consumer<U>) ws.retrieveOperationObject(resultCollection);
 
             // Iterate on the elements
+            final RangedList<T> chunk = col.getChunk(lr);
             for (long l = lr.from; l < lr.to; l++) {
                 try {
-                    final T t = col.get(l);
+                    final T t = chunk.get(l);
                     final U u = function.apply(t);
                     destination.accept(u);
                 } catch (final Throwable t) {
