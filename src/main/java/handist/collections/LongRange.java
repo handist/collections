@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.stream.LongStream;
 
@@ -177,50 +176,6 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
     }
 
     /**
-     * Scans intersections between this instance and the key sets of the provided
-     * {@code ConcurrentSkipListMap<LongRange, S> rmap} and applies
-     * {@code Consumer<LongRange> consumer} to each intersection range.
-     *
-     * @param rmap     tree map whose intersection with this instance will be
-     *                 processed
-     * @param consumer the action to perform on the {@link LongRange} index
-     *                 instersections
-     */
-    public void computeOnOverlap(ConcurrentSkipListMap<LongRange, ?> rmap, Consumer<LongRange> consumer) {
-        LongRange current = new LongRange(from, from);
-        while (true) {
-            final LongRange result = current.findOverlap(rmap);
-            if (result == null) {
-                break;
-            }
-            final LongRange inter = intersection(result);
-            if (inter != null) {
-                consumer.accept(inter);
-            }
-            if (result.to >= to) {
-                return;
-            }
-            current = rmap.ceilingKey(new LongRange(result.to, result.to));
-        }
-    }
-
-    /**
-     * Scans intersections between this instance and the key sets of the provided
-     * {@code ConcurrentSkipListMap<LongRange, S> rmap} and apply
-     * {@code LongConsumer consumer} to each index in the intersections.
-     *
-     * @param rmap     tree map whose intersection with this instance will be
-     *                 processed
-     * @param consumer the action to perform on each index in the intersection
-     *                 between the this instance and provided key {@code rmap} keys
-     */
-    public void computeOnOverlap(ConcurrentSkipListMap<LongRange, ?> rmap, LongConsumer consumer) {
-        computeOnOverlap(rmap, (LongRange range) -> {
-            range.forEach(consumer);
-        });
-    }
-
-    /**
      * Checks if all the indices in this range are included in one of the keys
      * contained by the provided {@code ConcurrentSkipListMap}.
      *
@@ -298,8 +253,9 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
     // prepare LongRangeSet having such facilities
     /**
      * Checks if this instance intersects with one of the keys contained by the
-     * provided {@code ConcurrentSkipListMap<LongRange, S> rmap}. Returns one of the
-     * intersecting keys, or {@code null} if there are no such intersecting key.
+     * provided {@code ConcurrentSkipListMap<LongRange, S> rmap}. Returns the
+     * smallest of the intersecting keys, or {@code null} if there are no such
+     * intersecting key.
      *
      * @param rmap the ConcurrentSkipListMap instance to check
      * @return a LongRange key of the provided ConcurrentSkipListMap instance that
