@@ -377,7 +377,8 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     @Override
     protected Object clone() {
-        final ConcurrentSkipListMap<LongRange, RangedList<T>> newChunks = new ConcurrentSkipListMap<>();
+        final ConcurrentSkipListMap<LongRange, RangedList<T>> newChunks = new ConcurrentSkipListMap<>(
+                new LongRangeOrdering());
         for (final RangedList<T> c : chunks.values()) {
             newChunks.put(c.getRange(), ((Chunk<T>) c).clone());
         }
