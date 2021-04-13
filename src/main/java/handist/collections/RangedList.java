@@ -13,9 +13,7 @@ package handist.collections;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.*;
 
 import handist.collections.function.LongTBiConsumer;
 
@@ -254,6 +252,19 @@ public abstract class RangedList<T> implements Iterable<T> {
     }
 
     /**
+     *  Receives a range and a RangedList
+     */
+    public <U> void map(LongRange range, RangedList<U> arg, BiConsumer<T,U> func) {
+        rangeCheck(range);
+        arg.rangeCheck(range);
+        final LongFunction<T> accessor1 = getUnsafeGetAccessor();
+        final LongFunction<U> accessor2 = arg.getUnsafeGetAccessor();
+        for(long current = range.from; current < range.to; current++) {
+            func.accept(accessor1.apply(current), accessor2.apply(current));
+        }
+    }
+
+    /**
      * Checks if the provided {@code long index} is included in the range this
      * instance is defined on, i.e. if method {@link #get(long)}, or
      * {@link #set(long,Object)} can be safely called with the provided parameter.
@@ -305,7 +316,40 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param func   function that takes an object of type S as parameter and
      *               returns a type T
      */
-    public abstract <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func);
+    // public <S> absrract void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func);
+    public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
+        LongRange range = source.getRange();
+        rangeCheck(range);
+        if (range.size() > Integer.MAX_VALUE) {
+            throw new Error("[Chunk] the size of RangedList cannot exceed Integer.MAX_VALUE.");
+        }
+        final LongTBiConsumer<T> consumer = getUnsafePutAccessor();
+        final LongFunction<S> producer = source.getUnsafeGetAccessor();
+        for(long index=range.from; index<range.to; index++) {
+            consumer.accept(index, func.apply(producer.apply(index)));
+        }
+        // OR
+        //source.forEach((long index, S s)->{
+        //   consumer.accept(index, func.apply(s));
+        //});
+    }
+
+    /**
+     *  Returns the get unsafe accessor (java.util.function.Function) that receives
+     *  an index and return the corresponding element.
+     *  Please check index ranges before using the accessor.
+     */
+    abstract protected LongFunction<T> getUnsafeGetAccessor();
+
+    /**
+     *  Returns the put unsafe accessor (java.util.function.BiConsumer) that receives
+     *  an index and the value to be stored.
+     *  Please check index ranges before using the accessor.
+     */
+    abstract protected LongTBiConsumer<T> getUnsafePutAccessor();
+
+
+
 
     /**
      * Returns the number of entries in this collection as a {@code long}
