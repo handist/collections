@@ -11,12 +11,15 @@
 package handist.collections;
 
 import handist.collections.dist.util.Pair;
+import handist.collections.function.LongTBiConsumer;
 
 import java.io.Serializable;
+import java.util.Iterator;
+import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-
+import java.util.function.Function;
 
 
 public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializable /*, KryoSerializable*/ {
@@ -232,6 +235,182 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         }
     }
 
+    static abstract class MyView<T> extends RangedList<T> {
+        @Override
+        public RangedList<T> cloneRange(LongRange range) {
+            throw new UnsupportedOperationException("not implemented yet. may be shared abst class will be needed");
+        }
+
+        @Override
+        public boolean contains(Object o) {
+            throw new UnsupportedOperationException("not implemented yet. may be shared abst class will be needed");
+        }
+
+        @Override
+        public T get(long index) {
+            throw new UnsupportedOperationException("not implemented yet. may be shared abst class will be needed");
+        }
+
+        @Override
+        public LongRange getRange() {
+            throw new UnsupportedOperationException("not implemented yet. may be shared abst class will be needed");
+        }
+
+        @Override
+        public T set(long index, T value) {
+            throw new UnsupportedOperationException("not implemented yet. may be shared abst class will be needed");
+        }
+
+        @Override
+        public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
+            throw new UnsupportedOperationException("setupFrom() is not supported on view");
+        }
+
+        @Override
+        public Object[] toArray() {
+            throw new UnsupportedOperationException("not implemented yet. may be shared abst class will be needed");
+        }
+
+        @Override
+        public Object[] toArray(LongRange r) {
+            throw new UnsupportedOperationException("not implemented yet. may be shared abst class will be needed");
+        }
+
+        @Override
+        public Chunk<T> toChunk(LongRange r) {
+            throw new UnsupportedOperationException("not implemented yet. may be shared abst class will be needed");
+        }
+
+        @Override
+        public List<T> toList(LongRange r) {
+            throw new UnsupportedOperationException("not implemented yet. may be shared abst class will be needed");
+        }
+    }
+
+    static class RowView<T> extends MyView<T> {
+        int offset;
+        long from;
+        Object[] a;
+
+        public RowView(int offset, long from, Object[] a) {
+            this.offset = offset;
+            this.from = from;
+            this.a = a;
+        }
+
+        @Override
+        public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+                                Consumer<? super U> receiver) {
+            // TODO rangeCheck(range);
+            long current = range.from;
+            int index = offset + (int)(range.from - from);
+            while(current++ < range.to) {
+                action.accept((T)a[index++], receiver);
+            }
+        }
+
+        @Override
+        public void forEach(LongRange range, Consumer<? super T> action) {
+            // TODO rangeCheck(range);
+            long current = range.from;
+            int index = offset + (int)(range.from - from);
+            while(current++ < range.to) {
+                action.accept((T)a[index++]);
+            }
+        }
+
+        @Override
+        public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
+            // TODO rangeCheck(range);
+            long current = range.from;
+            int index = offset + (int)(range.from - from);
+            while(current < range.to) {
+                action.accept(current++, (T)a[index++]);
+            }
+        }
+
+        @Override
+        public Iterator<T> iterator() {
+            throw new UnsupportedOperationException("not implemented yet");
+        }
+    }
+    static class ColumnView<T> extends MyView<T> {
+        int offset;
+        long from;
+        int stride;
+        Object[] a;
+
+        public ColumnView(int offset, int stride, long from, Object[] a) {
+            this.offset = offset;
+            this.from = from;
+            this.stride = stride;
+            this.a = a;
+        }
+
+        @Override
+        public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+                                Consumer<? super U> receiver) {
+            // TODO rangeCheck(range);
+            long current = range.from;
+            int index = offset + (int)(range.from - from);
+            while(current++ < range.to) {
+                action.accept((T)a[index], receiver);
+                index += stride;
+            }
+        }
+
+        @Override
+        public void forEach(LongRange range, Consumer<? super T> action) {
+            // TODO rangeCheck(range);
+            long current = range.from;
+            int index = offset + (int)(range.from - from);
+            while(current++ < range.to) {
+                action.accept((T)a[index]);
+                index+= stride;
+            }
+        }
+
+        @Override
+        public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
+            // TODO rangeCheck(range);
+            long current = range.from;
+            int index = offset + (int)(range.from - from)*stride;
+            while(current < range.to) {
+                action.accept(current++, (T)a[index]);
+                index += stride;
+            }
+        }
+
+        @Override
+        public Iterator<T> iterator() {
+            throw new UnsupportedOperationException("not implemented yet");
+        }
+    }
+    public RangedList<T> getRowView(long row) {
+        // TODO range check
+        int offset = (int)(innerSize * (row - getRange().outer.from));
+        return new RowView<>(offset, getRange().inner.from, a);
+    }
+
+    public RangedList<T> getColumnView(long column) {
+        // TODO range check
+        int offset = (int)(column - getRange().inner.from);
+        return new ColumnView<>(offset, (int)innerSize, getRange().outer.from, a);
+    }
+    public void forEachColumn(LongTBiConsumer<RangedList<T>> columnAction) {
+        for(long index = getRange().inner.from; index < getRange().inner.to; index++) {
+            RangedList<T> cView = getColumnView(index);
+            columnAction.accept(index, cView);
+        }
+    }
+    public void forEachRow(LongTBiConsumer<RangedList<T>> rowAction) {
+        for(long index = getRange().outer.from; index < getRange().outer.to; index++) {
+            RangedList<T> rView = getRowView(index);
+            rowAction.accept(index, rView);
+        }
+    }
+
+
     public void forEach(SquareRange range, final Consumer<SquareSiblingAccessor<T>> action) {
         // TODO
         // rangeCheck(range);
@@ -308,10 +487,12 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         return getUnsafe(index, index2);
     }
 
-
     public SquareRange getRange() {
         return range;
     }
+
+
+
 
     /**
      * Returns the element located at the provided index. The provided index is
@@ -399,7 +580,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
     }
 
     @SuppressWarnings("unchecked")
-    private final T setUnsafe(long index, long index2, T v) { // when range check was done
+    private T setUnsafe(long index, long index2, T v) { // when range check was done
         final long offset1 = index - range.outer.from;
         final long offset2 = index2 - range.inner.from;
         final long offset = offset1 * innerSize + offset2;
@@ -529,6 +710,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
      * c.toArray(new LongRange(0, Config.maxChunkSize)); }
      */
 
+    // tmp (-> junit)
     public static void main(String[] args) {
         SquareRange rangeX =
                 new SquareRange(new LongRange(100, 110), new LongRange(10,20));
@@ -550,5 +732,31 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
                     + acc.get(0,-1) + ":"+ acc.get(0,1)+ "^"+
                     acc.get(-1,0)+"_"+acc.get(1,0)+"]");
         });
+
+        chunkXstr.forEachRow((long row, RangedList<String> rowView)->{
+            long start = row-89;
+            long to = 18;
+            if(start >= to) return;
+            LongRange scan = new LongRange(start, to);
+            System.out.println("row iter:" + row + "=>" + scan);
+            rowView.forEach(scan, (long column, String e)->{
+                System.out.print("("+ column +":"+e+")");
+            });
+            System.out.println();
+        });
+
+        chunkXstr.forEachColumn((long column, RangedList<String> columnView)->{
+            long start = 101;
+            long to = column + 89;
+            if(start >= to) return;
+            LongRange scan = new LongRange(start, to);
+            System.out.println("column iter:" + column + "=>" + scan);
+            columnView.forEach(scan, (long row, String e)->{
+                System.out.print("("+ row +":"+e+")");
+            });
+            System.out.println();
+        });
+
+
     }
 }
