@@ -12,6 +12,7 @@ package handist.collections;
 
 import handist.collections.dist.util.Pair;
 import handist.collections.function.LongTBiConsumer;
+import handist.collections.function.SquareIndexTConsumer;
 
 import java.io.Serializable;
 import java.util.Iterator;
@@ -252,18 +253,8 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         }
 
         @Override
-        public LongRange getRange() {
-            throw new UnsupportedOperationException("not implemented yet. may be shared abst class will be needed");
-        }
-
-        @Override
         public T set(long index, T value) {
             throw new UnsupportedOperationException("not implemented yet. may be shared abst class will be needed");
-        }
-
-        @Override
-        public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
-            throw new UnsupportedOperationException("setupFrom() is not supported on view");
         }
 
         @Override
@@ -289,21 +280,21 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
 
     static class RowView<T> extends MyView<T> {
         int offset;
-        long from;
+        LongRange baseRange;
         Object[] a;
 
-        public RowView(int offset, long from, Object[] a) {
+        public RowView(int offset, LongRange baseRange, Object[] a) {
             this.offset = offset;
-            this.from = from;
+            this.baseRange = baseRange;
             this.a = a;
         }
-
+        public LongRange getRange() { return baseRange; }
         @Override
         public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
                                 Consumer<? super U> receiver) {
             // TODO rangeCheck(range);
             long current = range.from;
-            int index = offset + (int)(range.from - from);
+            int index = offset + (int)(range.from - baseRange.from);
             while(current++ < range.to) {
                 action.accept((T)a[index++], receiver);
             }
@@ -313,7 +304,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         public void forEach(LongRange range, Consumer<? super T> action) {
             // TODO rangeCheck(range);
             long current = range.from;
-            int index = offset + (int)(range.from - from);
+            int index = offset + (int)(range.from - baseRange.from);
             while(current++ < range.to) {
                 action.accept((T)a[index++]);
             }
@@ -323,10 +314,21 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
             // TODO rangeCheck(range);
             long current = range.from;
-            int index = offset + (int)(range.from - from);
+            int index = offset + (int)(range.from - baseRange.from);
             while(current < range.to) {
                 action.accept(current++, (T)a[index++]);
             }
+        }
+
+        @Override
+        public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
+            //TODO range check
+            LongRange range = source.getRange();
+            final LongTBiConsumer<S> consumer = (long index, S s)->{
+                final T r = func.apply(s);
+                a[offset + (int)(index - baseRange.from)] = r;
+            };
+            source.forEach(consumer);
         }
 
         @Override
@@ -336,23 +338,23 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
     }
     static class ColumnView<T> extends MyView<T> {
         int offset;
-        long from;
+        LongRange baseRange;
         int stride;
         Object[] a;
 
-        public ColumnView(int offset, int stride, long from, Object[] a) {
+        public ColumnView(int offset, int stride, LongRange baseRange, Object[] a) {
             this.offset = offset;
-            this.from = from;
+            this.baseRange = baseRange;
             this.stride = stride;
             this.a = a;
         }
-
+        public LongRange getRange() { return baseRange; }
         @Override
         public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
                                 Consumer<? super U> receiver) {
             // TODO rangeCheck(range);
             long current = range.from;
-            int index = offset + (int)(range.from - from);
+            int index = offset + (int)(range.from - baseRange.from);
             while(current++ < range.to) {
                 action.accept((T)a[index], receiver);
                 index += stride;
@@ -363,7 +365,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         public void forEach(LongRange range, Consumer<? super T> action) {
             // TODO rangeCheck(range);
             long current = range.from;
-            int index = offset + (int)(range.from - from);
+            int index = offset + (int)(range.from - baseRange.from);
             while(current++ < range.to) {
                 action.accept((T)a[index]);
                 index+= stride;
@@ -374,11 +376,22 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
             // TODO rangeCheck(range);
             long current = range.from;
-            int index = offset + (int)(range.from - from)*stride;
+            int index = offset + (int)(range.from - baseRange.from)*stride;
             while(current < range.to) {
                 action.accept(current++, (T)a[index]);
                 index += stride;
             }
+        }
+
+        @Override
+        public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
+            //TODO range check
+            LongRange range = source.getRange();
+            final LongTBiConsumer<S> consumer = (long index, S s)->{
+                final T r = func.apply(s);
+                a[offset + (int)(index - baseRange.from)*stride] = r;
+            };
+            source.forEach(consumer);
         }
 
         @Override
@@ -389,13 +402,13 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
     public RangedList<T> getRowView(long row) {
         // TODO range check
         int offset = (int)(innerSize * (row - getRange().outer.from));
-        return new RowView<>(offset, getRange().inner.from, a);
+        return new RowView<>(offset, getRange().inner, a);
     }
 
     public RangedList<T> getColumnView(long column) {
         // TODO range check
         int offset = (int)(column - getRange().inner.from);
-        return new ColumnView<>(offset, (int)innerSize, getRange().outer.from, a);
+        return new ColumnView<>(offset, (int)innerSize, getRange().outer, a);
     }
     public void forEachColumn(LongTBiConsumer<RangedList<T>> columnAction) {
         for(long index = getRange().inner.from; index < getRange().inner.to; index++) {
@@ -442,7 +455,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
 
 
 
-    public void forEach(final BiConsumer<Pair<Long,Long>, ? super T> action) {
+    public void forEach(final SquareIndexTConsumer<? super T> action) {
         // TODO
         // rangeCheck(range);
         // TODO
@@ -452,7 +465,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         int offset = 0;
         while (true) {
             T v = (T)a[offset];
-            action.accept(new Pair<>(index, index2), v);
+            action.accept(index, index2, v);
             index2++;
             offset++;
             if(index2==range.inner.to) {
@@ -470,6 +483,20 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         for (Object o: a) {
             action.accept((T)o);
         }
+    }
+
+    public <S> void setupFrom(SquareChunk<S> source, Function<? super S, ? extends T> func) {
+        // TODO 'source' should be SquareRangedList
+        //    and this method also should be declared in SquareRangedList
+        // TODO rangeCheck
+        final SquareIndexTConsumer<S> consumer = (long index1, long index2, S s) -> {
+            final T r = func.apply(s);
+            long offset1 = index1 - getRange().outer.from;
+            long offset2 = index2 - getRange().inner.from;
+            long offset = offset1 * innerSize + offset2;
+            a[(int) offset ] = r;
+        };
+        source.forEach(consumer);
     }
 
 
@@ -687,6 +714,15 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
 //        }
 //        return sb.toString();
 //    }
+    void debugPrint(String tag) {
+        forEachRow((long index, RangedList<T> row)->{
+            System.out.print("("+tag+ "), row:" + index +"->");
+            row.forEach((long i, T e)->{
+                System.out.print("["+i+":"+e+"]");
+            });
+            System.out.println();
+        });
+    }
 
 //    @Override
 //    public void write(Kryo kryo, Output output) {
@@ -722,8 +758,8 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
             System.out.print(str);
         });
         System.out.println();
-        chunkXstr.forEach((Pair<Long,Long> x, String str)->{
-            System.out.println("["+x.first +","+x.second+":"+str+"]");
+        chunkXstr.forEach((long first, long second, String str)->{
+            System.out.println("["+first +","+second+":"+str+"]");
         });
         SquareRange rangeY =
                 new SquareRange(new LongRange(102, 105), new LongRange(12,15));
@@ -756,6 +792,24 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
             });
             System.out.println();
         });
+
+        SquareChunk<Long> matrixX =
+                new SquareChunk<>(rangeX, (Long i1, Long i2)->{
+                    return i1 * 1000 + i2;
+                });
+        matrixX.debugPrint("matrixX");
+        SquareChunk<Long> matrixY =
+                new SquareChunk<>(rangeY, (Long i1, Long i2)->{
+                    return i1 * 2000 + i2*2;
+                });
+        matrixY.debugPrint("matrixY");
+        matrixX.setupFrom(matrixY, (Long x)->{return x + 70000000;});
+        matrixX.debugPrint("matrixX2");
+        matrixX.getRowView(100).setupFrom(matrixY.getRowView(103),(Long x)->x);
+        matrixX.getColumnView(11).setupFrom(matrixY.getColumnView(13),(Long x)->x);
+        matrixX.debugPrint("matrixX3");
+
+
 
 
     }
