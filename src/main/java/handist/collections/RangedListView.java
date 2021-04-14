@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
@@ -270,13 +271,14 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
         return base.set(index, v);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
-        rangeCheck(from.getRange());
-        base.setupFrom(from, func);
+    protected LongFunction<T> getUnsafeGetAccessor() {
+        return base.getUnsafeGetAccessor();
+    }
+
+    @Override
+    protected LongTBiConsumer<T> getUnsafePutAccessor() {
+        return base.getUnsafePutAccessor();
     }
 
     /**

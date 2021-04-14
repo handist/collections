@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
@@ -405,20 +406,18 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         return prev;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
-        rangeCheck(from.getRange());
-        if (range.size() > Integer.MAX_VALUE) {
-            throw new Error("[Chunk] the size of RangedList cannot exceed Integer.MAX_VALUE.");
-        }
-        final LongTBiConsumer<S> consumer = (long index, S s) -> {
-            final T r = func.apply(s);
+    final protected LongFunction<T> getUnsafeGetAccessor() {
+        return (long index) -> {
+            return (T) a[(int) (index - range.from)];
+        };
+    }
+
+    @Override
+    final protected LongTBiConsumer<T> getUnsafePutAccessor() {
+        return (long index, T r) -> {
             a[(int) (index - range.from)] = r;
         };
-        from.forEach(consumer);
     }
 
     /**

@@ -5,11 +5,15 @@ import static org.junit.Assert.*;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+
+import handist.collections.function.LongTBiConsumer;
 
 /**
  * Test default methods of RangedList.
@@ -54,6 +58,16 @@ public class TestRangedList {
         @Override
         public LongRange getRange() {
             return chunk.getRange();
+        }
+
+        @Override
+        protected LongFunction<T> getUnsafeGetAccessor() {
+            return null;
+        }
+
+        @Override
+        protected LongTBiConsumer<T> getUnsafePutAccessor() {
+            return null;
         }
 
         @Override
@@ -232,4 +246,41 @@ public class TestRangedList {
             assertEquals(elems[i], list.get(i));
         }
     }
+
+    @Test
+    public void testReduce() {
+        LongRange range = new LongRange(0, 10);
+        final Chunk<Long> as = new Chunk<>(range, (Long i) -> {
+            return i;
+        });
+
+        long val = as.reduce((Long sum, Long elem) -> {
+            return sum + elem;
+        });
+        assertEquals(val, 45);
+
+        String val2 = as.subList(6, 8).reduce((String str, Long elem) -> {
+            return str + ":" + elem;
+        }, "result");
+        assertEquals(val2, "result:6:7");
+
+        final RangedList<Integer> bs = as.map((Long i) -> {
+            return (int) (i * 2);
+        });
+        BiFunction<Long,Integer, String> func = (Long a, Integer b) -> {
+            return "" + (a.longValue() * b.intValue());
+        };
+        String val3 = as.reduce(bs, func, "start", (String sum, String elem)->{ return sum+","+elem; });
+        assertEquals(val3, "start,0,2,8,18,32,50,72,98,128,162");
+
+        RangedList<String> cs = as.map(new LongRange(6,8), bs, (Long a, Integer b)-> {
+            return "" + a + "," + b;
+        });
+        assertEquals(cs.get(6), "6,12");
+        assertEquals(cs.get(7), "7,14");
+        assertEquals(cs.getRange(), new LongRange(6, 8));
+
+    }
+
+
 }

@@ -13,9 +13,7 @@ package handist.collections;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.*;
 
 import handist.collections.function.LongTBiConsumer;
 
@@ -254,6 +252,75 @@ public abstract class RangedList<T> implements Iterable<T> {
     }
 
     /**
+     * Iterates on the elements of this instance and the {@code target} and apply the given function to the element.
+     * @param range the range on which to apply the method
+     * @param target
+     * @param func function that receives two object (type T and U) extracted from two ranged list and does not return result.
+     * @param <U> the type handled by the {@link RangedList} given as parameter,
+     *             second input for the function
+     */
+    public <U> void map(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
+        rangeCheck(range);
+        target.rangeCheck(range);
+        /*
+        final LongFunction<T> accessor1 = getUnsafeGetAccessor();
+        final LongFunction<U> accessor2 = target.getUnsafeGetAccessor();
+        for(long current = range.from; current < range.to; current++) {
+            func.accept(accessor1.apply(current), accessor2.apply(current));
+        }*/
+        final LongFunction<U> accessor2 = target.getUnsafeGetAccessor();
+        this.forEach((long index, T elem)->{
+            func.accept(elem, accessor2.apply(index));
+        });
+    }
+    public <S, U> RangedList<U> map(LongRange range, RangedList<S> target, BiFunction<T, S, U> func) {
+        final Chunk<U> result = new Chunk<>(range);
+        rangeCheck(range);
+        final LongFunction<S> accessor2 = target.getUnsafeGetAccessor();
+        final LongTBiConsumer<U> consumer = result.getUnsafePutAccessor();
+        this.forEach(range, (long index, T elem)->{
+            consumer.accept(index, func.apply(elem, accessor2.apply(index)));
+        });
+        return result;
+    }
+
+
+    static class Box<U> {
+        U val;
+        Box(U val) {
+            this.val = val;
+        }
+    }
+
+    public T reduce(BiFunction<T,T,T> reduce) {
+        Box<T> box = new Box<T>(null);
+        forEach((T t)->{
+            if(box.val == null) box.val = t;
+            else box.val = reduce.apply(box.val, t);
+        });
+        return box.val;
+    }
+
+    public <U> U reduce(BiFunction<U,T,U> reduce, U zero) {
+        Box<U> box = new Box<U>(zero);
+        box.val=zero;
+        forEach((T t)->{
+            box.val = reduce.apply(box.val, t);
+        });
+        return box.val;
+    }
+    public <U,S> U reduce(RangedList<S> source2, BiFunction<T, S, U> map, U zero, BiFunction<U,U,U> reduce) {
+        LongFunction<S> producer = source2.getUnsafeGetAccessor();
+        Box<U> box = new Box<U>(zero);
+        box.val=zero;
+        forEach((long index, T t)->{
+            box.val = reduce.apply(box.val,map.apply(t, producer.apply(index)));
+        });
+        return box.val;
+    }
+
+
+    /**
      * Checks if the provided {@code long index} is included in the range this
      * instance is defined on, i.e. if method {@link #get(long)}, or
      * {@link #set(long,Object)} can be safely called with the provided parameter.
@@ -305,7 +372,82 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param func   function that takes an object of type S as parameter and
      *               returns a type T
      */
-    public abstract <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func);
+    public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
+        setupFrom(source.getRange(), source, func);
+    }
+    /**
+     * Initializes the values in the {code range} of this instance by applying the provided function on
+     * the elements contained in {@code source}
+     *
+     * @param <S>    the type handled by the {@link RangedList} given as parameter,
+     *               input for the function
+     * @param range  the range where initialization are applied
+     * @param source {@link RangedList} instance from which entries for this
+     *               instance will be extracted
+     * @param func   function that takes an object of type S as parameter and
+     *               returns a type T
+     */
+    public <S> void setupFrom(LongRange range, RangedList<S> source, Function<? super S, ? extends T> func) {
+        rangeCheck(range);
+        /*if (range.size() > Integer.MAX_VALUE) {
+            throw new Error("[Chunk] the size of RangedList cannot exceed Integer.MAX_VALUE.");
+        }*/
+        final LongTBiConsumer<T> consumer = getUnsafePutAccessor();
+        /*
+        final LongFunction<S> producer = source.getUnsafeGetAccessor();
+        for(long index=range.from; index<range.to; index++) {
+            consumer.accept(index, func.apply(producer.apply(index)));
+        }
+        */
+        source.forEach((long index, S s)->{
+           consumer.accept(index, func.apply(s));
+        });
+    }
+    /**
+     * Initializes the values in the {code range} of this instance by applying the provided function on
+     * the elements contained in {@code source1} and {@code source2}
+     *
+     * @param <S>   the first type handled by the {@link RangedList} given as parameter,
+     *               input for the function
+     * @param <U>    the second type handled by the {@link RangedList} given as parameter,
+     *               input for the function
+     * @param range  the range where initialization are applied
+     * @param source1 the first {@link RangedList} instance from which entries for this
+     *               instance will be extracted
+     * @param source2 the second {@link RangedList} instance from which entries for this
+     *               instance will be extracted
+     * @param func   function that takes two objects of type S and U as parameter and
+     *               returns a type T
+     */
+
+    public <S,U> void setupFrom(LongRange range, RangedList<S> source1, RangedList<U> source2, BiFunction<S,U,T> func) {
+        rangeCheck(range);
+        source1.rangeCheck(range);
+        source2.rangeCheck(range);
+        final LongTBiConsumer<T> consumer = getUnsafePutAccessor();
+        final LongFunction<U> producer2 = source2.getUnsafeGetAccessor();
+        source1.forEach(range, (long index, S s)-> {
+            T v = func.apply(s, producer2.apply(index));
+            consumer.accept(index, v);
+        });
+    }
+
+    /**
+     *  Returns the get unsafe accessor (java.util.function.Function) that receives
+     *  an index and return the corresponding element.
+     *  Please check index ranges before using the accessor.
+     */
+    abstract protected LongFunction<T> getUnsafeGetAccessor();
+
+    /**
+     *  Returns the put unsafe accessor (java.util.function.BiConsumer) that receives
+     *  an index and the value to be stored.
+     *  Please check index ranges before using the accessor.
+     */
+    abstract protected LongTBiConsumer<T> getUnsafePutAccessor();
+
+
+
 
     /**
      * Returns the number of entries in this collection as a {@code long}
