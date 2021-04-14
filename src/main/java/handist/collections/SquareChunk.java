@@ -17,10 +17,7 @@ import handist.collections.function.SquareIndexTConsumer;
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.function.*;
 
 
 public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializable /*, KryoSerializable*/ {
@@ -321,14 +318,17 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         }
 
         @Override
-        public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
-            //TODO range check
-            LongRange range = source.getRange();
-            final LongTBiConsumer<S> consumer = (long index, S s)->{
-                final T r = func.apply(s);
-                a[offset + (int)(index - baseRange.from)] = r;
+        protected LongFunction<T> getUnsafeGetAccessor() {
+            return (long index)->{
+                return (T)a[offset + (int)(index - baseRange.from)];
             };
-            source.forEach(consumer);
+        }
+
+        @Override
+        protected LongTBiConsumer<T> getUnsafePutAccessor() {
+            return (long index, T elem)->{
+                a[offset + (int)(index - baseRange.from)] = elem;
+            };
         }
 
         @Override
@@ -384,14 +384,17 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         }
 
         @Override
-        public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
-            //TODO range check
-            LongRange range = source.getRange();
-            final LongTBiConsumer<S> consumer = (long index, S s)->{
-                final T r = func.apply(s);
-                a[offset + (int)(index - baseRange.from)*stride] = r;
+        protected LongFunction<T> getUnsafeGetAccessor() {
+            return (long index)->{
+                return (T) a[offset + (int)(index - baseRange.from)*stride];
             };
-            source.forEach(consumer);
+        }
+
+        @Override
+        protected LongTBiConsumer<T> getUnsafePutAccessor() {
+            return (long index, T val)->{
+                a[offset + (int)(index - baseRange.from)*stride] = val;
+            };
         }
 
         @Override
