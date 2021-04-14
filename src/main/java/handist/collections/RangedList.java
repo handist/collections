@@ -262,15 +262,52 @@ public abstract class RangedList<T> implements Iterable<T> {
     public <U> void map(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
         rangeCheck(range);
         target.rangeCheck(range);
+        /*
         final LongFunction<T> accessor1 = getUnsafeGetAccessor();
         final LongFunction<U> accessor2 = target.getUnsafeGetAccessor();
         for(long current = range.from; current < range.to; current++) {
             func.accept(accessor1.apply(current), accessor2.apply(current));
+        }*/
+        final LongFunction<U> accessor2 = target.getUnsafeGetAccessor();
+        this.forEach((long index, T elem)->{
+            func.accept(elem, accessor2.apply(index));
+        });
+    }
+
+    static class Box<U> {
+        U val;
+        Box(U val) {
+            this.val = val;
         }
     }
 
+    public T reduce(BiFunction<T,T,T> reduce) {
+        Box<T> box = new Box<T>(null);
+        forEach((T t)->{
+            if(box.val == null) box.val = t;
+            else box.val = reduce.apply(box.val, t);
+        });
+        return box.val;
+    }
 
-    // reduce public <U> U reduce()
+    public <U> U reduce(BiFunction<U,T,U> reduce, U zero) {
+        Box<U> box = new Box<U>(zero);
+        box.val=zero;
+        forEach((T t)->{
+            box.val = reduce.apply(box.val, t);
+        });
+        return box.val;
+    }
+    public <U,S> U reduce(RangedList<S> source2, BiFunction<T, S, U> map, U zero, BiFunction<U,U,U> reduce) {
+        LongFunction<S> producer = source2.getUnsafeGetAccessor();
+        Box<U> box = new Box<U>(zero);
+        box.val=zero;
+        forEach((long index, T t)->{
+            box.val = reduce.apply(box.val,map.apply(t, producer.apply(index)));
+        });
+        return box.val;
+    }
+
 
     /**
      * Checks if the provided {@code long index} is included in the range this
