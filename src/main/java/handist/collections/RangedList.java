@@ -273,6 +273,17 @@ public abstract class RangedList<T> implements Iterable<T> {
             func.accept(elem, accessor2.apply(index));
         });
     }
+    public <S, U> RangedList<U> map(LongRange range, RangedList<S> target, BiFunction<T, S, U> func) {
+        final Chunk<U> result = new Chunk<>(range);
+        rangeCheck(range);
+        final LongFunction<S> accessor2 = target.getUnsafeGetAccessor();
+        final LongTBiConsumer<U> consumer = result.getUnsafePutAccessor();
+        this.forEach(range, (long index, T elem)->{
+            consumer.accept(index, func.apply(elem, accessor2.apply(index)));
+        });
+        return result;
+    }
+
 
     static class Box<U> {
         U val;

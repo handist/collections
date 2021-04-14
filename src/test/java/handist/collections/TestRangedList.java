@@ -273,6 +273,12 @@ public class TestRangedList {
         String val3 = as.reduce(bs, func, "start", (String sum, String elem)->{ return sum+","+elem; });
         assertEquals(val3, "start,0,2,8,18,32,50,72,98,128,162");
 
+        RangedList<String> cs = as.map(new LongRange(6,8), bs, (Long a, Integer b)-> {
+            return "" + a + "," + b;
+        });
+        assertEquals(cs.get(6), "6,12");
+        assertEquals(cs.get(7), "7,14");
+        assertEquals(cs.getRange(), new LongRange(6, 8));
 
     }
 
