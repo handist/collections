@@ -6,10 +6,13 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+
+import handist.collections.function.LongTBiConsumer;
 
 /**
  * Test default methods of RangedList.
@@ -54,6 +57,16 @@ public class TestRangedList {
         @Override
         public LongRange getRange() {
             return chunk.getRange();
+        }
+
+        @Override
+        protected LongFunction<T> getUnsafeGetAccessor() {
+            return null;
+        }
+
+        @Override
+        protected LongTBiConsumer<T> getUnsafePutAccessor() {
+            return null;
         }
 
         @Override

@@ -23,6 +23,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import org.junit.After;
 import org.junit.Before;
@@ -30,6 +31,7 @@ import org.junit.Test;
 
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
+import handist.collections.function.LongTBiConsumer;
 
 /**
  * Junit test class for class {@link RangedListView}.
@@ -134,6 +136,18 @@ public class TestRangedListView implements Serializable {
             @Override
             public LongRange getRange() {
                 // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            protected LongFunction<T> getUnsafeGetAccessor() {
+                // TODO 自動生成されたメソッド・スタブ
+                return null;
+            }
+
+            @Override
+            protected LongTBiConsumer<T> getUnsafePutAccessor() {
+                // TODO 自動生成されたメソッド・スタブ
                 return null;
             }
 
