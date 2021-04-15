@@ -30,18 +30,24 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import handist.collections.dist.Reducer;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 
 public class TestBag implements Serializable {
 
-    public class Element implements Serializable {
+    public class Element implements Comparable<Element>, Serializable {
         /** Serial Version UID */
         private static final long serialVersionUID = -7271678225893322926L;
         public int n;
 
         public Element(int n) {
             this.n = n;
+        }
+
+        @Override
+        public int compareTo(Element arg0) {
+            return n - arg0.n;
         }
 
         public void increase(int i) {
@@ -52,6 +58,77 @@ public class TestBag implements Serializable {
         public String toString() {
             return Integer.toString(n);
         }
+    }
+
+    /**
+     * Reducer which keeps the "n smallest elements" from various lists given as
+     * input to {@link NSmallestElement#reduce(List)}
+     */
+    public class NSmallestElement extends Reducer<NSmallestElement, List<Element>> {
+
+        private static final long serialVersionUID = -1375457317873650101L;
+
+        List<Element> nSmallest;
+        int n;
+
+        /**
+         * Constructor
+         *
+         * @param nb number of smallest elements to keep
+         */
+        public NSmallestElement(int nb) {
+            nSmallest = new ArrayList<>();
+            n = nb;
+        }
+
+        @Override
+        public void merge(NSmallestElement reducer) {
+            reduce(reducer.nSmallest);
+        }
+
+        @Override
+        public NSmallestElement newReducer() {
+            return new NSmallestElement(n);
+        }
+
+        @Override
+        public void reduce(List<Element> input) {
+            nSmallest.addAll(input);
+            nSmallest.sort(null);
+
+            final int size = nSmallest.size();
+            nSmallest = nSmallest.subList(0, size < n ? size : n);
+        }
+    }
+
+    /**
+     * Reducer which finds the smallest {@link Element} in a collection
+     */
+    public class SmallestElement extends Reducer<SmallestElement, Element> {
+
+        private static final long serialVersionUID = 1L;
+
+        Element smallest = null;
+
+        @Override
+        public void merge(SmallestElement reducer) {
+            reduce(reducer.smallest);
+        }
+
+        @Override
+        public SmallestElement newReducer() {
+            return new SmallestElement();
+        }
+
+        @Override
+        public void reduce(Element input) {
+            if (smallest == null) {
+                smallest = input;
+            } else if (input != null && input.n < smallest.n) {
+                smallest = input;
+            }
+        }
+
     }
 
     private static final int ELEMENTS_COUNT = 6;
@@ -66,9 +143,11 @@ public class TestBag implements Serializable {
     /** bag include null member at the beginning and filled with some members */
     private Bag<Element> includeNullBag;
 
-    /** list include Element, each size is 3, 2, 1 */
+    /** List containing 3 {@link Element}s */
     private List<Element> list1;
+    /** List containing 2 {@link Element}s */
     private List<Element> list2;
+    /** List containing 1 {@link Element}s */
     private List<Element> list3;
 
     /** freshly created bag which is empty */
@@ -248,6 +327,52 @@ public class TestBag implements Serializable {
         bag.parallelForEach(e -> e.increase(2));
         for (int i = 0; i < ELEMENTS_COUNT; i++) {
             assertSame(originalValues[ELEMENTS_COUNT - 1 - i] + 2, bag.remove().n);
+        }
+    }
+
+    @Test
+    public void testParallelReduce() {
+        final SmallestElement smallest = new SmallestElement();
+        final SmallestElement result = bag.parallelReduce(smallest);
+
+        assertEquals(smallest, result);
+        assertEquals(smallest.smallest, elems[0]);
+    }
+
+    @Test
+    public void testParallelReduceList() {
+        final int nbOfElementsToKeep = 3;
+        final NSmallestElement reducer = new NSmallestElement(nbOfElementsToKeep);
+        bag.parallelReduceList(reducer);
+
+        assertEquals("Expected reducer to contain " + nbOfElementsToKeep + " elements", nbOfElementsToKeep,
+                reducer.nSmallest.size());
+        for (int i = 0; i < nbOfElementsToKeep; i++) {
+            assertEquals(reducer.nSmallest.get(i), elems[i]);
+            assertEquals(reducer.nSmallest.get(i).n, i);
+        }
+    }
+
+    @Test
+    public void testReduce() {
+        final SmallestElement smallest = new SmallestElement();
+        final SmallestElement result = bag.reduce(smallest);
+
+        assertEquals(smallest, result);
+        assertEquals(smallest.smallest, elems[0]);
+    }
+
+    @Test
+    public void testReduceList() {
+        final int nbOfElementsToKeep = 3;
+        final NSmallestElement reducer = new NSmallestElement(nbOfElementsToKeep);
+        bag.reduceList(reducer);
+
+        assertEquals("Expected reducer to contain " + nbOfElementsToKeep + " elements", nbOfElementsToKeep,
+                reducer.nSmallest.size());
+        for (int i = 0; i < nbOfElementsToKeep; i++) {
+            assertEquals(reducer.nSmallest.get(i), elems[i]);
+            assertEquals(reducer.nSmallest.get(i).n, i);
         }
     }
 
