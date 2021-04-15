@@ -10,6 +10,8 @@
  ******************************************************************************/
 package handist.collections;
 
+import handist.collections.function.SquareIndexConsumer;
+
 import java.io.Serializable;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -203,9 +205,9 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
      *
      * @param func the function to apply with every index of this instance
      */
-    public void forEach(BiConsumer<Long,Long> func) {
-        outer.forEach((Long i)->{
-            inner.forEach((Long j)->{
+    public void forEach(SquareIndexConsumer func) {
+        outer.forEach((long i)->{
+            inner.forEach((long j)->{
                 func.accept(i, j);
             });
         });

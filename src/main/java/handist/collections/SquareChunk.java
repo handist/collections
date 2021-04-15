@@ -13,6 +13,7 @@ package handist.collections;
 import handist.collections.dist.util.Pair;
 import handist.collections.function.LongTBiConsumer;
 import handist.collections.function.SquareIndexTConsumer;
+import handist.collections.function.SquareIndexTFunction;
 
 import java.io.Serializable;
 import java.util.Iterator;
@@ -70,9 +71,9 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
 //     * @throws IllegalArgumentException if a {@link SquareChunk} cannot be built with the
 //     *                                  provided range.
 //     */
-    public SquareChunk(SquareRange range, BiFunction<Long, Long, T> initializer) {
+    public SquareChunk(SquareRange range, SquareIndexTFunction<T> initializer) {
         this(range);
-        range.forEach((Long index, Long index2) -> {
+        range.forEach((long index, long index2) -> {
             set(index, index2, initializer.apply(index, index2));
         });
     }
@@ -425,6 +426,18 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
             rowAction.accept(index, rView);
         }
     }
+    public RangedList<RangedList<T>> asRowList() {
+        // TODO view style implementation
+        return new Chunk<RangedList<T>>(range.outer, (Long rowIndex)->{
+            return getRowView(rowIndex);
+        });
+    }
+    public RangedList<RangedList<T>> asColumnList() {
+        // TODO view style implementation
+        return new Chunk<RangedList<T>>(range.inner, (Long columnIndex)->{
+            return getColumnView(columnIndex);
+        });
+    }
 
 
     public void forEach(SquareRange range, final Consumer<SquareSiblingAccessor<T>> action) {
@@ -749,71 +762,4 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
      * c.toArray(new LongRange(0, Config.maxChunkSize)); }
      */
 
-    // tmp (-> junit)
-    public static void main(String[] args) {
-        SquareRange rangeX =
-                new SquareRange(new LongRange(100, 110), new LongRange(10,20));
-        SquareChunk<String> chunkXstr =
-                new SquareChunk<>(rangeX, (Long i1, Long i2)->{
-                    return "["+i1+":"+i2+"]";
-                });
-        chunkXstr.forEach((String str)-> {
-            System.out.print(str);
-        });
-        System.out.println();
-        chunkXstr.forEach((long first, long second, String str)->{
-            System.out.println("["+first +","+second+":"+str+"]");
-        });
-        SquareRange rangeY =
-                new SquareRange(new LongRange(102, 105), new LongRange(12,15));
-        chunkXstr.forEach(rangeY, (SquareSiblingAccessor<String> acc)->{
-            System.out.println("SIB[" + acc.get(0, 0) + "::"
-                    + acc.get(0,-1) + ":"+ acc.get(0,1)+ "^"+
-                    acc.get(-1,0)+"_"+acc.get(1,0)+"]");
-        });
-
-        chunkXstr.forEachRow((long row, RangedList<String> rowView)->{
-            long start = row-89;
-            long to = 18;
-            if(start >= to) return;
-            LongRange scan = new LongRange(start, to);
-            System.out.println("row iter:" + row + "=>" + scan);
-            rowView.forEach(scan, (long column, String e)->{
-                System.out.print("("+ column +":"+e+")");
-            });
-            System.out.println();
-        });
-
-        chunkXstr.forEachColumn((long column, RangedList<String> columnView)->{
-            long start = 101;
-            long to = column + 89;
-            if(start >= to) return;
-            LongRange scan = new LongRange(start, to);
-            System.out.println("column iter:" + column + "=>" + scan);
-            columnView.forEach(scan, (long row, String e)->{
-                System.out.print("("+ row +":"+e+")");
-            });
-            System.out.println();
-        });
-
-        SquareChunk<Long> matrixX =
-                new SquareChunk<>(rangeX, (Long i1, Long i2)->{
-                    return i1 * 1000 + i2;
-                });
-        matrixX.debugPrint("matrixX");
-        SquareChunk<Long> matrixY =
-                new SquareChunk<>(rangeY, (Long i1, Long i2)->{
-                    return i1 * 2000 + i2*2;
-                });
-        matrixY.debugPrint("matrixY");
-        matrixX.setupFrom(matrixY, (Long x)->{return x + 70000000;});
-        matrixX.debugPrint("matrixX2");
-        matrixX.getRowView(100).setupFrom(matrixY.getRowView(103),(Long x)->x);
-        matrixX.getColumnView(11).setupFrom(matrixY.getColumnView(13),(Long x)->x);
-        matrixX.debugPrint("matrixX3");
-
-
-
-
-    }
 }
