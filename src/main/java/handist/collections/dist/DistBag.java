@@ -66,6 +66,17 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
             super(handle);
         }
 
+        /**
+         * Sends all local elements to the place specified as parameter.
+         *
+         * @param destination the place to which instances should be relocated to
+         */
+        public void gather(final Place destination) {
+            placeGroup().broadcastFlat(() -> {
+                localHandle.TEAM.gather(destination);
+            });
+        }
+
         @Override
         public Object writeReplace() throws ObjectStreamException {
             final TeamedPlaceGroup pg1 = placeGroup;
@@ -94,6 +105,26 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
          */
         DistBagTeam(DistBag<T> handle) {
             super(handle);
+        }
+
+        /**
+         * Sends all local elements to the place specified as parameter.
+         *
+         * @param destination the place to which instances should be relocated to
+         */
+        @SuppressWarnings("unchecked")
+        public void gather(Place destination) {
+            final Serializer serProcess = (ObjectOutput s) -> {
+                s.writeObject(new Bag<>(handle));
+            };
+            final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
+                final Bag<T> imported = (Bag<T>) ds.readObject();
+                addBag(imported);
+            };
+            CollectiveRelocator.gatherSer(placeGroup, destination, serProcess, desProcess);
+            if (!here().equals(destination)) {
+                clear();
+            }
         }
 
         @SuppressWarnings("deprecation")
@@ -182,26 +213,6 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     @Override
     public void forEach(SerializableConsumer<T> action) {
         super.forEach(action);
-    }
-
-    /**
-     * gather all place-local elements to the root Place.
-     *
-     * @param root the place where the result of reduction is stored.
-     */
-    @SuppressWarnings("unchecked")
-    public void gather(Place root) {
-        final Serializer serProcess = (ObjectOutput s) -> {
-            s.writeObject(new Bag<>(this));
-        };
-        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
-            final Bag<T> imported = (Bag<T>) ds.readObject();
-            addBag(imported);
-        };
-        CollectiveRelocator.gatherSer(placeGroup, root, serProcess, desProcess);
-        if (!here().equals(root)) {
-            clear();
-        }
     }
 
     /**
