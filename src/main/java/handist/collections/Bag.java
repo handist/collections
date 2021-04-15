@@ -31,7 +31,9 @@ import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
+import apgas.GlobalRuntime;
 import handist.collections.dist.DistBag;
+import handist.collections.dist.Reducer;
 
 /**
  * Container for user-defined types.
@@ -296,6 +298,125 @@ public class Bag<T> implements ParallelReceiver<T>, Serializable, KryoSerializab
         });
     }
 
+    /**
+     * Performs the specified reduction on the elements contained in this bag in
+     * parallel. This {@link Bag} will be emptied as a result
+     *
+     * @param <R>         type of the reducer
+     * @param reducer     instance into which the result will be placed
+     * @param parallelism the maximum number of concurrent threads allocated to this
+     *                    reduction operation (must be greater or equal to 1)
+     * @return the instance given as parameter after the reduction has terminated
+     */
+    public <R extends Reducer<R, T>> R parallelReduce(int parallelism, R reducer) {
+        final ExecutorService pool = GlobalRuntime.getRuntime().getExecutorService();
+        final ArrayList<Future<R>> reducerInstances = new ArrayList<>(parallelism);
+
+        for (int i = 0; i < parallelism; i++) {
+            // The individual job consists in reducing every element in every list present
+            // in member #bags until we run out of lists
+            final R r = reducer.newReducer();
+            final Future<R> future = pool.submit(() -> {
+                List<T> list = bags.poll();
+                while (list != null) {
+                    for (final T t : list) {
+                        r.reduce(t);
+                    }
+                    list = bags.poll();
+                }
+            }, r);
+            reducerInstances.add(future);
+        }
+
+        // Here we wait for each future to terminate and we merge then into the instance
+        // given as parameter
+        for (final Future<R> future : reducerInstances) {
+            try {
+                reducer.merge(future.get());
+            } catch (final InterruptedException e) {
+                e.printStackTrace();
+            } catch (final ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // All the individual reducers have been merged into the given instance, we
+        // return this result
+        return reducer;
+    }
+
+    /**
+     * Performs the specified reduction on the elements contained in this bag in
+     * parallel. This {@link Bag} will be emptied as a result
+     *
+     * @param <R>     type of the reducer
+     * @param reducer instance into which the result will be placed
+     * @return the instance given as parameter after the reduction has terminated
+     */
+    public <R extends Reducer<R, T>> R parallelReduce(R reducer) {
+        return parallelReduce(Runtime.getRuntime().availableProcessors(), reducer);
+    }
+
+    /**
+     * Performs the reduction operation specified as parameter in parallel with the
+     * specified level of parallelism. This {@link Bag} is emptied as a result.
+     *
+     * @param <R>         the type of the reducer
+     * @param parallelism the maximum number of concurrent threads allocated to this
+     *                    reduction operation (must be greater or equal to 1)
+     * @param reducer     the instance into which the reduction is going to be
+     *                    performed
+     * @return the instance specified as parameter after the reduction has completed
+     *         and has been fully reduced into that instance
+     */
+    public <R extends Reducer<R, List<T>>> R parallelReduceList(final int parallelism, final R reducer) {
+        final ExecutorService pool = GlobalRuntime.getRuntime().getExecutorService();
+        final ArrayList<Future<R>> reducerInstances = new ArrayList<>(parallelism);
+
+        for (int i = 0; i < parallelism; i++) {
+            // The individual job consists in reducing every list present in member #bags
+            // until we run out of lists
+            final R r = reducer.newReducer();
+            final Future<R> future = pool.submit(() -> {
+                List<T> list = bags.poll();
+                while (list != null) {
+                    r.reduce(list);
+                    list = bags.poll();
+                }
+            }, r);
+            reducerInstances.add(future);
+        }
+
+        // Here we wait for each future to terminate and we merge then into the instance
+        // given as parameter
+        for (final Future<R> future : reducerInstances) {
+            try {
+                reducer.merge(future.get());
+            } catch (final InterruptedException e) {
+                e.printStackTrace();
+            } catch (final ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // All the individual reducers have been merged into the given instance, we
+        // return this result
+        return reducer;
+    }
+
+    /**
+     * Performs the reduction operation in parallel using the host's level of
+     * parallelism. This {@link Bag} instance will be emptied as a result of this
+     * method being called.
+     *
+     * @param <R>     the type of the reducer used
+     * @param reducer instance in which the reduction is going to be performed
+     * @return the instance specified as parameter after the reduction has completed
+     */
+    public <R extends Reducer<R, List<T>>> R parallelReduceList(R reducer) {
+        return parallelReduceList(Runtime.getRuntime().availableProcessors(), reducer);
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public void read(Kryo kryo, Input input) {
@@ -317,6 +438,35 @@ public class Bag<T> implements ParallelReceiver<T>, Serializable, KryoSerializab
             bag1.add((T) in.readObject());
         }
         bags.add(bag1);
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this bag using the reducer
+     * provided as parameter
+     *
+     * @param <R>     type of the reducer
+     * @param reducer reducer to be used to reduce this parameter
+     * @return the reducer provided as parameter after the reductio has completed
+     */
+    public <R extends Reducer<R, T>> R reduce(R reducer) {
+        forEach(t -> reducer.reduce(t));
+        return reducer;
+    }
+
+    /**
+     * Sequentially reduces all the lists of Ts contained in this bag into the
+     * provided reducer and returns that reducer.
+     *
+     * @param <R>     the type of the reducer
+     * @param reducer the reducer into which this bag needs to be reduced
+     * @return the reducer given as parameter after it has been applied to every
+     *         list in this {@link Bag}
+     */
+    public <R extends Reducer<R, List<T>>> R reduceList(R reducer) {
+        for (final List<T> list : bags) {
+            reducer.reduce(list);
+        }
+        return reducer;
     }
 
     /**
