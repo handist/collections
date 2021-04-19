@@ -36,12 +36,10 @@ import handist.collections.LongRange;
 import handist.collections.RangedList;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
-import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.dist.util.Pair;
 import handist.collections.function.DeSerializer;
-import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
 import handist.collections.glb.DistColGlb;
@@ -60,83 +58,7 @@ import handist.collections.glb.DistColGlb;
  */
 @DefaultSerializer(JavaSerializer.class)
 public class DistCol<T> extends ChunkedList<T>
-        implements DistributedCollection<T, DistCol<T>>, RangeRelocatable<LongRange>, SerializableWithReplace {
-
-    /**
-     * Global handle for the {@link DistCol} class. This class make operations
-     * operating on all the local handles of the distributed collections accessible.
-     *
-     * @author Patrick Finnerty
-     *
-     */
-    public class DistColGlobal extends GlobalOperations<T, DistCol<T>> implements Serializable {
-        /** Serial Version UID */
-        private static final long serialVersionUID = 4584810477237588857L;
-
-        /**
-         * Constructor
-         *
-         * @param handle handle to the local DistCol instance
-         */
-        public DistColGlobal(DistCol<T> handle) {
-            super(handle);
-        }
-
-        @Override
-        public void onLocalHandleDo(SerializableBiConsumer<Place, DistCol<T>> action) {
-            localHandle.placeGroup().broadcastFlat(() -> {
-                action.accept(here(), localHandle);
-            });
-        }
-
-        @Override
-        public Object writeReplace() throws ObjectStreamException {
-            final TeamedPlaceGroup pg1 = localHandle.placeGroup();
-            final GlobalID id1 = localHandle.id();
-            return new MemberOfLazyObjectReference<>(pg1, id1, () -> {
-                return new DistCol<>(pg1, id1);
-            }, (instanceOfDistCol) -> {
-                return instanceOfDistCol.GLOBAL;
-            });
-        }
-
-    }
-
-    /**
-     * TEAM handle for methods that can be called concurrently to other methods on
-     * all local handles of {@link DistCol}
-     *
-     * @author Patrick Finnerty
-     *
-     */
-    public class DistColTeam extends TeamOperations<T, DistCol<T>> implements Serializable {
-
-        /** Serial Version UID */
-        private static final long serialVersionUID = -5392694230295904290L;
-
-        /**
-         * Constructor
-         *
-         * @param handle local handle of {@link DistCol} that this instance is managing
-         */
-        DistColTeam(DistCol<T> handle) {
-            super(handle);
-        }
-
-        @Override
-        public void size(long[] result) {
-            for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
-                final LongRange k = entry.getKey();
-                final Place p = entry.getValue();
-                result[manager.placeGroup.rank(p)] += k.size();
-            }
-        }
-
-        @Override
-        public void updateDist() {
-            team_updateDist();
-        }
-    }
+        implements DistributedCollection<T, DistCol<T>>, ElementLocationManagable<LongRange>, RangeRelocatable<LongRange>, SerializableWithReplace {
 
     static class DistributionManager<T> extends GeneralDistManager<DistCol<T>> implements Serializable {
 
@@ -180,12 +102,12 @@ public class DistCol<T> extends ChunkedList<T>
     /**
      * Handle to Global Operations implemented by {@link DistCol}.
      */
-    public transient final DistColGlobal GLOBAL;
+    public transient final GlobalOperations<T,DistCol<T>>  GLOBAL;
 
     /**
      * Internal class that handles distribution-related operations.
      */
-    protected final transient DistManager<LongRange> ldist;
+    protected final transient ElementLocationManager<LongRange> ldist;
 
     protected transient DistributionManager<T> manager;
 
@@ -200,7 +122,7 @@ public class DistCol<T> extends ChunkedList<T>
     /**
      * Handle to Team Operations implemented by {@link DistCol}.
      */
-    public final transient DistColTeam TEAM;
+    protected final transient TeamOperations<T, DistCol<T>> TEAM;
 
     /**
      * Create a new DistCol. All the hosts participating in the distributed
@@ -239,9 +161,9 @@ public class DistCol<T> extends ChunkedList<T>
         id.putHere(this);
         manager = new DistributionManager<>(placeGroup, id, this);
         manager.locality = initialLocality(placeGroup.size);
-        ldist = new DistManager<>();
-        TEAM = new DistColTeam(this);
-        GLOBAL = new DistColGlobal(this);
+        ldist = new ElementLocationManager<>();
+        TEAM = new TeamOperations<>(this);
+        GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg, GlobalID gid)->new DistCol<>(pg, gid));
         GLB = new DistColGlb<>(this);
     }
 
@@ -336,9 +258,22 @@ public class DistCol<T> extends ChunkedList<T>
     }
 
     @Override
+    public long longSize() {
+        return super.size();
+    }
+
+    @Override
     public float[] locality() {
         // TODO check if this is correct
         return manager.locality;
+    }
+
+    public void getSizeDistribution(long[] result) {
+        for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
+            final LongRange k = entry.getKey();
+            final Place p = entry.getValue();
+            result[manager.placeGroup.rank(p)] += k.size();
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -505,10 +440,10 @@ public class DistCol<T> extends ChunkedList<T>
     private void putForMove(final RangedList<T> c, final byte mType) throws Exception {
         final LongRange key = c.getRange();
         switch (mType) {
-        case DistManager.MOVE_NEW:
+        case ElementLocationManager.MOVE_NEW:
             ldist.moveInNew(key);
             break;
-        case DistManager.MOVE_OLD:
+        case ElementLocationManager.MOVE_OLD:
             ldist.moveInOld(key);
             break;
         default:
@@ -556,7 +491,8 @@ public class DistCol<T> extends ChunkedList<T>
         return TEAM;
     }
 
-    private void team_updateDist() {
+    @Override
+    public void updateDist() {
         ldist.updateDist(manager.placeGroup);
     }
 

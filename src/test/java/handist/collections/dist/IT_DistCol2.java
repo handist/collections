@@ -136,7 +136,7 @@ public class IT_DistCol2 implements Serializable {
             final long[] size = new long[world.size()];
 
             distCol.TEAM.updateDist(); // Here is the important call
-            distCol.TEAM.size(size); // We check the result of TEAM.size
+            distCol.TEAM.getSizeDistribution(size); // We check the result of TEAM.size
 
             assertEquals(world.size(), size.length);
             for (int i = 0; i < size.length; i++) {

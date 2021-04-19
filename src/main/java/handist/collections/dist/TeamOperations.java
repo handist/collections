@@ -16,15 +16,17 @@ import java.util.Arrays;
 import apgas.Place;
 import handist.collections.dist.util.IntFloatPair;
 import handist.collections.dist.util.IntLongPair;
+import mpi.MPI;
+import mpi.MPIException;
 
 /**
- * Interface which defines the "team" operations that distributed collections
+ * Class which defines the "team" operations that distributed collections
  * provide.
  *
  * @param <T> type of the objects contained in the distributed collection
  * @param <C> type of the local handle on which the TeamOperations operate
  */
-public abstract class TeamOperations<T, C extends DistributedCollection<T, C>> {
+public class TeamOperations<T, C extends DistributedCollection<T, C>> {
 
     static int _debug_level = 5;
 
@@ -50,7 +52,26 @@ public abstract class TeamOperations<T, C extends DistributedCollection<T, C>> {
      *
      * @param result long array in which the result will be gathered
      */
-    public abstract void size(long[] result);
+    public void getSizeDistribution(final long[] result) {
+        if(handle instanceof ElementLocationManagable) {
+            ((ElementLocationManagable) handle).getSizeDistribution(result);
+            return;
+        }
+        final TeamedPlaceGroup pg = handle.placeGroup();
+        result[pg.myrank] = handle.longSize();
+        try {
+            // THIS WORKS FOR MPJ-NATIVE implementation
+            pg.comm.Allgather(result, pg.myrank, 1, MPI.LONG, result, 0, 1, MPI.LONG);
+        } catch (final MPIException e) {
+            e.printStackTrace();
+            throw new Error("[DistMap] network error in team().size()");
+        }
+    }
+
+    public void gather(Place destination) {
+        // TODO not implemented yet
+    }
+
 
     public void teamedBalance() {
         teamedBalance(new CollectiveMoveManager(handle.placeGroup()));
@@ -88,7 +109,7 @@ public abstract class TeamOperations<T, C extends DistributedCollection<T, C>> {
         for (int i = 0; i < pgSize; i++) {
             localitySum += handle.locality()[i];
         }
-        size(localDataSize);
+        getSizeDistribution(localDataSize);
 
         for (int i = 0; i < pgSize; i++) {
             globalDataSize += localDataSize[i];
@@ -212,7 +233,12 @@ public abstract class TeamOperations<T, C extends DistributedCollection<T, C>> {
     }
 
     /**
-     * Updates the distribution information of all local handles.
+     * Conduct element location management process if the target is ElementLocationManagable
      */
-    public abstract void updateDist();
+    public void updateDist() {
+        if(handle instanceof ElementLocationManagable) {
+            ((ElementLocationManagable)handle).updateDist();
+        }
+    }
+
 }

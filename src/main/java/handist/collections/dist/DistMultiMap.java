@@ -61,6 +61,8 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
      */
     public DistMultiMap(TeamedPlaceGroup placeGroup, GlobalID id) {
         super(placeGroup, id);
+        super.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid)->
+                new DistMultiMap<>(pg0, gid));
     }
 
     /**

@@ -93,7 +93,7 @@ public class IT_DistMultiMap implements Serializable {
         // This array will be used repeatedly to check
         final int keyCount[] = new int[pg.size()];
         final long[] temporaryArray = new long[pg.size];
-        distMultiMap.GLOBAL.size(temporaryArray);
+        distMultiMap.GLOBAL.getSizeDistribution(temporaryArray);
         for (int i = 0; i < pg.size; i++) {
             keyCount[i] = (int) temporaryArray[i];
             // System.out.println("On rank " + i + " " + keyCount[i]);
