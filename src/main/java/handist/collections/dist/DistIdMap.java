@@ -35,12 +35,13 @@ import handist.collections.function.Serializer;
  *
  * @param <V> the type of the value mappings of this instance
  */
-public class DistIdMap<V> extends DistMap<Long, V> {
+public class DistIdMap<V> extends DistMap<Long, V>
+        implements DistributedCollection<V, DistMap<Long,V>>, ElementLocationManagable<Long> {
 //TODO
     /* implements ManagedDistribution[Long] */
 
     private static int _debug_level = 0;
-    transient DistManager<Long> ldist;
+    transient ElementLocationManager<Long> ldist;
     transient float[] locality;
 
     /**
@@ -60,8 +61,10 @@ public class DistIdMap<V> extends DistMap<Long, V> {
      */
     public DistIdMap(TeamedPlaceGroup placeGroup) {
         super(placeGroup);
+        super.GLOBAL = new GlobalOperations<>(this,
+                (TeamedPlaceGroup pg0, GlobalID gid)->new DistIdMap<V>(pg0, gid));
         // TODO
-        this.ldist = new DistManager<>();
+        this.ldist = new ElementLocationManager<>();
         ldist.setup(data.keySet());
         locality = new float[placeGroup.size()];
         Arrays.fill(locality, 1.0f);
@@ -69,8 +72,10 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 
     protected DistIdMap(TeamedPlaceGroup placeGroup, GlobalID id) {
         super(placeGroup, id);
+        super.GLOBAL = new GlobalOperations<>(this,
+                (TeamedPlaceGroup pg0, GlobalID gid)->new DistIdMap<V>(pg0, gid));
         // TODO
-        this.ldist = new DistManager<>();
+        this.ldist = new ElementLocationManager<>();
         ldist.setup(data.keySet());
         locality = new float[placeGroup.size()];
         Arrays.fill(locality, 1.0f);
@@ -339,10 +344,10 @@ public class DistIdMap<V> extends DistMap<Long, V> {
 
     private V putForMove(long key, byte mType, V value) throws Exception {
         switch (mType) {
-        case DistManager.MOVE_NEW:
+        case ElementLocationManager.MOVE_NEW:
             ldist.moveInNew(key);
             break;
-        case DistManager.MOVE_OLD:
+        case ElementLocationManager.MOVE_OLD:
             ldist.moveInOld(key);
             break;
         default:
@@ -376,6 +381,12 @@ public class DistIdMap<V> extends DistMap<Long, V> {
     // void {
     // no need for sparse array
 
+    public void getSizeDistribution(long[] result) {
+        for (final Map.Entry<Long, Place> entry : ldist.dist.entrySet()) {
+            final Place p = entry.getValue();
+            result[placeGroup.rank(p)] ++;
+        }
+    }
     /**
      * Update the distribution information of the entries.
      */

@@ -32,6 +32,7 @@ import apgas.Constructs;
 import apgas.Place;
 import apgas.util.GlobalID;
 import apgas.util.SerializableWithReplace;
+import com.hazelcast.spi.impl.proxyservice.impl.operations.DistributedObjectDestroyOperation;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.dist.util.MemberOfLazyObjectReference;
@@ -53,50 +54,6 @@ import mpi.MPIException;
 public class DistMap<K, V>
         implements Map<K, V>, DistributedCollection<V, DistMap<K, V>>, KeyRelocatable<K>, SerializableWithReplace {
 
-    public class DistMapGlobal extends GlobalOperations<V, DistMap<K, V>> {
-        DistMapGlobal(DistMap<K, V> handle) {
-            super(handle);
-        }
-
-        @Override
-        public Object writeReplace() throws ObjectStreamException {
-            final TeamedPlaceGroup pg1 = localHandle.placeGroup();
-            final GlobalID id1 = localHandle.id();
-            return new MemberOfLazyObjectReference<>(pg1, id1, () -> {
-                return new DistMap<>(pg1, id1);
-            }, (handle) -> {
-                return handle.GLOBAL;
-            });
-        }
-    }
-
-    public class DistMapTeam extends TeamOperations<V, DistMap<K, V>> {
-        public DistMapTeam(DistMap<K, V> handle) {
-            super(handle);
-        }
-
-        @SuppressWarnings("deprecation")
-        @Override
-        public void size(long[] result) {
-            final TeamedPlaceGroup pg = handle.placeGroup;
-            final long localSize = data.size(); // int->long
-            final long[] sendbuf = new long[] { localSize };
-            // team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
-            try {
-                pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
-            } catch (final MPIException e) {
-                e.printStackTrace();
-                throw new Error("[DistMap] network error in balance()");
-            }
-        }
-
-        @Override
-        public void updateDist() {
-            // TODO Auto-generated method stub
-
-        }
-    }
-
     // TODO
     /*
      * public void setupBranches(Generator<T,U> gen) { final DistMap<T,U> handle =
@@ -114,7 +71,7 @@ public class DistMap<K, V>
     protected Map<K, V> data;
     /** Handle for GLB operations */
     public final DistMapGlb<K, V> GLB;
-    public final DistMap<K, V>.DistMapGlobal GLOBAL;
+    public GlobalOperations<V,DistMap<K, V>> GLOBAL;
 
     final GlobalID id;
 
@@ -124,7 +81,7 @@ public class DistMap<K, V>
 
     private Function<K, V> proxyGenerator;
 
-    public final DistMap<K, V>.DistMapTeam TEAM;
+    protected final TeamOperations<V, DistMap<K,V>> TEAM;
 
     /**
      * Construct an empty DistMap which can have local handles on all the hosts in
@@ -166,9 +123,9 @@ public class DistMap<K, V>
         locality = new float[pg.size];
         Arrays.fill(locality, 1.0f);
         this.data = new HashMap<>();
-        GLOBAL = new DistMapGlobal(this);
+        GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid)->new DistMap<>(pg0, gid));
         GLB = new DistMapGlb<>(this);
-        TEAM = new DistMapTeam(this);
+        TEAM = new TeamOperations<>(this);
         id.putHere(this);
     }
 
@@ -700,6 +657,9 @@ public class DistMap<K, V>
     public int size() {
         return data.size();
     }
+
+    @Override
+    public long longSize() { return data.size(); }
 
     @Override
     public TeamOperations<V, DistMap<K, V>> team() {

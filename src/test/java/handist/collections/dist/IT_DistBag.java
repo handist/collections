@@ -124,7 +124,7 @@ public class IT_DistBag implements Serializable {
             expected[i] = NB_ELEMS[i] * NB_LISTS[i];
         }
 
-        distBag.GLOBAL.size(size);
+        distBag.GLOBAL.getSizeDistribution(size);
 
         assertArrayEquals(expected, size);
     }
@@ -150,7 +150,7 @@ public class IT_DistBag implements Serializable {
         try {
             WORLD.broadcastFlat(() -> {
                 final long[] size = new long[WORLD.size()];
-                distBag.TEAM.size(size);
+                distBag.TEAM.getSizeDistribution(size);
                 assertArrayEquals(expected, size);
             });
         } catch (final MultipleException me) {

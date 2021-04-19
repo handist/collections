@@ -51,46 +51,6 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     /* implements Container[T], ReceiverHolder[T] */
 
     /**
-     * Implementation of the GLOBAL handle for class {@link DistBag}
-     *
-     * @author Patrick Finnerty
-     *
-     */
-    public class DistBagGlobal extends GlobalOperations<T, DistBag<T>> {
-        /**
-         * Constructor
-         *
-         * @param handle handle to the local {@link DistBag} this GLOBAL handle acts on
-         */
-        DistBagGlobal(DistBag<T> handle) {
-            super(handle);
-        }
-
-        /**
-         * Sends all local elements to the place specified as parameter.
-         *
-         * @param destination the place to which instances should be relocated to
-         */
-        public void gather(final Place destination) {
-            placeGroup().broadcastFlat(() -> {
-                localHandle.TEAM.gather(destination);
-            });
-        }
-
-        @Override
-        public Object writeReplace() throws ObjectStreamException {
-            final TeamedPlaceGroup pg1 = placeGroup;
-            final GlobalID gId = id;
-            return new MemberOfLazyObjectReference<>(pg1, gId, () -> {
-                return new DistBag<>(pg1, gId);
-            }, (distBag) -> {
-                return distBag.GLOBAL;
-            });
-        }
-
-    }
-
-    /**
      * Implementation of the TEAM handle for class {@link DistBag}
      *
      * @author Patrick Finnerty
@@ -113,6 +73,7 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
          * @param destination the place to which instances should be relocated to
          */
         @SuppressWarnings("unchecked")
+        @Override
         public void gather(Place destination) {
             final Serializer serProcess = (ObjectOutput s) -> {
                 s.writeObject(new Bag<>(handle));
@@ -127,31 +88,12 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
             }
         }
 
-        @SuppressWarnings("deprecation")
-        @Override
-        public void size(long[] result) {
-            final TeamedPlaceGroup pg = handle.placeGroup();
-            result[pg.myrank] = handle.size();
-            try {
-                // THIS WORKS FOR MPJ-NATIVE implementation
-                pg.comm.Allgather(result, pg.myrank, 1, MPI.LONG, result, 0, 1, MPI.LONG);
-            } catch (final MPIException e) {
-                e.printStackTrace();
-                throw new Error("[DistMap] network error in team().size()");
-            }
-        }
-
-        @Override
-        public void updateDist() {
-            // TODO Auto-generated method stub
-        }
-
     }
 
     private static int _debug_level = 5;
 
     /** Handle to Global operations on the DistBag instance */
-    public DistBag<T>.DistBagGlobal GLOBAL;
+    public GlobalOperations<T,DistBag<T>> GLOBAL;
     /**
      * Global Id which identifies this DistBag object as part of a number of handles
      * to the distributed collection implemented by this instance
@@ -173,7 +115,7 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     /**
      * Handle to TEAM operations on this DistBag instance
      */
-    public DistBag<T>.DistBagTeam TEAM;
+    protected DistBag<T>.DistBagTeam TEAM;
 
     /**
      * Create a new DistBag. Place.places() is used as the PlaceGroup.
@@ -206,7 +148,7 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
         locality = new float[pg.size];
         Arrays.fill(locality, 1.0f);
         id.putHere(this);
-        GLOBAL = new DistBagGlobal(this);
+        GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid)->new DistBag<>(pg0, gid));
         TEAM = new DistBagTeam(this);
     }
 
@@ -237,6 +179,12 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     @Override
     public GlobalID id() {
         return id;
+    }
+
+    @Override
+    public long longSize() {
+        // TODO why bag returns size in int?
+        return super.size();
     }
 
     @Override
