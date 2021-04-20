@@ -39,4 +39,19 @@ public class LifelineFactory {
         return constructor.newInstance(pg);
     }
 
+    /**
+     * Facotry method returning a new instance of the lifeline class specified as
+     * parameter and the designated {@link TeamedPlaceGroup}.
+     *
+     * @param pg            the group of places on which the collection is defined
+     * @param lifelineClass the class to be used as lifeline implementation
+     * @return a constructed lifeline instance
+     * @throws Exception if thrown while making reflective operation
+     */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    public static Lifeline newLifeline(TeamedPlaceGroup pg, Class lifelineClass) throws Exception {
+        final Constructor<Lifeline> classConstructor = lifelineClass.getConstructor(TeamedPlaceGroup.class);
+        return classConstructor.newInstance(pg);
+    }
+
 }

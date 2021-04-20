@@ -17,6 +17,7 @@ import java.util.LinkedList;
 import java.util.concurrent.ForkJoinPool;
 
 import apgas.SerializableJob;
+import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.glb.GlbOperation.OperationCompletionManagedBlocker;
 import handist.collections.glb.GlbOperation.State;
 
@@ -110,11 +111,17 @@ public class GlobalLoadBalancer {
                     System.err.println("ERROR during GLB program execution");
                     e.printStackTrace();
                     exc.add(e);
-                } finally {
-                    glb = null; // Destroy the singleton for a new one to be created next time this method is
-                    // called
                 }
             });
+            // Destroy the singletons for new ones to be created next time this method is
+            // called
+            glb = null;
+            TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
+                GlbComputer.destroyGlbComputer();
+            });
+            // Also reset the priority for the future GlbOperations to be created
+            GlbOperation.nextPriority = 0;
+
             return exc;
         } else {
             throw new IllegalStateException("Method was called even though another glb program is already running");

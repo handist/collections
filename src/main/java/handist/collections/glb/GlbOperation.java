@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
 
 import apgas.MultipleException;
@@ -49,7 +51,9 @@ import handist.collections.function.SerializableSupplier;
  * @param <R> type of the distributed collection representing the result of the
  *            operation
  */
-class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements Serializable {
+@SuppressWarnings("rawtypes")
+class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R>
+        implements Serializable, Comparable<GlbOperation> {
 
     /**
      * Managed Blocker implementation used when waiting for the completion of an
@@ -119,6 +123,8 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
         TERMINATED
     }
 
+    static int nextPriority = 0;
+
     /** Serial Version UID */
     private static final long serialVersionUID = -7074061733010237021L;
 
@@ -155,6 +161,31 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
             }
         }
     }
+
+    /**
+     * Static method used to assign a priority to newly created GlbOperations.
+     *
+     * @return a unique priority level
+     */
+    /*
+     * Implementation note:
+     *
+     * Even if there are more than the maximum value contained by integers
+     * GlbOperations created over the course of an execution, the fact that this
+     * counter loops back into negative values is not an issue.
+     *
+     * What would be an issue is if there were more that the maximum int value of
+     * GlbOperation instances submitted to the GLB at the same time. But that would
+     * probably be the result of a programming error rather than a real application.
+     */
+    private static int priority() {
+        return nextPriority++;
+    }
+
+    /**
+     * Priority of this operation compared to other operations
+     */
+    int priority;
 
     /**
      * Variable used to keep track of the state of this operation. It will take the
@@ -225,6 +256,11 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
     SerializableConsumer<WorkerService> workerInit;
 
     /**
+     * Class that should be used as the lifeline for a collection
+     */
+    final Class lifelineClass;
+
+    /**
      * Constructor for GLB operation. The distributed collection under consideration
      * and the method to be called on it needs to be specified.
      *
@@ -242,10 +278,19 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      * @param workerInitialization initialization to be performed on every worker in
      *                             the system before this operation starts. May be
      *                             null is not needed.
+     * @param lifeline             the lifeline class to use with this collection.
+     *                             If null, the default lifeline implementation will
+     *                             be used. Note that changing the lifeline used by
+     *                             a collection within the same GLB programm will
+     *                             not work. The lifeline configuration used the
+     *                             first time an operation on a collection is
+     *                             submitted to the GLB is kept throughout a GLB
+     *                             program
      */
     GlbOperation(C c, SerializableBiConsumer<K, WorkerService> op, DistFuture<R> f,
-            SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization) {
-        this(c, op, f, glbTaskInit, workerInitialization, State.STAGED, new GlobalID());
+            SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization,
+            Class lifeline) {
+        this(c, op, f, glbTaskInit, workerInitialization, State.STAGED, new GlobalID(), priority(), lifeline);
     }
 
     /**
@@ -265,7 +310,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      */
     private GlbOperation(C c, SerializableBiConsumer<K, WorkerService> op, DistFuture<R> f,
             SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization,
-            State s, GlobalID gid) {
+            State s, GlobalID gid, int priorityLevel, Class lifeline) {
         collection = c;
         operation = op;
         future = f; // We need a 2-way link between the GlbOperation and the
@@ -276,7 +321,8 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
         workerInit = workerInitialization;
         state = s;
         id = gid;
-
+        priority = priorityLevel;
+        lifelineClass = lifeline; // may be null
         id.putHere(this);
     }
 
@@ -287,6 +333,17 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      */
     void addHook(SerializableJob j) {
         hooks.add(j);
+    }
+
+    /**
+     * The comparable interface is used so that the GlbOperations can be compared by
+     * their priority. This helps us sort the GlbOperations in the various
+     * {@link TreeMap} and {@link ConcurrentSkipListMap} used by the GLB runtime
+     * which influence the order in which operations are processed.
+     */
+    @Override
+    public int compareTo(GlbOperation o) {
+        return priority - o.priority;
     }
 
     /**
@@ -371,7 +428,6 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R> implements
      * constructor does not allow for an arbitrary id to be given at initialization,
      * this is unlikely to become a problem.
      */
-    @SuppressWarnings("rawtypes")
     @Override
     public boolean equals(Object o) {
         if (o instanceof GlbOperation) {

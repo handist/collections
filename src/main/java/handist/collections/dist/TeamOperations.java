@@ -42,6 +42,10 @@ public class TeamOperations<T, C extends DistributedCollection<T, C>> {
         handle = localObject;
     }
 
+    public void gather(Place destination) {
+        // TODO not implemented yet
+    }
+
     /**
      * Computes and gathers the size of each local collection into the provided
      * array. This operation usually requires that all the hosts that are
@@ -52,8 +56,9 @@ public class TeamOperations<T, C extends DistributedCollection<T, C>> {
      *
      * @param result long array in which the result will be gathered
      */
+    @SuppressWarnings({ "rawtypes", "deprecation" })
     public void getSizeDistribution(final long[] result) {
-        if(handle instanceof ElementLocationManagable) {
+        if (handle instanceof ElementLocationManagable) {
             ((ElementLocationManagable) handle).getSizeDistribution(result);
             return;
         }
@@ -68,25 +73,8 @@ public class TeamOperations<T, C extends DistributedCollection<T, C>> {
         }
     }
 
-    public void gather(Place destination) {
-        // TODO not implemented yet
-    }
-
-
     public void teamedBalance() {
         teamedBalance(new CollectiveMoveManager(handle.placeGroup()));
-    }
-
-    public void teamedBalance(final float[] balance) {
-        teamedBalance(balance, new CollectiveMoveManager(handle.placeGroup()));
-    }
-
-    public void teamedBalance(final float[] newLocality, final CollectiveMoveManager mm) {
-        if (newLocality.length != handle.placeGroup().size()) {
-            throw new RuntimeException("[DistCol] the size of newLocality must be the same with placeGroup.size()");
-        }
-        System.arraycopy(newLocality, 0, handle.locality(), 0, handle.locality().length);
-        teamedBalance(mm);
     }
 
     /**
@@ -232,12 +220,26 @@ public class TeamOperations<T, C extends DistributedCollection<T, C>> {
         }
     }
 
+    public void teamedBalance(final float[] balance) {
+        teamedBalance(balance, new CollectiveMoveManager(handle.placeGroup()));
+    }
+
+    public void teamedBalance(final float[] newLocality, final CollectiveMoveManager mm) {
+        if (newLocality.length != handle.placeGroup().size()) {
+            throw new RuntimeException("[DistCol] the size of newLocality must be the same with placeGroup.size()");
+        }
+        System.arraycopy(newLocality, 0, handle.locality(), 0, handle.locality().length);
+        teamedBalance(mm);
+    }
+
     /**
-     * Conduct element location management process if the target is ElementLocationManagable
+     * Conduct element location management process if the target is
+     * ElementLocationManagable
      */
+    @SuppressWarnings("rawtypes")
     public void updateDist() {
-        if(handle instanceof ElementLocationManagable) {
-            ((ElementLocationManagable)handle).updateDist();
+        if (handle instanceof ElementLocationManagable) {
+            ((ElementLocationManagable) handle).updateDist();
         }
     }
 

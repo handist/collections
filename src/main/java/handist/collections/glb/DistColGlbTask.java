@@ -19,8 +19,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -56,6 +56,13 @@ public class DistColGlbTask implements GlbTask {
         private static final long serialVersionUID = 5397031649035798704L;
 
         /**
+         * This member avoids re-computing the priority of this assignment repeatedly.
+         * Only when an operation on this assignment completes that this member is
+         * updated.
+         */
+        private int currentPriority;
+
+        /**
          * {@link DistColGlbTask} currently handling this assignment. This member is not
          * serialized as it will need to be set to an existing object when the
          * assignment is received on the remote host.
@@ -69,7 +76,7 @@ public class DistColGlbTask implements GlbTask {
          * will be removed.
          */
         @SuppressWarnings("rawtypes")
-        Map<GlbOperation, Long> progress;
+        final ConcurrentSkipListMap<GlbOperation, Long> progress;
 
         /** Range of indices on which this assignment will operate */
         LongRange range;
@@ -85,19 +92,23 @@ public class DistColGlbTask implements GlbTask {
          */
         DistColAssignment(LongRange lr, DistColGlbTask p) {
             range = lr;
-            progress = new ConcurrentHashMap<>();
+            progress = new ConcurrentSkipListMap<>();
             parent = p;
+            currentPriority = Integer.MAX_VALUE;
         }
 
+        /*
+         * As the progress member is a concurrenSkipList which sorts the entries using
+         * the priority ordering of GlbOperation, the first entry corresponds to the
+         * operation on this assignment with the highest priority.
+         *
+         * Of course, if there is a single operation taking place on the underlying
+         * collection, the first entry will also be the only one.
+         */
         @SuppressWarnings("rawtypes")
         @Override
         public GlbOperation chooseOperationToProgress() {
-            for (final Map.Entry<GlbOperation, Long> e : progress.entrySet()) {
-                if (e.getValue() < range.to) { // This operation has work left, we pick it
-                    return e.getKey();
-                }
-            }
-            throw new RuntimeException("Could not obtain an operation with work in assignment " + this);
+            return progress.firstKey();
         }
 
         /**
@@ -128,19 +139,9 @@ public class DistColGlbTask implements GlbTask {
             return false;
         }
 
-        /**
-         * Indicates if there are some operations which have not completed yet on this
-         * assignment
-         *
-         * @return true if there are uncompleted operation on this assignment
-         */
-        boolean operationRemaining() {
-            for (final Long l : progress.values()) {
-                if (l < range.to) {
-                    return true;
-                }
-            }
-            return false;
+        @Override
+        public int priority() {
+            return currentPriority;
         }
 
         /**
@@ -167,17 +168,7 @@ public class DistColGlbTask implements GlbTask {
                 operationCompletedForThisAssignment = true;
             }
 
-            /*
-             * I have getting some NPE thrown from the following call. This issue might have
-             * been fixed but the try/catch will remain for a while just in case.
-             */
-            try {
-                progress.put(op, limit);
-            } catch (final NullPointerException e) {
-                e.printStackTrace();
-                System.err.println("Key was: " + op + " and value was " + limit);
-                throw e;
-            }
+            progress.put(op, limit);
 
             // Computation loop is made on the following LongRange inside the "action"
             // carried by the GlbOperation.
@@ -188,21 +179,28 @@ public class DistColGlbTask implements GlbTask {
             // assignment.
             if (operationCompletedForThisAssignment) {
                 parent.operationTerminatedOnAssignment(op);
+                // We remove the tracker for the current operation
+                progress.remove(op);
+
                 // Depending if there are other operations on this assignment, we
                 // place it the appropriate collection of the parent DistColGlbTask
 
                 // This part is protected using a read/write lock against newOperation.
                 parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
-                if (operationRemaining()) {
+                if (!progress.isEmpty()) {
+                    // There are other operations left
+                    // Update the priority before placing it back into the availableAssignments
+                    // collection
+                    updatePriority();
                     parent.assignedAssignments.remove(this);
                     parent.availableAssignments.add(this);
                 } else {
+                    // No other operations left
                     parent.assignedAssignments.remove(this);
                     parent.completedAssignments.add(this);
                 }
                 parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
             }
-
             return !operationCompletedForThisAssignment;
         }
 
@@ -259,16 +257,15 @@ public class DistColGlbTask implements GlbTask {
                     // We increment the assignmentsLeftToProcess counter
                     parent.assignmentsLeftToProcess.get(op).incrementAndGet();
                 } else {
-                    // The current progress is out of range for "thisRange", we set it to the upper
-                    // bound: thisRange.to.
-                    // This is not actually necessary but it will probably make things less
-                    // confusing when debugging.
-                    progress.put(op, thisRange.to);
+                    // The current progress is out of range for "thisRange", we remove the tracker
+                    // as if it had completed for this assignment (in effect, this has the same
+                    // consequences as if the operation
+                    progress.remove(op);
 
                     // The current progress is placed in the "split" progress.
-                    // Note that it is possible for "currentProgress" to be equal to
-                    // "splitRange.to" if at the time this method is called the operation had
-                    // already completed.
+                    // Note that it is not possible for "currentProgress" to be equal to
+                    // "splitRange.to" as the Long trackers kept in member progress are removed when
+                    // an operation is completed
                     split.progress.put(op, currentProgress);
 
                     // Whether there was work or not, the number of assignments that need to
@@ -277,6 +274,11 @@ public class DistColGlbTask implements GlbTask {
                     // assignmentsLeftToProcess counter for this operation
                 }
             }
+
+            // The progress for the operations may have changed for both assignments, we
+            // refresh their priority
+            updatePriority();
+            split.updatePriority();
 
             // Add the "splitAssignment" to the DistColGlbTask handling the assignment for
             // the underlying collection.
@@ -291,6 +293,18 @@ public class DistColGlbTask implements GlbTask {
         @Override
         public String toString() {
             return range.toString();
+        }
+
+        /**
+         * Updates the priority level of this Assignment.
+         *
+         * This method needs to be called when a new operation is made available to this
+         * assignment or when an operation contained by this assignment completes
+         */
+        private void updatePriority() {
+            @SuppressWarnings("rawtypes")
+            final Map.Entry<GlbOperation, Long> entry = progress.firstEntry();
+            currentPriority = entry == null ? Integer.MAX_VALUE : entry.getKey().priority;
         }
     }
 
@@ -395,8 +409,9 @@ public class DistColGlbTask implements GlbTask {
 
         // START OF THE R/W LOCK PROTECTION
         lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
-        // Obtain some Assignments
-        // TODO cap the maximum number of assignments that can be stolen
+        // Obtain some Assignments from the work reserve
+        // TODO we may need a better way to decide how much work a thief should be able
+        // to take.
         final ArrayList<Assignment> stolen = new ArrayList<>();
         DistColAssignment a;
         while (stolen.size() < MAX_NUMBER_STOLEN_ASSIGNMENTS && (a = availableAssignments.poll()) != null) {
@@ -586,18 +601,21 @@ public class DistColGlbTask implements GlbTask {
         boolean toReturn = false;
         for (final DistColAssignment a : availableAssignments) {
             a.progress.put(op, a.range.from);
+            a.updatePriority();
             toReturn = true;
             prepared++;
         }
 
         for (final DistColAssignment a : assignedAssignments) {
             a.progress.put(op, a.range.from);
+            a.updatePriority();
             toReturn = true;
             prepared++;
         }
 
         for (final DistColAssignment a : completedAssignments) {
             a.progress.put(op, a.range.from);
+            a.updatePriority();
             toReturn = true;
             prepared++;
         }

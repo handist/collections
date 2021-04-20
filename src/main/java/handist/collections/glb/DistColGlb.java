@@ -128,7 +128,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
         // Create the operation with all the types/arguments
         final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistCol<T>> operation = new GlbOperation<>(col,
-                realAction, future, initGlbTask, null);
+                realAction, future, initGlbTask, null, lifelineClass);
         // Submit the operation to the GLB
         glb.submit(operation);
 
@@ -173,7 +173,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
         // Create the operation with all the types/arguments
         final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistCol<T>> operation = new GlbOperation<>(col,
-                realAction, future, initGlbTask, null);
+                realAction, future, initGlbTask, null, lifelineClass);
         // Submit the operation to the GLB
         glb.submit(operation);
 
@@ -234,7 +234,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
         // Create the operation with all the types/arguments
         final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistCol<U>> operation = new GlbOperation<>(col,
-                realAction, future, initGlbTask, null);
+                realAction, future, initGlbTask, null, lifelineClass);
 
         // Submit the operation to the GLB
         glb.submit(operation);
@@ -272,7 +272,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         };
 
         final GlbOperation<DistCol<T>, T, LongRange, LongRange, R> operation = new GlbOperation<>(col, realAction,
-                future, initGlbTask, workerInit);
+                future, initGlbTask, workerInit, lifelineClass);
 
         glb.submit(operation);
 
@@ -347,7 +347,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
         // Create the operation with all the types/arguments
         final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistBag<U>> operation = new GlbOperation<>(col,
-                realAction, future, initGlbTask, workerInit);
+                realAction, future, initGlbTask, workerInit, lifelineClass);
 
         // Submit the operation to the GLB
         glb.submit(operation);
