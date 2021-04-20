@@ -112,7 +112,7 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     /**
      * Handle to TEAM operations on this DistBag instance
      */
-    protected DistBag<T>.DistBagTeam TEAM;
+    public DistBag<T>.DistBagTeam TEAM;
 
     /**
      * Create a new DistBag. Place.places() is used as the PlaceGroup.
