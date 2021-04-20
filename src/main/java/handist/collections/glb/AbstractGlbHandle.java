@@ -12,6 +12,8 @@ package handist.collections.glb;
 
 import java.io.Serializable;
 
+import handist.collections.glb.lifeline.Lifeline;
+
 /**
  * Abstract handle gathering common operations and routine to all GLB handles of
  * distributed collections
@@ -23,6 +25,12 @@ public class AbstractGlbHandle implements Serializable {
 
     /** Serial Version UID */
     private static final long serialVersionUID = -4684225091595493661L;
+
+    /**
+     * Class designated to be used to build lifelines
+     */
+    @SuppressWarnings("rawtypes")
+    Class lifelineClass;
 
     /**
      * Checks if the static glb instance of class {@link GlobalLoadBalancer} is
@@ -41,5 +49,16 @@ public class AbstractGlbHandle implements Serializable {
         } else {
             return glb;
         }
+    }
+
+    /**
+     * Sets the lifeline strategy to be used with this collection from then on. Call
+     * with {@code null} to cancel any previously set lifeline implementation and
+     * revert back to the default setting
+     *
+     * @param c the class to be used as lifeline for this collection from then on
+     */
+    public void setLifeline(Class<? extends Lifeline> c) {
+        lifelineClass = c;
     }
 }

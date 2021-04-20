@@ -32,18 +32,14 @@ import apgas.Constructs;
 import apgas.Place;
 import apgas.util.GlobalID;
 import apgas.util.SerializableWithReplace;
-import com.hazelcast.spi.impl.proxyservice.impl.operations.DistributedObjectDestroyOperation;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
-import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
 import handist.collections.glb.DistMapGlb;
-import mpi.MPI;
-import mpi.MPIException;
 
 /**
  * A Map data structure spread over the multiple places.

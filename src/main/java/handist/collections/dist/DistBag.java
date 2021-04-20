@@ -24,7 +24,6 @@ import apgas.util.SerializableWithReplace;
 import handist.collections.Bag;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
-import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
@@ -32,8 +31,6 @@ import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
-import mpi.MPI;
-import mpi.MPIException;
 
 /**
  * A class for handling objects at multiple places. It is allowed to add new

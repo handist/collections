@@ -86,7 +86,7 @@ public class IT_ObjectsUsedAsMapKeys implements Serializable {
                     ;
                 }, new DistFuture(collection), () -> {
                     return null;
-                }, null);
+                }, null, null);
         glbOperationMap.put(operationKey, new Integer(43));
         assertNotNull(operationKey);
 

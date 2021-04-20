@@ -22,7 +22,7 @@ import java.io.Serializable;
  * @author Patrick Finnerty
  *
  */
-interface Assignment extends Serializable {
+interface Assignment extends Serializable, Comparable<Assignment> {
 
     /**
      * Chooses an operation available in this assignment to be processed by the
@@ -33,6 +33,11 @@ interface Assignment extends Serializable {
      */
     @SuppressWarnings("rawtypes")
     GlbOperation chooseOperationToProgress();
+
+    @Override
+    default int compareTo(Assignment o) {
+        return priority() - o.priority();
+    }
 
     /**
      * Indicates if this assignment can be split into 2 new assignments. An
@@ -49,6 +54,14 @@ interface Assignment extends Serializable {
      *         being available for other workers, {@code false otherwise}
      */
     boolean isSplittable(int qtt);
+
+    /**
+     * Returns the highest priority (i.e. lowest value) held by an operation which
+     * has work contained in this assignment
+     *
+     * @return the priority of this assignment, as an integer
+     */
+    int priority();
 
     /**
      * Process a certain amount of an assignment on an operation available for the

@@ -144,7 +144,7 @@ public class IT_GlbProgramTest1 implements Serializable {
      * @throws Throwable if thrown during the test
      */
     @Test(expected = RuntimeException.class, timeout = 1000)
-    public void testIllegalStateUnderGlb() throws Throwable {
+    public void testExceptionInUnderGlb() throws Throwable {
         final ArrayList<Exception> exc = underGLB(() -> {
             throw new RuntimeException("This runtime exception is part of a test, everything is fine.");
         });
@@ -154,6 +154,32 @@ public class IT_GlbProgramTest1 implements Serializable {
         // Throw the exception, the test will pass if the exception thrown is a
         // RuntimeException
         throw exc.get(0);
+    }
+
+    /**
+     * Checks that setting the priority of an operation is possible and is correctly
+     * registered.
+     *
+     * @throws Throwable if thrown during the test
+     */
+    @Test(timeout = 1000)
+    public void testPriority() throws Throwable {
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                final DistFuture<DistCol<Element>> future = col.GLB.forEach(makePrefixTest);
+                assertEquals(0, future.getPriority());
+                future.setPriority(42);
+                assertEquals(42, future.getPriority());
+                future.waitGlobalTermination();
+                assertThrows(IllegalStateException.class, () -> future.setPriority(0));
+            });
+            if (!ex.isEmpty()) {
+                throw ex.get(0);
+            }
+
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        }
     }
 
     /**

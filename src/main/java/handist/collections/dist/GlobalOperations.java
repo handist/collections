@@ -36,19 +36,13 @@ public class GlobalOperations<T, C extends DistributedCollection<T, C>> implemen
 
     /**
      *
-     * @param handle the target Distributed Collection
-     * @param lazyCreator the way to create a branch of a distributed collection to a new place.
+     * @param handle      the target Distributed Collection
+     * @param lazyCreator the way to create a branch of a distributed collection to
+     *                    a new place.
      */
     GlobalOperations(C handle, BiFunction<TeamedPlaceGroup, GlobalID, ? extends C> lazyCreator) {
         localHandle = handle;
         this.lazyCreator = lazyCreator;
-    }
-
-    public void gather(final Place destination) {
-        final TeamedPlaceGroup pg = localHandle.placeGroup();
-        pg.broadcastFlat(() -> {
-            localHandle.team().gather(destination);
-        });
     }
 
     public void balance() {
@@ -64,7 +58,7 @@ public class GlobalOperations<T, C extends DistributedCollection<T, C>> implemen
         pg.broadcastFlat(() -> {
             localHandle.team().teamedBalance(balance);
         });
-    };
+    }
 
     /**
      * Performs the specified action on every instance contained on every host of
@@ -79,6 +73,30 @@ public class GlobalOperations<T, C extends DistributedCollection<T, C>> implemen
         localHandle.placeGroup().broadcastFlat(() -> {
             localHandle.forEach(action);
         });
+    };
+
+    public void gather(final Place destination) {
+        final TeamedPlaceGroup pg = localHandle.placeGroup();
+        pg.broadcastFlat(() -> {
+            localHandle.team().gather(destination);
+        });
+    }
+
+    /**
+     * Gathers the size of every local collection and returns it in the provided
+     * array
+     *
+     * @param result the array in which the result will be stored
+     */
+    @SuppressWarnings("rawtypes")
+    public void getSizeDistribution(final long[] result) {
+        if (localHandle instanceof ElementLocationManagable) {
+            ((ElementLocationManagable) localHandle).getSizeDistribution(result);
+        } else {
+            localHandle.placeGroup().broadcastFlat(() -> {
+                localHandle.team().getSizeDistribution(result);
+            });
+        }
     }
 
     /**
@@ -108,22 +126,6 @@ public class GlobalOperations<T, C extends DistributedCollection<T, C>> implemen
         localHandle.placeGroup().broadcastFlat(() -> {
             localHandle.parallelForEach(action);
         });
-    }
-
-    /**
-     * Gathers the size of every local collection and returns it in the provided
-     * array
-     *
-     * @param result the array in which the result will be stored
-     */
-    public void getSizeDistribution(final long[] result) {
-        if(localHandle instanceof ElementLocationManagable) {
-            ((ElementLocationManagable) localHandle).getSizeDistribution(result);
-        } else {
-            localHandle.placeGroup().broadcastFlat(() -> {
-                localHandle.team().getSizeDistribution(result);
-            });
-        }
     }
 
     /**
