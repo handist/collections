@@ -127,6 +127,34 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
         };
         mm.request(pl, serialize, deserialize);
     }
+	
+     
+    @Override
+    @SuppressWarnings("unchecked")
+    public void moveAtSync(Collection<K> keys, Place pl, MoveManager mm) {
+        if (pl.equals(here())) {
+            return;
+        }
+        final DistMultiMap<K, V> collection = this;
+        final Serializer serialize = (ObjectOutput s) -> {
+            final int size = keys.size();
+            s.writeInt(size);
+            for (final K key : keys) {
+                final List<V> value = collection.remove(key);
+                s.writeObject(key);
+                s.writeObject(value);
+            }
+        };
+        final DeSerializer deserialize = (ObjectInput ds) -> {
+            final int size = ds.readInt();
+            for (int i = 1; i <= size; i++) {
+                final K key = (K) ds.readObject();
+                final List<V> value = (List<V>) ds.readObject();
+                collection.putForMove(key, value);
+            }
+        };
+        mm.request(pl, serialize, deserialize);
+    }
 
     /**
      * Puts a new value to the list of specified entry.

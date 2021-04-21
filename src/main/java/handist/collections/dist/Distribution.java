@@ -10,6 +10,8 @@
  ******************************************************************************/
 package handist.collections.dist;
 
+import java.io.Serializable;
+
 import apgas.Place;
 
 /**
@@ -26,7 +28,7 @@ import apgas.Place;
  * @param <K> the type used as key of a distributed collection
  * @see RangedDistribution
  */
-public interface Distribution<K> {
+public interface Distribution<K> extends Serializable {
 
     public Place place(K key);
 
