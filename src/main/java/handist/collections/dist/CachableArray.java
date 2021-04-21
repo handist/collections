@@ -27,6 +27,7 @@ import apgas.util.SerializableWithReplace;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
+import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.Serializer;
 import mpi.MPIException;
 
@@ -134,6 +135,45 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
         };
         try {
             CollectiveRelocator.bcastSer(placeGroup, master, serProcess, desProcess);
+        } catch (final MPIException e) {
+            e.printStackTrace();
+            throw new Error("[CachableArray] MPIException raised.");
+        }
+    }
+    public <U> void reduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
+        final Serializer serProcess = (ObjectOutput s) -> {
+            for (final T elem : data) {
+                s.writeObject(pack.apply(elem));
+            }
+        };
+        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
+            for (final T elem : data) {
+                final U diff = (U) ds.readObject();
+                unpack.accept(elem, diff);
+            }
+        };
+        try {
+            CollectiveRelocator.gatherSer(placeGroup, master, serProcess, desProcess);
+        } catch (final MPIException e) {
+            e.printStackTrace();
+            throw new Error("[CachableArray] MPIException raised.");
+        }
+    }
+
+    public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
+        final Serializer serProcess = (ObjectOutput s) -> {
+            for (final T elem : data) {
+                s.writeObject(pack.apply(elem));
+            }
+        };
+        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
+            for (final T elem : data) {
+                final U diff = (U) ds.readObject();
+                unpack.accept(elem, diff);
+            }
+        };
+        try {
+            CollectiveRelocator.allgatherSer(placeGroup, serProcess, desProcess);
         } catch (final MPIException e) {
             e.printStackTrace();
             throw new Error("[CachableArray] MPIException raised.");
