@@ -32,6 +32,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import handist.collections.FutureN.ReturnGivenResult;
+import handist.collections.dist.Reducer;
 import handist.collections.function.LongTBiConsumer;
 
 /**
@@ -1130,6 +1131,33 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public Collection<LongRange> ranges() {
         return chunks.keySet();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList}
+     * using the reducer provided as parameter
+     *
+     * @param <R>     type of the reducer
+     * @param reducer reducer to be used to reduce this parameter
+     * @return the reducer provided as parameter after the reduction has completed
+     */
+    public <R extends Reducer<R, T>> R reduce(R reducer) {
+        forEach(t -> reducer.reduce(t));
+        return reducer;
+    }
+
+    /**
+     * Sequentially reduces all the Chunks of Ts contained in this
+     * {@link ChunkedList} into the provided reducer and returns that reducer.
+     *
+     * @param <R>     the type of the reducer
+     * @param reducer the reducer into which this bag needs to be reduced
+     * @return the reducer given as parameter after it has been applied to every
+     *         list in this {@link Bag}
+     */
+    public <R extends Reducer<R, RangedList<T>>> R reduceChunk(R reducer) {
+        forEachChunk(rl -> reducer.reduce(rl));
+        return reducer;
     }
 
     /**

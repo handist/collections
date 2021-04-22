@@ -35,6 +35,7 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import handist.collections.dist.Reducer;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 
@@ -59,6 +60,60 @@ public class TestChunkedList {
         public String toString() {
             return String.valueOf(n);
         }
+    }
+
+    /**
+     * Dummy reducer which counts the elements in a {@link ChunkedList}
+     */
+    public class ElementCounter extends Reducer<ElementCounter, Element> {
+
+        /** Serial Version UID */
+        private static final long serialVersionUID = 4389792260775069565L;
+
+        long counter = 0l;
+
+        @Override
+        public void merge(ElementCounter reducer) {
+            counter += reducer.counter;
+        }
+
+        @Override
+        public ElementCounter newReducer() {
+            return new ElementCounter();
+        }
+
+        @Override
+        public void reduce(Element input) {
+            counter++;
+        }
+    }
+
+    /**
+     * Dummy class which counts the number of chunks contained in a
+     * {@link ChunkedList}.
+     */
+    public class ElementRangeCounter extends Reducer<ElementRangeCounter, RangedList<Element>> {
+
+        /** Serial Version UID */
+        private static final long serialVersionUID = -2233353303829178904L;
+
+        long chunkCounter = 0l;
+
+        @Override
+        public void merge(ElementRangeCounter reducer) {
+            chunkCounter += reducer.chunkCounter;
+        }
+
+        @Override
+        public ElementRangeCounter newReducer() {
+            return new ElementRangeCounter();
+        }
+
+        @Override
+        public void reduce(RangedList<Element> input) {
+            chunkCounter++;
+        }
+
     }
 
     public class MultiIntegerReceiver implements ParallelReceiver<Integer> {
@@ -875,6 +930,24 @@ public class TestChunkedList {
             assertEquals(range, chunks[i].getRange());
             i++;
         }
+    }
+
+    @Test
+    public void testReduce() {
+        final ElementCounter ec = chunkedList.reduce(new ElementCounter());
+        assertEquals(chunkedList.size(), ec.counter);
+
+        final ElementCounter noElements = newlyCreatedChunkedList.reduce(new ElementCounter());
+        assertEquals(0l, noElements.counter);
+    }
+
+    @Test
+    public void testReduceRangedList() {
+        final ElementRangeCounter rc = chunkedList.reduceChunk(new ElementRangeCounter());
+        assertEquals(chunks.length, rc.chunkCounter);
+
+        final ElementRangeCounter emptyRangeCounter = newlyCreatedChunkedList.reduceChunk(new ElementRangeCounter());
+        assertEquals(0l, emptyRangeCounter.chunkCounter);
     }
 
     @Ignore
