@@ -446,7 +446,7 @@ public class Bag<T> implements ParallelReceiver<T>, Serializable, KryoSerializab
      *
      * @param <R>     type of the reducer
      * @param reducer reducer to be used to reduce this parameter
-     * @return the reducer provided as parameter after the reductio has completed
+     * @return the reducer provided as parameter after the reduction has completed
      */
     public <R extends Reducer<R, T>> R reduce(R reducer) {
         forEach(t -> reducer.reduce(t));
