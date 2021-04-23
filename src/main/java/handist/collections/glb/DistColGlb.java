@@ -18,7 +18,7 @@ import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
 import handist.collections.dist.DistBag;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.Reducer;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
@@ -29,7 +29,7 @@ import handist.collections.glb.GlbComputer.WorkerInfo;
 
 /**
  * This class proposes various operations that operate on all the elements of a
- * {@link DistCol} as part of a GLB program. Any call to methods of this class
+ * {@link DistChunkedList} as part of a GLB program. Any call to methods of this class
  * should be made from within a
  * {@link GlobalLoadBalancer#underGLB(apgas.SerializableJob)} method.
  *
@@ -51,7 +51,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         /** Serial Version UID */
         private static final long serialVersionUID = -6284960496356484016L;
 
-        /** Index in the {@link DistCol} on which a problem was encountered */
+        /** Index in the {@link DistChunkedList} on which a problem was encountered */
         public final long index;
 
         /**
@@ -81,31 +81,31 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
     private static final long serialVersionUID = 612021438330155918L;
 
     /** Underlying collection on which the operations of this class operate */
-    DistCol<T> col;
+    DistChunkedList<T> col;
 
     /**
      * Constructor
      *
      * @param c collection on which this handle will operate
      */
-    public DistColGlb(DistCol<T> c) {
+    public DistColGlb(DistChunkedList<T> c) {
         col = c;
     }
 
     /**
      * Applies the specified action to all the elements contained in the
-     * {@link DistCol} and returns the underlying collection
+     * {@link DistChunkedList} and returns the underlying collection
      *
      * @param action action to perform on each element
      * @return future representing this "forEach" operation which will return the
-     *         underlying {@link DistCol} collection upon termination
+     *         underlying {@link DistChunkedList} collection upon termination
      */
-    public DistFuture<DistCol<T>> forEach(SerializableConsumer<T> action) {
+    public DistFuture<DistChunkedList<T>> forEach(SerializableConsumer<T> action) {
         final GlobalLoadBalancer glb = getGlb();
 
         // Initialize the future returned to the programmer in the underGLB method
         // In this operation, the collection involved is the handle itself
-        final DistFuture<DistCol<T>> future = new DistFuture<>(col);
+        final DistFuture<DistChunkedList<T>> future = new DistFuture<>(col);
 
         final SerializableSupplier<GlbTask> initGlbTask = () -> {
             return new DistColGlbTask(col);
@@ -127,7 +127,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         };
 
         // Create the operation with all the types/arguments
-        final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistCol<T>> operation = new GlbOperation<>(col,
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, DistChunkedList<T>> operation = new GlbOperation<>(col,
                 realAction, future, initGlbTask, null, lifelineClass);
         // Submit the operation to the GLB
         glb.submit(operation);
@@ -138,19 +138,19 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
     /**
      * Applies the specified action to all the elements contained in the
-     * {@link DistCol} and returns the underlying collection
+     * {@link DistChunkedList} and returns the underlying collection
      *
      * @param action action to perform on each element, taking the index and the
      *               object as parameter
      * @return future representing this "forEach" operation which will return the
-     *         underlying {@link DistCol} collection upon termination
+     *         underlying {@link DistChunkedList} collection upon termination
      */
-    public DistFuture<DistCol<T>> forEach(SerializableLongTBiConsumer<T> action) {
+    public DistFuture<DistChunkedList<T>> forEach(SerializableLongTBiConsumer<T> action) {
         final GlobalLoadBalancer glb = getGlb();
 
         // Initialize the future returned to the programmer in the underGLB method
         // In this operation, the collection involved is the handle itself
-        final DistFuture<DistCol<T>> future = new DistFuture<>(col);
+        final DistFuture<DistChunkedList<T>> future = new DistFuture<>(col);
 
         final SerializableSupplier<GlbTask> initGlbTask = () -> {
             return new DistColGlbTask(col);
@@ -172,7 +172,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         };
 
         // Create the operation with all the types/arguments
-        final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistCol<T>> operation = new GlbOperation<>(col,
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, DistChunkedList<T>> operation = new GlbOperation<>(col,
                 realAction, future, initGlbTask, null, lifelineClass);
         // Submit the operation to the GLB
         glb.submit(operation);
@@ -182,8 +182,8 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
     }
 
     /**
-     * GLB operation which creates a new {@link DistCol} using the mapping operation
-     * provided as parameter. The resulting {@link DistCol} will contain the same
+     * GLB operation which creates a new {@link DistChunkedList} using the mapping operation
+     * provided as parameter. The resulting {@link DistChunkedList} will contain the same
      * indices as this collection. The value stored at each index of the resulting
      * collection will be the result of the provided mapping operation for this
      * collection at the same index. As part of the GLB consists in moving entries
@@ -195,11 +195,11 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
      *            of type U
      * @return a {@link DistFuture}
      */
-    public <U> DistFuture<DistCol<U>> map(SerializableFunction<T, U> map) {
+    public <U> DistFuture<DistChunkedList<U>> map(SerializableFunction<T, U> map) {
         final GlobalLoadBalancer glb = getGlb();
 
         // Create new collection to contain the result
-        final DistCol<U> resultCollection = new DistCol<>(col.placeGroup());
+        final DistChunkedList<U> resultCollection = new DistChunkedList<>(col.placeGroup());
 
         // Adapt the provided map to represent what the glb workers will actually
         // perform.
@@ -226,14 +226,14 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
         // Initialize the future returned to the programmer in the underGLB method
         // In this operation, the collection involved is the handle itself
-        final DistFuture<DistCol<U>> future = new DistFuture<>(resultCollection);
+        final DistFuture<DistChunkedList<U>> future = new DistFuture<>(resultCollection);
 
         final SerializableSupplier<GlbTask> initGlbTask = () -> {
             return new DistColGlbTask(col);
         };
 
         // Create the operation with all the types/arguments
-        final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistCol<U>> operation = new GlbOperation<>(col,
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, DistChunkedList<U>> operation = new GlbOperation<>(col,
                 realAction, future, initGlbTask, null, lifelineClass);
 
         // Submit the operation to the GLB
@@ -271,7 +271,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
             return new DistColGlbTask(col);
         };
 
-        final GlbOperation<DistCol<T>, T, LongRange, LongRange, R> operation = new GlbOperation<>(col, realAction,
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, R> operation = new GlbOperation<>(col, realAction,
                 future, initGlbTask, workerInit, lifelineClass);
 
         glb.submit(operation);
@@ -346,7 +346,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         };
 
         // Create the operation with all the types/arguments
-        final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistBag<U>> operation = new GlbOperation<>(col,
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, DistBag<U>> operation = new GlbOperation<>(col,
                 realAction, future, initGlbTask, workerInit, lifelineClass);
 
         // Submit the operation to the GLB

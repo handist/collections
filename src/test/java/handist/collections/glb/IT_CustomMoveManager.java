@@ -11,7 +11,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import apgas.ExtendedConstructs;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.IT_OneSidedMoveManager;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -35,7 +35,7 @@ public class IT_CustomMoveManager extends IT_OneSidedMoveManager implements Seri
 
     @Before
     public void setUp() throws Exception {
-        col = new DistCol<>();
+        col = new DistChunkedList<>();
         y_populateDistCol(col);
         destination = place(1);
         manager = new CustomOneSidedMoveManager(destination);

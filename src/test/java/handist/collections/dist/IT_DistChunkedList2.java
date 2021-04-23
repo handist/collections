@@ -10,24 +10,25 @@
  ******************************************************************************/
 package handist.collections.dist;
 
-import apgas.MultipleException;
-import handist.collections.Chunk;
-import handist.collections.LongRange;
-import handist.mpijunit.MpiConfig;
-import handist.mpijunit.MpiRunner;
-import handist.mpijunit.launcher.TestLauncher;
+import static apgas.Constructs.*;
+import static org.junit.Assert.*;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.Random;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.Random;
-
-import static apgas.Constructs.*;
-import static org.junit.Assert.*;
+import apgas.MultipleException;
+import handist.collections.Chunk;
+import handist.collections.LongRange;
+import handist.mpijunit.MpiConfig;
+import handist.mpijunit.MpiRunner;
+import handist.mpijunit.launcher.TestLauncher;
 
 /**
  * Second class used to test the distributed features of class {@link DistChunkedList}
@@ -37,7 +38,7 @@ import static org.junit.Assert.*;
  */
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 4, launcher = TestLauncher.class)
-public class IT_DistCol2 implements Serializable {
+public class IT_DistChunkedList2 implements Serializable {
 
     /**
      * Helper object to generate values to populate the collection
@@ -76,7 +77,7 @@ public class IT_DistCol2 implements Serializable {
     Chunk<Element> chunk200To250;
 
     /** Instance used under test */
-    DistCol<Element> distCol;
+    DistChunkedList<Element> distChunkedList;
 
     /** First range on which DistCol is defined */
     LongRange range0To100;
@@ -109,7 +110,7 @@ public class IT_DistCol2 implements Serializable {
         fillWithValues(chunk100To200, "b");
         fillWithValues(chunk200To250, "c");
 
-        distCol = new DistCol<>(world);
+        distChunkedList = new DistChunkedList<>(world);
     }
 
     /**
@@ -119,7 +120,7 @@ public class IT_DistCol2 implements Serializable {
      */
     @After
     public void tearDown() throws Exception {
-        distCol.destroy();
+        distChunkedList.destroy();
     }
 
     /**
@@ -130,12 +131,12 @@ public class IT_DistCol2 implements Serializable {
      */
     @Test(timeout = 10000)
     public void testAddUpdatesDistributedInformation() throws Throwable {
-        distCol.add(chunk0To100); // Add a chunk to local handle of place 0
-        distCol.placeGroup().broadcastFlat(() -> {
+        distChunkedList.add(chunk0To100); // Add a chunk to local handle of place 0
+        distChunkedList.placeGroup().broadcastFlat(() -> {
             final long[] size = new long[world.size()];
 
-            distCol.TEAM.updateDist(); // Here is the important call
-            distCol.TEAM.getSizeDistribution(size); // We check the result of TEAM.size
+            distChunkedList.TEAM.updateDist(); // Here is the important call
+            distChunkedList.TEAM.getSizeDistribution(size); // We check the result of TEAM.size
 
             assertEquals(world.size(), size.length);
             for (int i = 0; i < size.length; i++) {
@@ -154,16 +155,16 @@ public class IT_DistCol2 implements Serializable {
     public void testAlternativeGlobalForEach() throws Throwable {
         try {
             // Place chunks in different handles
-            distCol.placeGroup().broadcastFlat(() -> {
+            distChunkedList.placeGroup().broadcastFlat(() -> {
                 switch (here().id) {
                 case 0:
-                    distCol.add(chunk0To100);
+                    distChunkedList.add(chunk0To100);
                     break;
                 case 1:
-                    distCol.add(chunk100To200);
+                    distChunkedList.add(chunk100To200);
                     break;
                 case 2:
-                    distCol.add(chunk200To250);
+                    distChunkedList.add(chunk200To250);
                     break;
                 }
             });
@@ -173,16 +174,16 @@ public class IT_DistCol2 implements Serializable {
             // System.out.println(s); // = "testGlobal" + s;
             // });
 
-            distCol.placeGroup().broadcastFlat(() -> {
-                distCol.forEach((e) -> {
+            distChunkedList.placeGroup().broadcastFlat(() -> {
+                distChunkedList.forEach((e) -> {
                     e.s = "testGlobal" + e.s;
                 });
             });
 
             // Check that every string was modified
 
-            distCol.placeGroup().broadcastFlat(() -> {
-                for (final Element e : distCol) {
+            distChunkedList.placeGroup().broadcastFlat(() -> {
+                for (final Element e : distChunkedList) {
                     assertTrue(e.s.startsWith("testGlobal"));
                 }
             });
@@ -201,29 +202,29 @@ public class IT_DistCol2 implements Serializable {
     public void testGlobalForEach() throws Throwable {
         try {
             // Place chunks in different handles
-            distCol.placeGroup().broadcastFlat(() -> {
+            distChunkedList.placeGroup().broadcastFlat(() -> {
                 switch (here().id) {
                 case 0:
-                    distCol.add(chunk0To100);
+                    distChunkedList.add(chunk0To100);
                     break;
                 case 1:
-                    distCol.add(chunk100To200);
+                    distChunkedList.add(chunk100To200);
                     break;
                 case 2:
-                    distCol.add(chunk200To250);
+                    distChunkedList.add(chunk200To250);
                     break;
                 }
             });
 
             // Call GLOBAL forEach
-            distCol.GLOBAL.forEach((e) -> {
+            distChunkedList.GLOBAL.forEach((e) -> {
                 e.s = "testGlobal" + e.s;
             });
 
             // Check that every string was modified
 
-            distCol.placeGroup().broadcastFlat(() -> {
-                for (final Element e : distCol) {
+            distChunkedList.placeGroup().broadcastFlat(() -> {
+                for (final Element e : distChunkedList) {
                     assertTrue(e.s.startsWith("testGlobal"));
                 }
             });
@@ -242,29 +243,29 @@ public class IT_DistCol2 implements Serializable {
     public void testGlobalParallelForEach() throws Throwable {
         try {
             // Place chunks in different handles
-            distCol.placeGroup().broadcastFlat(() -> {
+            distChunkedList.placeGroup().broadcastFlat(() -> {
                 switch (here().id) {
                 case 0:
-                    distCol.add(chunk0To100);
+                    distChunkedList.add(chunk0To100);
                     break;
                 case 1:
-                    distCol.add(chunk100To200);
+                    distChunkedList.add(chunk100To200);
                     break;
                 case 2:
-                    distCol.add(chunk200To250);
+                    distChunkedList.add(chunk200To250);
                     break;
                 }
             });
 
             // Call GLOBAL parallelForEach
-            distCol.GLOBAL.parallelForEach((e) -> {
+            distChunkedList.GLOBAL.parallelForEach((e) -> {
                 e.s = "testGlobal" + e.s;
             });
 
             // Check that every string was modified
 
-            distCol.placeGroup().broadcastFlat(() -> {
-                for (final Element e : distCol) {
+            distChunkedList.placeGroup().broadcastFlat(() -> {
+                for (final Element e : distChunkedList) {
                     assertTrue(e.s.startsWith("testGlobal"));
                 }
             });
@@ -282,18 +283,18 @@ public class IT_DistCol2 implements Serializable {
      */
     @Test
     public void testMoveRangeAtSyncLong_leftRange() throws IOException {
-        distCol.add(chunk0To100);
-        distCol.add(chunk100To200);
-        distCol.add(chunk200To250);
+        distChunkedList.add(chunk0To100);
+        distChunkedList.add(chunk100To200);
+        distChunkedList.add(chunk200To250);
 
         final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
         final LongRange toTransfer = new LongRange(0l, 50l);
 
-        distCol.moveRangeAtSync(toTransfer, place(1), m);
+        distChunkedList.moveRangeAtSync(toTransfer, place(1), m);
         m.send();
 
-        assertFalse(distCol.contains(toTransfer));
-        at(place(1), () -> assertTrue(distCol.containsRange(toTransfer)));
+        assertFalse(distChunkedList.contains(toTransfer));
+        at(place(1), () -> assertTrue(distChunkedList.containsRange(toTransfer)));
     }
 
     /**
@@ -305,16 +306,16 @@ public class IT_DistCol2 implements Serializable {
      */
     @Test
     public void testMoveRangeAtSyncLong_matchingRange() throws IOException {
-        distCol.add(chunk0To100);
-        distCol.add(chunk100To200);
-        distCol.add(chunk200To250);
+        distChunkedList.add(chunk0To100);
+        distChunkedList.add(chunk100To200);
+        distChunkedList.add(chunk200To250);
 
         final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
-        distCol.moveRangeAtSync(range0To100, place(1), m); // Should not throw anything
+        distChunkedList.moveRangeAtSync(range0To100, place(1), m); // Should not throw anything
         m.send();
 
-        assertFalse(distCol.contains(chunk0To100));
-        at(place(1), () -> assertTrue(distCol.containsRange(range0To100)));
+        assertFalse(distChunkedList.contains(chunk0To100));
+        at(place(1), () -> assertTrue(distChunkedList.containsRange(range0To100)));
     }
 
     /**
@@ -325,18 +326,18 @@ public class IT_DistCol2 implements Serializable {
      */
     @Test
     public void testMoveRangeAtSyncLong_middleRange() throws IOException {
-        distCol.add(chunk0To100);
-        distCol.add(chunk100To200);
-        distCol.add(chunk200To250);
+        distChunkedList.add(chunk0To100);
+        distChunkedList.add(chunk100To200);
+        distChunkedList.add(chunk200To250);
 
         final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
         final LongRange toTransfer = new LongRange(25l, 75l);
 
-        distCol.moveRangeAtSync(toTransfer, place(1), m);
+        distChunkedList.moveRangeAtSync(toTransfer, place(1), m);
         m.send();
 
-        assertFalse(distCol.contains(toTransfer));
-        at(place(1), () -> assertTrue(distCol.containsRange(toTransfer)));
+        assertFalse(distChunkedList.contains(toTransfer));
+        at(place(1), () -> assertTrue(distChunkedList.containsRange(toTransfer)));
     }
 
     /**
@@ -347,18 +348,18 @@ public class IT_DistCol2 implements Serializable {
      */
     @Test
     public void testMoveRangeAtSyncLong_rightRange() throws IOException {
-        distCol.add(chunk0To100);
-        distCol.add(chunk100To200);
-        distCol.add(chunk200To250);
+        distChunkedList.add(chunk0To100);
+        distChunkedList.add(chunk100To200);
+        distChunkedList.add(chunk200To250);
 
         final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
         final LongRange toTransfer = new LongRange(50l, 100l);
 
-        distCol.moveRangeAtSync(toTransfer, place(1), m);
+        distChunkedList.moveRangeAtSync(toTransfer, place(1), m);
         m.send();
 
-        assertFalse(distCol.contains(toTransfer));
-        at(place(1), () -> assertTrue(distCol.containsRange(toTransfer)));
+        assertFalse(distChunkedList.contains(toTransfer));
+        at(place(1), () -> assertTrue(distChunkedList.containsRange(toTransfer)));
     }
 
     /**
@@ -367,11 +368,11 @@ public class IT_DistCol2 implements Serializable {
      */
     @Test
     public void testSetup() {
-        assertEquals(distCol, distCol.id().getHere());
+        assertEquals(distChunkedList, distChunkedList.id().getHere());
         world.broadcastFlat(() -> {
-            assertTrue(distCol.isEmpty());
-            assertEquals(0l, distCol.size());
-            assertEquals(distCol, distCol.id().getHere());
+            assertTrue(distChunkedList.isEmpty());
+            assertEquals(0l, distChunkedList.size());
+            assertEquals(distChunkedList, distChunkedList.id().getHere());
         });
     }
 

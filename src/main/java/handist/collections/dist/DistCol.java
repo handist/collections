@@ -1,133 +1,35 @@
-/*******************************************************************************
- * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
- *
- * This program and the accompanying materials are made available to you under
- * the terms of the Eclipse Public License 1.0 which accompanies this
- * distribution,
- * and is available at https://www.eclipse.org/legal/epl-v10.html
- *
- * SPDX-License-Identifier: EPL-1.0
- ******************************************************************************/
 package handist.collections.dist;
-
-import static apgas.Constructs.*;
-
-import java.io.ObjectStreamException;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-
-import com.esotericsoftware.kryo.DefaultSerializer;
-import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
 import apgas.Place;
 import apgas.util.GlobalID;
-import apgas.util.SerializableWithReplace;
-import handist.collections.ChunkedList;
 import handist.collections.ElementOverlapException;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
-import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
-import handist.collections.dist.util.Pair;
 import handist.collections.function.DeSerializer;
-import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
-import handist.collections.glb.DistColGlb;
 
-/**
- * A class for handling objects at multiple places. It is allowed to add new
- * elements dynamically. This class provides the method for load balancing.
- * <p>
- * Note: In the current implementation, there are some limitations.
- * <ul>
- * <li>There is only one load balancing method: the method flattens the number
- * of elements of the all places.
- * </ul>
- *
- * @param <T> the type of elements handled by this {@link DistCol}
- */
-@DefaultSerializer(JavaSerializer.class)
-public class DistCol<T> extends ChunkedList<T>
-        implements DistributedCollection<T, DistCol<T>>, ElementLocationManagable<LongRange>, RangeRelocatable<LongRange>, SerializableWithReplace {
+import java.io.ObjectStreamException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
-    static class DistributionManager<T> extends GeneralDistManager<DistCol<T>> implements Serializable {
+import static apgas.Constructs.here;
 
-        /** Serial Version UID */
-        private static final long serialVersionUID = 456677767130722164L;
-
-        public DistributionManager(TeamedPlaceGroup placeGroup, GlobalID id, DistCol<T> branch) {
-            super(placeGroup, id, branch);
-        }
-
-        @Override
-        public void checkDistInfo(long[] result) {
-            for (final Map.Entry<LongRange, Place> entry : branch.ldist.dist.entrySet()) {
-                final LongRange k = entry.getKey();
-                final Place p = entry.getValue();
-                result[placeGroup.rank(p)] += k.size();
-            }
-        }
-
-        @Override
-        protected void moveAtSyncCount(ArrayList<IntLongPair> moveList, CollectiveMoveManager mm) throws Exception {
-            branch.moveAtSyncCount(moveList, mm);
-        }
-
-    }
+public class DistCol<T> extends DistChunkedList<T> implements  ElementLocationManagable<LongRange> {
 
     private static int _debug_level = 5;
-
-    private static float[] initialLocality(final int size) {
-        final float[] result = new float[size];
-        Arrays.fill(result, 1.0f);
-        return result;
-    }
-
-    /**
-     * Handle to operations that can benefit from load balance when called inside an
-     * "underGLB" method.
-     */
-    public transient final DistColGlb<T> GLB;
-
-    /**
-     * Handle to Global Operations implemented by {@link DistCol}.
-     */
-    public transient final GlobalOperations<T,DistCol<T>>  GLOBAL;
-
     /**
      * Internal class that handles distribution-related operations.
      */
     protected final transient ElementLocationManager<LongRange> ldist;
 
-    protected transient DistributionManager<T> manager;
-
-    /**
-     * Function kept and used when the local handle does not contain the specified
-     * index in method {@link #get(long)}. This proxy will return a value to be
-     * returned by the {@link #get(long)} method rather than throwing an
-     * {@link Exception}.
-     */
-    private Function<Long, T> proxyGenerator;
-
-    /**
-     * Handle to Team Operations implemented by {@link DistCol}.
-     */
-    protected final transient TeamOperations<T, DistCol<T>> TEAM;
-
     /**
      * Create a new DistCol. All the hosts participating in the distributed
      * computation are susceptible to handle the created instance. This constructor
-     * is equivalent to calling {@link #DistCol(TeamedPlaceGroup)} with
+     * is equivalent to calling {@link #DistColManagerd(TeamedPlaceGroup)} with
      * {@link TeamedPlaceGroup#getWorld()} as argument.
      */
     public DistCol() {
@@ -146,7 +48,7 @@ public class DistCol<T> extends ChunkedList<T>
 
     /**
      * Private constructor by which the locality and the GlobalId associated with
-     * the {@link DistCol} are explicitly given. This constructor should only be
+     * the {@link DistChunkedList} are explicitly given. This constructor should only be
      * used internally when creating the local handle of a DistCol already created
      * on a remote place. Calling this constructor with an existing {@link GlobalID}
      * which is already linked with existing and potentially different objects could
@@ -157,15 +59,17 @@ public class DistCol<T> extends ChunkedList<T>
      * @param id         the global id used to identify all the local handles
      */
     private DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id) {
-        super();
-        id.putHere(this);
-        manager = new DistributionManager<>(placeGroup, id, this);
-        manager.locality = initialLocality(placeGroup.size);
+        super(placeGroup, id, (TeamedPlaceGroup pg, GlobalID gid)->new DistCol<>(pg, gid));
         ldist = new ElementLocationManager<>();
-        TEAM = new TeamOperations<>(this);
-        GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg, GlobalID gid)->new DistCol<>(pg, gid));
-        GLB = new DistColGlb<>(this);
     }
+
+    /**
+     * Function kept and used when the local handle does not contain the specified
+     * index in method {@link #get(long)}. This proxy will return a value to be
+     * returned by the {@link #get(long)} method rather than throwing an
+     * {@link Exception}.
+     */
+    private Function<Long, T> proxyGenerator;
 
     @Override
     public void add(final RangedList<T> c) throws ElementOverlapException {
@@ -183,14 +87,24 @@ public class DistCol<T> extends ChunkedList<T>
     public void clear() {
         super.clear();
         ldist.clear();
-        Arrays.fill(manager.locality, 1.0f);
     }
 
-    @Override
-    public void forEach(SerializableConsumer<T> action) {
-        super.forEach(action);
-    }
 
+
+    /**
+     * Sets this instance's proxy generator.
+     *
+     * The proxy feature is used to prepare an element when access to an index that
+     * is not contained in the local range. Instead of throwing an
+     * {@link IndexOutOfBoundsException}, the value generated by the proxy will be
+     * used. It resembles `getOrDefault(key, defaultValue)`.
+     *
+     * @param proxyGenerator function that takes a {@link Long} index as parameter
+     *                       and returns a T
+     */
+    public void setProxyGenerator(Function<Long, T> proxyGenerator) {
+        this.proxyGenerator = proxyGenerator;
+    }
     /**
      * Return the value corresponding to the specified index.
      *
@@ -220,64 +134,40 @@ public class DistCol<T> extends ChunkedList<T>
             }
         }
     }
-
-    @Override
-    public Collection<LongRange> getAllRanges() {
-        return ranges();
+    private void putForMove(final RangedList<T> c, final byte mType) throws Exception {
+        final LongRange key = c.getRange();
+        switch (mType) {
+            case ElementLocationManager.MOVE_NEW:
+                ldist.moveInNew(key);
+                break;
+            case ElementLocationManager.MOVE_OLD:
+                ldist.moveInOld(key);
+                break;
+            default:
+                throw new Exception("SystemError when calling putForMove " + key);
+        }
+        super.add(c);
     }
 
-    Map<LongRange, Integer> getDiff() {
-        return ldist.diff;
-    }
-
-    public ConcurrentHashMap<LongRange, Place> getDist() {
-        return ldist.dist;
-    }
-
-    public LongDistribution getDistributionLong() {
-        return LongDistribution.convert(getDist());
-    }
-
-    public LongRangeDistribution getRangedDistributionLong() {
-        return new LongRangeDistribution(getDist());
-    }
-
-    @Override
-    public GlobalOperations<T, DistCol<T>> global() {
-        return GLOBAL;
-    }
-
-    @Override
-    public int hashCode() {
-        return (int) id().gid();
-    }
-
-    @Override
-    public GlobalID id() {
-        return manager.id;
-    }
-
-    @Override
-    public long longSize() {
-        return super.size();
-    }
-
-    @Override
-    public float[] locality() {
-        // TODO check if this is correct
-        return manager.locality;
-    }
-
-    public void getSizeDistribution(long[] result) {
-        for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
-            final LongRange k = entry.getKey();
-            final Place p = entry.getValue();
-            result[manager.placeGroup.rank(p)] += k.size();
+    private void removeForMove(final LongRange r) {
+        if (super.remove(r) == null) {
+            throw new RuntimeException("DistCol#removeForMove");
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private void moveAtSync(final List<RangedList<T>> cs, final Place dest, final MoveManager mm) {
+    @Override
+    public RangedList<T> remove(final LongRange r) {
+        ldist.remove(r);
+        return super.remove(r);
+    }
+
+    @Deprecated
+    @Override
+    public RangedList<T> remove(final RangedList<T> c) {
+        ldist.remove(c.getRange());
+        return super.remove(c);
+    }
+    protected void moveAtSync(final List<RangedList<T>> cs, final Place dest, final MoveManager mm) {
         if (_debug_level > 5) {
             System.out.print("[" + here().id + "] moveAtSync List[RangedList[T]]: ");
             for (final RangedList<T> rl : cs) {
@@ -316,189 +206,32 @@ public class DistCol<T> extends ChunkedList<T>
         mm.request(dest, serialize, deserialize);
     }
 
-    @Override
-    public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManager mm) throws Exception {
-        // TODO ->LinkedList? sort??
-        final ArrayList<LongRange> localKeys = new ArrayList<>();
-        localKeys.addAll(ranges());
-        localKeys.sort((LongRange range1, LongRange range2) -> {
-            final long len1 = range1.to - range1.from;
-            final long len2 = range2.to - range2.from;
-            return (int) (len1 - len2);
-        });
-        if (_debug_level > 5) {
-            System.out.print("[" + here() + "] ");
-            for (int i = 0; i < localKeys.size(); i++) {
-                System.out.print("" + localKeys.get(i).from + ".." + localKeys.get(i).to + ", ");
-            }
-            System.out.println();
-        }
-        for (final IntLongPair moveinfo : moveList) {
-            final long count = moveinfo.second;
-            final Place dest = manager.placeGroup.get(moveinfo.first);
-            if (_debug_level > 5) {
-                System.out.println("[" + here() + "] move count=" + count + " to dest " + dest.id);
-            }
-            if (dest.equals(here())) {
-                continue;
-            }
-            long sizeToSend = count;
-            while (sizeToSend > 0) {
-                final LongRange lk = localKeys.remove(0);
-                final long len = lk.to - lk.from;
-                if (len > sizeToSend) {
-                    moveRangeAtSync(new LongRange(lk.from, lk.from + sizeToSend), dest, mm);
-                    localKeys.add(0, new LongRange(lk.from + sizeToSend, lk.to));
-                    break;
-                } else {
-                    moveRangeAtSync(lk, dest, mm);
-                    sizeToSend -= len;
-                }
-            }
+    Map<LongRange, Integer> getDiff() {
+        return ldist.diff;
+    }
+
+    public ConcurrentHashMap<LongRange, Place> getDist() {
+        return ldist.dist;
+    }
+
+    public LongDistribution getDistributionLong() {
+        return LongDistribution.convert(getDist());
+    }
+
+    public LongRangeDistribution getRangedDistributionLong() {
+        return new LongRangeDistribution(getDist());
+    }
+
+    public void getSizeDistribution(long[] result) {
+        for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
+            final LongRange k = entry.getKey();
+            final Place p = entry.getValue();
+            result[manager.placeGroup.rank(p)] += k.size();
         }
     }
-
-    public void moveRangeAtSync(final Distribution<Long> dist, final CollectiveMoveManager mm) {
-        moveRangeAtSync((LongRange range) -> {
-            final ArrayList<Pair<Place, LongRange>> listPlaceRange = new ArrayList<>();
-            for (final Long key : range) {
-                listPlaceRange.add(new Pair<>(dist.place(key), new LongRange(key, key + 1)));
-            }
-            return listPlaceRange;
-        }, mm);
-    }
-
-    public void moveRangeAtSync(Function<LongRange, List<Pair<Place, LongRange>>> rule, CollectiveMoveManager mm) {
-        final DistCol<T> collection = this;
-        final HashMap<Place, ArrayList<LongRange>> rangesToMove = new HashMap<>();
-
-        collection.forEachChunk((RangedList<T> c) -> {
-            final List<Pair<Place, LongRange>> destinationList = rule.apply(c.getRange());
-            for (final Pair<Place, LongRange> destination : destinationList) {
-                final Place destinationPlace = destination.first;
-                final LongRange destinationRange = destination.second;
-                if (!rangesToMove.containsKey(destinationPlace)) {
-                    rangesToMove.put(destinationPlace, new ArrayList<LongRange>());
-
-                }
-                rangesToMove.get(destinationPlace).add(destinationRange);
-            }
-        });
-        for (final Place place : rangesToMove.keySet()) {
-            for (final LongRange range : rangesToMove.get(place)) {
-                moveRangeAtSync(range, place, mm);
-            }
-        }
-    }
-
-    /**
-     * This implementation only accepts for range that either match an existing
-     * chunk contained in this collection or a range which is entirely contained
-     * within a single chunk of this collection. Ranges which span multiple chunks
-     * will cause exceptions to be thrown.
-     */
-    @Override
-    public void moveRangeAtSync(final LongRange range, final Place dest, final MoveManager mm) {
-        if (_debug_level > 5) {
-            System.out.println("[" + here().id + "] moveAtSync range: " + range + " dest: " + dest.id);
-        }
-
-        final ArrayList<RangedList<T>> chunksToMove = splitChunks(range);
-        if (chunksToMove.isEmpty()) {
-            return;
-        }
-        moveAtSync(chunksToMove, dest, mm);
-    }
-
-    public void moveRangeAtSync(final RangedDistribution<LongRange> dist, final CollectiveMoveManager mm)
-            throws Exception {
-        moveRangeAtSync((LongRange range) -> {
-            return dist.placeRanges(range);
-        }, mm);
-    }
-
-    @Override
-    public void parallelForEach(SerializableConsumer<T> action) {
-        super.parallelForEach(action);
-    }
-
-    @Override
-    public TeamedPlaceGroup placeGroup() {
-        return manager.placeGroup;
-    }
-
-    // Method moved to GLOBAL and TEAM operations
-    // @Override
-    // public void distSize(long[] result) {
-    // for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
-    // final LongRange k = entry.getKey();
-    // final Place p = entry.getValue();
-    // result[manager.placeGroup.rank(p)] += k.size();
-    // }
-    // }
-
-    private void putForMove(final RangedList<T> c, final byte mType) throws Exception {
-        final LongRange key = c.getRange();
-        switch (mType) {
-        case ElementLocationManager.MOVE_NEW:
-            ldist.moveInNew(key);
-            break;
-        case ElementLocationManager.MOVE_OLD:
-            ldist.moveInOld(key);
-            break;
-        default:
-            throw new Exception("SystemError when calling putForMove " + key);
-        }
-        super.add(c);
-    }
-
-    @Override
-    public RangedList<T> remove(final LongRange r) {
-        ldist.remove(r);
-        return super.remove(r);
-    }
-
-    @Deprecated
-    @Override
-    public RangedList<T> remove(final RangedList<T> c) {
-        ldist.remove(c.getRange());
-        return super.remove(c);
-    }
-
-    private void removeForMove(final LongRange r) {
-        if (super.remove(r) == null) {
-            throw new RuntimeException("DistCol#removeForMove");
-        }
-    }
-
-    /**
-     * Sets this instance's proxy generator.
-     *
-     * The proxy feature is used to prepare an element when access to an index that
-     * is not contained in the local range. Instead of throwing an
-     * {@link IndexOutOfBoundsException}, the value generated by the proxy will be
-     * used. It resembles `getOrDefault(key, defaultValue)`.
-     *
-     * @param proxyGenerator function that takes a {@link Long} index as parameter
-     *                       and returns a T
-     */
-    public void setProxyGenerator(Function<Long, T> proxyGenerator) {
-        this.proxyGenerator = proxyGenerator;
-    }
-
-    @Override
-    public TeamOperations<T, DistCol<T>> team() {
-        return TEAM;
-    }
-
     @Override
     public void updateDist() {
         ldist.updateDist(manager.placeGroup);
-    }
-
-    @Override
-    public String toString() {
-        return getClass().getSimpleName() + ":" + id();
     }
 
     @Override
@@ -509,4 +242,5 @@ public class DistCol<T> extends ChunkedList<T>
             return new DistCol<>(pg1, id1);
         });
     }
+
 }

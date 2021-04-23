@@ -30,7 +30,7 @@ import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
 import handist.collections.dist.CollectiveMoveManager;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -55,11 +55,11 @@ public class IT_GlbProgramTest1 implements Serializable {
     /** Serial Version UID */
     private static final long serialVersionUID = -5017047700763986362L;
 
-    /** Total number of elements contained in the {@link DistCol} */
+    /** Total number of elements contained in the {@link DistChunkedList} */
     final static long TOTAL_DATA_SIZE = LONGRANGE_COUNT * RANGE_SIZE;
 
     /** DistCol used to test the GLB functionalities */
-    DistCol<Element> col;
+    DistChunkedList<Element> col;
 
     /** PlaceGroup on which collection #col is defined */
     TeamedPlaceGroup placeGroup;
@@ -85,7 +85,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     @Before
     public void setup() {
         placeGroup = TeamedPlaceGroup.getWorld();
-        col = new DistCol<>(placeGroup);
+        col = new DistChunkedList<>(placeGroup);
 
         y_populateCollection();
         y_makeDistribution();
@@ -110,7 +110,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     public void testDistFutureGetResult() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final DistCol<Element> result = col.GLB.forEach(addZToPrefix).result();
+                final DistChunkedList<Element> result = col.GLB.forEach(addZToPrefix).result();
                 assertEquals(result, col); // In the case of forEach, result is the same object
 
                 // As the result is a blocking call, the checks will only be made after the
@@ -166,7 +166,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     public void testPriority() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final DistFuture<DistCol<Element>> future = col.GLB.forEach(makePrefixTest);
+                final DistFuture<DistChunkedList<Element>> future = col.GLB.forEach(makePrefixTest);
                 assertEquals(0, future.getPriority());
                 future.setPriority(42);
                 assertEquals(42, future.getPriority());
@@ -314,10 +314,10 @@ public class IT_GlbProgramTest1 implements Serializable {
     public void testWaitGlobalTerminationRedundantCall() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final DistFuture<DistCol<Element>> future = col.GLB.forEach(addZToPrefix);
+                final DistFuture<DistChunkedList<Element>> future = col.GLB.forEach(addZToPrefix);
                 future.waitGlobalTermination();
                 future.waitGlobalTermination(); // This second call should not do anything
-                final DistCol<Element> result = future.result(); // Result should already be available
+                final DistChunkedList<Element> result = future.result(); // Result should already be available
 
                 // As the result is a blocking call, the checks will only be made after the
                 // first forEach operation has completed

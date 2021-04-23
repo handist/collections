@@ -19,7 +19,7 @@ import org.junit.runner.RunWith;
 import apgas.Place;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.glb.lifeline.Loop;
 import handist.mpijunit.MpiConfig;
@@ -78,13 +78,13 @@ public class IT_SerializationInGLB implements Serializable {
 
     /**
      * Checks that the distCol contains exactly the specified number of entries. The
-     * {@link DistCol#size()} needs to match the specified parameter.
+     * {@link DistChunkedList#size()} needs to match the specified parameter.
      *
      * @param col           DistCol whose global size is to be checked
      * @param expectedCount expected total number of entries in the DistCol instance
      * @throws Throwable if thrown during the check
      */
-    private static void z_checkDistColTotalElements(DistCol<Integer> col, long expectedCount) throws Throwable {
+    private static void z_checkDistColTotalElements(DistChunkedList<Integer> col, long expectedCount) throws Throwable {
         long count = 0;
         for (final Place p : col.placeGroup().places()) {
             count += at(p, () -> {
@@ -97,11 +97,11 @@ public class IT_SerializationInGLB implements Serializable {
     /**
      * Distributed collection on which the tests are performed
      */
-    DistCol<Integer> col;
+    DistChunkedList<Integer> col;
 
     @Before
     public void setUp() throws Exception {
-        col = new DistCol<>(WORLD);
+        col = new DistChunkedList<>(WORLD);
         z_populateCollection(col);
     }
 
@@ -181,7 +181,7 @@ public class IT_SerializationInGLB implements Serializable {
      *
      * @param collection collection to populate
      */
-    private void z_populateCollection(DistCol<Integer> collection) {
+    private void z_populateCollection(DistChunkedList<Integer> collection) {
         long rangeBegin = 0; // inclusive
         long rangeEnd; // exclusive
         try {

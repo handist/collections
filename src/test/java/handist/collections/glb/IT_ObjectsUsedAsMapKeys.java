@@ -12,7 +12,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import handist.collections.LongRange;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.DistributedCollection;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.mpijunit.MpiConfig;
@@ -63,12 +63,12 @@ public class IT_ObjectsUsedAsMapKeys implements Serializable {
 
     @Test
     public void testCollectionAsKey() {
-        final DistCol<Element> collection = new DistCol<>();
+        final DistChunkedList<Element> collection = new DistChunkedList<>();
         distributedCollectionMap.put(collection, new Integer(42));
         finish(() -> {
             asyncAt(place(1), () -> {
                 @SuppressWarnings("rawtypes")
-                final DistCol c = collection;
+                final DistChunkedList c = collection;
                 asyncAt(place(0), () -> {
                     assertNotNull(IT_ObjectsUsedAsMapKeys.distributedCollectionMap.get(c));
                     assertTrue(IT_ObjectsUsedAsMapKeys.distributedCollectionMap.containsKey(c));
@@ -80,8 +80,8 @@ public class IT_ObjectsUsedAsMapKeys implements Serializable {
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Test
     public void testGlbOperationAsKey() throws Exception {
-        final DistCol<Element> collection = new DistCol<>();
-        final GlbOperation<DistCol<Element>, Element, LongRange, LongRange, DistCol<Element>> operationKey = new GlbOperation(
+        final DistChunkedList<Element> collection = new DistChunkedList<>();
+        final GlbOperation<DistChunkedList<Element>, Element, LongRange, LongRange, DistChunkedList<Element>> operationKey = new GlbOperation(
                 collection, (a, b) -> {
                     ;
                 }, new DistFuture(collection), () -> {

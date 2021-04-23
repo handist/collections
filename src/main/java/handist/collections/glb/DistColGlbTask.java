@@ -29,12 +29,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import apgas.Place;
 import apgas.impl.Finish;
 import handist.collections.LongRange;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.glb.Config.LifelineAnswerMode;
 import handist.collections.glb.GlbComputer.LifelineToken;
 
 /**
- * Implementation of GlbTask for the {@link DistCol} distributed collection.
+ * Implementation of GlbTask for the {@link DistChunkedList} distributed collection.
  * This implementation relies on {@link LongRange} to describe assignments taken
  * up by workers.
  *
@@ -45,7 +45,7 @@ public class DistColGlbTask implements GlbTask {
 
     /**
      * Class describing the progress of the various operations taking place on a
-     * range pertaining to the {@link handist.collections.dist.DistCol}
+     * range pertaining to the {@link DistChunkedList}
      *
      * @author Patrick Finnerty
      *
@@ -112,8 +112,8 @@ public class DistColGlbTask implements GlbTask {
         }
 
         /**
-         * Indicates if an assignment of {@link DistCol} can be split in two assignments
-         * with work in both of them. For an assignment of {@link DistCol}, this method
+         * Indicates if an assignment of {@link DistChunkedList} can be split in two assignments
+         * with work in both of them. For an assignment of {@link DistChunkedList}, this method
          * will return {@code true} if the following two conditions are met:
          * <ol>
          * <li>The range of this assignment is greater than the provided parameter
@@ -374,7 +374,7 @@ public class DistColGlbTask implements GlbTask {
      * Underlying collection on which the assignments operate
      */
     @SuppressWarnings("rawtypes")
-    private final DistCol collection;
+    private final DistChunkedList collection;
 
     /**
      * Constructor
@@ -383,7 +383,7 @@ public class DistColGlbTask implements GlbTask {
      *                    undergo some operations under this class' supervision
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    DistColGlbTask(DistCol localHandle) {
+    DistColGlbTask(DistChunkedList localHandle) {
         collection = localHandle;
         availableAssignments = new ConcurrentLinkedQueue<>();
         assignedAssignments = new ConcurrentLinkedQueue<>();
@@ -534,7 +534,7 @@ public class DistColGlbTask implements GlbTask {
     /**
      * Merges the given assignments into this GlbTask. This method is called by a
      * lifeline answer after the instances on which the assignment operate have been
-     * integrated into the underlying {@link DistCol}.
+     * integrated into the underlying {@link DistChunkedList}.
      *
      * @param quantities  the number of assignment which have work for each glb
      *                    operation entered as a key in this map
@@ -584,7 +584,7 @@ public class DistColGlbTask implements GlbTask {
      * @param op the new operation available for processing
      * @return true if some new work is available on the local host as a result of
      *         this new operation. A case where this method would return false is if
-     *         there were no elements in the local handle of {@link DistCol}.
+     *         there were no elements in the local handle of {@link DistChunkedList}.
      */
     @Override
     public boolean newOperation(@SuppressWarnings("rawtypes") GlbOperation op) {
