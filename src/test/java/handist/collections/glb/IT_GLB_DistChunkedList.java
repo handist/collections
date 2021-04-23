@@ -30,7 +30,7 @@ import handist.collections.LongRange;
 import handist.collections.RangedList;
 import handist.collections.dist.CollectiveMoveManager;
 import handist.collections.dist.DistBag;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.Reducer;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.mpijunit.MpiConfig;
@@ -39,7 +39,7 @@ import handist.mpijunit.launcher.TestLauncher;
 
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 4, launcher = TestLauncher.class)
-public class IT_GLB_DistCol implements Serializable {
+public class IT_GLB_DistChunkedList implements Serializable {
 
     /**
      * Dummy reduction implementation which counts the number of instances on a
@@ -90,10 +90,10 @@ public class IT_GLB_DistCol implements Serializable {
     /** Serial Version UID */
     private static final long serialVersionUID = 3890454865986201964L;
 
-    /** Total number of elements contained in the {@link DistCol} */
+    /** Total number of elements contained in the {@link DistChunkedList} */
     final static long TOTAL_DATA_SIZE = LONGRANGE_COUNT * RANGE_SIZE;
 
-    private static <T> void y_makeDistribution(DistCol<T> col) {
+    private static <T> void y_makeDistribution(DistChunkedList<T> col) {
         // Transfer elements to remote hosts (Places 0, 1, 2 - 3 doesn't get any)
         final TeamedPlaceGroup pg = col.placeGroup();
         pg.broadcastFlat(() -> {
@@ -113,7 +113,7 @@ public class IT_GLB_DistCol implements Serializable {
      *
      * @param col the collection which needs to be populated
      */
-    private static void y_populateDistCol(DistCol<Element> col) {
+    private static void y_populateDistCol(DistChunkedList<Element> col) {
         for (long l = 0l; l < LONGRANGE_COUNT; l++) {
             final long from = l * RANGE_SIZE;
             final long to = from + RANGE_SIZE;
@@ -165,12 +165,12 @@ public class IT_GLB_DistCol implements Serializable {
 
     /**
      * Checks that the distCol contains exactly the specified number of entries. The
-     * {@link DistCol#size()} needs to match the specified parameter.
+     * {@link DistChunkedList#size()} needs to match the specified parameter.
      *
-     * @param expectedCount expected total number of entries in {@link #distCol}
+     * @param expectedCount expected total number of entries in {@link #distChunkedList}
      * @throws Throwable if thrown during the check
      */
-    private static void z_checkDistColTotalElements(DistCol<Element> col, long expectedCount) throws Throwable {
+    private static void z_checkDistColTotalElements(DistChunkedList<Element> col, long expectedCount) throws Throwable {
         long count = 0;
         for (final Place p : col.placeGroup().places()) {
             count += at(p, () -> {
@@ -181,13 +181,13 @@ public class IT_GLB_DistCol implements Serializable {
     }
 
     /**
-     * Checks that the prefix of each element in {@link #distCol} is the one
+     * Checks that the prefix of each element in {@link #distChunkedList} is the one
      * specified
      *
      * @param prefix expected prefix
      * @throws Throwable if thrown during the check
      */
-    private static void z_checkPrefixIs(DistCol<Element> col, final String prefix) throws Throwable {
+    private static void z_checkPrefixIs(DistChunkedList<Element> col, final String prefix) throws Throwable {
         try {
             col.GLOBAL.forEach((e) -> assertTrue("String was " + e.s + " when it should have started with " + prefix,
                     e.s.startsWith(prefix)));
@@ -218,7 +218,7 @@ public class IT_GLB_DistCol implements Serializable {
      * @param suffix string which should be at the end of each element
      * @throws Throwable of throw during the test
      */
-    private static void z_checkSuffixIs(DistCol<Element> col, final String suffix) throws Throwable {
+    private static void z_checkSuffixIs(DistChunkedList<Element> col, final String suffix) throws Throwable {
         try {
             col.GLOBAL
                     .forEach((e) -> assertTrue("String was " + e.s + " when it should have ended with String:" + suffix,
@@ -232,7 +232,7 @@ public class IT_GLB_DistCol implements Serializable {
      * Distributed collection which is the object of the tests. It is defined on the
      * entire world.
      */
-    DistCol<Element> distCol;
+    DistChunkedList<Element> distChunkedList;
 
     /**
      * Whole world
@@ -242,15 +242,15 @@ public class IT_GLB_DistCol implements Serializable {
     @Before
     public void setUp() throws Exception {
         placeGroup = TeamedPlaceGroup.getWorld();
-        distCol = new DistCol<>();
+        distChunkedList = new DistChunkedList<>();
 
-        y_populateDistCol(distCol);
-        y_makeDistribution(distCol);
+        y_populateDistCol(distChunkedList);
+        y_makeDistribution(distChunkedList);
     }
 
     @After
     public void tearDown() throws Exception {
-        distCol.destroy();
+        distChunkedList.destroy();
         TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
             GlbComputer.destroyGlbComputer();
         });
@@ -285,7 +285,7 @@ public class IT_GLB_DistCol implements Serializable {
     public void testForEach() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                distCol.GLB.forEach(makePrefixTest);
+                distChunkedList.GLB.forEach(makePrefixTest);
             });
             if (!ex.isEmpty()) {
                 ex.get(0).printStackTrace();
@@ -294,8 +294,8 @@ public class IT_GLB_DistCol implements Serializable {
         } catch (final MultipleException me) {
             printExceptionAndThrowFirst(me);
         }
-        z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE);
-        z_checkPrefixIs(distCol, "Test");
+        z_checkDistColTotalElements(distChunkedList, TOTAL_DATA_SIZE);
+        z_checkPrefixIs(distChunkedList, "Test");
     }
 
     /**
@@ -310,7 +310,7 @@ public class IT_GLB_DistCol implements Serializable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
                 // Check that no error is thrown during the GLB operation
-                assertTrue(distCol.GLB.forEach((l, e) -> {
+                assertTrue(distChunkedList.GLB.forEach((l, e) -> {
                     assertTrue(e.s.endsWith(l + "#"));
                 }).getErrors().isEmpty());
             });
@@ -321,7 +321,7 @@ public class IT_GLB_DistCol implements Serializable {
         } catch (final MultipleException me) {
             printExceptionAndThrowFirst(me);
         }
-        z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE);
+        z_checkDistColTotalElements(distChunkedList, TOTAL_DATA_SIZE);
     }
 
     /**
@@ -336,12 +336,12 @@ public class IT_GLB_DistCol implements Serializable {
     public void testMap() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final DistCol<Element> result = distCol.GLB.map((e) -> {
+                final DistChunkedList<Element> result = distChunkedList.GLB.map((e) -> {
                     return new Element(e.s + "Test");
                 }).result();
 
                 try {
-                    z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE); // This shouldn't have changed
+                    z_checkDistColTotalElements(distChunkedList, TOTAL_DATA_SIZE); // This shouldn't have changed
                     z_checkDistColTotalElements(result, TOTAL_DATA_SIZE); // Should contain the same number of elements
                     z_checkSuffixIs(result, "Test"); // The elements contained in the result should have 'Test' as
                     // prefix
@@ -372,7 +372,7 @@ public class IT_GLB_DistCol implements Serializable {
             final ArrayList<Exception> ex = underGLB(() -> {
                 final SumReduction red = new SumReduction();
 
-                final SumReduction result = distCol.GLB.reduce(red).result();
+                final SumReduction result = distChunkedList.GLB.reduce(red).result();
                 assertEquals(red, result);
                 assertEquals(TOTAL_DATA_SIZE, result.runningSum);
             });
@@ -397,14 +397,14 @@ public class IT_GLB_DistCol implements Serializable {
     @Test(timeout = 10000)
     public void testSetup() {
         long total = 0;
-        for (final Place p : distCol.placeGroup().places()) {
+        for (final Place p : distChunkedList.placeGroup().places()) {
             total += at(p, () -> {
                 if (p.id != 3) {
-                    assertTrue(distCol.numChunks() > 0);
+                    assertTrue(distChunkedList.numChunks() > 0);
                 } else {
-                    assertTrue(distCol.numChunks() == 0);
+                    assertTrue(distChunkedList.numChunks() == 0);
                 }
-                return distCol.size();
+                return distChunkedList.size();
             });
         }
         assertEquals(TOTAL_DATA_SIZE, total);
@@ -420,12 +420,12 @@ public class IT_GLB_DistCol implements Serializable {
     public void testToBag() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final DistBag<Element> result = distCol.GLB.toBag((e) -> {
+                final DistBag<Element> result = distChunkedList.GLB.toBag((e) -> {
                     return new Element(e.s + "Test");
                 }).result();
 
                 try {
-                    z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE); // This shouldn't have changed
+                    z_checkDistColTotalElements(distChunkedList, TOTAL_DATA_SIZE); // This shouldn't have changed
                     // There should be as many lists in the handles of the DistBag as there are
                     // workers on the hosts
                     z_checkBagNumberOfLists(result, GlbComputer.getComputer().MAX_WORKERS);
@@ -456,8 +456,8 @@ public class IT_GLB_DistCol implements Serializable {
     public void testTwoConcurrentForEach() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                distCol.GLB.forEach(makePrefixTest);
-                distCol.GLB.forEach(makeSuffixTest);
+                distChunkedList.GLB.forEach(makePrefixTest);
+                distChunkedList.GLB.forEach(makeSuffixTest);
             });
             if (!ex.isEmpty()) {
                 ex.get(0).printStackTrace();
@@ -466,18 +466,18 @@ public class IT_GLB_DistCol implements Serializable {
         } catch (final MultipleException me) {
             printExceptionAndThrowFirst(me);
         }
-        z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE);
-        z_checkPrefixIs(distCol, "Test");
-        z_checkSuffixIs(distCol, "Test");
+        z_checkDistColTotalElements(distChunkedList, TOTAL_DATA_SIZE);
+        z_checkPrefixIs(distChunkedList, "Test");
+        z_checkSuffixIs(distChunkedList, "Test");
     }
 
     @Test(timeout = 20000)
     public void testTwoDifferentCollectionsComputations() throws Throwable {
-        final DistCol<Element> otherCol = new DistCol<>();
+        final DistChunkedList<Element> otherCol = new DistChunkedList<>();
         y_populateDistCol(otherCol);
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                distCol.GLB.forEach(makeSuffixTest);
+                distChunkedList.GLB.forEach(makeSuffixTest);
                 otherCol.GLB.forEach(makePrefixTest);
             });
             if (!ex.isEmpty()) {
@@ -488,9 +488,9 @@ public class IT_GLB_DistCol implements Serializable {
             printExceptionAndThrowFirst(me);
         }
 
-        z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE);
+        z_checkDistColTotalElements(distChunkedList, TOTAL_DATA_SIZE);
         z_checkDistColTotalElements(otherCol, TOTAL_DATA_SIZE);
-        z_checkSuffixIs(distCol, "Test");
+        z_checkSuffixIs(distChunkedList, "Test");
         z_checkPrefixIs(otherCol, "Test");
 
         otherCol.destroy();
@@ -500,8 +500,8 @@ public class IT_GLB_DistCol implements Serializable {
     public void testTwoForEachAfterOneAnother() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final DistFuture<?> prefixFuture = distCol.GLB.forEach(makePrefixTest);
-                distCol.GLB.forEach(makeSuffixTest).after(prefixFuture);
+                final DistFuture<?> prefixFuture = distChunkedList.GLB.forEach(makePrefixTest);
+                distChunkedList.GLB.forEach(makeSuffixTest).after(prefixFuture);
             });
             if (!ex.isEmpty()) {
                 ex.get(0).printStackTrace();
@@ -510,8 +510,8 @@ public class IT_GLB_DistCol implements Serializable {
         } catch (final MultipleException me) {
             printExceptionAndThrowFirst(me);
         }
-        z_checkDistColTotalElements(distCol, TOTAL_DATA_SIZE);
-        z_checkPrefixIs(distCol, "Test");
-        z_checkSuffixIs(distCol, "Test");
+        z_checkDistColTotalElements(distChunkedList, TOTAL_DATA_SIZE);
+        z_checkPrefixIs(distChunkedList, "Test");
+        z_checkSuffixIs(distChunkedList, "Test");
     }
 }

@@ -10,6 +10,18 @@
  ******************************************************************************/
 package handist.collections.dist;
 
+import static apgas.Constructs.*;
+import static org.junit.Assert.*;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import apgas.MultipleException;
 import apgas.Place;
 import handist.collections.Chunk;
@@ -19,17 +31,6 @@ import handist.collections.function.SerializableFunction;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-
-import static apgas.Constructs.here;
-import static org.junit.Assert.assertEquals;
 
 /**
  * Tests for the distributed features of {@link DistChunkedList}
@@ -39,7 +40,7 @@ import static org.junit.Assert.assertEquals;
  */
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 2, launcher = TestLauncher.class)
-public class IT_DistCol implements Serializable {
+public class IT_DistChunkedList implements Serializable {
 
     /** Number of Chunks used in the test */
     static final long chunkNumber = 50;
@@ -54,7 +55,7 @@ public class IT_DistCol implements Serializable {
     /** Object instance under test, initially empty */
     DistBag<List<String>> distBag;
     /** Object instance under test, initially empty */
-    DistCol<String> distCol;
+    DistChunkedList<String> distChunkedList;
     /** Number of processes on which this test is running */
     int NPLACES;
     /** PlaceGroup representing the whole world */
@@ -67,7 +68,7 @@ public class IT_DistCol implements Serializable {
     public void setup() {
         placeGroup = TeamedPlaceGroup.world;
         NPLACES = placeGroup.size();
-        distCol = new DistCol<>(placeGroup);
+        distChunkedList = new DistChunkedList<>(placeGroup);
         distBag = new DistBag<>(placeGroup);
     }
 
@@ -76,7 +77,7 @@ public class IT_DistCol implements Serializable {
      */
     @After
     public void tearDown() {
-        distCol.destroy();
+        distChunkedList.destroy();
         distBag.destroy();
     }
 
@@ -97,7 +98,7 @@ public class IT_DistCol implements Serializable {
                 for (long j = rangeBegin; j < rangeEnd; j++) {
                     c.set(j, "" + j + "/" + i);
                 }
-                distCol.add(c);
+                distChunkedList.add(c);
                 rangeBegin = rangeBegin + rangeSize + rangeSkip;
             }
         } catch (final Exception e) {
@@ -105,13 +106,13 @@ public class IT_DistCol implements Serializable {
             e.printStackTrace();
             throw e;
         }
-        final long INITIAL_SIZE = distCol.size();
+        final long INITIAL_SIZE = distChunkedList.size();
 
         // Check that the expected number of entries are indeed in DistCol
         try {
             placeGroup.broadcastFlat(() -> {
                 final long expected = placeGroup.rank(here()) == 0 ? INITIAL_SIZE : 0l;
-                assertEquals(expected, distCol.size());
+                assertEquals(expected, distChunkedList.size());
             });
         } catch (final MultipleException me) {
             throw me.getSuppressed()[0];
@@ -179,7 +180,7 @@ public class IT_DistCol implements Serializable {
                 c.set(j, "" + j + "/" + i);
             }
             newEntriesCount += c.size();
-            distCol.add(c);
+            distChunkedList.add(c);
             rangeBegin = rangeBegin + rangeSize + rangeSkip;
         }
         final long ADDED_ENTRIES = newEntriesCount;
@@ -199,14 +200,14 @@ public class IT_DistCol implements Serializable {
         placeGroup.broadcastFlat(() -> {
             try {
                 final ArrayList<RangedList<String>> chunkList = new ArrayList<>();
-                distCol.forEachChunk((RangedList<String> c) -> {
+                distChunkedList.forEachChunk((RangedList<String> c) -> {
                     final LongRange r = c.getRange();
                     if (r.from / (rangeSize + rangeSkip) >= chunkNumber) {
                         chunkList.add(c);
                     }
                 });
                 for (final RangedList<String> chunk : chunkList) {
-                    distCol.remove(chunk.getRange());
+                    distChunkedList.remove(chunk.getRange());
                 }
             } catch (final Exception e) {
                 System.err.println("Error on " + here());
@@ -231,7 +232,7 @@ public class IT_DistCol implements Serializable {
                 LongRange range = new LongRange(0, splitSizeLarge);
                 long dest = 0;
                 while (range.from < AllRange.to) {
-                    distCol.moveRangeAtSync(range, placeGroup.get((int) dest), mm);
+                    distChunkedList.moveRangeAtSync(range, placeGroup.get((int) dest), mm);
                     range = new LongRange(range.from + splitSizeLarge, range.to + splitSizeLarge);
                     dest = (dest + 1) % NPLACES;
                 }
@@ -254,7 +255,7 @@ public class IT_DistCol implements Serializable {
                 LongRange range = new LongRange(0, splitSizeSmall);
                 long dest = 0;
                 while (range.from < AllRange.to) {
-                    distCol.moveRangeAtSync(range, placeGroup.get((int) dest), mm);
+                    distChunkedList.moveRangeAtSync(range, placeGroup.get((int) dest), mm);
                     range = new LongRange(range.from + splitSizeSmall, range.to + splitSizeSmall);
                     dest = (dest + 1) % NPLACES;
                 }
@@ -276,7 +277,7 @@ public class IT_DistCol implements Serializable {
                 final long shift = (expectedShift + here().id) % NPLACES;
                 try {
                     // Check that each key/pair is on the right place
-                    for (final LongRange lr : distCol.getAllRanges()) {
+                    for (final LongRange lr : distChunkedList.getAllRanges()) {
                         final long chunkNumber = lr.from / (rangeSize + rangeSkip);
                         final long apparentShift = (chunkNumber % NPLACES);
                         assertEquals(shift, apparentShift);
@@ -304,7 +305,7 @@ public class IT_DistCol implements Serializable {
             placeGroup.broadcastFlat(() -> {
                 final long expected = size.apply(here());
                 try {
-                    assertEquals(expected, distCol.size());
+                    assertEquals(expected, distChunkedList.size());
                 } catch (final Throwable e) {
                     final RuntimeException re = new RuntimeException("Error on " + here());
                     re.initCause(e);
@@ -323,7 +324,7 @@ public class IT_DistCol implements Serializable {
 
                 try {
                     final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
-                    distCol.forEachChunk((RangedList<String> c) -> {
+                    distChunkedList.forEachChunk((RangedList<String> c) -> {
                         final LongRange r = c.getRange();
                         final String s = c.get(r.from);
                         // Every other chunk is sent to place 0 / 1
@@ -331,7 +332,7 @@ public class IT_DistCol implements Serializable {
                         // final ArrayList<RangedList<String>> cs = new ArrayList<>();
                         // cs.add(c);
                         // try {
-                        distCol.moveRangeAtSync(r, placeGroup.get(destination), mm);
+                        distChunkedList.moveRangeAtSync(r, placeGroup.get(destination), mm);
                         // } catch (final Exception e) {
                         // System.err.println("Error on " + here());
                         // e.printStackTrace();
@@ -356,11 +357,11 @@ public class IT_DistCol implements Serializable {
                 final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
                 final int rank = placeGroup.rank(here());
                 final Place destination = placeGroup.get(rank + 1 == placeGroup.size() ? 0 : rank + 1);
-                distCol.forEachChunk((c) -> {
+                distChunkedList.forEachChunk((c) -> {
                     // final ArrayList<RangedList<String>> cs = new ArrayList<>();
                     // cs.add(c);
                     // try {
-                    distCol.moveRangeAtSync(c.getRange(), destination, mm);
+                    distChunkedList.moveRangeAtSync(c.getRange(), destination, mm);
                     // } catch (final Exception e) {
                     // System.err.println("Error on " + here());
                     // e.printStackTrace();
@@ -381,12 +382,12 @@ public class IT_DistCol implements Serializable {
             try {
                 final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
                 final Place destination = placeGroup.get(0);
-                distCol.forEachChunk((c) -> {
+                distChunkedList.forEachChunk((c) -> {
                     // final ArrayList<RangedList<String>> cs = new ArrayList<>();
                     // cs.add(c);
                     // System.out.println("[" + r.from + ".." + r.to + ") to " + destination.id);
                     // try {
-                    distCol.moveRangeAtSync(c.getRange(), destination, mm);
+                    distChunkedList.moveRangeAtSync(c.getRange(), destination, mm);
                     // } catch (final Exception e) {
                     // System.err.println("Error on " + here());
                     // e.printStackTrace();
@@ -405,7 +406,7 @@ public class IT_DistCol implements Serializable {
     private void z_updateDist() {
         placeGroup.broadcastFlat(() -> {
             try {
-                distCol.team().updateDist();
+                distChunkedList.team().updateDist();
             } catch (final Exception e) {
                 System.err.println("Error on " + here());
                 e.printStackTrace();

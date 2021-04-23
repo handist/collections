@@ -23,7 +23,7 @@ import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
 import handist.collections.dist.CollectiveMoveManager;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.glb.DistColGlb.DistColGlbError;
 import handist.collections.glb.lifeline.NoLifeline;
@@ -46,7 +46,7 @@ public class IT_ErrorsDuringGLB implements Serializable {
     /** Serial Version UID */
     private static final long serialVersionUID = 3890454865986201964L;
 
-    /** Total number of elements contained in the {@link DistCol} */
+    /** Total number of elements contained in the {@link DistChunkedList} */
     final static long TOTAL_DATA_SIZE = LONGRANGE_COUNT * RANGE_SIZE;
 
     /**
@@ -62,7 +62,7 @@ public class IT_ErrorsDuringGLB implements Serializable {
         });
     }
 
-    private static <T> void y_makeDistribution(DistCol<T> col) {
+    private static <T> void y_makeDistribution(DistChunkedList<T> col) {
         // Transfer elements to remote hosts (Places 0, 1, 2 - 3 doesn't get any)
         final TeamedPlaceGroup pg = col.placeGroup();
         pg.broadcastFlat(() -> {
@@ -82,7 +82,7 @@ public class IT_ErrorsDuringGLB implements Serializable {
      *
      * @param col the collection which needs to be populated
      */
-    private static void y_populateDistCol(DistCol<Element> col) {
+    private static void y_populateDistCol(DistChunkedList<Element> col) {
         for (long l = 0l; l < LONGRANGE_COUNT; l++) {
             final long from = l * RANGE_SIZE;
             final long to = from + RANGE_SIZE;
@@ -101,7 +101,7 @@ public class IT_ErrorsDuringGLB implements Serializable {
      * Distributed collection which is the object of the tests. It is defined on the
      * entire world.
      */
-    DistCol<Element> distCol;
+    DistChunkedList<Element> distChunkedList;
 
     /**
      * Whole world
@@ -111,15 +111,15 @@ public class IT_ErrorsDuringGLB implements Serializable {
     @Before
     public void setUp() throws Exception {
         placeGroup = TeamedPlaceGroup.getWorld();
-        distCol = new DistCol<>();
+        distChunkedList = new DistChunkedList<>();
 
-        y_populateDistCol(distCol);
-        y_makeDistribution(distCol);
+        y_populateDistCol(distChunkedList);
+        y_makeDistribution(distChunkedList);
     }
 
     @After
     public void tearDown() throws Exception {
-        distCol.destroy();
+        distChunkedList.destroy();
         TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
             GlbComputer.destroyGlbComputer();
         });
@@ -135,14 +135,14 @@ public class IT_ErrorsDuringGLB implements Serializable {
     public void testExceptionDuringGlbOperation() throws Throwable {
         // Put a NULL at a certain index
         final long nullIndex = 5;
-        distCol.set(nullIndex, null);
+        distChunkedList.set(nullIndex, null);
 
         // Perform a forEach on all the elements
         // The GLB should apply the forEach on every element and keep an Exception for
         // the index "nullIndex"
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final List<Throwable> errors = distCol.GLB.forEach(makeSuffixTest).getErrors();
+                final List<Throwable> errors = distChunkedList.GLB.forEach(makeSuffixTest).getErrors();
                 // We should have 1 exception in the errors returned by the GLB operation
                 assertEquals(1, errors.size());
 
@@ -156,7 +156,7 @@ public class IT_ErrorsDuringGLB implements Serializable {
                 MatcherAssert.assertThat(t.getCause(), IsInstanceOf.instanceOf(NullPointerException.class));
 
                 // We check that the operation was indeed applied to all other indices
-                final List<Throwable> checkErrors = distCol.GLB.forEach((l, e) -> {
+                final List<Throwable> checkErrors = distChunkedList.GLB.forEach((l, e) -> {
                     if (l == nullIndex) {
                         // Check that the element is indeed null
                         assertNull(e);
@@ -189,7 +189,7 @@ public class IT_ErrorsDuringGLB implements Serializable {
         // Put a NULL at a certain index
         final long nullIndex = 150;
         at(place(2), () -> {
-            distCol.set(nullIndex, null); // the exception will occur on place 2
+            distChunkedList.set(nullIndex, null); // the exception will occur on place 2
         });
 
         // Perform a forEach on all the elements
@@ -197,7 +197,7 @@ public class IT_ErrorsDuringGLB implements Serializable {
         // the index "nullIndex"
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final List<Throwable> errors = distCol.GLB.forEach(makeSuffixTest).getErrors();
+                final List<Throwable> errors = distChunkedList.GLB.forEach(makeSuffixTest).getErrors();
                 // We should have 1 exception in the errors returned by the GLB operation
                 assertEquals(1, errors.size());
 
@@ -211,7 +211,7 @@ public class IT_ErrorsDuringGLB implements Serializable {
                 MatcherAssert.assertThat(t.getCause(), IsInstanceOf.instanceOf(NullPointerException.class));
 
                 // We check that the operation was indeed applied to all other indices
-                final List<Throwable> checkErrors = distCol.GLB.forEach((l, e) -> {
+                final List<Throwable> checkErrors = distChunkedList.GLB.forEach((l, e) -> {
                     if (l == nullIndex) {
                         // Check that the element is indeed null
                         assertNull(e);

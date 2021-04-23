@@ -33,7 +33,7 @@ public class IT_OneSidedMoveManager implements Serializable {
     /** Size of individual ranges */
     protected final static long RANGE_SIZE = 25l;
 
-    /** Total number of elements contained in the {@link DistCol} */
+    /** Total number of elements contained in the {@link DistChunkedList} */
     protected final static long TOTAL_DATA_SIZE = LONGRANGE_COUNT * RANGE_SIZE;
 
     /**
@@ -46,7 +46,7 @@ public class IT_OneSidedMoveManager implements Serializable {
      *
      * @param col the collection which needs to be populated
      */
-    protected static void y_populateDistCol(DistCol<Element> col) {
+    protected static void y_populateDistCol(DistChunkedList<Element> col) {
         for (long l = 0l; l < LONGRANGE_COUNT; l++) {
             final long from = l * RANGE_SIZE;
             final long to = from + RANGE_SIZE;
@@ -65,7 +65,7 @@ public class IT_OneSidedMoveManager implements Serializable {
      * Distributed collection used to test the facilities of
      * {@link OneSidedMoveManager}
      */
-    protected DistCol<Element> col;
+    protected DistChunkedList<Element> col;
 
     /**
      * One sided move manager under test
@@ -82,7 +82,7 @@ public class IT_OneSidedMoveManager implements Serializable {
      */
     @Before
     public void setup() {
-        col = new DistCol<>();
+        col = new DistChunkedList<>();
         y_populateDistCol(col);
         destination = place(1);
         manager = new OneSidedMoveManager(destination);
@@ -162,15 +162,15 @@ public class IT_OneSidedMoveManager implements Serializable {
      *
      * @param size    function indicating the size expected at each place on which
      *                it is defined
-     * @param distCol the {@link DistCol} whose size is being checked.
+     * @param distChunkedList the {@link DistChunkedList} whose size is being checked.
      * @throws Throwable if thrown during the check
      */
-    protected void x_checkSize(final SerializableFunction<Place, Long> size, DistCol<?> distCol) throws Throwable {
+    protected void x_checkSize(final SerializableFunction<Place, Long> size, DistChunkedList<?> distChunkedList) throws Throwable {
         try {
-            distCol.placeGroup().broadcastFlat(() -> {
+            distChunkedList.placeGroup().broadcastFlat(() -> {
                 final long expected = size.apply(here());
                 try {
-                    assertEquals(expected, distCol.size());
+                    assertEquals(expected, distChunkedList.size());
                 } catch (final Throwable e) {
                     final RuntimeException re = new RuntimeException("Error on " + here());
                     re.initCause(e);

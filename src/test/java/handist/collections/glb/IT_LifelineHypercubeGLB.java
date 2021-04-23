@@ -20,7 +20,7 @@ import org.junit.runner.RunWith;
 import apgas.Place;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.glb.lifeline.Hypercube;
 import handist.collections.glb.lifeline.Loop;
@@ -66,11 +66,11 @@ public class IT_LifelineHypercubeGLB implements Serializable {
     public static final long TOTAL_SIZE = CHUNK_COUNT * CHUNK_SIZE;
 
     /**
-     * Checks that the ranges in which the {@link DistCol} is
+     * Checks that the ranges in which the {@link DistChunkedList} is
      *
      * @param col distribution to check
      */
-    private static void checkDistribution(DistCol<?> col) {
+    private static void checkDistribution(DistChunkedList<?> col) {
         final TeamedPlaceGroup pg = col.placeGroup();
         final List<LongRange> ranges = new ArrayList<>();
 
@@ -127,13 +127,13 @@ public class IT_LifelineHypercubeGLB implements Serializable {
 
     /**
      * Checks that the distCol contains exactly the specified number of entries. The
-     * {@link DistCol#size()} needs to match the specified parameter.
+     * {@link DistChunkedList#size()} needs to match the specified parameter.
      *
      * @param col           DistCol whose global size is to be checked
      * @param expectedCount expected total number of entries in the DistCol instance
      * @throws Throwable if thrown during the check
      */
-    private static void z_checkDistColTotalElements(DistCol<Integer> col, long expectedCount) throws Throwable {
+    private static void z_checkDistColTotalElements(DistChunkedList<Integer> col, long expectedCount) throws Throwable {
         long count = 0;
         for (final Place p : col.placeGroup().places()) {
             count += at(p, () -> {
@@ -146,11 +146,11 @@ public class IT_LifelineHypercubeGLB implements Serializable {
     }
 
     /** Distributed collection on which the tests are operating */
-    public DistCol<Integer> col;
+    public DistChunkedList<Integer> col;
 
     @Before
     public void setUp() throws Exception {
-        col = new DistCol<>(WORLD);
+        col = new DistChunkedList<>(WORLD);
         z_populateCollection(col);
     }
 
@@ -194,7 +194,7 @@ public class IT_LifelineHypercubeGLB implements Serializable {
      *
      * @param collection collection to populate
      */
-    private void z_populateCollection(DistCol<Integer> collection) {
+    private void z_populateCollection(DistChunkedList<Integer> collection) {
         long rangeBegin = 0; // inclusive
         long rangeEnd; // exclusive
         for (long i = 0; i < CHUNK_COUNT; i++) {

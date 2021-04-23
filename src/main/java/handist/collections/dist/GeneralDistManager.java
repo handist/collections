@@ -17,6 +17,8 @@ import java.util.Arrays;
 import apgas.util.GlobalID;
 import handist.collections.dist.util.IntFloatPair;
 import handist.collections.dist.util.IntLongPair;
+import mpi.MPI;
+import mpi.MPIException;
 
 public abstract class GeneralDistManager<T> implements Serializable {
 
@@ -73,7 +75,15 @@ public abstract class GeneralDistManager<T> implements Serializable {
         }
     }
 
-    abstract public void checkDistInfo(long[] result);
+    protected void checkDistInfo(long[] result) {
+        if(branch instanceof ElementLocationManagable) {
+            ((ElementLocationManagable) branch).getSizeDistribution(result);
+            return;
+        } else {
+            // TODO
+            throw new UnsupportedOperationException("not implemented yet");
+        }
+    }
 
     /**
      * Destroy an instance of AbstractDistCollection.
