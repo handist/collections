@@ -90,10 +90,9 @@ public class DistChunkedList<T> extends ChunkedList<T>
     /**
      * Handle to Global Operations implemented by {@link DistChunkedList}.
      */
-    public transient final GlobalOperations<T, DistChunkedList<T>>  GLOBAL;
+    public transient final GlobalOperations<T, DistChunkedList<T>> GLOBAL;
 
     protected transient DistributionManager<T> manager;
-
 
     /**
      * Handle to Team Operations implemented by {@link DistChunkedList}.
@@ -122,22 +121,22 @@ public class DistChunkedList<T> extends ChunkedList<T>
 
     /**
      * Private constructor by which the locality and the GlobalId associated with
-     * the {@link DistChunkedList} are explicitly given. This constructor should only be
-     * used internally when creating the local handle of a DistCol already created
-     * on a remote place. Calling this constructor with an existing {@link GlobalID}
-     * which is already linked with existing and potentially different objects could
-     * prove disastrous.
+     * the {@link DistChunkedList} are explicitly given. This constructor should
+     * only be used internally when creating the local handle of a DistCol already
+     * created on a remote place. Calling this constructor with an existing
+     * {@link GlobalID} which is already linked with existing and potentially
+     * different objects could prove disastrous.
      *
      * @param placeGroup the hosts on which the distributed collection the created
      *                   instance may have handles on
      * @param id         the global id used to identify all the local handles
      */
     private DistChunkedList(final TeamedPlaceGroup placeGroup, final GlobalID id) {
-        this(placeGroup, id, (TeamedPlaceGroup pg, GlobalID gid)->new DistChunkedList<>(pg, gid));
+        this(placeGroup, id, (TeamedPlaceGroup pg, GlobalID gid) -> new DistChunkedList<>(pg, gid));
     }
 
-
-    protected DistChunkedList(final TeamedPlaceGroup placeGroup, final GlobalID id, BiFunction<TeamedPlaceGroup,GlobalID,? extends DistChunkedList<T>> lazyCreator) {
+    protected DistChunkedList(final TeamedPlaceGroup placeGroup, final GlobalID id,
+            BiFunction<TeamedPlaceGroup, GlobalID, ? extends DistChunkedList<T>> lazyCreator) {
         super();
         id.putHere(this);
         manager = new DistributionManager<>(placeGroup, id, this);
@@ -179,14 +178,14 @@ public class DistChunkedList<T> extends ChunkedList<T>
     }
 
     @Override
-    public long longSize() {
-        return super.size();
-    }
-
-    @Override
     public float[] locality() {
         // TODO check if this is correct
         return manager.locality;
+    }
+
+    @Override
+    public long longSize() {
+        return super.size();
     }
 
     @SuppressWarnings("unchecked")
@@ -213,7 +212,6 @@ public class DistChunkedList<T> extends ChunkedList<T>
         final DeSerializer deserialize = (ObjectInput ds) -> {
             final List<RangedList<T>> chunks = (List<RangedList<T>>) ds.readObject();
             for (final RangedList<T> c : chunks) {
-                final LongRange key = c.getRange();
                 toBranch.add(c);
             }
         };

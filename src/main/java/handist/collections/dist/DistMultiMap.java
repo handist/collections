@@ -61,8 +61,8 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
      */
     public DistMultiMap(TeamedPlaceGroup placeGroup, GlobalID id) {
         super(placeGroup, id);
-        super.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid)->
-                new DistMultiMap<>(pg0, gid));
+        super.GLOBAL = new GlobalOperations<>(this,
+                (TeamedPlaceGroup pg0, GlobalID gid) -> new DistMultiMap<>(pg0, gid));
     }
 
     /**
@@ -105,32 +105,6 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void moveAtSync(K key, Place pl, MoveManager mm) {
-        if (pl.equals(here())) {
-            return;
-        }
-        if (!containsKey(key)) {
-            throw new RuntimeException("DistMultiMap cannot move uncontained entry: " + key);
-        }
-        final DistMultiMap<K, V> toBranch = this; // using plh@AbstractCol
-        final Serializer serialize = (ObjectOutput s) -> {
-            final List<V> value = this.removeForMove(key);
-            // TODO we should check values!=null before transportation
-            s.writeObject(key);
-            s.writeObject(value);
-        };
-        final DeSerializer deserialize = (ObjectInput ds) -> {
-            final K k = (K) ds.readObject();
-            // TODO we should check values!=null before transportation
-            final List<V> v = (List<V>) ds.readObject();
-            toBranch.putForMove(k, v);
-        };
-        mm.request(pl, serialize, deserialize);
-    }
-	
-     
-    @Override
-    @SuppressWarnings("unchecked")
     public void moveAtSync(Collection<K> keys, Place pl, MoveManager mm) {
         if (pl.equals(here())) {
             return;
@@ -152,6 +126,31 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
                 final List<V> value = (List<V>) ds.readObject();
                 collection.putForMove(key, value);
             }
+        };
+        mm.request(pl, serialize, deserialize);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public void moveAtSync(K key, Place pl, MoveManager mm) {
+        if (pl.equals(here())) {
+            return;
+        }
+        if (!containsKey(key)) {
+            throw new RuntimeException("DistMultiMap cannot move uncontained entry: " + key);
+        }
+        final DistMultiMap<K, V> toBranch = this; // using plh@AbstractCol
+        final Serializer serialize = (ObjectOutput s) -> {
+            final List<V> value = this.removeForMove(key);
+            // TODO we should check values!=null before transportation
+            s.writeObject(key);
+            s.writeObject(value);
+        };
+        final DeSerializer deserialize = (ObjectInput ds) -> {
+            final K k = (K) ds.readObject();
+            // TODO we should check values!=null before transportation
+            final List<V> v = (List<V>) ds.readObject();
+            toBranch.putForMove(k, v);
         };
         mm.request(pl, serialize, deserialize);
     }

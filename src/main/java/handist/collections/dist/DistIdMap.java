@@ -36,7 +36,7 @@ import handist.collections.function.Serializer;
  * @param <V> the type of the value mappings of this instance
  */
 public class DistIdMap<V> extends DistMap<Long, V>
-        implements DistributedCollection<V, DistMap<Long,V>>, ElementLocationManagable<Long> {
+        implements DistributedCollection<V, DistMap<Long, V>>, ElementLocationManagable<Long> {
 //TODO
     /* implements ManagedDistribution[Long] */
 
@@ -61,8 +61,7 @@ public class DistIdMap<V> extends DistMap<Long, V>
      */
     public DistIdMap(TeamedPlaceGroup placeGroup) {
         super(placeGroup);
-        super.GLOBAL = new GlobalOperations<>(this,
-                (TeamedPlaceGroup pg0, GlobalID gid)->new DistIdMap<V>(pg0, gid));
+        super.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistIdMap<>(pg0, gid));
         // TODO
         this.ldist = new ElementLocationManager<>();
         ldist.setup(data.keySet());
@@ -72,8 +71,7 @@ public class DistIdMap<V> extends DistMap<Long, V>
 
     protected DistIdMap(TeamedPlaceGroup placeGroup, GlobalID id) {
         super(placeGroup, id);
-        super.GLOBAL = new GlobalOperations<>(this,
-                (TeamedPlaceGroup pg0, GlobalID gid)->new DistIdMap<V>(pg0, gid));
+        super.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistIdMap<>(pg0, gid));
         // TODO
         this.ldist = new ElementLocationManager<>();
         ldist.setup(data.keySet());
@@ -178,6 +176,14 @@ public class DistIdMap<V> extends DistMap<Long, V>
      */
     public Place getPlace(long id) {
         return ldist.dist.get(id);
+    }
+
+    @Override
+    public void getSizeDistribution(long[] result) {
+        for (final Map.Entry<Long, Place> entry : ldist.dist.entrySet()) {
+            final Place p = entry.getValue();
+            result[placeGroup.rank(p)]++;
+        }
     }
 
     /*
@@ -366,10 +372,6 @@ public class DistIdMap<V> extends DistMap<Long, V>
         return super.remove(id);
     }
 
-    private V removeForMove(long id) {
-        return data.remove(id);
-    }
-
     /*
      * will be implemented in Java using TreeMap public def moveAtSync(range:
      * LongRange, place: Place, mm:MoveManagerLocal) {U haszero}: void {
@@ -381,15 +383,14 @@ public class DistIdMap<V> extends DistMap<Long, V>
     // void {
     // no need for sparse array
 
-    public void getSizeDistribution(long[] result) {
-        for (final Map.Entry<Long, Place> entry : ldist.dist.entrySet()) {
-            final Place p = entry.getValue();
-            result[placeGroup.rank(p)] ++;
-        }
+    private V removeForMove(long id) {
+        return data.remove(id);
     }
+
     /**
      * Update the distribution information of the entries.
      */
+    @Override
     public void updateDist() {
         ldist.updateDist(placeGroup);
     }

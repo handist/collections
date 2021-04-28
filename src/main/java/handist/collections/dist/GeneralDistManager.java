@@ -17,8 +17,6 @@ import java.util.Arrays;
 import apgas.util.GlobalID;
 import handist.collections.dist.util.IntFloatPair;
 import handist.collections.dist.util.IntLongPair;
-import mpi.MPI;
-import mpi.MPIException;
 
 public abstract class GeneralDistManager<T> implements Serializable {
 
@@ -75,8 +73,9 @@ public abstract class GeneralDistManager<T> implements Serializable {
         }
     }
 
+    @SuppressWarnings("rawtypes")
     protected void checkDistInfo(long[] result) {
-        if(branch instanceof ElementLocationManagable) {
+        if (branch instanceof ElementLocationManagable) {
             ((ElementLocationManagable) branch).getSizeDistribution(result);
             return;
         } else {
@@ -108,20 +107,6 @@ public abstract class GeneralDistManager<T> implements Serializable {
     // public abstract void integrate(T src);
     public void teamedBalance() {
         teamedBalance(new CollectiveMoveManager(placeGroup));
-    }
-
-    public void teamedBalance(final float[] balance) {
-        teamedBalance(balance, new CollectiveMoveManager(placeGroup));
-    }
-
-    public void teamedBalance(final float[] newLocality, final CollectiveMoveManager mm) {
-        // Rail.copy[Float](ne wL ocality, locality)
-
-        if (newLocality.length != placeGroup.size()) {
-            throw new RuntimeException("[DistCol] the size of newLocality must be the same with placeGroup.size()");
-        }
-        System.arraycopy(newLocality, 0, locality, 0, locality.length);
-        teamedBalance(mm);
     }
 
     // TODO
@@ -259,6 +244,20 @@ public abstract class GeneralDistManager<T> implements Serializable {
             e.printStackTrace();
             throw new Error("[AbstractDistCollection] data transfer error raised.");
         }
+    }
+
+    public void teamedBalance(final float[] balance) {
+        teamedBalance(balance, new CollectiveMoveManager(placeGroup));
+    }
+
+    public void teamedBalance(final float[] newLocality, final CollectiveMoveManager mm) {
+        // Rail.copy[Float](ne wL ocality, locality)
+
+        if (newLocality.length != placeGroup.size()) {
+            throw new RuntimeException("[DistCol] the size of newLocality must be the same with placeGroup.size()");
+        }
+        System.arraycopy(newLocality, 0, locality, 0, locality.length);
+        teamedBalance(mm);
     }
 
     // abstract public Object writeReplace() throws ObjectStreamException;

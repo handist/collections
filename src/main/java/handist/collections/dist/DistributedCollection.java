@@ -91,17 +91,18 @@ public interface DistributedCollection<T, C extends DistributedCollection<T, C>>
     public GlobalID id();
 
     /**
-     * Returns the size of the number of elements in each place.
-     *
-     * @return the size in {@long}
-     */
-    public abstract long longSize();
-    /**
      * Returns the locality of the distributed collection
      *
      * @return float array representing the locality of the distributed collection
      */
     public float[] locality();
+
+    /**
+     * Returns the size of the number of elements in each place.
+     *
+     * @return the size in {@long}
+     */
+    public abstract long longSize();
 
     public abstract void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManager mm) throws Exception;
 

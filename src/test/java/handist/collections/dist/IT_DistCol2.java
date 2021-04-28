@@ -10,27 +10,29 @@
  ******************************************************************************/
 package handist.collections.dist;
 
-import apgas.MultipleException;
-import handist.collections.Chunk;
-import handist.collections.LongRange;
-import handist.mpijunit.MpiConfig;
-import handist.mpijunit.MpiRunner;
-import handist.mpijunit.launcher.TestLauncher;
+import static apgas.Constructs.*;
+import static org.junit.Assert.*;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.Random;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.Random;
-
-import static apgas.Constructs.*;
-import static org.junit.Assert.*;
+import apgas.MultipleException;
+import handist.collections.Chunk;
+import handist.collections.LongRange;
+import handist.mpijunit.MpiConfig;
+import handist.mpijunit.MpiRunner;
+import handist.mpijunit.launcher.TestLauncher;
 
 /**
- * Second class used to test the distributed features of class {@link DistChunkedList}
+ * Second class used to test the distributed features of class
+ * {@link DistChunkedList}
  *
  * @author Patrick Finnerty
  *
@@ -298,8 +300,9 @@ public class IT_DistCol2 implements Serializable {
 
     /**
      * Tests the
-     * {@link DistChunkedList#moveRangeAtSync(LongRange, apgas.Place, MoveManager)} method
-     * in a situation where the range to move matches that of an existing chunk
+     * {@link DistChunkedList#moveRangeAtSync(LongRange, apgas.Place, MoveManager)}
+     * method in a situation where the range to move matches that of an existing
+     * chunk
      *
      * @throws IOException if thrown during the test
      */

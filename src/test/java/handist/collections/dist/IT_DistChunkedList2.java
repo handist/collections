@@ -31,7 +31,8 @@ import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
 
 /**
- * Second class used to test the distributed features of class {@link DistChunkedList}
+ * Second class used to test the distributed features of class
+ * {@link DistChunkedList}
  *
  * @author Patrick Finnerty
  *
@@ -299,8 +300,9 @@ public class IT_DistChunkedList2 implements Serializable {
 
     /**
      * Tests the
-     * {@link DistChunkedList#moveRangeAtSync(LongRange, apgas.Place, MoveManager)} method
-     * in a situation where the range to move matches that of an existing chunk
+     * {@link DistChunkedList#moveRangeAtSync(LongRange, apgas.Place, MoveManager)}
+     * method in a situation where the range to move matches that of an existing
+     * chunk
      *
      * @throws IOException if thrown during the test
      */

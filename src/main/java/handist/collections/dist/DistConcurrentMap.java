@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.dist;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,7 +52,7 @@ public class DistConcurrentMap<K, V> extends DistMap<K, V> {
      */
     DistConcurrentMap(TeamedPlaceGroup pg, GlobalID globalId) {
         super(pg, globalId);
-        this.data = new ConcurrentHashMap<>();
+        data = new ConcurrentHashMap<>();
     }
 
 }

@@ -167,7 +167,8 @@ public class IT_GLB_DistChunkedList implements Serializable {
      * Checks that the distCol contains exactly the specified number of entries. The
      * {@link DistChunkedList#size()} needs to match the specified parameter.
      *
-     * @param expectedCount expected total number of entries in {@link #distChunkedList}
+     * @param expectedCount expected total number of entries in
+     *                      {@link #distChunkedList}
      * @throws Throwable if thrown during the check
      */
     private static void z_checkDistColTotalElements(DistChunkedList<Element> col, long expectedCount) throws Throwable {

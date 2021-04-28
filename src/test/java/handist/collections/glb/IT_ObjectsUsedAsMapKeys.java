@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
 
 import static apgas.Constructs.*;
@@ -15,6 +25,7 @@ import handist.collections.LongRange;
 import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.DistributedCollection;
 import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.glb.DistColGlbTask.DistColLambda;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -81,10 +92,8 @@ public class IT_ObjectsUsedAsMapKeys implements Serializable {
     @Test
     public void testGlbOperationAsKey() throws Exception {
         final DistChunkedList<Element> collection = new DistChunkedList<>();
-        final GlbOperation<DistChunkedList<Element>, Element, LongRange, LongRange, DistChunkedList<Element>> operationKey = new GlbOperation(
-                collection, (a, b) -> {
-                    ;
-                }, new DistFuture(collection), () -> {
+        final GlbOperation<DistChunkedList<Element>, Element, LongRange, LongRange, DistChunkedList<Element>, DistColLambda<Element>> operationKey = new GlbOperation(
+                collection, null, new DistFuture(collection), () -> {
                     return null;
                 }, null, null);
         glbOperationMap.put(operationKey, new Integer(43));
