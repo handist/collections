@@ -67,7 +67,7 @@ public class DistMap<K, V>
     protected Map<K, V> data;
     /** Handle for GLB operations */
     public final DistMapGlb<K, V> GLB;
-    public GlobalOperations<V,DistMap<K, V>> GLOBAL;
+    public GlobalOperations<V, DistMap<K, V>> GLOBAL;
 
     final GlobalID id;
 
@@ -77,7 +77,7 @@ public class DistMap<K, V>
 
     private Function<K, V> proxyGenerator;
 
-    protected final TeamOperations<V, DistMap<K,V>> TEAM;
+    protected final TeamOperations<V, DistMap<K, V>> TEAM;
 
     /**
      * Construct an empty DistMap which can have local handles on all the hosts in
@@ -119,7 +119,7 @@ public class DistMap<K, V>
         locality = new float[pg.size];
         Arrays.fill(locality, 1.0f);
         this.data = new HashMap<>();
-        GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid)->new DistMap<>(pg0, gid));
+        GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistMap<>(pg0, gid));
         GLB = new DistMapGlb<>(this);
         TEAM = new TeamOperations<>(this);
         id.putHere(this);
@@ -318,6 +318,11 @@ public class DistMap<K, V>
         return locality;
     }
 
+    @Override
+    public long longSize() {
+        return data.size();
+    }
+
     /**
      * Apply the same operation on the all elements including remote places and
      * creates a new {@link DistMap} with the same keys as this instance and the
@@ -446,11 +451,6 @@ public class DistMap<K, V>
         });
     }
 
-    @Override
-    public TeamedPlaceGroup placeGroup() {
-        return placeGroup;
-    }
-
     /*
      * void teamedBalance() { LoadBalancer.MapBalancer<T, U> balance = new
      * LoadBalancer.MapBalancer<>(this.data, placeGroup); balance.execute();
@@ -467,11 +467,28 @@ public class DistMap<K, V>
      * }
      */
 
+    @Override
+    public TeamedPlaceGroup placeGroup() {
+        return placeGroup;
+    }
+
+    // TODO different naming convention of balance methods with DistMap
+
     void printLocalData() {
         System.out.println(this);
     }
 
-    // TODO different naming convention of balance methods with DistMap
+    /*
+     * Abstractovdef create(placeGroup: PlaceGroup, team: TeamOperations, init:
+     * ()=>Map[T, U]){ // return new DistMap[T,U](placeGroup, init) as
+     * AbstractDistCollection[Map[T,U]]; return null as
+     * AbstractDistCollection[Map[T,U]]; }
+     */
+    /*
+     * public def versioningMap(srcName : String){ // return new
+     * BranchingManager[DistMap[T,U], Map[T,U]](srcName, this); return null as
+     * BranchingManager[DistMap[T,U], Map[T,U]]; }
+     */
 
     /**
      * Put a new entry.
@@ -487,18 +504,6 @@ public class DistMap<K, V>
     public V put(K key, V value) {
         return data.put(key, value);
     }
-
-    /*
-     * Abstractovdef create(placeGroup: PlaceGroup, team: TeamOperations, init:
-     * ()=>Map[T, U]){ // return new DistMap[T,U](placeGroup, init) as
-     * AbstractDistCollection[Map[T,U]]; return null as
-     * AbstractDistCollection[Map[T,U]]; }
-     */
-    /*
-     * public def versioningMap(srcName : String){ // return new
-     * BranchingManager[DistMap[T,U], Map[T,U]](srcName, this); return null as
-     * BranchingManager[DistMap[T,U], Map[T,U]]; }
-     */
 
     /**
      * Adds all the mappings contained in the specified map into this local map.
@@ -653,9 +658,6 @@ public class DistMap<K, V>
     public int size() {
         return data.size();
     }
-
-    @Override
-    public long longSize() { return data.size(); }
 
     @Override
     public TeamOperations<V, DistMap<K, V>> team() {

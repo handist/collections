@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.dist;
 
 import java.io.Serializable;
@@ -72,8 +82,8 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
         final Object[] ov = (Object[]) secondOperandAndResultArray;
         final Object[] iv = (Object[]) firstOperandArray;
 
-        for (int i = secondOperandArrayOffset, j = firstOperandArrayOffset; i < count
-                + secondOperandArrayOffset; i++, j++) {
+        for (int i = secondOperandArrayOffset,
+                j = firstOperandArrayOffset; i < count + secondOperandArrayOffset; i++, j++) {
             final R result = (R) ov[i];
             final R operand = (R) iv[j];
             result.merge(operand);

@@ -10,6 +10,18 @@
  ******************************************************************************/
 package handist.collections.dist;
 
+import static apgas.Constructs.*;
+import static org.junit.Assert.*;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import apgas.MultipleException;
 import apgas.Place;
 import handist.collections.Chunk;
@@ -19,17 +31,6 @@ import handist.collections.function.SerializableFunction;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-
-import static apgas.Constructs.here;
-import static org.junit.Assert.assertEquals;
 
 /**
  * Tests for the distributed features of {@link DistChunkedList}

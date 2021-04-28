@@ -25,9 +25,11 @@ import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.Serializer;
 
 /**
- * This class manages the elements of a distributed collection in a difference-basis.
+ * This class manages the elements of a distributed collection in a
+ * difference-basis.
  *
- * @param <T> the type of the unit of index/key management. Currently {@code Long} and {@code LongRange} are supported.
+ * @param <T> the type of the unit of index/key management. Currently
+ *            {@code Long} and {@code LongRange} are supported.
  */
 public class ElementLocationManager<T> {
 

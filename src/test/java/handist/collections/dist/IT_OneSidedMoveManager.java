@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
@@ -160,12 +170,14 @@ public class IT_OneSidedMoveManager implements Serializable {
     /**
      * Subroutine which checks that every place holds half of the total instances
      *
-     * @param size    function indicating the size expected at each place on which
-     *                it is defined
-     * @param distChunkedList the {@link DistChunkedList} whose size is being checked.
+     * @param size            function indicating the size expected at each place on
+     *                        which it is defined
+     * @param distChunkedList the {@link DistChunkedList} whose size is being
+     *                        checked.
      * @throws Throwable if thrown during the check
      */
-    protected void x_checkSize(final SerializableFunction<Place, Long> size, DistChunkedList<?> distChunkedList) throws Throwable {
+    protected void x_checkSize(final SerializableFunction<Place, Long> size, DistChunkedList<?> distChunkedList)
+            throws Throwable {
         try {
             distChunkedList.placeGroup().broadcastFlat(() -> {
                 final long expected = size.apply(here());

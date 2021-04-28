@@ -1,8 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.dist;
 
 import static org.junit.Assert.*;
-
-import apgas.MultipleException;
 
 import java.io.Serializable;
 import java.util.Random;
@@ -12,6 +20,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import apgas.MultipleException;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -19,6 +28,11 @@ import handist.mpijunit.launcher.TestLauncher;
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 2, launcher = TestLauncher.class)
 public class IT_RelocationMap implements Serializable {
+
+    /**
+     *
+     */
+    private static final long serialVersionUID = -8101194459870660638L;
 
     /** Number of places this test is running on */
     static int NPLACES;
@@ -62,45 +76,44 @@ public class IT_RelocationMap implements Serializable {
 
     @Test
     public void testRelocate() {
-	try {
-	    pg.broadcastFlat(() -> {
-		final int rank = pg.rank();
-		for (int i = 0; i < numData; i++) {
-			relocationMap.put(genRandStr("k" + rank), genRandStr("v" + rank));
-		}
-		relocationMap.relocate();
+        try {
+            pg.broadcastFlat(() -> {
+                final int rank = pg.rank();
+                for (int i = 0; i < numData; i++) {
+                    relocationMap.put(genRandStr("k" + rank), genRandStr("v" + rank));
+                }
+                relocationMap.relocate();
 
-		if (rank == 0) {
-			assertEquals(numData * NPLACES, relocationMap.size());
-		} else {
-			assertEquals(0, relocationMap.size());
-		}
-	    });
-	} catch (MultipleException me) {
-		me.printStackTrace();
-	}
+                if (rank == 0) {
+                    assertEquals(numData * NPLACES, relocationMap.size());
+                } else {
+                    assertEquals(0, relocationMap.size());
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+        }
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testRelocateGlobal() {
-        final Distribution distribution = (key) -> {
+        final Distribution<String> distribution = (key) -> {
             return pg.get(1);
         };
         relocationMap.setDistribution(distribution);
-	for (int i = 0; i < numData; i++) {
-	    relocationMap.put(genRandStr("k"), genRandStr("v"));
-	}
-	try {
-	    relocationMap.relocateGlobal();
-	} catch (MultipleException me) {
-	    me.printStackTrace();
-	}
-	pg.broadcastFlat(() -> {
-	    final int rank = pg.rank();
-	    if (rank == 1) {
-		assertEquals(numData, relocationMap.size());
-	    }
-	});
+        for (int i = 0; i < numData; i++) {
+            relocationMap.put(genRandStr("k"), genRandStr("v"));
+        }
+        try {
+            relocationMap.relocateGlobal();
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+        }
+        pg.broadcastFlat(() -> {
+            final int rank = pg.rank();
+            if (rank == 1) {
+                assertEquals(numData, relocationMap.size());
+            }
+        });
     }
 }

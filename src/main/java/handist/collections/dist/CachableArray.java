@@ -104,6 +104,27 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
         throw new UnsupportedOperationException("[CachableArray] No modification of members is allowed.");
     }
 
+    public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
+        final Serializer serProcess = (ObjectOutput s) -> {
+            for (final T elem : data) {
+                s.writeObject(pack.apply(elem));
+            }
+        };
+        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
+            for (final T elem : data) {
+                @SuppressWarnings("unchecked")
+                final U diff = (U) ds.readObject();
+                unpack.accept(elem, diff);
+            }
+        };
+        try {
+            CollectiveRelocator.allgatherSer(placeGroup, serProcess, desProcess);
+        } catch (final MPIException e) {
+            e.printStackTrace();
+            throw new Error("[CachableArray] MPIException raised.");
+        }
+    }
+
     /**
      * Broadcast from master place to proxy place, packing elements using the
      * specified function. It is assumed that the type U is declared as a struct and
@@ -135,45 +156,6 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
         };
         try {
             CollectiveRelocator.bcastSer(placeGroup, master, serProcess, desProcess);
-        } catch (final MPIException e) {
-            e.printStackTrace();
-            throw new Error("[CachableArray] MPIException raised.");
-        }
-    }
-    public <U> void reduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
-        final Serializer serProcess = (ObjectOutput s) -> {
-            for (final T elem : data) {
-                s.writeObject(pack.apply(elem));
-            }
-        };
-        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
-            for (final T elem : data) {
-                final U diff = (U) ds.readObject();
-                unpack.accept(elem, diff);
-            }
-        };
-        try {
-            CollectiveRelocator.gatherSer(placeGroup, master, serProcess, desProcess);
-        } catch (final MPIException e) {
-            e.printStackTrace();
-            throw new Error("[CachableArray] MPIException raised.");
-        }
-    }
-
-    public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
-        final Serializer serProcess = (ObjectOutput s) -> {
-            for (final T elem : data) {
-                s.writeObject(pack.apply(elem));
-            }
-        };
-        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
-            for (final T elem : data) {
-                final U diff = (U) ds.readObject();
-                unpack.accept(elem, diff);
-            }
-        };
-        try {
-            CollectiveRelocator.allgatherSer(placeGroup, serProcess, desProcess);
         } catch (final MPIException e) {
             e.printStackTrace();
             throw new Error("[CachableArray] MPIException raised.");
@@ -237,6 +219,27 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
      */
     public TeamedPlaceGroup placeGroup() {
         return placeGroup;
+    }
+
+    public <U> void reduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
+        final Serializer serProcess = (ObjectOutput s) -> {
+            for (final T elem : data) {
+                s.writeObject(pack.apply(elem));
+            }
+        };
+        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
+            for (final T elem : data) {
+                @SuppressWarnings("unchecked")
+                final U diff = (U) ds.readObject();
+                unpack.accept(elem, diff);
+            }
+        };
+        try {
+            CollectiveRelocator.gatherSer(placeGroup, master, serProcess, desProcess);
+        } catch (final MPIException e) {
+            e.printStackTrace();
+            throw new Error("[CachableArray] MPIException raised.");
+        }
     }
 
     @Override

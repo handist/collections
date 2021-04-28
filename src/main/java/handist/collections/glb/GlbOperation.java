@@ -27,7 +27,6 @@ import apgas.Place;
 import apgas.SerializableJob;
 import apgas.util.GlobalID;
 import handist.collections.dist.DistributedCollection;
-import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.SerializableSupplier;
 
@@ -50,9 +49,11 @@ import handist.collections.function.SerializableSupplier;
  *            K
  * @param <R> type of the distributed collection representing the result of the
  *            operation
+ * @param <L> interface containing the method that workers need to call as part
+ *            of their main routine
  */
 @SuppressWarnings("rawtypes")
-class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R>
+class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends Serializable>
         implements Serializable, Comparable<GlbOperation> {
 
     /**
@@ -144,7 +145,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R>
      * @throws IllegalStateException if the call attempted to add a dependency on an
      *                               operation which may have already started.
      */
-    static void makeDependency(GlbOperation<?, ?, ?, ?, ?> before, GlbOperation<?, ?, ?, ?, ?> after) {
+    static void makeDependency(GlbOperation<?, ?, ?, ?, ?, ?> before, GlbOperation<?, ?, ?, ?, ?, ?> after) {
         if (after.state != State.STAGED) {
             throw new IllegalStateException(
                     "Attempted to add a completion dependency on an operation which may have already started");
@@ -216,7 +217,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R>
      * this member is made empty as a result, that hook will start this instance's
      * computation.
      */
-    private final transient Queue<GlbOperation<?, ?, ?, ?, ?>> dependencies;
+    private final transient Queue<GlbOperation<?, ?, ?, ?, ?, ?>> dependencies;
 
     /**
      * List of all the errors that were thrown during this operation's execution.
@@ -247,7 +248,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R>
      * type K to perform the operation. The second argument (WorkerService) is here
      * to provide special services to the operation in case it requires them.
      */
-    SerializableBiConsumer<K, WorkerService> operation;
+    L operation;
 
     /**
      * Method to be called on every worker before this operation can start on a
@@ -287,9 +288,8 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R>
      *                             submitted to the GLB is kept throughout a GLB
      *                             program
      */
-    GlbOperation(C c, SerializableBiConsumer<K, WorkerService> op, DistFuture<R> f,
-            SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization,
-            Class lifeline) {
+    GlbOperation(C c, L op, DistFuture<R> f, SerializableSupplier<GlbTask> glbTaskInit,
+            SerializableConsumer<WorkerService> workerInitialization, Class lifeline) {
         this(c, op, f, glbTaskInit, workerInitialization, State.STAGED, new GlobalID(), priority(), lifeline);
     }
 
@@ -308,9 +308,9 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R>
      *                             terminated)
      * @param gid                  global id
      */
-    private GlbOperation(C c, SerializableBiConsumer<K, WorkerService> op, DistFuture<R> f,
-            SerializableSupplier<GlbTask> glbTaskInit, SerializableConsumer<WorkerService> workerInitialization,
-            State s, GlobalID gid, int priorityLevel, Class lifeline) {
+    private GlbOperation(C c, L op, DistFuture<R> f, SerializableSupplier<GlbTask> glbTaskInit,
+            SerializableConsumer<WorkerService> workerInitialization, State s, GlobalID gid, int priorityLevel,
+            Class lifeline) {
         collection = c;
         operation = op;
         future = f; // We need a 2-way link between the GlbOperation and the
@@ -412,7 +412,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R>
      * (enable assertions) that such a case would throw an assertion exception in
      * this method
      */
-    private synchronized void dependencySatisfied(GlbOperation<?, ?, ?, ?, ?> dep) {
+    private synchronized void dependencySatisfied(GlbOperation<?, ?, ?, ?, ?, ?> dep) {
         final boolean removed = dependencies.remove(dep);
         assertTrue(dep + " was not a dependency of " + this + " attempted to unblock " + this + " anyway.", removed);
 

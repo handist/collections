@@ -41,7 +41,7 @@ public class GlobalLoadBalancer {
      */
     static void start() {
         while (!glb.operationsStaged.isEmpty()) {
-            final GlbOperation<?, ?, ?, ?, ?> op = glb.operationsStaged.poll();
+            final GlbOperation<?, ?, ?, ?, ?, ?> op = glb.operationsStaged.poll();
             boolean needsToBeLaunched;
             synchronized (op) {
                 op.state = GlbOperation.State.RUNNING;
@@ -61,7 +61,7 @@ public class GlobalLoadBalancer {
      *
      * @param operation the operation whose global termination is be waited upon
      */
-    static void startAndWait(GlbOperation<?, ?, ?, ?, ?> operation) {
+    static void startAndWait(GlbOperation<?, ?, ?, ?, ?, ?> operation) {
         // Install a hook on the operation on which we are going to wait
         OperationCompletionManagedBlocker b = null;
         synchronized (operation) {
@@ -149,7 +149,7 @@ public class GlobalLoadBalancer {
      * @param before operation to terminate before the second argument can start
      * @param then   operation to start after the first argument has completed
      */
-    void scheduleOperationAfter(GlbOperation<?, ?, ?, ?, ?> before, GlbOperation<?, ?, ?, ?, ?> then) {
+    void scheduleOperationAfter(GlbOperation<?, ?, ?, ?, ?, ?> before, GlbOperation<?, ?, ?, ?, ?, ?> then) {
         GlbOperation.makeDependency(before, then);
     }
 

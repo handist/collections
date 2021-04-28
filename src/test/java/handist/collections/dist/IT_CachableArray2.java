@@ -10,14 +10,7 @@
  ******************************************************************************/
 package handist.collections.dist;
 
-import apgas.Constructs;
-import apgas.MultipleException;
-import handist.mpijunit.MpiConfig;
-import handist.mpijunit.MpiRunner;
-import handist.mpijunit.launcher.TestLauncher;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import static org.junit.Assert.*;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -25,15 +18,27 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import static org.junit.Assert.assertEquals;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import apgas.MultipleException;
+import handist.mpijunit.MpiConfig;
+import handist.mpijunit.MpiRunner;
+import handist.mpijunit.launcher.TestLauncher;
 
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 4, launcher = TestLauncher.class)
 public class IT_CachableArray2 implements Serializable {
 
-    static class Particle implements  Serializable {
+    static class Particle implements Serializable {
+        /**
+         *
+         */
+        private static final long serialVersionUID = 7821371179787362791L;
         long pos;
         long force;
+
         Particle(long index) {
             pos = index;
             force = 0;
@@ -61,64 +66,25 @@ public class IT_CachableArray2 implements Serializable {
     /** PlaceGroup object representing the collaboration between processes */
     TeamedPlaceGroup placeGroup;
 
-    public void checkLast(final CachableArray<Particle> ca) throws Throwable {
+    public void addForceAtWorkers(final CachableArray<Particle> ca, int turn) throws Throwable {
         try {
-
-            final long[] forces = new long[numData];
-            final long[] poses = new long[numData];
-            for (int i = 0; i < numData; i++) {
-                Particle p = ca.data.get(i);
-                forces[i] = p.force;
-                poses[i] = p.pos;
-            }
             placeGroup.broadcastFlat(() -> {
-                List<Particle> local = ca.data;
-                for (int j = 0; j < local.size(); j++) {
-                    Particle p2 = local.get(j);
-		    // System.out.println("check pos["+j+"]@"+Constructs.here()+":"+p2.pos);
-		    // System.out.println("check Rforce["+j+"]@"+Constructs.here()+":"+p2.force + ":"+ forces[j]);		    		    
-                    assertEquals(p2.force, forces[j]);
-                    assertEquals(p2.pos, poses[j]);
+                for (int i = 0; i < numData; i++) {
+                    final Particle p = ca.data.get(i);
+                    p.force += i * placeGroup.myrank * turn;
                 }
             });
-
         } catch (final MultipleException me) {
             throw me.getSuppressed()[0];
         }
     }
 
-    public void bcastPos(final CachableArray<Particle> ca) throws Throwable {
-        try {
-        placeGroup.broadcastFlat(() -> {
-            final Function<Particle, Long> pack = (Particle elem) -> elem.pos;
-            final BiConsumer<Particle, Long> unpack = (Particle elem, Long val) -> {
-                elem.pos = val;
-            };
-            ca.broadcast(pack, unpack);
-        });
-        } catch (final MultipleException me) {
-            throw me.getSuppressed()[0];
-        }
-
-    }
-    public void reduceForce(final CachableArray<Particle> ca) throws Throwable {
-        try {
-        placeGroup.broadcastFlat(() -> {
-            final Function<Particle, Long> pack = (Particle elem) -> { long result = elem.force; elem.force=0; return result; };
-            final BiConsumer<Particle, Long> unpack = (Particle elem, Long val) -> {
-                elem.force += val;
-            };
-            ca.reduce(pack, unpack);
-        });
-        } catch (final MultipleException me) {
-            throw me.getSuppressed()[0];
-        }
-
-    }
     public void allreduceForce(final CachableArray<Particle> ca) throws Throwable {
         try {
             placeGroup.broadcastFlat(() -> {
-                final Function<Particle, Long> pack = (Particle elem) -> { return elem.force; };
+                final Function<Particle, Long> pack = (Particle elem) -> {
+                    return elem.force;
+                };
                 final BiConsumer<Particle, Long> unpack = (Particle elem, Long val) -> {
                     elem.force += val;
                 };
@@ -130,36 +96,27 @@ public class IT_CachableArray2 implements Serializable {
 
     }
 
-    public void updateLocalPos(final CachableArray<Particle> ca) throws Throwable{
+    public void bcastPos(final CachableArray<Particle> ca) throws Throwable {
         try {
-            for (int i = 0; i < numData; i++) {
-                Particle p = ca.data.get(i);
-                p.pos += 1000;
-                p.force = 0;
-            }
+            placeGroup.broadcastFlat(() -> {
+                final Function<Particle, Long> pack = (Particle elem) -> elem.pos;
+                final BiConsumer<Particle, Long> unpack = (Particle elem, Long val) -> {
+                    elem.pos = val;
+                };
+                ca.broadcast(pack, unpack);
+            });
         } catch (final MultipleException me) {
             throw me.getSuppressed()[0];
         }
-    }
-    public void addForceAtWorkers(final CachableArray<Particle> ca, int turn) throws Throwable {
-        try {
-        placeGroup.broadcastFlat(()->{
-            for (int i = 0; i < numData; i++) {
-                Particle p = ca.data.get(i);
-                p.force += i * placeGroup.myrank * turn;
-            }
-        });
-        } catch (final MultipleException me) {
-            throw me.getSuppressed()[0];
-        }
+
     }
 
     public void checkForce(final CachableArray<Particle> ca, long val) throws Throwable {
         try {
             for (int i = 0; i < numData; i++) {
-                Particle p = ca.data.get(i);
-		//		System.out.println("check force["+i+"]@"+Constructs.here()+":"+p.force);
-                assertEquals(p.force, i*val);
+                final Particle p = ca.data.get(i);
+                // System.out.println("check force["+i+"]@"+Constructs.here()+":"+p.force);
+                assertEquals(p.force, i * val);
             }
         } catch (final MultipleException me) {
             throw me.getSuppressed()[0];
@@ -168,10 +125,10 @@ public class IT_CachableArray2 implements Serializable {
 
     public void checkForceAll(final CachableArray<Particle> ca, final long val) throws Throwable {
         try {
-            placeGroup.broadcastFlat(()->{
+            placeGroup.broadcastFlat(() -> {
                 for (int i = 0; i < numData; i++) {
-                    Particle p = ca.data.get(i);
-		    // System.out.println("check force["+i+"]@"+Constructs.here()+":"+p.force);
+                    final Particle p = ca.data.get(i);
+                    // System.out.println("check force["+i+"]@"+Constructs.here()+":"+p.force);
                     assertEquals(p.force, i * val);
                 }
             });
@@ -179,6 +136,52 @@ public class IT_CachableArray2 implements Serializable {
         } catch (final MultipleException me) {
             throw me.getSuppressed()[0];
         }
+    }
+
+    public void checkLast(final CachableArray<Particle> ca) throws Throwable {
+        try {
+
+            final long[] forces = new long[numData];
+            final long[] poses = new long[numData];
+            for (int i = 0; i < numData; i++) {
+                final Particle p = ca.data.get(i);
+                forces[i] = p.force;
+                poses[i] = p.pos;
+            }
+            placeGroup.broadcastFlat(() -> {
+                final List<Particle> local = ca.data;
+                for (int j = 0; j < local.size(); j++) {
+                    final Particle p2 = local.get(j);
+                    // System.out.println("check pos["+j+"]@"+Constructs.here()+":"+p2.pos);
+                    // System.out.println("check Rforce["+j+"]@"+Constructs.here()+":"+p2.force +
+                    // ":"+ forces[j]);
+                    assertEquals(p2.force, forces[j]);
+                    assertEquals(p2.pos, poses[j]);
+                }
+            });
+
+        } catch (final MultipleException me) {
+            throw me.getSuppressed()[0];
+        }
+    }
+
+    public void reduceForce(final CachableArray<Particle> ca) throws Throwable {
+        try {
+            placeGroup.broadcastFlat(() -> {
+                final Function<Particle, Long> pack = (Particle elem) -> {
+                    final long result = elem.force;
+                    elem.force = 0;
+                    return result;
+                };
+                final BiConsumer<Particle, Long> unpack = (Particle elem, Long val) -> {
+                    elem.force += val;
+                };
+                ca.reduce(pack, unpack);
+            });
+        } catch (final MultipleException me) {
+            throw me.getSuppressed()[0];
+        }
+
     }
 
     @Before
@@ -211,5 +214,17 @@ public class IT_CachableArray2 implements Serializable {
         addForceAtWorkers(carray, 3);
         allreduceForce(carray);
         checkForceAll(carray, 18);
+    }
+
+    public void updateLocalPos(final CachableArray<Particle> ca) throws Throwable {
+        try {
+            for (int i = 0; i < numData; i++) {
+                final Particle p = ca.data.get(i);
+                p.pos += 1000;
+                p.force = 0;
+            }
+        } catch (final MultipleException me) {
+            throw me.getSuppressed()[0];
+        }
     }
 }

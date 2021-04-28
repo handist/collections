@@ -90,7 +90,7 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     private static int _debug_level = 5;
 
     /** Handle to Global operations on the DistBag instance */
-    public GlobalOperations<T,DistBag<T>> GLOBAL;
+    public GlobalOperations<T, DistBag<T>> GLOBAL;
     /**
      * Global Id which identifies this DistBag object as part of a number of handles
      * to the distributed collection implemented by this instance
@@ -145,7 +145,7 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
         locality = new float[pg.size];
         Arrays.fill(locality, 1.0f);
         id.putHere(this);
-        GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid)->new DistBag<>(pg0, gid));
+        GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistBag<>(pg0, gid));
         TEAM = new DistBagTeam(this);
     }
 
@@ -179,14 +179,14 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     }
 
     @Override
-    public long longSize() {
-        // TODO why bag returns size in int?
-        return super.size();
+    public float[] locality() {
+        return locality;
     }
 
     @Override
-    public float[] locality() {
-        return locality;
+    public long longSize() {
+        // TODO why bag returns size in int?
+        return super.size();
     }
 
     @Override
