@@ -112,18 +112,23 @@ public class DistMap<K, V>
      *
      * @param pg       the palceGroup on which this DistMap is defined
      * @param globalId the global id associated to this distributed map
+     * @param data     the data container to be used
      */
-    DistMap(TeamedPlaceGroup pg, GlobalID globalId) {
+    DistMap(TeamedPlaceGroup pg, GlobalID globalId, Map<K,V> data) {
         placeGroup = pg;
         id = globalId;
         locality = new float[pg.size];
         Arrays.fill(locality, 1.0f);
-        this.data = new HashMap<>();
-        GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistMap<>(pg0, gid));
+        this.data = data;
+        this.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistMap<>(pg0, gid));
         GLB = new DistMapGlb<>(this);
         TEAM = new TeamOperations<>(this);
         id.putHere(this);
     }
+    DistMap(TeamedPlaceGroup pg, GlobalID globalID) {
+        this(pg, globalID, new HashMap<>());
+    }
+
 
 //	Method moved to TEAM and GLOBAL operations
 //	@Override

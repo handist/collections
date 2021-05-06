@@ -13,11 +13,7 @@ package handist.collections.dist;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 
 import org.junit.After;
 import org.junit.Before;
@@ -83,20 +79,21 @@ public class IT_DistMultiMap2 implements Serializable {
         final String prefix = "TESTGLOBALFOREACH";
         // Add a prefix to all the first element of the lists
         distMultiMap.GLOBAL.forEach((l) -> {
-            final Element firstElement = l.get(0);
+            final Element firstElement = l.iterator().next();
             firstElement.s = prefix + firstElement.s;
         });
 
         // Check the prefix was added to all first mappings of each key
         try {
             WORLD.broadcastFlat(() -> {
-                for (final List<Element> mappings : distMultiMap.values()) {
+                for (final Collection<Element> mappings : distMultiMap.values()) {
                     // The first mapping has the prefix
-                    assertTrue(mappings.remove(0).s.startsWith(prefix));
+                    Iterator<Element> iter = mappings.iterator();
+                    assertTrue(iter.next().s.startsWith(prefix));
 
                     // The remaining mappings were left untouched
-                    for (final Element e : mappings) {
-                        assertFalse(e.s.startsWith(prefix));
+                    while (iter.hasNext()) {
+                        assertFalse(iter.next().s.startsWith(prefix));
                     }
                 }
             });
@@ -111,9 +108,9 @@ public class IT_DistMultiMap2 implements Serializable {
         try {
             WORLD.broadcastFlat(() -> {
                 final int here = WORLD.rank();
-                final Set<Map.Entry<String, List<Element>>> entrySet = distMultiMap.entrySet();
+                final Set<Map.Entry<String, Collection<Element>>> entrySet = distMultiMap.entrySet();
                 assertEquals(entrySet.size(), NB_MAPPINGS);
-                for (final Map.Entry<String, List<Element>> entry : entrySet) {
+                for (final Map.Entry<String, Collection<Element>> entry : entrySet) {
                     assertTrue(entry.getKey().startsWith(here + "k"));
                     for (final Element e : entry.getValue()) {
                         assertTrue(e.s.startsWith(here + "v"));

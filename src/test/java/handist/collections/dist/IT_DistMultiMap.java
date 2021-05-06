@@ -15,6 +15,7 @@ import static org.junit.Assert.*;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Random;
@@ -267,7 +268,6 @@ public class IT_DistMultiMap implements Serializable {
      * Checks that each rank participating in this test holds the expected number of
      * keys, and number of entries per key
      *
-     * @param s
      */
     private void x_checkSize(SerializableFunction<Integer, Integer> expectedKey,
             SerializableFunction<String, Integer> entryPerKey) throws Throwable {
@@ -278,7 +278,7 @@ public class IT_DistMultiMap implements Serializable {
                         "Expected " + keysExpected + " keys on rank " + pg.rank() + "  but was " + distMultiMap.size(),
                         keysExpected, distMultiMap.size());
 
-                for (final Entry<String, List<String>> e : distMultiMap.entrySet()) {
+                for (final Entry<String, Collection<String>> e : distMultiMap.entrySet()) {
                     final int expectedListSize = entryPerKey.apply(e.getKey());
                     final int actualListSize = e.getValue().size();
                     assertEquals(
