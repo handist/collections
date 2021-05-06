@@ -10,9 +10,14 @@
  ******************************************************************************/
 package handist.collections.dist;
 
+import java.io.ObjectStreamException;
+import java.util.Collection;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import apgas.util.GlobalID;
+import handist.collections.dist.util.LazyObjectReference;
 
 public class DistConcurrentMultiMap<K, V> extends DistMultiMap<K, V> {
 
@@ -39,8 +44,26 @@ public class DistConcurrentMultiMap<K, V> extends DistMultiMap<K, V> {
      * @param id         the global ID used to identify this instance
      */
     public DistConcurrentMultiMap(TeamedPlaceGroup placeGroup, GlobalID id) {
-        super(placeGroup, id);
-        data = new ConcurrentHashMap<>();
+        this(placeGroup, id, new ConcurrentHashMap<>());
+
+    }
+    protected DistConcurrentMultiMap(TeamedPlaceGroup placeGroup, GlobalID id, Map<K,Collection<V>> data) {
+        super(placeGroup, id, data);
+        super.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistConcurrentMultiMap<>(pg0, gid));
+    }
+
+    @Override
+    protected Collection<V> createEmptyCollection() {
+        return new ConcurrentLinkedQueue<>();
+    }
+
+    @Override
+    public Object writeReplace() throws ObjectStreamException {
+        final TeamedPlaceGroup pg1 = placeGroup;
+        final GlobalID id1 = id;
+        return new LazyObjectReference<>(pg1, id1, () -> {
+            return new DistConcurrentMultiMap<>(pg1, id1);
+        });
     }
 
 }

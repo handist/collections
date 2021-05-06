@@ -13,10 +13,7 @@ package handist.collections.dist;
 import static apgas.Constructs.*;
 
 import java.io.ObjectStreamException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
@@ -35,7 +32,7 @@ import handist.collections.function.Serializer;
  * @param <K> type of the key used in the {@link DistMultiMap}
  * @param <V> type of the elements contained in the lists to which the keys map
  */
-public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
+public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
 
     /**
      * Construct a DistMultiMap.
@@ -60,7 +57,17 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
      * @param id         the global ID used to identify this instance
      */
     public DistMultiMap(TeamedPlaceGroup placeGroup, GlobalID id) {
-        super(placeGroup, id);
+        this(placeGroup, id, new HashMap<>());
+    }
+
+    /**
+     * Construct a DistMultiMap with given arguments.
+     * @param placeGroup PlaceGroup
+     * @param id         the global ID used to identify this instance
+     * @param data       the container to be used
+     */
+    protected DistMultiMap(TeamedPlaceGroup placeGroup, GlobalID id, Map<K, Collection<V>> data) {
+        super(placeGroup, id, data);
         super.GLOBAL = new GlobalOperations<>(this,
                 (TeamedPlaceGroup pg0, GlobalID gid) -> new DistMultiMap<>(pg0, gid));
     }
@@ -71,7 +78,7 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
      * @param op the operation.
      */
     public void forEach1(BiConsumer<K, V> op) {
-        for (final Map.Entry<K, List<V>> entry : data.entrySet()) {
+        for (final Entry<K, Collection<V>> entry : data.entrySet()) {
             final K key = entry.getKey();
             for (final V value : entry.getValue()) {
                 op.accept(key, value);
@@ -114,7 +121,7 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
             final int size = keys.size();
             s.writeInt(size);
             for (final K key : keys) {
-                final List<V> value = collection.remove(key);
+                final Collection<V> value = collection.remove(key);
                 s.writeObject(key);
                 s.writeObject(value);
             }
@@ -123,7 +130,7 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
             final int size = ds.readInt();
             for (int i = 1; i <= size; i++) {
                 final K key = (K) ds.readObject();
-                final List<V> value = (List<V>) ds.readObject();
+                final Collection<V> value = (Collection<V>) ds.readObject();
                 collection.putForMove(key, value);
             }
         };
@@ -141,7 +148,7 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
         }
         final DistMultiMap<K, V> toBranch = this; // using plh@AbstractCol
         final Serializer serialize = (ObjectOutput s) -> {
-            final List<V> value = this.removeForMove(key);
+            final Collection<V> value = this.removeForMove(key);
             // TODO we should check values!=null before transportation
             s.writeObject(key);
             s.writeObject(value);
@@ -149,10 +156,19 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
         final DeSerializer deserialize = (ObjectInput ds) -> {
             final K k = (K) ds.readObject();
             // TODO we should check values!=null before transportation
-            final List<V> v = (List<V>) ds.readObject();
+            final Collection<V> v = (Collection<V>) ds.readObject();
             toBranch.putForMove(k, v);
         };
         mm.request(pl, serialize, deserialize);
+    }
+
+    /**
+     * create an empty collection to hold values for a key.
+     * Please define the adequate container for the class.
+     * @return the created collection.
+     */
+    protected Collection<V> createEmptyCollection() {
+        return new ArrayList<>();
     }
 
     /**
@@ -164,9 +180,9 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
      *         by {@link Collection#add(Object)}.
      */
     public boolean put1(K key, V value) {
-        List<V> list = data.get(key);
+        Collection<V> list = data.get(key);
         if (list == null) {
-            list = new ArrayList<>();
+            list = createEmptyCollection();
             data.put(key, list);
         }
         return list.add(value);
@@ -198,9 +214,9 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
     }
 
     public boolean putForMove(K key, Collection<V> values) {
-        List<V> list = data.get(key);
+        Collection<V> list = data.get(key);
         if (list == null) {
-            list = new ArrayList<>();
+            list = createEmptyCollection();
             data.put(key, list);
         }
         // TODO we should check values!=null before transportation
@@ -216,8 +232,8 @@ public class DistMultiMap<K, V> extends DistMap<K, List<V>> {
      * @param key the key whose mapping need to be removed from this instance
      * @return the list of all the mappings to the specified key.
      */
-    public List<V> removeForMove(K key) {
-        final List<V> list = data.remove(key);
+    public Collection<V> removeForMove(K key) {
+        final Collection<V> list = data.remove(key);
         return list;
     }
 
