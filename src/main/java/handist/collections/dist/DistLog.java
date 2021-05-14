@@ -1,22 +1,25 @@
 package handist.collections.dist;
 
-import java.io.ObjectInputStream;
+import static apgas.Constructs.*;
+
 import java.io.PrintStream;
 import java.io.Serializable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 import apgas.Constructs;
 import apgas.Place;
 import apgas.util.GlobalID;
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.KryoSerializable;
-import com.esotericsoftware.kryo.io.Input;
-import com.esotericsoftware.kryo.io.Output;
 import handist.collections.dist.util.Pair;
-
-import static apgas.Constructs.here;
+import handist.collections.dist.util.SerializableBiFunction;
 
 /**
  * DistLog is a distributed log manager. It collects log on places and gather it
@@ -30,15 +33,33 @@ import static apgas.Constructs.here;
  * {@code tag} and {@code msg} to {@code System.out}.
  *
  */
-public class DistLog implements Serializable, KryoSerializable {
+public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<DistLog.LogKey, DistLog.LogItem>, DistLog>
+        implements Serializable {
 
-     static class LogItem implements Serializable {
-         private static final long serialVersionUID = -1365865614858381506L;
-         public static Comparator<LogItem> cmp = Comparator.comparing(i0 -> i0.msg);
-         String msg;
-         String appendix;
+    static class ListDiff<E> {
+        int index;
+        E first;
+        E second;
 
-         LogItem(Object body, Object app) {
+        public ListDiff(int index, E first, E second) {
+            this.index = index;
+            this.first = first;
+            this.second = second;
+        }
+
+        @Override
+        public String toString() {
+            return "Elements (No. " + index + ") differ: " + first + ", " + second;
+        }
+    }
+
+    static class LogItem implements Serializable {
+        private static final long serialVersionUID = -1365865614858381506L;
+        public static Comparator<LogItem> cmp = Comparator.comparing(i0 -> i0.msg);
+        String msg;
+        String appendix;
+
+        LogItem(Object body, Object app) {
             msg = (body != null ? body.toString() : "");
             appendix = (app != null ? app.toString() : null);
         }
@@ -48,12 +69,12 @@ public class DistLog implements Serializable, KryoSerializable {
             if (!(obj instanceof LogItem)) {
                 return false;
             }
-            return this.msg.equals(((LogItem) obj).msg);
+            return msg.equals(((LogItem) obj).msg);
         }
 
         @Override
         public int hashCode() {
-            return this.msg.hashCode();
+            return msg.hashCode();
         }
 
         @Override
@@ -107,6 +128,29 @@ public class DistLog implements Serializable, KryoSerializable {
         }
     }
 
+    /**
+     *
+     */
+
+    static class SetDiff<E> {
+        E first;
+        E second;
+
+        public SetDiff(E first, E second) {
+            this.first = first;
+            this.second = second;
+        }
+
+        @Override
+        public String toString() {
+            if (first != null) {
+                return "" + first + " is only included in the first collection.";
+            } else {
+                return "" + second + " is only included in the second collection.";
+            }
+        }
+    }
+
     /** Serial Version UID */
     private static final long serialVersionUID = 3453720633747873404L;
 
@@ -116,6 +160,21 @@ public class DistLog implements Serializable, KryoSerializable {
     public static DistLog defaultLog;
 
     public static HashMap<GlobalID, DistLog> map = new HashMap<>();
+
+    public static <E> Collection<E> concat(Collection<? extends Collection<E>> lists) {
+        if (lists == null) {
+            return null;
+        }
+        int size = 0;
+        for (final Collection<E> list : lists) {
+            size += list.size();
+        }
+        final ArrayList<E> result = new ArrayList<>(size);
+        for (final Collection<E> list : lists) {
+            result.addAll(list);
+        }
+        return result;
+    }
 
     public static void defaultGlobalGather() {
         DistLog.defaultLog.globalGather();
@@ -128,6 +187,77 @@ public class DistLog implements Serializable, KryoSerializable {
      */
     public static void defaultGlobalSetPhase(long phase) {
         DistLog.defaultLog.globalSetPhase(phase);
+    }
+
+    public static <E> ListDiff<E> diffCheckList(List<E> list0, List<E> list1) {
+        final int size = Math.min(list0.size(), list1.size());
+        for (int i = 0; i < size; i++) {
+            final E item0 = list0.get(i);
+            final E item1 = list1.get(i);
+            if (!item0.equals(item1)) {
+                return new ListDiff<>(i, item0, item1);
+            }
+        }
+        if (list0.size() > list1.size()) {
+            return new ListDiff<>(size, list0.get(size), null);
+        } else if (list0.size() < list1.size()) {
+            return new ListDiff<>(size, null, list1.get(size));
+        } else {
+            return null;
+        }
+    }
+    /*
+     * public static void main(String[] args) { List<String> strs0 =
+     * Arrays.asList("abc", "bdd", "cde", "def"); List<String> strs1 =
+     * Arrays.asList("bdd", "abc", "def", "cde"); List<String> strs2 =
+     * Arrays.asList("bdd", "abc", "aaa" );
+     *
+     * System.out.println(diffCheckSet(strs0, strs1,
+     * String.CASE_INSENSITIVE_ORDER)); System.out.println(diffCheckSet(strs0,
+     * strs2, String.CASE_INSENSITIVE_ORDER)); Collection<Collection<String>> x =
+     * Arrays.asList(strs0, strs1, strs2); Collection<Collection<String>> y =
+     * Arrays.asList(strs2, strs0, strs1); System.out.println("" + x + "-> " +
+     * concat(x)); System.out.println(diffCheckSplitSet(x, y,
+     * String.CASE_INSENSITIVE_ORDER)); }
+     *
+     */
+
+    // DistConcurrentMultiMap<LogKey, LogItem> base;
+
+    public static <E> SetDiff<E> diffCheckSet(Collection<E> olist0, Collection<E> olist1, Comparator<E> comp) {
+        final ArrayList<E> list0 = new ArrayList<>(olist0);
+        final ArrayList<E> list1 = new ArrayList<>(olist1);
+        list0.sort(comp);
+        list1.sort(comp);
+        final int size = Math.min(list0.size(), list1.size());
+        for (int i = 0; i < size; i++) {
+            final E item0 = list0.get(i);
+            final E item1 = list1.get(i);
+            final int result = comp.compare(item0, item1);
+            if (result < 0) {
+                return new SetDiff<>(item0, null);
+            } else if (result > 0) {
+                return new SetDiff<>(null, item1);
+            }
+        }
+        if (list0.size() > list1.size()) {
+            return new SetDiff<>(list0.get(size), null);
+        } else if (list0.size() < list1.size()) {
+            return new SetDiff<>(null, list1.get(size));
+        } else {
+            return null;
+        }
+    }
+
+    public static <E> SetDiff<E> diffCheckSplitSet(Collection<? extends Collection<E>> lists0,
+            Collection<? extends Collection<E>> lists1, Comparator<E> comp) {
+        if (lists0 == null) {
+            lists0 = Collections.emptySet();
+        }
+        if (lists1 == null) {
+            lists1 = Collections.emptySet();
+        }
+        return diffCheckSet(concat(lists0), concat(lists1), comp);
     }
 
     /**
@@ -167,8 +297,6 @@ public class DistLog implements Serializable, KryoSerializable {
     /** The current logging phase */
     AtomicLong phase;
 
-    DistConcurrentMultiMap<LogKey, LogItem> base;
-
     /**
      * create a DistLog instance that records logs within a place group and gather
      * them to a place
@@ -181,37 +309,13 @@ public class DistLog implements Serializable, KryoSerializable {
     }
 
     DistLog(TeamedPlaceGroup pg, long phase, DistConcurrentMultiMap<LogKey, LogItem> base) {
+        super(base);
         this.pg = pg;
         this.phase = new AtomicLong(phase);
-        this.base = base;
         assert (DistLog.map.get(base.id()) == null);
         assert (base != null);
         DistLog.map.put(base.id(), this);
     }
-
-    private void readObject(ObjectInputStream s) {
-        try {
-            // System.out.println("READRESOLVE CALLED:" +  Constructs.here() + ":this " +this + ", " + base.id() + ", " + DistLog.map.get(base.id()));
-            s.defaultReadObject();
-            this.phase = DistLog.map.get(base.id()).phase;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        //      return DistLog.map.get(base.id());
-    }
-
-    public void write(Kryo kryo, Output output) {
-        // System.out.println("KRYOWrite CALLED:" +  Constructs.here() + ":this " +this + ", " + base.id() + ", " + DistLog.map.get(base.id()));
-        kryo.writeClassAndObject(output, pg);
-        kryo.writeClassAndObject(output, base);
-    }
-    public void read(Kryo kryo, Input input) {
-        this.pg = (TeamedPlaceGroup) kryo.readClassAndObject(input);
-        this.base =  (DistConcurrentMultiMap<LogKey, LogItem> ) kryo.readClassAndObject(input);
-        this.phase = DistLog.map.get(base.id()).phase;
-        // System.out.println("Kryoread CALLED:" +  Constructs.here() + ":this " +this + ", " + base.id() + ", " + DistLog.map.get(base.id()));
-    }
-
 
     /**
      * Determines whether the log set of this and the target is equals. It
@@ -219,8 +323,8 @@ public class DistLog implements Serializable, KryoSerializable {
      * the sets of the logs having the same tag are the same. Diff will be output to
      * {@code out} if they differs.
      *
-     * @param target  the logger instance to compare to this
-     * @param out     the output to which the difference is printed
+     * @param target the logger instance to compare to this
+     * @param out    the output to which the difference is printed
      * @return {@code true} if this instance and the target are identical,
      *         {@code false otherwise}
      */
@@ -230,16 +334,24 @@ public class DistLog implements Serializable, KryoSerializable {
         final Map<Pair<String, Long>, List<Collection<LogItem>>> g1 = target.groupBy();
 
         for (final Map.Entry<Pair<String, Long>, List<Collection<LogItem>>> entry : g0.entrySet()) {
-            Pair<String, Long> key = entry.getKey();
+            final Pair<String, Long> key = entry.getKey();
             final List<Collection<LogItem>> entries0 = entry.getValue();
             final List<Collection<LogItem>> entries1 = g1.get(key);
-            SetDiff<LogItem> diff = diffCheckSplitSet(entries0, entries1, LogItem.cmp);
-            if(diff!=null) {
+            final SetDiff<LogItem> diff = diffCheckSplitSet(entries0, entries1, LogItem.cmp);
+            if (diff != null) {
                 out.println("Diff @ [tag: " + key.first + ", phase" + key.second + "]:" + diff);
                 return false;
             }
         }
         return true;
+    }
+
+    @Override
+    public SerializableBiFunction<DistConcurrentMultiMap<LogKey, LogItem>, Place, DistLog> getBranchCreator() {
+        final DistConcurrentMultiMap<LogKey, LogItem> base0 = base;
+        final long phase0 = phase.get();
+        return (DistConcurrentMultiMap<LogKey, LogItem> base, Place place) -> new DistLog(base0.placeGroup(), phase0,
+                base0);
     }
 
     /**
@@ -248,18 +360,22 @@ public class DistLog implements Serializable, KryoSerializable {
     public void globalGather() {
         // TODO
         // base.GLOBAL.gather(this.place);
-        final DistConcurrentMultiMap<LogKey,LogItem> base0 = this.base;
+        final DistConcurrentMultiMap<LogKey, LogItem> base0 = base;
         final Place dest = here();
-        pg.broadcastFlat(()-> {
-            Function<LogKey, Place> func = (LogKey k) -> dest;
+        pg.broadcastFlat(() -> {
+            final Function<LogKey, Place> func = (LogKey k) -> dest;
             base0.relocate(func);
         });
     }
 
     public void globalSetDefault() {
-        final GlobalID id = this.base.id();
+        final DistLog b = this;
+        DistLog.defaultLog = b;
+        final Place caller = here();
         pg.broadcastFlat(() -> {
-            DistLog.defaultLog = DistLog.map.get(id);
+            if (!here().equals(caller)) {
+                DistLog.defaultLog = b;
+            }
         });
     }
 
@@ -273,9 +389,14 @@ public class DistLog implements Serializable, KryoSerializable {
             throw new IllegalStateException(
                     "Note: `DistLog#globalSetPhase` can be used after `globalSetup()` called. ");
         }
-        final GlobalID id = base.id();
+        final DistLog b = this;
+        b.setPhase(phase);
+        final Place caller = Constructs.here();
         pg.broadcastFlat(() -> {
-            DistLog.map.get(id).setPhase(phase);
+            if (Constructs.here().equals(caller)) {
+                return;
+            }
+            b.setPhase(phase);
         });
     }
 
@@ -284,26 +405,16 @@ public class DistLog implements Serializable, KryoSerializable {
      * place group.
      */
     public void globalSetup(final boolean setDefault) {
-        final long phase0 = this.phase.get();
-        final DistConcurrentMultiMap<LogKey, LogItem> base0 = this.base;
         if (setDefault) {
-            DistLog.defaultLog = this;
+            globalSetDefault();
         }
-        final Place caller = Constructs.here();
-        pg.broadcastFlat(() -> {
-            if(Constructs.here().equals(caller)) return;
-            final DistLog branch = new DistLog(base0.placeGroup(), phase0, base0);
-            if (setDefault) {
-                DistLog.defaultLog = branch;
-            }
-        });
     }
 
     private Map<Pair<String, Long>, List<Collection<LogItem>>> groupBy() {
         final Map<Pair<String, Long>, List<Collection<LogItem>>> results = new HashMap<>();
         base.forEach((LogKey key, Collection<LogItem> items) -> {
             final Pair<String, Long> keyWOp = new Pair<>(key.tag, key.phase);
-            List<Collection<LogItem>> bag = results.computeIfAbsent(keyWOp, k -> new ArrayList<>());
+            final List<Collection<LogItem>> bag = results.computeIfAbsent(keyWOp, k -> new ArrayList<>());
             bag.add(items);
         });
         return results;
@@ -333,16 +444,16 @@ public class DistLog implements Serializable, KryoSerializable {
             final LogKey key = entry.getKey();
             final Collection<LogItem> elems1 = entry.getValue();
             final Collection<LogItem> elems2 = target.base.get(key);
-            ArrayList<LogItem> lists1 = new ArrayList<>(elems1);
-            ArrayList<LogItem> lists2 = new ArrayList<>(elems2);
-            if(asList) {
-                ListDiff<LogItem> diff = diffCheckList(lists1, lists2);
+            final ArrayList<LogItem> lists1 = new ArrayList<>(elems1);
+            final ArrayList<LogItem> lists2 = new ArrayList<>(elems2);
+            if (asList) {
+                final ListDiff<LogItem> diff = diffCheckList(lists1, lists2);
                 if (diff != null) {
                     out.println("Diff in " + key + "::" + diff);
                     return false;
                 }
             } else {
-                SetDiff<LogItem> diff = diffCheckSet(lists1, lists2, LogItem.cmp);
+                final SetDiff<LogItem> diff = diffCheckSet(lists1, lists2, LogItem.cmp);
                 if (diff != null) {
                     out.println("Diff in " + key + "::" + diff);
                     return false;
@@ -391,108 +502,5 @@ public class DistLog implements Serializable, KryoSerializable {
 
     private void setPhase(long phase) {
         this.phase.set(phase);
-    }
-
-    /**
-     *
-     */
-
-    static class SetDiff<E> {
-        E first;
-        E second;
-        public SetDiff(E first, E second) {
-            this.first = first;
-            this.second = second;
-        }
-        public String toString() {
-            if (first != null) {
-                return "" + first + " is only included in the first collection.";
-            } else return "" + second + " is only included in the second collection.";
-        }
-    }
-    static class ListDiff<E> {
-        int index;
-        E first;
-        E second;
-
-        public ListDiff(int index, E first, E second) {
-            this.index = index;
-            this.first = first;
-            this.second = second;
-        }
-        public String toString() {
-            return "Elements (No. "+ index + ") differ: " + first + ", " + second;
-        }
-    }
-
-    public static <E> Collection<E> concat(Collection<? extends Collection<E>> lists) {
-        if(lists == null) return null;
-        int size = 0;
-        for(Collection<E> list: lists) size += list.size();
-        ArrayList<E> result = new ArrayList<>(size);
-        for(Collection<E> list: lists) result.addAll(list);
-        return result;
-    }
-
-    public static <E> SetDiff<E> diffCheckSplitSet(Collection<? extends Collection<E>> lists0, Collection<? extends Collection<E>> lists1,
-                                         Comparator<E> comp) {
-        if(lists0 == null) lists0 = Collections.emptySet();
-        if(lists1 == null) lists1 = Collections.emptySet();
-        return diffCheckSet(concat(lists0), concat(lists1), comp);
-    }
-
-    public static <E> SetDiff<E> diffCheckSet(Collection<E> olist0, Collection<E> olist1,  Comparator<E> comp) {
-        ArrayList<E> list0 = new ArrayList<>(olist0);
-        ArrayList<E> list1 = new ArrayList<>(olist1);
-        list0.sort(comp);
-        list1.sort(comp);
-        int size = Math.min(list0.size(), list1.size());
-        for(int i =0; i< size; i++){
-            E item0 = list0.get(i);
-            E item1 = list1.get(i);
-            int result = comp.compare(item0, item1);
-            if(result < 0) {
-                return new SetDiff<>(item0, null);
-            } else if (result > 0){
-                return new SetDiff<>(null, item1);
-            }
-        }
-        if(list0.size() > list1.size()) {
-            return new SetDiff<>(list0.get(size), null);
-        } else if (list0.size() < list1.size()) {
-            return new SetDiff<>(null, list1.get(size));
-        } else {
-            return null;
-        }
-    }
-
-    public static <E> ListDiff<E> diffCheckList(List<E> list0, List<E> list1) {
-        int size = Math.min(list0.size(), list1.size());
-        for(int i =0; i< size; i++){
-            E item0 = list0.get(i);
-            E item1 = list1.get(i);
-            if(!item0.equals(item1))
-                return new ListDiff<>(i, item0, item1);
-        }
-        if(list0.size() > list1.size()) {
-            return new ListDiff<>(size, list0.get(size), null);
-        } else if (list0.size() < list1.size()) {
-            return new ListDiff<>(size, null, list1.get(size));
-        } else {
-            return null;
-        }
-    }
-
-    public static void main(String[] args) {
-        List<String> strs0 = Arrays.asList("abc", "bdd", "cde", "def");
-        List<String> strs1 = Arrays.asList("bdd", "abc", "def", "cde");
-        List<String> strs2 = Arrays.asList("bdd", "abc", "aaa" );
-
-        System.out.println(diffCheckSet(strs0, strs1, String.CASE_INSENSITIVE_ORDER));
-        System.out.println(diffCheckSet(strs0, strs2, String.CASE_INSENSITIVE_ORDER));
-        Collection<Collection<String>> x =  Arrays.asList(strs0, strs1, strs2);
-        Collection<Collection<String>> y =  Arrays.asList(strs2, strs0, strs1);
-        System.out.println("" + x + "-> " + concat(x));
-        System.out.println(diffCheckSplitSet(x, y, String.CASE_INSENSITIVE_ORDER));
     }
 }

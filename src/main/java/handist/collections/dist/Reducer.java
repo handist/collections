@@ -82,8 +82,8 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
         final Object[] ov = (Object[]) secondOperandAndResultArray;
         final Object[] iv = (Object[]) firstOperandArray;
 
-        for (int i = secondOperandArrayOffset,
-                j = firstOperandArrayOffset; i < count + secondOperandArrayOffset; i++, j++) {
+        for (int i = secondOperandArrayOffset, j = firstOperandArrayOffset; i < count
+                + secondOperandArrayOffset; i++, j++) {
             final R result = (R) ov[i];
             final R operand = (R) iv[j];
             result.merge(operand);

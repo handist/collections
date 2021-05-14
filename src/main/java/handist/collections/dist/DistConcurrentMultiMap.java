@@ -47,9 +47,11 @@ public class DistConcurrentMultiMap<K, V> extends DistMultiMap<K, V> {
         this(placeGroup, id, new ConcurrentHashMap<>());
 
     }
-    protected DistConcurrentMultiMap(TeamedPlaceGroup placeGroup, GlobalID id, Map<K,Collection<V>> data) {
+
+    protected DistConcurrentMultiMap(TeamedPlaceGroup placeGroup, GlobalID id, Map<K, Collection<V>> data) {
         super(placeGroup, id, data);
-        super.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistConcurrentMultiMap<>(pg0, gid));
+        super.GLOBAL = new GlobalOperations<>(this,
+                (TeamedPlaceGroup pg0, GlobalID gid) -> new DistConcurrentMultiMap<>(pg0, gid));
     }
 
     @Override
