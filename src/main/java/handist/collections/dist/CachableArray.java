@@ -29,7 +29,6 @@ import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.Serializer;
-import mpi.MPIException;
 
 /**
  * A class for handling objects using the Master-Proxy mechanism. The master
@@ -104,7 +103,7 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
         throw new UnsupportedOperationException("[CachableArray] No modification of members is allowed.");
     }
 
-    public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
+    public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack, CollectiveRelocator.Allgather mm) {
         final Serializer serProcess = (ObjectOutput s) -> {
             for (final T elem : data) {
                 s.writeObject(pack.apply(elem));
@@ -117,13 +116,14 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
                 unpack.accept(elem, diff);
             }
         };
-        try {
-            CollectiveRelocator.allgatherSer(placeGroup, serProcess, desProcess);
-        } catch (final MPIException e) {
-            e.printStackTrace();
-            throw new Error("[CachableArray] MPIException raised.");
-        }
+        mm.request(serProcess,desProcess);
     }
+    public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
+        CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup);
+        allreduce(pack,unpack,mm);
+        mm.execute();
+    }
+
 
     /**
      * Broadcast from master place to proxy place, packing elements using the
@@ -143,6 +143,12 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
      */
     @SuppressWarnings("unchecked")
     public <U> void broadcast(Function<T, U> pack, BiConsumer<T, U> unpack) {
+        CollectiveRelocator.Bcast manager = new CollectiveRelocator.Bcast(placeGroup, master);
+        broadcast(pack, unpack, manager);
+        manager.execute();
+    }
+
+    public <U> void broadcast(Function<T, U> pack, BiConsumer<T, U> unpack, CollectiveRelocator.Bcast manager) {
         final Serializer serProcess = (ObjectOutput s) -> {
             for (final T elem : data) {
                 s.writeObject(pack.apply(elem));
@@ -154,12 +160,7 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
                 unpack.accept(elem, diff);
             }
         };
-        try {
-            CollectiveRelocator.bcastSer(placeGroup, master, serProcess, desProcess);
-        } catch (final MPIException e) {
-            e.printStackTrace();
-            throw new Error("[CachableArray] MPIException raised.");
-        }
+        manager.request(serProcess, desProcess);
     }
 
     @Override
@@ -222,6 +223,12 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
     }
 
     public <U> void reduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
+        CollectiveRelocator.Gather manager = new CollectiveRelocator.Gather(placeGroup, master);
+        reduce(pack, unpack, manager);
+        manager.execute();
+    }
+
+    public <U> void reduce(Function<T, U> pack, BiConsumer<T, U> unpack, CollectiveRelocator.Gather manager) {
         final Serializer serProcess = (ObjectOutput s) -> {
             for (final T elem : data) {
                 s.writeObject(pack.apply(elem));
@@ -234,12 +241,7 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
                 unpack.accept(elem, diff);
             }
         };
-        try {
-            CollectiveRelocator.gatherSer(placeGroup, master, serProcess, desProcess);
-        } catch (final MPIException e) {
-            e.printStackTrace();
-            throw new Error("[CachableArray] MPIException raised.");
-        }
+        manager.request(serProcess, desProcess);
     }
 
     @Override

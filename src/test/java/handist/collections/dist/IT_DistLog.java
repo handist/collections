@@ -15,7 +15,7 @@ import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
 
 @RunWith(MpiRunner.class)
-@MpiConfig(ranks = 2, launcher = TestLauncher.class)
+@MpiConfig(ranks = 3, launcher = TestLauncher.class)
 public class IT_DistLog implements Serializable {
 
     private static final long serialVersionUID = -1479339859576363444L;

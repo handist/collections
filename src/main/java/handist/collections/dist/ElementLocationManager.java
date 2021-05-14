@@ -317,7 +317,7 @@ public class ElementLocationManager<T> {
                 applyDiff(k, v, from);
             }
         };
-        CollectiveRelocator.allgatherSer(pg, serProcess, desProcess);
+        new CollectiveRelocator.Allgather(pg).request(serProcess, desProcess).execute();
         importedDiffKeys.clear();
         diff.clear();
     }
