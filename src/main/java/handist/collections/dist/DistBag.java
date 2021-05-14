@@ -72,17 +72,24 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
         @SuppressWarnings("unchecked")
         @Override
         public void gather(Place destination) {
+            CollectiveRelocator.Gather manager = new CollectiveRelocator.Gather(placeGroup, destination);
+            gather(manager);
+            manager.execute();
+        }
+
+        public void gather(CollectiveRelocator.Gather manager) {
+            final Place destination = manager.root;
             final Serializer serProcess = (ObjectOutput s) -> {
                 s.writeObject(new Bag<>(handle));
+                if (!here().equals(destination)) {
+                    clear();
+                }
             };
             final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
                 final Bag<T> imported = (Bag<T>) ds.readObject();
                 addBag(imported);
             };
-            CollectiveRelocator.gatherSer(placeGroup, destination, serProcess, desProcess);
-            if (!here().equals(destination)) {
-                clear();
-            }
+            manager.request(serProcess, desProcess);
         }
 
     }
