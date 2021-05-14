@@ -54,7 +54,8 @@ public class DistConcurrentMap<K, V> extends DistMap<K, V> {
      */
     DistConcurrentMap(TeamedPlaceGroup pg, GlobalID globalId) {
         super(pg, globalId, new ConcurrentHashMap<>());
-        super.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistConcurrentMap<>(pg0, gid));
+        super.GLOBAL = new GlobalOperations<>(this,
+                (TeamedPlaceGroup pg0, GlobalID gid) -> new DistConcurrentMap<>(pg0, gid));
     }
 
     @Override

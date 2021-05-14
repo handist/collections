@@ -121,6 +121,9 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
      */
     public DistBag<T>.DistBagTeam TEAM;
 
+    @SuppressWarnings("rawtypes")
+    private DistCollectionSatellite satellite;
+
     /**
      * Create a new DistBag. Place.places() is used as the PlaceGroup.
      */
@@ -161,6 +164,17 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
         super.forEach(action);
     }
 
+    /*
+     * public def integrate(src : List[T]) { // addAll(src); throw new
+     * UnsupportedOperationException(); }
+     */
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public final <S extends DistCollectionSatellite<DistBag<T>, S>> S getSatellite() {
+        return (S) satellite;
+    }
+
     /**
      * Return a Container that has the same values of DistBag's local storage.
      *
@@ -174,11 +188,6 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     public GlobalOperations<T, DistBag<T>> global() {
         return GLOBAL;
     }
-
-    /*
-     * public def integrate(src : List[T]) { // addAll(src); throw new
-     * UnsupportedOperationException(); }
-     */
 
     @Override
     public GlobalID id() {
@@ -247,6 +256,11 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     @Override
     public TeamedPlaceGroup placeGroup() {
         return placeGroup;
+    }
+
+    @Override
+    public <S extends DistCollectionSatellite<DistBag<T>, S>> void setSatellite(S s) {
+        satellite = s;
     }
 
     @SuppressWarnings("unused")

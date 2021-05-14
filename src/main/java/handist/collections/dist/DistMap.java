@@ -79,6 +79,9 @@ public class DistMap<K, V>
 
     protected final TeamOperations<V, DistMap<K, V>> TEAM;
 
+    @SuppressWarnings("rawtypes")
+    private DistCollectionSatellite satellite;
+
     /**
      * Construct an empty DistMap which can have local handles on all the hosts in
      * the computation.
@@ -98,6 +101,25 @@ public class DistMap<K, V>
         this(pg, new GlobalID());
     }
 
+    DistMap(TeamedPlaceGroup pg, GlobalID globalID) {
+        this(pg, globalID, new HashMap<>());
+    }
+
+//	Method moved to TEAM and GLOBAL operations
+//	@Override
+//	public void distSize(long[] result) {
+//		TeamedPlaceGroup pg = this.placeGroup;
+//		long localSize = data.size(); // int->long
+//		long[] sendbuf = new long[] { localSize };
+//		// team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
+//		try {
+//			pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
+//		} catch (MPIException e) {
+//			e.printStackTrace();
+//			throw new Error("[DistMap] network error in balance()");
+//		}
+//	}
+
     /**
      * Package private DistMap constructor. This constructor is used to register a
      * new DistMap handle with the specified GlobalId. Programmers that use this
@@ -114,7 +136,7 @@ public class DistMap<K, V>
      * @param globalId the global id associated to this distributed map
      * @param data     the data container to be used
      */
-    DistMap(TeamedPlaceGroup pg, GlobalID globalId, Map<K,V> data) {
+    DistMap(TeamedPlaceGroup pg, GlobalID globalId, Map<K, V> data) {
         placeGroup = pg;
         id = globalId;
         locality = new float[pg.size];
@@ -125,25 +147,6 @@ public class DistMap<K, V>
         TEAM = new TeamOperations<>(this);
         id.putHere(this);
     }
-    DistMap(TeamedPlaceGroup pg, GlobalID globalID) {
-        this(pg, globalID, new HashMap<>());
-    }
-
-
-//	Method moved to TEAM and GLOBAL operations
-//	@Override
-//	public void distSize(long[] result) {
-//		TeamedPlaceGroup pg = this.placeGroup;
-//		long localSize = data.size(); // int->long
-//		long[] sendbuf = new long[] { localSize };
-//		// team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
-//		try {
-//			pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
-//		} catch (MPIException e) {
-//			e.printStackTrace();
-//			throw new Error("[DistMap] network error in balance()");
-//		}
-//	}
 
     /**
      * Remove the all local entries.
@@ -279,6 +282,12 @@ public class DistMap<K, V>
             }
         }
         return data.keySet();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <S extends DistCollectionSatellite<DistMap<K, V>, S>> S getSatellite() {
+        return (S) satellite;
     }
 
     @Override
@@ -438,24 +447,6 @@ public class DistMap<K, V>
         }
     }
 
-    public void moveAtSyncCount(int count, Place dest, MoveManager mm) {
-        if (count == 0) {
-            return;
-        }
-        moveAtSync(getNKeys(count), dest, mm);
-    }
-
-    @Override
-    public void parallelForEach(SerializableConsumer<V> action) {
-        parallelForEachLocal(action);
-    }
-
-    private void parallelForEachLocal(SerializableConsumer<V> action) {
-        finish(() -> {
-            forEachParallelBodyLocal(action);
-        });
-    }
-
     /*
      * void teamedBalance() { LoadBalancer.MapBalancer<T, U> balance = new
      * LoadBalancer.MapBalancer<>(this.data, placeGroup); balance.execute();
@@ -472,15 +463,18 @@ public class DistMap<K, V>
      * }
      */
 
-    @Override
-    public TeamedPlaceGroup placeGroup() {
-        return placeGroup;
+    public void moveAtSyncCount(int count, Place dest, MoveManager mm) {
+        if (count == 0) {
+            return;
+        }
+        moveAtSync(getNKeys(count), dest, mm);
     }
 
     // TODO different naming convention of balance methods with DistMap
 
-    void printLocalData() {
-        System.out.println(this);
+    @Override
+    public void parallelForEach(SerializableConsumer<V> action) {
+        parallelForEachLocal(action);
     }
 
     /*
@@ -494,6 +488,21 @@ public class DistMap<K, V>
      * BranchingManager[DistMap[T,U], Map[T,U]](srcName, this); return null as
      * BranchingManager[DistMap[T,U], Map[T,U]]; }
      */
+
+    private void parallelForEachLocal(SerializableConsumer<V> action) {
+        finish(() -> {
+            forEachParallelBodyLocal(action);
+        });
+    }
+
+    @Override
+    public TeamedPlaceGroup placeGroup() {
+        return placeGroup;
+    }
+
+    void printLocalData() {
+        System.out.println(this);
+    }
 
     /**
      * Put a new entry.
@@ -654,6 +663,11 @@ public class DistMap<K, V>
         proxyGenerator = proxy;
     }
 
+    @Override
+    public <S extends DistCollectionSatellite<DistMap<K, V>, S>> void setSatellite(S s) {
+        satellite = s;
+    }
+
     /**
      * Return the number of the local entries.
      *
@@ -697,4 +711,5 @@ public class DistMap<K, V>
             return new DistMap<>(pg1, id1);
         });
     }
+
 }

@@ -13,7 +13,10 @@ package handist.collections.dist;
 import static apgas.Constructs.*;
 
 import java.io.ObjectStreamException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
@@ -62,6 +65,7 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
 
     /**
      * Construct a DistMultiMap with given arguments.
+     *
      * @param placeGroup PlaceGroup
      * @param id         the global ID used to identify this instance
      * @param data       the container to be used
@@ -71,6 +75,19 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
         super.GLOBAL = new GlobalOperations<>(this,
                 (TeamedPlaceGroup pg0, GlobalID gid) -> new DistMultiMap<>(pg0, gid));
     }
+
+    /**
+     * create an empty collection to hold values for a key. Please define the
+     * adequate container for the class.
+     *
+     * @return the created collection.
+     */
+    protected Collection<V> createEmptyCollection() {
+        return new ArrayList<>();
+    }
+
+    // TODO ...
+    // public void setupBranches(DistMap.Generator<T,List<U>> gen)
 
     /**
      * Apply the same operation onto all the local entries.
@@ -85,9 +102,6 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
             }
         }
     }
-
-    // TODO ...
-    // public void setupBranches(DistMap.Generator<T,List<U>> gen)
 
     /**
      * Apply the same operation on each element including remote places and creates
@@ -160,15 +174,6 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
             toBranch.putForMove(k, v);
         };
         mm.request(pl, serialize, deserialize);
-    }
-
-    /**
-     * create an empty collection to hold values for a key.
-     * Please define the adequate container for the class.
-     * @return the created collection.
-     */
-    protected Collection<V> createEmptyCollection() {
-        return new ArrayList<>();
     }
 
     /**

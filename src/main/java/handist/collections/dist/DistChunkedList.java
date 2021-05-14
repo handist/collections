@@ -99,6 +99,9 @@ public class DistChunkedList<T> extends ChunkedList<T>
      */
     protected final transient TeamOperations<T, DistChunkedList<T>> TEAM;
 
+    @SuppressWarnings("rawtypes")
+    DistCollectionSatellite satellite;
+
     /**
      * Create a new DistCol. All the hosts participating in the distributed
      * computation are susceptible to handle the created instance. This constructor
@@ -160,6 +163,12 @@ public class DistChunkedList<T> extends ChunkedList<T>
     @Override
     public Collection<LongRange> getAllRanges() {
         return ranges();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <S extends DistCollectionSatellite<DistChunkedList<T>, S>> S getSatellite() {
+        return (S) satellite;
     }
 
     @Override
@@ -319,6 +328,16 @@ public class DistChunkedList<T> extends ChunkedList<T>
         }, mm);
     }
 
+    // Method moved to GLOBAL and TEAM operations
+    // @Override
+    // public void distSize(long[] result) {
+    // for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
+    // final LongRange k = entry.getKey();
+    // final Place p = entry.getValue();
+    // result[manager.placeGroup.rank(p)] += k.size();
+    // }
+    // }
+
     @Override
     public void parallelForEach(SerializableConsumer<T> action) {
         super.parallelForEach(action);
@@ -329,15 +348,10 @@ public class DistChunkedList<T> extends ChunkedList<T>
         return manager.placeGroup;
     }
 
-    // Method moved to GLOBAL and TEAM operations
-    // @Override
-    // public void distSize(long[] result) {
-    // for (final Map.Entry<LongRange, Place> entry : ldist.dist.entrySet()) {
-    // final LongRange k = entry.getKey();
-    // final Place p = entry.getValue();
-    // result[manager.placeGroup.rank(p)] += k.size();
-    // }
-    // }
+    @Override
+    public <S extends DistCollectionSatellite<DistChunkedList<T>, S>> void setSatellite(S s) {
+        satellite = s;
+    }
 
     @Override
     public TeamOperations<T, DistChunkedList<T>> team() {
@@ -357,4 +371,5 @@ public class DistChunkedList<T> extends ChunkedList<T>
             return new DistChunkedList<>(pg1, id1);
         });
     }
+
 }
