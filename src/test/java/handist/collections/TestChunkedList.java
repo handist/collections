@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import org.junit.Before;
@@ -1090,4 +1091,39 @@ public class TestChunkedList {
         assertEquals("[ChunkedList(3),[[0,3)]:0,1,2,[[3,5)]:3,null,[[5,6)]:5]", chunkedList.toString());
         assertEquals("[ChunkedList(0)]", newlyCreatedChunkedList.toString());
     }
+
+
+    @Test
+    public void testSubListTK0() { /* found bugs */
+        AtomicInteger x = new AtomicInteger(0);
+        System.out.println(x.get());
+        ChunkedList<String> chunkedList;
+        LongRange range = new LongRange(11,311);
+        chunkedList = new ChunkedList<>();
+        chunkedList.add(new Chunk<String>(new LongRange(100, 104),"val"));
+        chunkedList.forEach(range, (long index, String s)-> {
+            x.incrementAndGet();
+            assertTrue(range.contains(index));
+            assertTrue(s.equals("val"));
+        });
+       assertTrue(x.get()==4);
+    }
+
+    @Test
+    public void testSubListTK1() { /* found bugs */
+        AtomicInteger x = new AtomicInteger(0);
+        ChunkedList<String> chunkedList;
+        LongRange range = new LongRange(11,311);
+        chunkedList = new ChunkedList<>();
+        chunkedList.add(new Chunk<String>(new LongRange(100, 104),"val0"));
+        chunkedList.add(new Chunk<String>(new LongRange(200, 204),"val1"));
+        chunkedList.forEach(range, (long index, String s)-> {
+            x.incrementAndGet();
+            assertTrue(range.contains(index));
+            assertTrue(s.equals(index<200?"val0":"val1"));
+        });
+        assertTrue(x.get()==8);
+    }
+
+
 }
