@@ -1324,9 +1324,8 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public ChunkedList<T> subList(LongRange range) {
         final ChunkedList<T> sub = new ChunkedList<>();
-        LongRange current = range;
+        LongRange result = range.findOverlap(chunks);
         while (true) {
-            final LongRange result = current.findOverlap(chunks);
             if (result == null) {
                 break;
             }
@@ -1337,7 +1336,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             if (result.to >= range.to) {
                 break;
             }
-            current = chunks.higherKey(result);
+            result = chunks.higherKey(result);
         }
         return sub;
     }
