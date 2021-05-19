@@ -10,6 +10,7 @@
  ******************************************************************************/
 package handist.collections.dist;
 
+import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
@@ -17,6 +18,7 @@ import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -29,9 +31,7 @@ import handist.mpijunit.launcher.TestLauncher;
 @MpiConfig(ranks = 2, launcher = TestLauncher.class)
 public class IT_RelocationMap implements Serializable {
 
-    /**
-     *
-     */
+    /***/
     private static final long serialVersionUID = -8101194459870660638L;
 
     /** Number of places this test is running on */
@@ -39,6 +39,8 @@ public class IT_RelocationMap implements Serializable {
 
     /** Number of initial data entries places into the map */
     final static long numData = 200;
+    /** Number of threads using when adding data */
+    final static long numThreads = 4;
 
     /** Random instance used to populate the map with initial data */
     final static Random random = new Random(12345l);
@@ -55,6 +57,7 @@ public class IT_RelocationMap implements Serializable {
     }
 
     private RelocationMap<String, String> relocationMap;
+    private DistConcurrentMap<String, String> distMap;
 
     /** PlaceGroup on which the DistMap is defined on */
     TeamedPlaceGroup pg = TeamedPlaceGroup.getWorld();
@@ -67,11 +70,43 @@ public class IT_RelocationMap implements Serializable {
     public void setup() {
         NPLACES = pg.size();
         relocationMap = new RelocationMap<>(gatherDist, pg);
+        distMap = new DistConcurrentMap<>(pg);
     }
 
     @After
     public void tearDown() {
         relocationMap.destroy();
+	distMap.destroy();
+    }
+
+    @Ignore
+    @Test
+    public void testConstructWithDistMap() {
+        try {
+            // add data to distMap at each place
+            pg.broadcastFlat(() -> {
+                for (int i = 0; i < numData; i++) {
+                    distMap.put(genRandStr("k" + pg.rank()), genRandStr("v" + pg.rank()));
+                }
+            });
+            // create RelocationMap from distMap
+            final RelocationMap<String, String> rMap = new RelocationMap<>(gatherDist, distMap);
+            // add data at each place and relocate
+            pg.broadcastFlat(() -> {
+                for (int i = 0; i < numData; i++) {
+                    rMap.put(genRandStr("kr") + pg.rank(), genRandStr("vr") + pg.rank());
+                }
+                rMap.relocate();
+                // check size
+                if (pg.rank() == 0) {
+                    assertEquals(numData * (pg.size() + 1), distMap.size());
+                } else {
+                    assertEquals(numData, distMap.size());
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+        }
     }
 
     @Test
@@ -79,15 +114,20 @@ public class IT_RelocationMap implements Serializable {
         try {
             pg.broadcastFlat(() -> {
                 final int rank = pg.rank();
-                for (int i = 0; i < numData; i++) {
-                    relocationMap.put(genRandStr("k" + rank), genRandStr("v" + rank));
-                }
+		finish(() -> {
+                    for (int thread = 0; thread < numThreads; thread++) {
+                        async(() -> {
+                            for (int i = 0; i < numData / numThreads; i++) {
+                                relocationMap.put(genRandStr("k" + rank), genRandStr("v" + rank));
+                            }
+                        });
+                    }
+		});
                 relocationMap.relocate();
-
                 if (rank == 0) {
-                    assertEquals(numData * NPLACES, relocationMap.size());
+                    assertEquals(numData * NPLACES, relocationMap.convertToDistMap().size());
                 } else {
-                    assertEquals(0, relocationMap.size());
+                    assertEquals(0, relocationMap.convertToDistMap().size());
                 }
             });
         } catch (final MultipleException me) {
@@ -112,7 +152,7 @@ public class IT_RelocationMap implements Serializable {
         pg.broadcastFlat(() -> {
             final int rank = pg.rank();
             if (rank == 1) {
-                assertEquals(numData, relocationMap.size());
+                assertEquals(numData, relocationMap.convertToDistMap().size());
             }
         });
     }
