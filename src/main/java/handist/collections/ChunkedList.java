@@ -389,7 +389,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         final Map.Entry<LongRange, RangedList<T>> entry = chunks.floorEntry(lr);
 
         // It is possible for the requested point not to be present in any chunk
-        if (entry == null || entry.getKey().contains(lr.from)) {
+        if (entry == null || !entry.getKey().contains(lr.from)) {
             return true;
         }
 

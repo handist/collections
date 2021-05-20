@@ -294,7 +294,7 @@ public class IT_DistChunkedList2 implements Serializable {
         distChunkedList.moveRangeAtSync(toTransfer, place(1), m);
         m.send();
 
-        assertFalse(distChunkedList.contains(toTransfer));
+        assertFalse(distChunkedList.containsRange(toTransfer));
         at(place(1), () -> assertTrue(distChunkedList.containsRange(toTransfer)));
     }
 
@@ -316,7 +316,7 @@ public class IT_DistChunkedList2 implements Serializable {
         distChunkedList.moveRangeAtSync(range0To100, place(1), m); // Should not throw anything
         m.send();
 
-        assertFalse(distChunkedList.contains(chunk0To100));
+        assertFalse(distChunkedList.containsRange(range0To100));
         at(place(1), () -> assertTrue(distChunkedList.containsRange(range0To100)));
     }
 
@@ -338,7 +338,7 @@ public class IT_DistChunkedList2 implements Serializable {
         distChunkedList.moveRangeAtSync(toTransfer, place(1), m);
         m.send();
 
-        assertFalse(distChunkedList.contains(toTransfer));
+        assertFalse(distChunkedList.containsRange(toTransfer));
         at(place(1), () -> assertTrue(distChunkedList.containsRange(toTransfer)));
     }
 
@@ -356,12 +356,49 @@ public class IT_DistChunkedList2 implements Serializable {
 
         final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
         final LongRange toTransfer = new LongRange(50l, 100l);
+        final LongRange leftover = new LongRange(0, 50l);
 
         distChunkedList.moveRangeAtSync(toTransfer, place(1), m);
+
+        assertTrue(distChunkedList.containsRange(toTransfer));
+        assertTrue(distChunkedList.containsRange(range0To100));
+        assertTrue(distChunkedList.containsRange(leftover));
+
         m.send();
 
-        assertFalse(distChunkedList.contains(toTransfer));
+        assertFalse(distChunkedList.containsRange(toTransfer));
+        assertFalse(distChunkedList.containsRange(range0To100));
+        assertTrue(distChunkedList.containsRange(leftover));
         at(place(1), () -> assertTrue(distChunkedList.containsRange(toTransfer)));
+    }
+
+    @Test(timeout = 1000)
+    public void testMoverRangeAtSync_overlappingRange() throws IOException {
+        distChunkedList.add(chunk0To100);
+        distChunkedList.add(chunk100To200);
+        distChunkedList.add(chunk200To250);
+
+        final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
+        final LongRange toTransfer = new LongRange(50l, 150l);
+        final LongRange leftover = new LongRange(0, 50l);
+        final LongRange rightover = new LongRange(150l, 200l);
+
+        distChunkedList.moveRangeAtSync(toTransfer, place(1), m);
+
+        assertTrue(distChunkedList.containsRange(toTransfer));
+        assertTrue(distChunkedList.containsRange(range0To100));
+        assertTrue(distChunkedList.containsRange(range100To200));
+        assertTrue(distChunkedList.containsRange(leftover));
+        assertTrue(distChunkedList.containsRange(rightover));
+
+        m.send();
+
+        assertFalse(distChunkedList.containsRange(toTransfer));
+        assertFalse(distChunkedList.containsRange(range0To100));
+        assertTrue(distChunkedList.containsRange(leftover));
+        assertTrue(distChunkedList.containsRange(rightover));
+        at(place(1), () -> assertTrue(distChunkedList.containsRange(toTransfer)));
+
     }
 
     /**
