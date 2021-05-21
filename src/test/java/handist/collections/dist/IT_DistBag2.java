@@ -10,22 +10,20 @@
  ******************************************************************************/
 package handist.collections.dist;
 
+import static apgas.Constructs.*;
+import static org.junit.Assert.*;
+
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.function.Consumer;
 
-import apgas.Place;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import apgas.Place;
 import handist.collections.dist.DistBag.DistBagTeam;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
-
-import static apgas.Constructs.here;
-import static org.junit.Assert.assertTrue;
 
 /**
  * Test class dedicated to class {@link DistBag} and its Global, and
@@ -36,77 +34,84 @@ import static org.junit.Assert.assertTrue;
 public class IT_DistBag2 implements Serializable {
 
     static class Element implements Serializable {
+        /** Serial Version UID */
+        private static final long serialVersionUID = -4067227682215616317L;
+        final Place p;
+        final int key;
+        int val;
+
         public Element(Place p, int key) {
             this.p = p;
             this.key = key;
             this.val = 0;
         }
-        final Place p;
-        final int key;
-        int val;
-        public String toSting() {
-            return "X:" + p + ", key:" + key + ", val" + val;
-        }
+
         public int inc() {
             return val++;
         }
 
+        public String toSting() {
+            return "X:" + p + ", key:" + key + ", val" + val;
+        }
+
     }
+
     /** Serial Version UID */
     private static final long serialVersionUID = 8208565684336617060L;
+
+    static String genKey(Place p, int i) {
+        return "" + p + ":" + i;
+    }
 
     // TODO implement tests for the various features of class DistBag
     /** PlaceGroup on which the DistMap is defined on */
     TeamedPlaceGroup pg = TeamedPlaceGroup.getWorld();
 
-    static String genKey(Place p, int i) {
-        return ""+p+":"+i;
-    }
+    @SuppressWarnings("unused")
     @Test(timeout = 30000)
     public void testSharedSerializable() throws Throwable {
         final DistBag<Element> dbag0 = new DistBag<>();
         final DistBag<Element> dbag1 = new DistBag<>();
         final Place caller = here();
-        pg.broadcastFlat(()->{
-            ArrayList<Element> elems = new ArrayList<>();
-            for(int i=0; i<4; i++) {
+        pg.broadcastFlat(() -> {
+            final ArrayList<Element> elems = new ArrayList<>();
+            for (int i = 0; i < 4; i++) {
                 elems.add(new Element(here(), i));
             }
             dbag0.addBag(elems);
             dbag0.addBag(elems);
             dbag1.addBag(elems);
             dbag1.addBag(elems);
-            CollectiveRelocator.Gather m =
-                    new CollectiveRelocator.Gather(pg, caller);
+            final CollectiveRelocator.Gather m = new CollectiveRelocator.Gather(pg, caller);
             dbag0.TEAM.gather(m);
             dbag1.TEAM.gather(m);
             m.execute();
         });
-        int[][] board = new int[4][4];
+        final int[][] board = new int[4][4];
         System.out.println("Dbag0-----");
         dbag0.forEach((Element e) -> {
-            //System.out.println(e);
+            // System.out.println(e);
         });
         System.out.println("Dbag0 writting-----");
         dbag0.forEach((Element e) -> {
-            int v =board[e.key][e.inc()]++;
-            //System.out.println("board:" + v);
-            //System.out.println(e);
+            final int v = board[e.key][e.inc()]++;
+            // System.out.println("board:" + v);
+            // System.out.println(e);
         });
         System.out.println("Dbag1-----");
         dbag1.forEach((Element e) -> {
-            //System.out.println(e);
+            // System.out.println(e);
         });
         System.out.println("Dbag1 writting-----");
         dbag1.forEach((Element e) -> {
-            int v =board[e.key][e.inc()]++;
-            //System.out.println("board:" + v);
-            //System.out.println(e);
+            final int v = board[e.key][e.inc()]++;
+            // System.out.println("board:" + v);
+            // System.out.println(e);
         });
 
-        for(int i=0;i<4;i++) {
-            for(int j =0;j<4; j++) {
-                assertTrue(board[i][j]==3);
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                assertTrue(board[i][j] == 3);
             }
         }
     }

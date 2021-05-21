@@ -348,10 +348,6 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
-     *
-     * TODO : Originally, this method was prepared for DistCol#moveRangeAtSync. The
-     * comments below are the same as they were then and needs to be modified.
-     *
      * Method used in preparation before transferring chunks. This method checks if
      * a chunk contained in this object has its range exactly matching the range
      * specified as parameter. If that is the case, returns {@code true}.
@@ -402,16 +398,13 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
         // Arrived here, we know that the chunk we have needs to be split
         // We synchronize on this specific Chunk
-        synchronized (entry) {
+        synchronized (chunkRange) {
             // We restart the chunk acquisition process to check if we obtain the same chunk
             // If that is not the case, another thread has modified the chunks in the
             // ChunkedList and
             // this method has failed to do the modification, which will have to be
             // attempted again
-            Map.Entry<LongRange, RangedList<T>> checkEntry = chunks.floorEntry(lr);
-            if (checkEntry == null || checkEntry.getKey().to <= lr.from) {
-                checkEntry = chunks.ceilingEntry(lr);
-            }
+            final Map.Entry<LongRange, RangedList<T>> checkEntry = chunks.floorEntry(lr);
             if (!entry.getKey().equals(checkEntry.getKey())) {
                 return false;
             }
@@ -425,16 +418,12 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
                 // DistCol)#get(long) would fail.
                 add_unchecked(splittedChunks.pollLast());
             }
-            remove(entry.getKey());
+            remove(chunkRange);
             return true;
         }
     }
 
     /**
-     *
-     * TODO : Originally, this method was prepared for DistCol#moveRangeAtSync. The
-     * comments below are the same as they were then and needs to be modified.
-     *
      * Method used in preparation before transferring chunks. This method checks if
      * a chunk contained in this object has its range exactly matching the range
      * specified as parameter. If that is the case, returns {@code true}.
@@ -492,16 +481,13 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
         // Arrived here, we know that the chunk we have needs to be split
         // We synchronize on this specific Chunk
-        synchronized (entry) {
+        synchronized (chunkRange) {
             // We restart the chunk acquisition process to check if we obtain the same chunk
             // If that is not the case, another thread has modified the chunks in the
             // ChunkedList and
             // this method has failed to do the modification, which will have to be
             // attempted again
-            Map.Entry<LongRange, RangedList<T>> checkEntry = chunks.floorEntry(lr);
-            if (checkEntry == null || checkEntry.getKey().to <= lr.from) {
-                checkEntry = chunks.ceilingEntry(lr);
-            }
+            final Map.Entry<LongRange, RangedList<T>> checkEntry = chunks.floorEntry(lr);
             if (!entry.getKey().equals(checkEntry.getKey())) {
                 return false;
             }
@@ -515,7 +501,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
                 // DistCol)#get(long) would fail.
                 add_unchecked(splittedChunks.pollLast());
             }
-            remove(entry.getKey());
+            remove(chunkRange);
             return true;
         }
     }
@@ -1185,14 +1171,16 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * @param c the chunk whose matching range needs to be removed
      * @return the removed chunk, or null if there was no such chunk contained in
      *         this instance
+     * @deprecated programmers should use method {@link #remove(LongRange)} instead
      */
     @Deprecated
     public RangedList<T> remove(RangedList<T> c) {
-        final RangedList<T> removed = chunks.remove(c.getRange());
-        if (removed != null) {
-            size.addAndGet(-removed.size());
-        }
-        return removed;
+        return remove(c.getRange());
+//        final RangedList<T> removed = chunks.remove(c.getRange());
+//        if (removed != null) {
+//            size.addAndGet(-removed.size());
+//        }
+//        return removed;
     }
 
     /**
@@ -1286,7 +1274,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         // existing chunk or whether it spans multiple chunks
         final Map.Entry<LongRange, RangedList<T>> lowSideEntry = chunks.floorEntry(range);
         if (lowSideEntry != null && lowSideEntry.getKey().from <= range.from && range.to <= lowSideEntry.getKey().to) {
-            // The given range is included (or identical) to an existing Chunk.
+            // The given range is included in (or identical) to an existing Chunk.
             // Only one Chunk needs to be split (if any).
             while (!attemptSplitChunkAtTwoPoints(range)) {
                 ;
