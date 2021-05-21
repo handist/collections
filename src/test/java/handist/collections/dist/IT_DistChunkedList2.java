@@ -15,6 +15,9 @@ import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 
 import org.junit.After;
@@ -89,6 +92,70 @@ public class IT_DistChunkedList2 implements Serializable {
 
     /** TeamedPlaceGroup representing the whole world */
     TeamedPlaceGroup world;
+
+    void concurrencyMoveRangeCheck() {
+        distChunkedList.add(chunk0To100);
+        distChunkedList.add(chunk100To200);
+        distChunkedList.add(chunk200To250);
+
+        final OneSidedMoveManager[] mm = new OneSidedMoveManager[3];
+
+        final OneSidedMoveManager m1 = new OneSidedMoveManager(place(1));
+        final OneSidedMoveManager m2 = new OneSidedMoveManager(place(2));
+        final OneSidedMoveManager m3 = new OneSidedMoveManager(place(3));
+
+        mm[0] = m1;
+        mm[1] = m2;
+        mm[2] = m3;
+
+        // Prepare the chunks that we want to send away in an array for easier reference
+        final List<LongRange> toSendAway = new ArrayList<>(14);
+        toSendAway.add(new LongRange(0l, 10l));
+        toSendAway.add(new LongRange(20l, 30l));
+        toSendAway.add(new LongRange(40l, 50l));
+        toSendAway.add(new LongRange(60l, 70l));
+        toSendAway.add(new LongRange(90l, 100l));
+        toSendAway.add(new LongRange(110l, 120l));
+        toSendAway.add(new LongRange(130l, 140l));
+        toSendAway.add(new LongRange(140l, 150l));
+        toSendAway.add(new LongRange(160l, 170l));
+        toSendAway.add(new LongRange(190l, 200l));
+        toSendAway.add(new LongRange(200l, 210l));
+        toSendAway.add(new LongRange(210l, 220l));
+        toSendAway.add(new LongRange(220l, 230l));
+        toSendAway.add(new LongRange(230l, 240l));
+        Collections.shuffle(toSendAway);
+
+        final LongRange[] impliciltyRemaining = new LongRange[9];
+        impliciltyRemaining[0] = new LongRange(10l, 20l);
+        impliciltyRemaining[1] = new LongRange(30l, 40l);
+        impliciltyRemaining[2] = new LongRange(50l, 60l);
+        impliciltyRemaining[3] = new LongRange(70l, 90l);
+        impliciltyRemaining[4] = new LongRange(100l, 100l);
+        impliciltyRemaining[5] = new LongRange(120l, 130l);
+        impliciltyRemaining[6] = new LongRange(150l, 160l);
+        impliciltyRemaining[7] = new LongRange(170l, 190l);
+        impliciltyRemaining[8] = new LongRange(240l, 250l);
+
+        finish(() -> {
+            for (int i = 0; i < toSendAway.size(); i++) {
+                final int idx = i;
+                async(() -> {
+                    distChunkedList.moveRangeAtSync(toSendAway.get(idx), place(1 + (idx % 3)), mm[idx % 3]);
+                });
+            }
+        });
+
+        // Check that the chunks were correctly separated
+        for (final LongRange lr : toSendAway) {
+            assertTrue(lr + " was not found in distChunkedList", distChunkedList.containsRange(lr));
+        }
+        for (final LongRange lr : impliciltyRemaining) {
+            assertTrue(lr + " was not found in distChunkedList", distChunkedList.containsRange(lr));
+        }
+        assertEquals(impliciltyRemaining.length + toSendAway.size(), distChunkedList.ranges().size());
+
+    }
 
     /**
      * Prepares the various objects used for the tests
@@ -283,7 +350,7 @@ public class IT_DistChunkedList2 implements Serializable {
      * @throws IOException if thrown during the test
      */
     @Test
-    public void testMoveRangeAtSyncLong_leftRange() throws IOException {
+    public void testMoveRangeAtSync_leftRange() throws IOException {
         distChunkedList.add(chunk0To100);
         distChunkedList.add(chunk100To200);
         distChunkedList.add(chunk200To250);
@@ -299,6 +366,30 @@ public class IT_DistChunkedList2 implements Serializable {
     }
 
     /**
+     * Attempts to trigger concurrent splitting of chunks to check if it is handled
+     * correctly. This test does not guarantee that bugs will be detected. But if
+     * this method fails, we can be sure that something went wrong.
+     */
+    @Test
+    public void testMoveRangeAtSync_manyConcurrentThreads() {
+        for (int rep = 0; rep < 50; rep++) {
+            assertTrue(distChunkedList.isEmpty());
+            try {
+                concurrencyMoveRangeCheck();
+            } catch (final Throwable t) {
+                System.err.println(
+                        "There was a problem when splitting the chunks. Some chunks appear to have been mistakenly kept.");
+                for (final LongRange lr : distChunkedList.ranges()) {
+                    System.err.println(lr);
+                }
+                throw t;
+            }
+
+            distChunkedList.clear();
+        }
+    }
+
+    /**
      * Tests the
      * {@link DistChunkedList#moveRangeAtSync(LongRange, apgas.Place, MoveManager)}
      * method in a situation where the range to move matches that of an existing
@@ -307,7 +398,7 @@ public class IT_DistChunkedList2 implements Serializable {
      * @throws IOException if thrown during the test
      */
     @Test
-    public void testMoveRangeAtSyncLong_matchingRange() throws IOException {
+    public void testMoveRangeAtSync_matchingRange() throws IOException {
         distChunkedList.add(chunk0To100);
         distChunkedList.add(chunk100To200);
         distChunkedList.add(chunk200To250);
@@ -327,7 +418,7 @@ public class IT_DistChunkedList2 implements Serializable {
      * @throws IOException if thrown during the test
      */
     @Test
-    public void testMoveRangeAtSyncLong_middleRange() throws IOException {
+    public void testMoveRangeAtSync_middleRange() throws IOException {
         distChunkedList.add(chunk0To100);
         distChunkedList.add(chunk100To200);
         distChunkedList.add(chunk200To250);
@@ -342,38 +433,8 @@ public class IT_DistChunkedList2 implements Serializable {
         at(place(1), () -> assertTrue(distChunkedList.containsRange(toTransfer)));
     }
 
-    /**
-     * Tests the case where the range which is transmitted is the "left side" of an
-     * existing chunk
-     *
-     * @throws IOException if thrown during the test
-     */
-    @Test
-    public void testMoveRangeAtSyncLong_rightRange() throws IOException {
-        distChunkedList.add(chunk0To100);
-        distChunkedList.add(chunk100To200);
-        distChunkedList.add(chunk200To250);
-
-        final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
-        final LongRange toTransfer = new LongRange(50l, 100l);
-        final LongRange leftover = new LongRange(0, 50l);
-
-        distChunkedList.moveRangeAtSync(toTransfer, place(1), m);
-
-        assertTrue(distChunkedList.containsRange(toTransfer));
-        assertTrue(distChunkedList.containsRange(range0To100));
-        assertTrue(distChunkedList.containsRange(leftover));
-
-        m.send();
-
-        assertFalse(distChunkedList.containsRange(toTransfer));
-        assertFalse(distChunkedList.containsRange(range0To100));
-        assertTrue(distChunkedList.containsRange(leftover));
-        at(place(1), () -> assertTrue(distChunkedList.containsRange(toTransfer)));
-    }
-
     @Test(timeout = 1000)
-    public void testMoverRangeAtSync_overlappingRange() throws IOException {
+    public void testMoveRangeAtSync_overlappingRange() throws IOException {
         distChunkedList.add(chunk0To100);
         distChunkedList.add(chunk100To200);
         distChunkedList.add(chunk200To250);
@@ -399,6 +460,36 @@ public class IT_DistChunkedList2 implements Serializable {
         assertTrue(distChunkedList.containsRange(rightover));
         at(place(1), () -> assertTrue(distChunkedList.containsRange(toTransfer)));
 
+    }
+
+    /**
+     * Tests the case where the range which is transmitted is the "left side" of an
+     * existing chunk
+     *
+     * @throws IOException if thrown during the test
+     */
+    @Test
+    public void testMoveRangeAtSync_rightRange() throws IOException {
+        distChunkedList.add(chunk0To100);
+        distChunkedList.add(chunk100To200);
+        distChunkedList.add(chunk200To250);
+
+        final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
+        final LongRange toTransfer = new LongRange(50l, 100l);
+        final LongRange leftover = new LongRange(0, 50l);
+
+        distChunkedList.moveRangeAtSync(toTransfer, place(1), m);
+
+        assertTrue(distChunkedList.containsRange(toTransfer));
+        assertTrue(distChunkedList.containsRange(range0To100));
+        assertTrue(distChunkedList.containsRange(leftover));
+
+        m.send();
+
+        assertFalse(distChunkedList.containsRange(toTransfer));
+        assertFalse(distChunkedList.containsRange(range0To100));
+        assertTrue(distChunkedList.containsRange(leftover));
+        at(place(1), () -> assertTrue(distChunkedList.containsRange(toTransfer)));
     }
 
     /**

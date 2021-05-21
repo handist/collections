@@ -103,6 +103,12 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
         throw new UnsupportedOperationException("[CachableArray] No modification of members is allowed.");
     }
 
+    public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
+        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup);
+        allreduce(pack, unpack, mm);
+        mm.execute();
+    }
+
     public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack, CollectiveRelocator.Allgather mm) {
         final Serializer serProcess = (ObjectOutput s) -> {
             for (final T elem : data) {
@@ -116,14 +122,8 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
                 unpack.accept(elem, diff);
             }
         };
-        mm.request(serProcess,desProcess);
+        mm.request(serProcess, desProcess);
     }
-    public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
-        CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup);
-        allreduce(pack,unpack,mm);
-        mm.execute();
-    }
-
 
     /**
      * Broadcast from master place to proxy place, packing elements using the
@@ -141,9 +141,8 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
      * @param unpack a function which unpacks the received data and inserts the
      *               unpacked data into the instance local to each proxy.
      */
-    @SuppressWarnings("unchecked")
     public <U> void broadcast(Function<T, U> pack, BiConsumer<T, U> unpack) {
-        CollectiveRelocator.Bcast manager = new CollectiveRelocator.Bcast(placeGroup, master);
+        final CollectiveRelocator.Bcast manager = new CollectiveRelocator.Bcast(placeGroup, master);
         broadcast(pack, unpack, manager);
         manager.execute();
     }
@@ -156,6 +155,7 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
         };
         final DeSerializer desProcess = (ObjectInput ds) -> {
             for (final T elem : data) {
+                @SuppressWarnings("unchecked")
                 final U diff = (U) ds.readObject();
                 unpack.accept(elem, diff);
             }
@@ -223,7 +223,7 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
     }
 
     public <U> void reduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
-        CollectiveRelocator.Gather manager = new CollectiveRelocator.Gather(placeGroup, master);
+        final CollectiveRelocator.Gather manager = new CollectiveRelocator.Gather(placeGroup, master);
         reduce(pack, unpack, manager);
         manager.execute();
     }

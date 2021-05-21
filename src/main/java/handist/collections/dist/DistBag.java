@@ -64,19 +64,6 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
             super(handle);
         }
 
-        /**
-         * Sends all local elements to the place specified as parameter.
-         *
-         * @param destination the place to which instances should be relocated to
-         */
-        @SuppressWarnings("unchecked")
-        @Override
-        public void gather(Place destination) {
-            CollectiveRelocator.Gather manager = new CollectiveRelocator.Gather(placeGroup, destination);
-            gather(manager);
-            manager.execute();
-        }
-
         public void gather(CollectiveRelocator.Gather manager) {
             final Place destination = manager.root;
             final Serializer serProcess = (ObjectOutput s) -> {
@@ -86,10 +73,23 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
                 }
             };
             final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
+                @SuppressWarnings("unchecked")
                 final Bag<T> imported = (Bag<T>) ds.readObject();
                 addBag(imported);
             };
             manager.request(serProcess, desProcess);
+        }
+
+        /**
+         * Sends all local elements to the place specified as parameter.
+         *
+         * @param destination the place to which instances should be relocated to
+         */
+        @Override
+        public void gather(Place destination) {
+            final CollectiveRelocator.Gather manager = new CollectiveRelocator.Gather(placeGroup, destination);
+            gather(manager);
+            manager.execute();
         }
 
     }
