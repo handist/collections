@@ -14,19 +14,12 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.Iterator;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.LongFunction;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
-
-import handist.collections.function.LongTBiConsumer;
 
 /**
  * {@link RangedListView} provides an access to a {@link Chunk} restricted to a
@@ -36,42 +29,6 @@ import handist.collections.function.LongTBiConsumer;
  *            access to
  */
 public class RangedListView<T> extends RangedList<T> implements Serializable, KryoSerializable {
-
-    /**
-     * Iterator on the elements of {@link #base} this {@link RangedListView}
-     * provides access to
-     *
-     * @param <T> the type handled by the {@link RangedList} {@link #base}
-     */
-    private static class It<T> implements Iterator<T> {
-        private long i;
-        private final LongRange range;
-        private final RangedListView<T> rangedListView;
-
-        public It(RangedListView<T> view) {
-            rangedListView = view;
-            range = rangedListView.getRange();
-            this.i = range.from - 1;
-        }
-
-        public It(RangedListView<T> view, long i0) {
-            view.rangeCheck(i0);
-            rangedListView = view;
-            this.range = rangedListView.getRange();
-            this.i = i0 - 1;
-        }
-
-        @Override
-        public boolean hasNext() {
-            return i + 1 < range.to;
-        }
-
-        @Override
-        public T next() {
-            return rangedListView.get(++i);
-        }
-
-    }
 
     /** Serial Version UID */
     private static final long serialVersionUID = 8258165981421352660L;
@@ -235,8 +192,9 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
      * provides access to.
      */
     @Override
-    public Iterator<T> iterator() {
-        return new It<>(this);
+    public RangedListIterator<T> iterator() {
+        if(base==null) return new RangedListIterator.EmptyIt<>();
+        return base.subIterator(this.getRange());
     }
 
     /**
@@ -246,10 +204,10 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
      * @return iterator on the elements this {@link RangedListView} grants access to
      *         starting at the specified index
      */
-    public Iterator<T> iterator(long l) {
-        return new It<>(this, l);
+    public RangedListIterator<T> iterator(long l) {
+        if(base==null) return new RangedListIterator.EmptyIt<>();
+        return base.subIterator(getRange(), l);
     }
-
     @Override
     public void read(Kryo kryo, Input input) {
         @SuppressWarnings("unchecked")
@@ -288,7 +246,20 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public long size() {
         return super.size();
     }
-
+    @Override
+    protected RangedListIterator<T> subIterator(LongRange range) {
+        if(base==null) return new RangedListIterator.EmptyIt<>();
+        LongRange subrange = getRange().intersection(range);
+        if(subrange==null) throw new IndexOutOfBoundsException();
+        return base.subIterator(subrange);
+    }
+    @Override
+    protected RangedListIterator<T> subIterator(LongRange range, long l) {
+        if(base==null) return new RangedListIterator.EmptyIt<>();
+        LongRange subrange = getRange().intersection(range);
+        if(subrange==null) throw new IndexOutOfBoundsException();
+        return base.subIterator(subrange, l);
+    }
     /**
      * {@inheritDoc}
      */

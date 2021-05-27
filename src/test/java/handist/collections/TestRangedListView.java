@@ -150,8 +150,23 @@ public class TestRangedListView implements Serializable {
             }
 
             @Override
-            public Iterator<T> iterator() {
+            public RangedListIterator<T> iterator() {
                 // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public RangedListIterator<T> iterator(long from) {
+                return null;
+            }
+
+            @Override
+            public RangedListIterator<T> subIterator(LongRange range) {
+                return null;
+            }
+
+            @Override
+            protected RangedListIterator<T> subIterator(LongRange range, long from) {
                 return null;
             }
 

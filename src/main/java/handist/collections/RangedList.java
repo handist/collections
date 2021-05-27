@@ -11,6 +11,7 @@
 package handist.collections;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.*;
@@ -237,6 +238,13 @@ public abstract class RangedList<T> implements Iterable<T> {
         return getRange().size() == 0;
     }
 
+    public abstract RangedListIterator<T> iterator();
+    public abstract RangedListIterator<T> iterator(long from);
+
+    protected abstract RangedListIterator<T> subIterator(LongRange range);
+    protected abstract RangedListIterator<T> subIterator(LongRange range, long from);
+
+
     /**
      * Creates a new collection from the elements contained in this instance by
      * transforming them into a new type
@@ -287,6 +295,23 @@ public abstract class RangedList<T> implements Iterable<T> {
             func.accept((T)a[index++], (U)targetA[tIndex++]);
         }
     }
+
+    public <U> void map2(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
+        rangeCheck(range);
+        target.rangeCheck(range);
+        final Object[] a = getBody();
+        int index = (int)(range.from - getBodyOffset());
+        int limit = (int)(range.to - getBodyOffset());
+        Iterator<U> iter = target.subList(range).iterator();
+        while(index<limit) {
+            func.accept((T)a[index++], iter.next());
+        }
+    }
+
+
+
+
+
     public <S, U> RangedList<U> map(LongRange range, RangedList<S> target, BiFunction<T, S, U> func) {
         final Chunk<U> result = new Chunk<>(range);
         rangeCheck(range);

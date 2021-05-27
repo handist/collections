@@ -13,7 +13,6 @@ package handist.collections;
 import static org.junit.Assert.*;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -78,8 +77,22 @@ public class TestRangedList {
         }
 
         @Override
-        public Iterator<T> iterator() {
+        public RangedListIterator<T> iterator() {
             return chunk.iterator();
+        }
+
+        @Override
+        public RangedListIterator<T> iterator(long from) {
+            return chunk.iterator(from);
+        }
+
+        @Override
+        public RangedListIterator<T> subIterator(LongRange range) {
+            return chunk.subIterator(range);
+        }
+        @Override
+        public RangedListIterator<T> subIterator(LongRange range, long i) {
+            return chunk.subIterator(range, i);
         }
 
         @Override
