@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
@@ -174,7 +175,7 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public boolean equals(Object o) {
         return RangedList.equals(this, o);
     }
-
+/*
     @Override
     public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
             Consumer<? super U> receiver) {
@@ -192,7 +193,7 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
         rangeCheck(range);
         base.forEach(range, action);
-    }
+    }*/
 
     /**
      * Get the element at the provided {@code index}.
@@ -204,6 +205,16 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public T get(long index) {
         rangeCheck(index);
         return base.get(index);
+    }
+
+    @Override
+    protected Object[] getBody() {
+        return base.getBody();
+    }
+
+    @Override
+    protected long getBodyOffset() {
+        return base.getBodyOffset();
     }
 
     /**
@@ -268,15 +279,6 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public T set(long index, T v) {
         rangeCheck(index);
         return base.set(index, v);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
-        rangeCheck(from.getRange());
-        base.setupFrom(from, func);
     }
 
     /**

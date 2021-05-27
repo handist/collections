@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
@@ -266,6 +267,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         return RangedList.equals(this, o);
     }
 
+    /*
     @Override
     public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
             Consumer<? super U> receiver) {
@@ -292,9 +294,12 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         rangeCheck(range);
         // IntStream.range(begin, end).forEach();
         for (long i = range.from; i < range.to; i++) {
-            action.accept(i, get(i));
+            action.accept(i, getUnsafe(i));
         }
     }
+*/
+
+
 
     /**
      * {@inheritDoc}
@@ -313,6 +318,16 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
     @Override
     public LongRange getRange() {
         return range;
+    }
+
+    @Override
+    protected Object[] getBody() {
+        return a;
+    }
+
+    @Override
+    protected long getBodyOffset() {
+        return range.from;
     }
 
     /**
@@ -403,22 +418,6 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         final T prev = (T) a[(int) offset];
         a[(int) offset] = v;
         return prev;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public <S> void setupFrom(RangedList<S> from, Function<? super S, ? extends T> func) {
-        rangeCheck(from.getRange());
-        if (range.size() > Integer.MAX_VALUE) {
-            throw new Error("[Chunk] the size of RangedList cannot exceed Integer.MAX_VALUE.");
-        }
-        final LongTBiConsumer<S> consumer = (long index, S s) -> {
-            final T r = func.apply(s);
-            a[(int) (index - range.from)] = r;
-        };
-        from.forEach(consumer);
     }
 
     /**
