@@ -96,6 +96,7 @@ public abstract class RangedList<T> implements Iterable<T> {
         return true;
     }
 
+
     /**
      * Performs the provided action on each element contained by this instance, and
      * potentially collect/extract some information into the provided receiver.
@@ -158,7 +159,6 @@ public abstract class RangedList<T> implements Iterable<T> {
             action.accept((T)a[index++], receiver);
         }
     }
-
     /**
      * Applies the specified action on the elements of this collection that are
      * present in the specified range. This method is similar to
@@ -175,6 +175,12 @@ public abstract class RangedList<T> implements Iterable<T> {
         final int limit = (int) (range.to - getBodyOffset());
         while (index < limit) {
             action.accept((T)a[index++]);
+        }
+    }
+    public void forEach2(Consumer<? super T> action) {
+        Iterator<T> iter = iterator();
+        while (iter.hasNext()) {
+            action.accept(iter.next());
         }
     }
 

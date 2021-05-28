@@ -74,7 +74,7 @@ public interface RangedListIterator<T> extends Iterator<T> {
      *                               {@link #previous()} have been previously called
      */
     public void set(T e);
-
+/*
     static class EmptyIt<S> implements RangedListIterator<S> {
         @Override
         public boolean hasPrevious() {
@@ -110,5 +110,5 @@ public interface RangedListIterator<T> extends Iterator<T> {
         public S next() {
             throw new IndexOutOfBoundsException();
         }
-    }
+    }*/
 }

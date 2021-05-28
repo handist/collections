@@ -42,7 +42,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      *
      * @param <T> type on which the iterator operates
      */
-    private static class It<T> implements RangedListIterator<T> {
+    protected static class It<T> implements RangedListIterator<T> {
         private final Chunk<T> chunk;
         private int i; // offset inside the chunk
         private int head;
@@ -53,6 +53,12 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
             this.chunk = chunk;
             this.head = 0;
             this.limit = (int)chunk.size();
+            this.i = -1;
+        }
+        public It() {
+            this.chunk = null;
+            this.head = 0;
+            this.limit = 0;
             this.i = -1;
         }
         private LongRange iterRange() {
@@ -109,9 +115,10 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         @Override
         @SuppressWarnings("unchecked")
         public T next() {
-            if(++i>= limit) raiseException(i);
+            if(!hasNext()) raiseException(i);
             lastReturnedShift = 0;
-            return (T) chunk.a[i];
+            return (T) chunk.a[++
+                    i];
         }
 
         @Override
@@ -122,7 +129,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         @Override
         @SuppressWarnings("unchecked")
         public T previous() {
-            if(i< head) raiseException(i);
+            if(!hasPrevious()) raiseException(i);
             lastReturnedShift = 1;
             return (T) chunk.a[i--];
         }
@@ -458,7 +465,6 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
     public RangedListIterator<T> subIterator(LongRange range, long i0) {
         return new It<>(this, range, i0);
     }
-
 
 
 

@@ -193,7 +193,7 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
      */
     @Override
     public RangedListIterator<T> iterator() {
-        if(base==null) return new RangedListIterator.EmptyIt<>();
+        if(base==null) return new Chunk.It<>();
         return base.subIterator(this.getRange());
     }
 
@@ -205,7 +205,7 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
      *         starting at the specified index
      */
     public RangedListIterator<T> iterator(long l) {
-        if(base==null) return new RangedListIterator.EmptyIt<>();
+        if(base==null) return new Chunk.It<>();
         return base.subIterator(getRange(), l);
     }
     @Override
@@ -248,14 +248,14 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     }
     @Override
     protected RangedListIterator<T> subIterator(LongRange range) {
-        if(base==null) return new RangedListIterator.EmptyIt<>();
+        if(base==null) return new Chunk.It<>();
         LongRange subrange = getRange().intersection(range);
         if(subrange==null) throw new IndexOutOfBoundsException();
         return base.subIterator(subrange);
     }
     @Override
     protected RangedListIterator<T> subIterator(LongRange range, long l) {
-        if(base==null) return new RangedListIterator.EmptyIt<>();
+        if(base==null) return new Chunk.It<>();
         LongRange subrange = getRange().intersection(range);
         if(subrange==null) throw new IndexOutOfBoundsException();
         return base.subIterator(subrange, l);
