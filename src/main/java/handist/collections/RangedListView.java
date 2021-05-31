@@ -186,15 +186,20 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public int hashCode() {
         return RangedList.hashCode(this);
     }
+    @Override
+    public RangedIterator<T> iterator() {
+        if(base==null) return new Chunk.It<>();
+        return base.subIterator(this.getRange());
+    }
 
     /**
      * Returns a new iterator on the elements of the RangedList this instance
      * provides access to.
      */
     @Override
-    public RangedListIterator<T> iterator() {
-        if(base==null) return new Chunk.It<>();
-        return base.subIterator(this.getRange());
+    public RangedListIterator<T> listIterator() {
+        if(base==null) return new Chunk.ListIt<>();
+        return base.subListIterator(this.getRange());
     }
 
     /**
@@ -204,9 +209,9 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
      * @return iterator on the elements this {@link RangedListView} grants access to
      *         starting at the specified index
      */
-    public RangedListIterator<T> iterator(long l) {
-        if(base==null) return new Chunk.It<>();
-        return base.subIterator(getRange(), l);
+    public RangedListIterator<T> listIterator(long l) {
+        if(base==null) return new Chunk.ListIt<>();
+        return base.subListIterator(getRange(), l);
     }
     @Override
     public void read(Kryo kryo, Input input) {
@@ -246,19 +251,27 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public long size() {
         return super.size();
     }
+
     @Override
-    protected RangedListIterator<T> subIterator(LongRange range) {
+    protected RangedIterator<T> subIterator(LongRange range) {
         if(base==null) return new Chunk.It<>();
         LongRange subrange = getRange().intersection(range);
         if(subrange==null) throw new IndexOutOfBoundsException();
         return base.subIterator(subrange);
     }
     @Override
-    protected RangedListIterator<T> subIterator(LongRange range, long l) {
-        if(base==null) return new Chunk.It<>();
+    protected RangedListIterator<T> subListIterator(LongRange range) {
+        if(base==null) return new Chunk.ListIt<>();
         LongRange subrange = getRange().intersection(range);
         if(subrange==null) throw new IndexOutOfBoundsException();
-        return base.subIterator(subrange, l);
+        return base.subListIterator(subrange);
+    }
+    @Override
+    protected RangedListIterator<T> subListIterator(LongRange range, long l) {
+        if(base==null) return new Chunk.ListIt<>();
+        LongRange subrange = getRange().intersection(range);
+        if(subrange==null) throw new IndexOutOfBoundsException();
+        return base.subListIterator(subrange, l);
     }
     /**
      * {@inheritDoc}

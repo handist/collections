@@ -77,22 +77,30 @@ public class TestRangedList {
         }
 
         @Override
-        public RangedListIterator<T> iterator() {
-            return chunk.iterator();
+        public RangedIterator<T> iterator() { return chunk.iterator(); }
+
+        @Override
+        public RangedListIterator<T> listIterator() {
+            return chunk.listIterator();
         }
 
         @Override
-        public RangedListIterator<T> iterator(long from) {
-            return chunk.iterator(from);
+        public RangedListIterator<T> listIterator(long from) {
+            return chunk.listIterator(from);
         }
 
         @Override
-        public RangedListIterator<T> subIterator(LongRange range) {
+        protected RangedIterator<T> subIterator(LongRange range) {
             return chunk.subIterator(range);
         }
+
         @Override
-        public RangedListIterator<T> subIterator(LongRange range, long i) {
-            return chunk.subIterator(range, i);
+        public RangedListIterator<T> subListIterator(LongRange range) {
+            return chunk.subListIterator(range);
+        }
+        @Override
+        public RangedListIterator<T> subListIterator(LongRange range, long i) {
+            return chunk.subListIterator(range, i);
         }
 
         @Override
