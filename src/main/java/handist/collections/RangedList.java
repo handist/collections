@@ -151,6 +151,10 @@ public abstract class RangedList<T> implements Iterable<T> {
      */
     public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
             Consumer<? super U> receiver) {
+        forEachImpl(range, action, receiver);
+    }
+    protected <U> void forEachImpl(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+                            Consumer<? super U> receiver) {
         rangeCheck(range);
         Object[] a = getBody();
         int index = (int) (range.from - getBodyOffset());
@@ -159,6 +163,7 @@ public abstract class RangedList<T> implements Iterable<T> {
             action.accept((T)a[index++], receiver);
         }
     }
+
     /**
      * Applies the specified action on the elements of this collection that are
      * present in the specified range. This method is similar to
@@ -169,6 +174,9 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param action action to perform on individual elements
      */
     public void forEach(LongRange range, Consumer<? super T> action) {
+        forEachImpl(range, action);
+    }
+    protected void forEachImpl(LongRange range, Consumer<? super T> action) {
         rangeCheck(range);
         Object[] a = getBody();
         int index = (int) (range.from - getBodyOffset());
@@ -189,6 +197,9 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param action action to perform taking a long and a T as parameter
      */
     public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
+        forEachImpl(range, action);
+    }
+    protected void forEachImpl(LongRange range, LongTBiConsumer<? super T> action) {
         rangeCheck(range);
         Object[] a = getBody();
         int index = (int)(range.from - getBodyOffset());
@@ -297,22 +308,10 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param <U> the type handled by the {@link RangedList} given as parameter,
      *             second input for the function
      */
-    /*
     public <U> void map(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
-        // This implementation requires getBody() implementation for the target.
-        rangeCheck(range);
-        target.rangeCheck(range);
-        final Object[] a = getBody();
-        int index = (int)(range.from - getBodyOffset());
-        int limit = (int)(range.to - getBodyOffset());
-        final Object[] targetA = target.getBody();
-        int tIndex = (int)(range.from - target.getBodyOffset());
-        while(index<limit) {
-            func.accept((T)a[index++], (U)targetA[tIndex++]);
-        }
-    }*/
-
-    public <U> void map(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
+        mapImpl(range, target, func);
+    }
+    protected <U> void mapImpl(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
         rangeCheck(range);
         target.rangeCheck(range);
         final Object[] a = getBody();
@@ -323,10 +322,6 @@ public abstract class RangedList<T> implements Iterable<T> {
             func.accept((T)a[index++], iter.next());
         }
     }
-
-
-
-
 
     public <S, U> RangedList<U> map(LongRange range, RangedList<S> target, BiFunction<T, S, U> func) {
         final Chunk<U> result = new Chunk<>(range);
@@ -440,6 +435,9 @@ public abstract class RangedList<T> implements Iterable<T> {
      *               returns a type T
      */
     public <S> void setupFrom(LongRange range, RangedList<S> source, Function<? super S, ? extends T> func) {
+        setupFromImpl(range, source, func);
+    }
+    protected <S> void setupFromImpl(LongRange range, RangedList<S> source, Function<? super S, ? extends T> func) {
         rangeCheck(range);
         source.rangeCheck(range);
         final Object[] a = getBody();
@@ -450,6 +448,7 @@ public abstract class RangedList<T> implements Iterable<T> {
             a[index++]= func.apply(iter.next());
         };
     }
+
 
     /**
      * Initializes the values in the {code range} of this instance by applying the provided function on
@@ -469,6 +468,9 @@ public abstract class RangedList<T> implements Iterable<T> {
      */
 
     public <S,U> void setupFrom(LongRange range, RangedList<S> source1, RangedList<U> source2, BiFunction<S,U,T> func) {
+        setupFromImpl(range, source1, source2, func);
+    }
+    protected <S,U> void setupFromImpl(LongRange range, RangedList<S> source1, RangedList<U> source2, BiFunction<S,U,T> func) {
         rangeCheck(range);
         source1.rangeCheck(range);
         source2.rangeCheck(range);
@@ -481,22 +483,6 @@ public abstract class RangedList<T> implements Iterable<T> {
             a[index++] = func.apply(iter1.next(), iter2.next());
         }
     }
-    /* The following is a implementation that assume getBody() implementation of source lists.
-    public <S,U> void setupFrom(LongRange range, RangedList<S> source1, RangedList<U> source2, BiFunction<S,U,T> func) {
-        rangeCheck(range);
-        source1.rangeCheck(range);
-        source2.rangeCheck(range);
-        final Object[] a = getBody();
-        int index = (int)(range.from - getBodyOffset());
-        int limit = (int)(range.to - getBodyOffset());
-        final Object[] s1A = source1.getBody();
-        int s1index = (int)(range.from - source1.getBodyOffset());
-        final Object[] s2A = source2.getBody();
-        int s2index = (int)(range.from - source2.getBodyOffset());
-        while(index < limit) {
-            a[index++] = func.apply((S) s1A[s1index++], (U) s2A[s2index++]);
-        }
-    }*/
 
     /**
      * Returns the number of entries in this collection as a {@code long}
