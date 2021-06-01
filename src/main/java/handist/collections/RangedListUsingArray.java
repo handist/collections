@@ -11,7 +11,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-abstract public class RangedListGeneral<T> extends RangedList<T> {
+abstract public class RangedListUsingArray<T> extends RangedList<T> {
 
     @Override
     protected <U> void forEachImpl(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,

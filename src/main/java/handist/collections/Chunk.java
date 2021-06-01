@@ -403,12 +403,12 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         return range;
     }
 
-    @Override
+//    @Override
     protected Object[] getBody() {
         return a;
     }
 
-    @Override
+//    @Override
     protected long getBodyOffset() {
         return range.from;
     }
