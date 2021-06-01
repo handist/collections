@@ -445,7 +445,7 @@ public abstract class RangedList<T> implements Iterable<T> {
         final Object[] a = getBody();
         int index = (int)(range.from - getBodyOffset());
         final int limit = (int)(range.to - getBodyOffset());
-        Iterator<S> iter = source.iterator();
+        Iterator<S> iter = source.subIterator(range);
         while(index < limit) {
             a[index++]= func.apply(iter.next());
         };
@@ -475,8 +475,8 @@ public abstract class RangedList<T> implements Iterable<T> {
         final Object[] a = getBody();
         int index = (int)(range.from - getBodyOffset());
         int limit = (int)(range.to - getBodyOffset());
-        final Iterator<S> iter1 = source1.iterator();
-        final Iterator<U> iter2 = source2.iterator();
+        final Iterator<S> iter1 = source1.subIterator(range);
+        final Iterator<U> iter2 = source2.subIterator(range);
         while(index < limit) {
             a[index++] = func.apply(iter1.next(), iter2.next());
         }
