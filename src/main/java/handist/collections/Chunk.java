@@ -16,6 +16,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
@@ -148,7 +149,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      *
      * @param <T> type on which the iterator operates
      */
-    protected static class It<T> implements RangedIterator<T> {
+    protected static class It<T> implements Iterator<T> {
         private final Chunk<T> chunk;
         private int i; // offset inside the chunk
         private int limit;
@@ -183,12 +184,6 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
             if(!hasNext()) throw new IndexOutOfBoundsException();
             return (T) chunk.a[++i];
         }
-
-        @Override
-        public long nextIndex() {
-            return chunk.range.from + i + 1;
-        }
-
     }
 
 
@@ -441,7 +436,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
 
 
     @Override
-    public RangedIterator<T> iterator() { return new It<>(this); }
+    public Iterator<T> iterator() { return new It<>(this); }
 
     /**
      * Creates and returns a new {@link RangedListIterator} on the elements
@@ -506,7 +501,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
     }
 
     @Override
-    public RangedIterator<T> subIterator(LongRange range) {
+    public Iterator<T> subIterator(LongRange range) {
         return new It<>(this, range);
     }
     @Override

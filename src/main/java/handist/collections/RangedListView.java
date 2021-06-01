@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.util.Iterator;
 import java.util.List;
 
 import com.esotericsoftware.kryo.Kryo;
@@ -187,7 +188,7 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
         return RangedList.hashCode(this);
     }
     @Override
-    public RangedIterator<T> iterator() {
+    public Iterator<T> iterator() {
         if(base==null) return new Chunk.It<>();
         return base.subIterator(this.getRange());
     }
@@ -253,7 +254,7 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     }
 
     @Override
-    protected RangedIterator<T> subIterator(LongRange range) {
+    protected Iterator<T> subIterator(LongRange range) {
         if(base==null) return new Chunk.It<>();
         LongRange subrange = getRange().intersection(range);
         if(subrange==null) throw new IndexOutOfBoundsException();

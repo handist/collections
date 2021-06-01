@@ -150,7 +150,7 @@ public class TestRangedListView implements Serializable {
             }
 
             @Override
-            public RangedIterator<T> iterator() {
+            public Iterator<T> iterator() {
                 return null;
             }
 
@@ -166,7 +166,7 @@ public class TestRangedListView implements Serializable {
             }
 
             @Override
-            protected RangedIterator<T> subIterator(LongRange range) {
+            protected Iterator<T> subIterator(LongRange range) {
                 return null;
             }
 

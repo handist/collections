@@ -261,11 +261,11 @@ public abstract class RangedList<T> implements Iterable<T> {
         return getRange().size() == 0;
     }
 
-    public abstract RangedIterator<T> iterator();
+    public abstract Iterator<T> iterator();
     public abstract RangedListIterator<T> listIterator();
     public abstract RangedListIterator<T> listIterator(long from);
 
-    protected abstract RangedIterator<T> subIterator(LongRange range);
+    protected abstract Iterator<T> subIterator(LongRange range);
     protected abstract RangedListIterator<T> subListIterator(LongRange range);
     protected abstract RangedListIterator<T> subListIterator(LongRange range, long from);
 

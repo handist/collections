@@ -81,11 +81,11 @@ abstract public class RangedListGeneral<T> extends RangedList<T> {
      */
     protected abstract long getBodyOffset();
 
-    public abstract RangedIterator<T> iterator();
+    public abstract Iterator<T> iterator();
     public abstract RangedListIterator<T> listIterator();
     public abstract RangedListIterator<T> listIterator(long from);
 
-    protected abstract RangedIterator<T> subIterator(LongRange range);
+    protected abstract Iterator<T> subIterator(LongRange range);
     protected abstract RangedListIterator<T> subListIterator(LongRange range);
     protected abstract RangedListIterator<T> subListIterator(LongRange range, long from);
 
