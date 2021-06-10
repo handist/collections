@@ -4,14 +4,7 @@ import static apgas.Constructs.*;
 
 import java.io.PrintStream;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -53,7 +46,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         }
     }
 
-    static class LogItem implements Serializable {
+    public static class LogItem implements Serializable {
         private static final long serialVersionUID = -1365865614858381506L;
         public static Comparator<LogItem> cmp = Comparator.comparing(i0 -> i0.msg);
         String msg;
@@ -83,7 +76,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         }
     }
 
-    static final class LogKey implements Serializable {
+    public static final class LogKey implements Serializable {
 
         /** Serial Version UID */
         private static final long serialVersionUID = -7799219001690238705L;
@@ -260,6 +253,10 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         return diffCheckSet(concat(lists0), concat(lists1), comp);
     }
 
+    public DistConcurrentMultiMap<LogKey, LogItem> getDistMultiMa() {
+        return getPlanet();
+    }
+
     /**
      * create a DistLog instance and set it to {@code DistLog.defaultLog} on all the
      * places of the place group.
@@ -353,6 +350,19 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         return (DistConcurrentMultiMap<LogKey, LogItem> base, Place place) -> new DistLog(base0.placeGroup(), phase0,
                 base0);
     }
+
+    public Collection<LogItem> getLog(String key) {
+        return base.get(new LogKey(here(), key, phase.get()));
+    }
+    public Collection<LogItem> removeLog(String key) {
+        return base.remove(new LogKey(here(), key, phase.get()));
+    }
+
+    public long getPhase() {
+        return phase.get();
+    }
+
+
 
     /**
      * gather the log to the receiving place initially specified
@@ -500,7 +510,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         base.put1(new LogKey(Constructs.here(), tag, phase.get()), new LogItem(msg, appendix));
     }
 
-    private void setPhase(long phase) {
+    public void setPhase(long phase) {
         this.phase.set(phase);
     }
 }
