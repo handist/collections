@@ -49,8 +49,8 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
     public static class LogItem implements Serializable {
         private static final long serialVersionUID = -1365865614858381506L;
         public static Comparator<LogItem> cmp = Comparator.comparing(i0 -> i0.msg);
-        String msg;
-        String appendix;
+        public final String msg;
+        public final String appendix;
 
         LogItem(Object body, Object app) {
             msg = (body != null ? body.toString() : "");
@@ -81,12 +81,12 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         /** Serial Version UID */
         private static final long serialVersionUID = -7799219001690238705L;
 
-        Place p;
-        String tag;
-        long phase;
+        public final Place place;
+        public final String tag;
+        public final long phase;
 
         public LogKey(Place p, String tag, long phase) {
-            this.p = p;
+            this.place = p;
             this.tag = tag;
             this.phase = phase;
         }
@@ -100,12 +100,12 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
                 return false;
             }
             final LogKey key2 = (LogKey) obj;
-            return p.equals(key2.p) && strEq(tag, key2.tag) && (phase == key2.phase);
+            return place.equals(key2.place) && strEq(tag, key2.tag) && (phase == key2.phase);
         }
 
         @Override
         public int hashCode() {
-            return p.id + (tag.hashCode() << 2) + (int) (phase << 4 + phase >> 16);
+            return place.id + (tag.hashCode() << 2) + (int) (phase << 4 + phase >> 16);
         }
 
         boolean strEq(String s1, String s2) {
@@ -117,7 +117,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
 
         @Override
         public String toString() {
-            return "Log@" + p + ", tag: " + tag + ", phase: " + phase;
+            return "Log@" + place + ", tag: " + tag + ", phase: " + phase;
         }
     }
 
@@ -154,7 +154,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
 
     public static HashMap<GlobalID, DistLog> map = new HashMap<>();
 
-    public static <E> Collection<E> concat(Collection<? extends Collection<E>> lists) {
+    private static <E> Collection<E> concat(Collection<? extends Collection<E>> lists) {
         if (lists == null) {
             return null;
         }
@@ -182,7 +182,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         DistLog.defaultLog.globalSetPhase(phase);
     }
 
-    public static <E> ListDiff<E> diffCheckList(List<E> list0, List<E> list1) {
+    private static <E> ListDiff<E> diffCheckList(List<E> list0, List<E> list1) {
         final int size = Math.min(list0.size(), list1.size());
         for (int i = 0; i < size; i++) {
             final E item0 = list0.get(i);
@@ -199,25 +199,8 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
             return null;
         }
     }
-    /*
-     * public static void main(String[] args) { List<String> strs0 =
-     * Arrays.asList("abc", "bdd", "cde", "def"); List<String> strs1 =
-     * Arrays.asList("bdd", "abc", "def", "cde"); List<String> strs2 =
-     * Arrays.asList("bdd", "abc", "aaa" );
-     *
-     * System.out.println(diffCheckSet(strs0, strs1,
-     * String.CASE_INSENSITIVE_ORDER)); System.out.println(diffCheckSet(strs0,
-     * strs2, String.CASE_INSENSITIVE_ORDER)); Collection<Collection<String>> x =
-     * Arrays.asList(strs0, strs1, strs2); Collection<Collection<String>> y =
-     * Arrays.asList(strs2, strs0, strs1); System.out.println("" + x + "-> " +
-     * concat(x)); System.out.println(diffCheckSplitSet(x, y,
-     * String.CASE_INSENSITIVE_ORDER)); }
-     *
-     */
 
-    // DistConcurrentMultiMap<LogKey, LogItem> base;
-
-    public static <E> SetDiff<E> diffCheckSet(Collection<E> olist0, Collection<E> olist1, Comparator<E> comp) {
+    private static <E> SetDiff<E> diffCheckSet(Collection<E> olist0, Collection<E> olist1, Comparator<E> comp) {
         final ArrayList<E> list0 = new ArrayList<>(olist0);
         final ArrayList<E> list1 = new ArrayList<>(olist1);
         list0.sort(comp);
@@ -242,7 +225,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         }
     }
 
-    public static <E> SetDiff<E> diffCheckSplitSet(Collection<? extends Collection<E>> lists0,
+    private static <E> SetDiff<E> diffCheckSplitSet(Collection<? extends Collection<E>> lists0,
             Collection<? extends Collection<E>> lists1, Comparator<E> comp) {
         if (lists0 == null) {
             lists0 = Collections.emptySet();
@@ -253,7 +236,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         return diffCheckSet(concat(lists0), concat(lists1), comp);
     }
 
-    public DistConcurrentMultiMap<LogKey, LogItem> getDistMultiMa() {
+    public DistConcurrentMultiMap<LogKey, LogItem> getDistMultiMap() {
         return getPlanet();
     }
 
@@ -289,7 +272,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         }
     }
 
-    TeamedPlaceGroup pg;
+    public final TeamedPlaceGroup pg;
 
     /** The current logging phase */
     AtomicLong phase;
@@ -475,7 +458,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
 
     public void printAll(PrintStream out) {
         final TreeMap<LogKey, Collection<LogItem>> sorted = new TreeMap<>((o1, o2) -> {
-            int result = Integer.compareUnsigned(o1.p.id, o2.p.id);
+            int result = Integer.compareUnsigned(o1.place.id, o2.place.id);
             if (result == 0) {
                 result = o1.tag.compareTo(o2.tag);
             }
