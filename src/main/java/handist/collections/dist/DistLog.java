@@ -316,12 +316,15 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         for (final Map.Entry<Pair<String, Long>, List<Collection<LogItem>>> entry : g0.entrySet()) {
             final Pair<String, Long> key = entry.getKey();
             final List<Collection<LogItem>> entries0 = entry.getValue();
-            final List<Collection<LogItem>> entries1 = g1.get(key);
+            final List<Collection<LogItem>> entries1 = g1.remove(key);
             final SetDiff<LogItem> diff = diffCheckSplitSet(entries0, entries1, LogItem.cmp);
             if (diff != null) {
                 out.println("Diff @ [tag: " + key.first + ", phase" + key.second + "]:" + diff);
                 return false;
             }
+        }
+        for(final Map.Entry<Pair<String, Long>, List<Collection<LogItem>>> entry : g1.entrySet()) {
+            out.println("Diff @ [tag: " + entry.getKey().first + ", phase" + entry.getKey().second + "]: target only has values:" + entry.getValue());
         }
         return true;
     }
@@ -449,6 +452,14 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
                 final SetDiff<LogItem> diff = diffCheckSet(lists1, lists2, LogItem.cmp);
                 if (diff != null) {
                     out.println("Diff in " + key + "::" + diff);
+                    return false;
+                }
+            }
+        }
+        if(base.size() != target.base.size()) {
+            for (final Map.Entry<LogKey, ? extends Collection<LogItem>> entry : target.base.entrySet()) {
+                if(!base.containsKey(entry.getKey())) {
+                    out.println("Diff in " + entry.getKey()+ ":: Target only has values:" + entry.getValue());
                     return false;
                 }
             }
