@@ -207,17 +207,27 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     public <U> void asyncForEach(BiConsumer<? super T, Consumer<? super U>> action,
-            final ParallelReceiver<? super U> toStore) {
-        forEachParallelBody((ChunkedList<T> sub) -> {
+                                 final ParallelReceiver<? super U> toStore) {
+        asyncForEach(defaultParallelism(), action, toStore);
+    }
+
+    public <U> void asyncForEach(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
+                                 final ParallelReceiver<? super U> toStore) {
+        forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
             sub.forEach(action, toStore.getReceiver());
         });
     }
 
     public void asyncForEach(Consumer<? super T> action) {
-        forEachParallelBody((ChunkedList<T> sub) -> {
+        asyncForEach(defaultParallelism(), action);
+    }
+
+    public void asyncForEach(int parallelism, Consumer<? super T> action) {
+        forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
             sub.forEach(action);
         });
     }
+
 
     /**
      * Performs the provided action on every element in the collection
@@ -248,8 +258,9 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      *         also wait on the completion of this {@link FutureN} to make sure that
      *         no more U instances are placed into {@code toStore}.
      */
+    @Deprecated
     public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads,
-            BiConsumer<? super T, Consumer<? super U>> action, final ParallelReceiver<? super U> toStore) {
+                                                   BiConsumer<? super T, Consumer<? super U>> action, final ParallelReceiver<? super U> toStore) {
         final List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
             sub.forEach(action, toStore.getReceiver());
         });
@@ -305,7 +316,11 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     public void asyncForEach(LongTBiConsumer<? super T> action) {
-        forEachParallelBody((ChunkedList<T> sub) -> {
+        asyncForEach(defaultParallelism(), action);
+    }
+
+    public void asyncForEach(int parallelism, LongTBiConsumer<? super T> action) {
+        forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
             sub.forEach(action);
         });
     }
@@ -872,8 +887,12 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         }
     }
 
-    private void forEachParallelBody(Consumer<ChunkedList<T>> run) {
-        final List<ChunkedList<T>> separated = this.separate(Runtime.getRuntime().availableProcessors() * 2);
+    private int defaultParallelism() {
+        return Runtime.getRuntime().availableProcessors() * 2;
+    }
+
+    private void forEachParallelBody(int parallelism, Consumer<ChunkedList<T>> run) {
+        final List<ChunkedList<T>> separated = this.separate(parallelism);
         for (final ChunkedList<T> sub : separated) {
             async(() -> {
                 run.accept(sub);
@@ -1070,9 +1089,14 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      *                extracted from this collection
      */
     public <U> void parallelForEach(BiConsumer<? super T, Consumer<? super U>> action,
-            final ParallelReceiver<? super U> toStore) {
+                                    final ParallelReceiver<? super U> toStore) {
+        parallelForEach(defaultParallelism(), action, toStore);
+    }
+
+    public <U> void parallelForEach(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
+                                    final ParallelReceiver<? super U> toStore) {
         finish(() -> {
-            forEachParallelBody((ChunkedList<T> sub) -> {
+            forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
                 sub.forEach(action, toStore.getReceiver());
             });
         });
@@ -1085,8 +1109,11 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * @param action to action to perform on element contained in this instance
      */
     public void parallelForEach(Consumer<? super T> action) {
+        parallelForEach(defaultParallelism(), action);
+    }
+    public void parallelForEach(int parallelism, Consumer<? super T> action) {
         finish(() -> {
-            forEachParallelBody((ChunkedList<T> sub) -> {
+            forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
                 sub.forEach(action);
             });
         });
@@ -1101,8 +1128,11 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      *               element contained in this instance
      */
     public void parallelForEach(LongTBiConsumer<? super T> action) {
+        parallelForEach(defaultParallelism(), action);
+    }
+    public void parallelForEach(int parallelism, LongTBiConsumer<? super T> action) {
         finish(() -> {
-            forEachParallelBody((ChunkedList<T> sub) -> {
+            forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
                 sub.forEach(action);
             });
         });
