@@ -16,15 +16,20 @@ import static handist.collections.glb.Util.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
 import apgas.Place;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
@@ -87,6 +92,7 @@ public class IT_GLB_DistChunkedList implements Serializable {
 
     /** Size of individual ranges */
     final static long RANGE_SIZE = 4 * PLACEGROUP_SIZE + 1;
+
     /** Serial Version UID */
     private static final long serialVersionUID = 3890454865986201964L;
 
@@ -229,6 +235,9 @@ public class IT_GLB_DistChunkedList implements Serializable {
         }
     }
 
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
     /**
      * Distributed collection which is the object of the tests. It is defined on the
      * entire world.
@@ -239,6 +248,16 @@ public class IT_GLB_DistChunkedList implements Serializable {
      * Whole world
      */
     TeamedPlaceGroup placeGroup;
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     @Before
     public void setUp() throws Exception {

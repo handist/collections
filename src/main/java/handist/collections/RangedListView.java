@@ -16,17 +16,11 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.LongFunction;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
-
-import handist.collections.function.LongTBiConsumer;
 
 /**
  * {@link RangedListView} provides an access to a {@link Chunk} restricted to a
@@ -175,25 +169,17 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public boolean equals(Object o) {
         return RangedList.equals(this, o);
     }
-/*
-    @Override
-    public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
-            Consumer<? super U> receiver) {
-        rangeCheck(range);
-        base.forEach(range, action, receiver);
-    }
-
-    @Override
-    public void forEach(LongRange range, Consumer<? super T> action) {
-        rangeCheck(range);
-        base.forEach(range, action);
-    }
-
-    @Override
-    public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
-        rangeCheck(range);
-        base.forEach(range, action);
-    }*/
+    /*
+     * @Override public <U> void forEach(LongRange range, BiConsumer<? super T,
+     * Consumer<? super U>> action, Consumer<? super U> receiver) {
+     * rangeCheck(range); base.forEach(range, action, receiver); }
+     *
+     * @Override public void forEach(LongRange range, Consumer<? super T> action) {
+     * rangeCheck(range); base.forEach(range, action); }
+     *
+     * @Override public void forEach(LongRange range, LongTBiConsumer<? super T>
+     * action) { rangeCheck(range); base.forEach(range, action); }
+     */
 
     /**
      * Get the element at the provided {@code index}.

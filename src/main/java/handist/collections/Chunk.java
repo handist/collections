@@ -18,17 +18,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongFunction;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
-
-import handist.collections.function.LongTBiConsumer;
 
 /**
  * Large collection that can contain objects mapped to long indices.
@@ -268,38 +263,22 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
     }
 
     /*
-    @Override
-    public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
-            Consumer<? super U> receiver) {
-        rangeCheck(range);
-        // IntStream.range(begin, end).forEach();
-        for (long i = range.from; i < range.to; i++) {
-            action.accept(get(i), receiver);
-        }
-    }
-
-    @Override
-    public void forEach(LongRange range, final Consumer<? super T> action) {
-        rangeCheck(range);
-        final long from = range.from;
-        final long to = range.to;
-
-        for (long i = from; i < to; i++) {
-            action.accept(get(i));
-        }
-    }
-
-    @Override
-    public void forEach(LongRange range, final LongTBiConsumer<? super T> action) {
-        rangeCheck(range);
-        // IntStream.range(begin, end).forEach();
-        for (long i = range.from; i < range.to; i++) {
-            action.accept(i, getUnsafe(i));
-        }
-    }
-*/
-
-
+     * @Override public <U> void forEach(LongRange range, BiConsumer<? super T,
+     * Consumer<? super U>> action, Consumer<? super U> receiver) {
+     * rangeCheck(range); // IntStream.range(begin, end).forEach(); for (long i =
+     * range.from; i < range.to; i++) { action.accept(get(i), receiver); } }
+     *
+     * @Override public void forEach(LongRange range, final Consumer<? super T>
+     * action) { rangeCheck(range); final long from = range.from; final long to =
+     * range.to;
+     *
+     * for (long i = from; i < to; i++) { action.accept(get(i)); } }
+     *
+     * @Override public void forEach(LongRange range, final LongTBiConsumer<? super
+     * T> action) { rangeCheck(range); // IntStream.range(begin, end).forEach(); for
+     * (long i = range.from; i < range.to; i++) { action.accept(i, getUnsafe(i)); }
+     * }
+     */
 
     /**
      * {@inheritDoc}
@@ -312,14 +291,6 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         return getUnsafe(index);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public LongRange getRange() {
-        return range;
-    }
-
     @Override
     protected Object[] getBody() {
         return a;
@@ -328,6 +299,14 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
     @Override
     protected long getBodyOffset() {
         return range.from;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public LongRange getRange() {
+        return range;
     }
 
     /**

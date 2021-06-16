@@ -13,11 +13,17 @@ package handist.collections.dist;
 import static apgas.Constructs.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 
+import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -30,6 +36,19 @@ public class IT_TeamedPlaceGroup implements Serializable {
     private static final long serialVersionUID = -1060428318155098035L;
 
     TeamedPlaceGroup world;
+
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     @Before
     public void setup() {

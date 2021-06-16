@@ -13,14 +13,25 @@ package handist.collections.dist;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
-import java.util.*;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -50,6 +61,19 @@ public class IT_DistMultiMap2 implements Serializable {
     final private long NB_MAPPINGS = 20l;
 
     final private TeamedPlaceGroup WORLD = TeamedPlaceGroup.getWorld();
+
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     @Before
     public void setUp() throws Throwable {
@@ -88,7 +112,7 @@ public class IT_DistMultiMap2 implements Serializable {
             WORLD.broadcastFlat(() -> {
                 for (final Collection<Element> mappings : distMultiMap.values()) {
                     // The first mapping has the prefix
-                    Iterator<Element> iter = mappings.iterator();
+                    final Iterator<Element> iter = mappings.iterator();
                     assertTrue(iter.next().s.startsWith(prefix));
 
                     // The remaining mappings were left untouched

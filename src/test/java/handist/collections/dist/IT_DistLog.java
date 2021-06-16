@@ -4,12 +4,17 @@ import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -29,6 +34,19 @@ public class IT_DistLog implements Serializable {
 
     /** PlaceGroup on which the DistMap is defined on */
     TeamedPlaceGroup pg = TeamedPlaceGroup.getWorld();
+
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     @Test(timeout = 10000)
     public void run() throws Throwable {
@@ -85,7 +103,7 @@ public class IT_DistLog implements Serializable {
 
             assertFalse(dlog1.placeConsciousEquals(dlog2, System.out, false));
             assertTrue(dlog1.distributionFreeEquals(dlog2, System.out));
-        } catch (Exception e) {
+        } catch (final Exception e) {
             e.printStackTrace();
             throw e;
         }
@@ -94,11 +112,6 @@ public class IT_DistLog implements Serializable {
     @Before
     public void setup() {
         NPLACES = pg.size();
-    }
-
-    @After
-    public void tearDown() {
-        //
     }
 
 }
