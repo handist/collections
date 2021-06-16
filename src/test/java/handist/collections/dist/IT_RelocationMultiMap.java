@@ -14,15 +14,20 @@ import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -57,15 +62,28 @@ public class IT_RelocationMultiMap implements Serializable {
         return prefix + rand;
     }
 
-    private RelocationMultiMap<String, String> relocationMultiMap;
-    private DistConcurrentMultiMap<String, String> distMultiMap;
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
 
+    private RelocationMultiMap<String, String> relocationMultiMap;
+
+    private DistConcurrentMultiMap<String, String> distMultiMap;
     /** PlaceGroup on which the DistMap is defined on */
     TeamedPlaceGroup pg = TeamedPlaceGroup.getWorld();
 
     final Distribution<String> gatherDist = (key) -> {
         return pg.get(0);
     };
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     @Before
     public void setup() {
@@ -115,14 +133,14 @@ public class IT_RelocationMultiMap implements Serializable {
             pg.broadcastFlat(() -> {
                 final int rank = pg.rank();
                 finish(() -> {
-		    for (int thread = 0; thread < numThreads; thread++) {
+                    for (int thread = 0; thread < numThreads; thread++) {
                         async(() -> {
                             for (int i = 0; i < numData / numThreads; i++) {
                                 relocationMultiMap.put1(genRandStr("k" + rank), genRandStr("v" + rank));
                             }
                         });
                     }
-		});
+                });
                 relocationMultiMap.relocate();
 
                 if (rank == 0) {

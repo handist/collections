@@ -13,12 +13,18 @@ package handist.collections.dist;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
+import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 
@@ -42,11 +48,24 @@ public class TestDistChunkedList implements Serializable {
      */
     DistChunkedList<String> distChunkedList;
 
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
     /** Distributed collection of Strings initialized empty for the test */
     DistChunkedList<String> emptyDistChunkedList;
 
     /** World on which the DistCol under test is created (single-host world) */
     SinglePlaceGroup world;
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     @Before
     public void setup() {
