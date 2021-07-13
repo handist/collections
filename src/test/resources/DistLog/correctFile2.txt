@@ -1,0 +1,28 @@
+Diff first found in phase 2
+Diff in Log@place(0), tag: tag2, phase: 2
+  1st:[LogItem:msg0]
+  2nd:[LogItem:msg0X]
+Diff in Log@place(1), tag: tag2, phase: 2
+  1st:[LogItem:msg0]
+  2nd:[LogItem:msg0X]
+Diff in Log@place(2), tag: tag2, phase: 2
+  1st:[LogItem:msg0]
+  2nd:[LogItem:msg0X]
+Diff in Log@place(0), tag: tag3, phase: 2
+  1st:[LogItem:msg0]
+  2nd:[]
+Diff in Log@place(1), tag: tag3, phase: 2
+  1st:[LogItem:msg0]
+  2nd:[]
+Diff in Log@place(2), tag: tag3, phase: 2
+  1st:[LogItem:msg0]
+  2nd:[]
+Diff in Log@place(0), tag: tag3X, phase: 2
+  1st:[]
+  2nd:[LogItem:msg0]
+Diff in Log@place(1), tag: tag3X, phase: 2
+  1st:[]
+  2nd:[LogItem:msg0]
+Diff in Log@place(2), tag: tag3X, phase: 2
+  1st:[]
+  2nd:[LogItem:msg0]
