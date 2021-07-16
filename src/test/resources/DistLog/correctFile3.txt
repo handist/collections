@@ -2,7 +2,7 @@ Diff first found in phase 2
 Diff with tag: tag2, phase: 2
   1st:[LogItem:msg0, LogItem:msg0, LogItem:msg0]
   2nd:[LogItem:msg0X, LogItem:msg0X, LogItem:msg0X]
-Diff with tag: tag3X, phase: 2
+Diff with tag: tag3, phase: 2
   1st:[LogItem:msg0, LogItem:msg0, LogItem:msg0]
   2nd:[]
 Diff with tag: tag3X, phase: 2
