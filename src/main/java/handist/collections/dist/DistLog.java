@@ -319,41 +319,22 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         boolean result = true;
         final TreeMap<Pair<String, Long>, List<Collection<LogItem>>> g0 = groupBy();
         final TreeMap<Pair<String, Long>, List<Collection<LogItem>>> g1 = target.groupBy();
-
+        TreeSet<Pair<String, Long>> keys = new TreeSet<>(gcmp);
+        keys.addAll(g0.keySet());
+        keys.addAll(g1.keySet());
         long phase = 0;
-
-        for (final Map.Entry<Pair<String, Long>, List<Collection<LogItem>>> entry : g0.entrySet()) {
-            final Pair<String, Long> key0 = entry.getKey();
-            Pair<String, Long> key1 = g1.firstKey();
-            while(gcmp.compare(key1, key0) < 0) {
-                if((!result) && phase < key1.second) return false;
-                if(result==true) out.println("Diff first found in phase " + key1.second);
-                phase = key1.second; result = false;
-                final SetDiff diff = diffCheckSet(null, g1.remove(key1));
-                out.println("Diff with tag: " + key1.first + ", phase: " + key1.second);
-                diff.print(out);
-                key1 = g1.firstKey();
-            }
-            if((!result) && phase < key0.second) return false;
-            final List<Collection<LogItem>> entries0 = entry.getValue();
-            final List<Collection<LogItem>> entries1 = g1.remove(key0);
+        for (Pair<String, Long> key: keys) {
+            if((!result) && phase < key.second) return false;
+            final List<Collection<LogItem>> entries0 = g0.get(key);
+            final List<Collection<LogItem>> entries1 = g1.get(key);
             final SetDiff diff = diffCheckSet(entries0, entries1);
             if (diff != null) {
-                if(result==true) out.println("Diff first found in phase " + key1.second);
-                out.println("Diff with tag: " + key1.first + ", phase: " + key1.second);
+                if(result==true) out.println("Diff first found in phase " + key.second);
+                out.println("Diff with tag: " + key.first + ", phase: " + key.second);
                 diff.print(out);
                 result = false;
-                phase = key0.second;
+                phase = key.second;
             }
-        }
-        for (final Map.Entry<Pair<String, Long>, List<Collection<LogItem>>> entry : g1.entrySet()) {
-            Pair<String, Long> key = entry.getKey();
-            if((!result) && phase < key.second) return false;
-            if(result==true) out.println("Diff first found in phase " + key.second);
-            phase = key.second; result = false;
-            final SetDiff diff = diffCheckSet(null, entry.getValue());
-            out.println("Diff with tag: " + key.first + ", phase: " + key.second);
-            diff.print(out);
         }
         return result;
     }
