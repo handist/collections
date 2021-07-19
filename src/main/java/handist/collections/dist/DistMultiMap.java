@@ -27,6 +27,7 @@ import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.Serializer;
+import mpjbuf.IllegalArgumentException;
 
 /**
  * A Map data structure spread over the multiple places. This class allows
@@ -101,6 +102,33 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
                 op.accept(key, value);
             }
         }
+    }
+
+    /**
+     * Return {@link MultiMapEntryDispatcher} instance that enable fast relocation
+     * between places than normal. One {@link DistMultiMap} has one dispatcher.
+     *
+     * @param rule Determines the dispatch destination.
+     * @return :
+     */
+    @Override
+    public MultiMapEntryDispatcher<K, V> getObjectDispatcher(Distribution<K> rule) {
+        return new MultiMapEntryDispatcher<>(this, rule);
+    }
+
+    /**
+     * Return {@link MapEntryDispatcher} instance that enable fast relocation
+     * between places than normal. One {@link DistMap} has one dispatcher.
+     *
+     * @param rule Determines the dispatch destination.
+     * @param pg   Relocate in this placegroup.
+     * @return :
+     * @throws IllegalArgumentException :
+     */
+    @Override
+    public MultiMapEntryDispatcher<K, V> getObjectDispatcher(Distribution<K> rule, TeamedPlaceGroup pg)
+            throws IllegalArgumentException {
+        return new MultiMapEntryDispatcher<>(this, pg, rule);
     }
 
     /**

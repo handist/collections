@@ -19,7 +19,6 @@ import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -31,10 +30,11 @@ import apgas.impl.DebugFinish;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
+import mpjbuf.IllegalArgumentException;
 
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 2, launcher = TestLauncher.class)
-public class IT_RelocationMap implements Serializable {
+public class IT_MapEntryDispatcher implements Serializable {
 
     /***/
     private static final long serialVersionUID = -8101194459870660638L;
@@ -44,8 +44,6 @@ public class IT_RelocationMap implements Serializable {
 
     /** Number of initial data entries places into the map */
     final static long numData = 200;
-    /** Number of threads using when adding data */
-    final static long numThreads = 4;
 
     /** Random instance used to populate the map with initial data */
     final static Random random = new Random(12345l);
@@ -61,18 +59,17 @@ public class IT_RelocationMap implements Serializable {
         return prefix + rand;
     }
 
-    @Rule
-    public transient TestName nameOfCurrentTest = new TestName();
-
-    private RelocationMap<String, String> relocationMap;
-
     private DistConcurrentMap<String, String> distMap;
+
     /** PlaceGroup on which the DistMap is defined on */
     TeamedPlaceGroup pg = TeamedPlaceGroup.getWorld();
 
     final Distribution<String> gatherDist = (key) -> {
         return pg.get(0);
     };
+
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
 
     @After
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
@@ -84,22 +81,28 @@ public class IT_RelocationMap implements Serializable {
         }
     }
 
+    private void asyncPut(MapEntryDispatcher<String, String> dispatcher, long num) {
+        async(() -> {
+            for (int i = 0; i < num; i++) {
+                dispatcher.put(genRandStr("kr" + pg.rank()), genRandStr("vr" + pg.rank()));
+            }
+        });
+    }
+
     @Before
     public void setup() {
         NPLACES = pg.size();
-        relocationMap = new RelocationMap<>(gatherDist, pg);
         distMap = new DistConcurrentMap<>(pg);
     }
 
     @After
     public void tearDown() {
-        relocationMap.destroy();
         distMap.destroy();
     }
 
-    @Ignore
     @Test
-    public void testConstructWithDistMap() {
+    public void testPutWithMultiThread() throws IllegalArgumentException {
+        final int numThreads = 4; // numThreads should not make numData an indivisible number.
         try {
             // add data to distMap at each place
             pg.broadcastFlat(() -> {
@@ -108,13 +111,15 @@ public class IT_RelocationMap implements Serializable {
                 }
             });
             // create RelocationMap from distMap
-            final RelocationMap<String, String> rMap = new RelocationMap<>(gatherDist, distMap);
+            final MapEntryDispatcher<String, String> dispatcher = distMap.getObjectDispatcher(gatherDist);
             // add data at each place and relocate
             pg.broadcastFlat(() -> {
-                for (int i = 0; i < numData; i++) {
-                    rMap.put(genRandStr("kr") + pg.rank(), genRandStr("vr") + pg.rank());
-                }
-                rMap.relocate();
+                finish(() -> {
+                    for (int i_th = 0; i_th < numThreads; i_th++) {
+                        asyncPut(dispatcher, numData / numThreads);
+                    }
+                });
+                dispatcher.TEAM.dispatch();
                 // check size
                 if (pg.rank() == 0) {
                     assertEquals(numData * (pg.size() + 1), distMap.size());
@@ -131,47 +136,26 @@ public class IT_RelocationMap implements Serializable {
     public void testRelocate() {
         try {
             pg.broadcastFlat(() -> {
-                final int rank = pg.rank();
-                finish(() -> {
-                    for (int thread = 0; thread < numThreads; thread++) {
-                        async(() -> {
-                            for (int i = 0; i < numData / numThreads; i++) {
-                                relocationMap.put(genRandStr("k" + rank), genRandStr("v" + rank));
-                            }
-                        });
-                    }
-                });
-                relocationMap.relocate();
-                if (rank == 0) {
-                    assertEquals(numData * NPLACES, relocationMap.convertToDistMap().size());
+                // add data to distMap at each place
+                for (int i = 0; i < numData; i++) {
+                    distMap.put(genRandStr("k" + pg.rank()), genRandStr("v" + pg.rank()));
+                }
+                // create RelocationMap from distMap
+                final MapEntryDispatcher<String, String> dispatcher = distMap.getObjectDispatcher(gatherDist);
+                // add data at each place and relocate
+                for (int i = 0; i < numData; i++) {
+                    dispatcher.put(genRandStr("kr") + pg.rank(), genRandStr("vr") + pg.rank());
+                }
+                dispatcher.TEAM.dispatch();
+                // check size
+                if (pg.rank() == 0) {
+                    assertEquals(numData * (pg.size() + 1), distMap.size());
                 } else {
-                    assertEquals(0, relocationMap.convertToDistMap().size());
+                    assertEquals(numData, distMap.size());
                 }
             });
         } catch (final MultipleException me) {
             me.printStackTrace();
         }
-    }
-
-    @Test
-    public void testRelocateGlobal() {
-        final Distribution<String> distribution = (key) -> {
-            return pg.get(1);
-        };
-        relocationMap.setDistribution(distribution);
-        for (int i = 0; i < numData; i++) {
-            relocationMap.put(genRandStr("k"), genRandStr("v"));
-        }
-        try {
-            relocationMap.relocateGlobal();
-        } catch (final MultipleException me) {
-            me.printStackTrace();
-        }
-        pg.broadcastFlat(() -> {
-            final int rank = pg.rank();
-            if (rank == 1) {
-                assertEquals(numData, relocationMap.convertToDistMap().size());
-            }
-        });
     }
 }
