@@ -19,7 +19,6 @@ import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -31,10 +30,11 @@ import apgas.impl.DebugFinish;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
+import mpjbuf.IllegalArgumentException;
 
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 2, launcher = TestLauncher.class)
-public class IT_RelocationMultiMap implements Serializable {
+public class IT_MultiMapEntryDispatcher implements Serializable {
     /**
      *
      */
@@ -45,8 +45,6 @@ public class IT_RelocationMultiMap implements Serializable {
 
     /** Number of initial data entries places into the map */
     final static long numData = 200;
-    /** Number of threads using when adding data */
-    final static long numThreads = 4;
 
     /** Random instance used to populate the map with initial data */
     final static Random random = new Random(12345l);
@@ -62,18 +60,17 @@ public class IT_RelocationMultiMap implements Serializable {
         return prefix + rand;
     }
 
-    @Rule
-    public transient TestName nameOfCurrentTest = new TestName();
-
-    private RelocationMultiMap<String, String> relocationMultiMap;
-
     private DistConcurrentMultiMap<String, String> distMultiMap;
-    /** PlaceGroup on which the DistMap is defined on */
+
+    /** PlaceGroup on which the DistMultiMap is defined on */
     TeamedPlaceGroup pg = TeamedPlaceGroup.getWorld();
 
     final Distribution<String> gatherDist = (key) -> {
         return pg.get(0);
     };
+
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
 
     @After
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
@@ -85,21 +82,32 @@ public class IT_RelocationMultiMap implements Serializable {
         }
     }
 
+    /**
+     * Add num data to RelocationMultiMap by async. Since the code nest became so
+     * deeply, divided into method.
+     */
+    private void asyncPut(MultiMapEntryDispatcher<String, String> map, long num) {
+        async(() -> {
+            for (int j = 0; j < num; j++) {
+                map.put1(genRandStr("kr") + pg.rank(), genRandStr("vr") + pg.rank());
+            }
+        });
+    }
+
     @Before
     public void setup() {
         NPLACES = pg.size();
-        relocationMultiMap = new RelocationMultiMap<>(gatherDist, pg);
         distMultiMap = new DistConcurrentMultiMap<>(pg);
     }
 
     @After
     public void tearDown() {
-        relocationMultiMap.destroy();
+        distMultiMap.destroy();
     }
 
-    @Ignore
     @Test
-    public void testConstructWithDistMap() {
+    public void testPutWithMultiThread() throws IllegalArgumentException {
+        final int numThreads = 4; // numThreads should not make numData an indivisible number.
         try {
             // add data to distMap at each place
             pg.broadcastFlat(() -> {
@@ -108,13 +116,15 @@ public class IT_RelocationMultiMap implements Serializable {
                 }
             });
             // create RelocationMap from distMap
-            final RelocationMultiMap<String, String> rMultiMap = new RelocationMultiMap<>(gatherDist, distMultiMap);
+            final MultiMapEntryDispatcher<String, String> dispatcher = distMultiMap.getObjectDispatcher(gatherDist);
             // add data at each place and relocate
             pg.broadcastFlat(() -> {
-                for (int i = 0; i < numData; i++) {
-                    rMultiMap.put1(genRandStr("kr") + pg.rank(), genRandStr("vr") + pg.rank());
-                }
-                rMultiMap.relocate();
+                finish(() -> {
+                    for (int i_th = 0; i_th < numThreads; i_th++) {
+                        asyncPut(dispatcher, numData / numThreads);
+                    }
+                });
+                dispatcher.TEAM.dispatch();
                 // check size
                 if (pg.rank() == 0) {
                     assertEquals(numData * (pg.size() + 1), distMultiMap.size());
@@ -128,25 +138,25 @@ public class IT_RelocationMultiMap implements Serializable {
     }
 
     @Test
-    public void testRelocate() {
+    public void testTeamRelocate() {
         try {
+            // add data to distMap at each place
             pg.broadcastFlat(() -> {
-                final int rank = pg.rank();
-                finish(() -> {
-                    for (int thread = 0; thread < numThreads; thread++) {
-                        async(() -> {
-                            for (int i = 0; i < numData / numThreads; i++) {
-                                relocationMultiMap.put1(genRandStr("k" + rank), genRandStr("v" + rank));
-                            }
-                        });
-                    }
-                });
-                relocationMultiMap.relocate();
-
-                if (rank == 0) {
-                    assertEquals(numData * NPLACES, relocationMultiMap.convertToDistMap().size());
+                for (int i = 0; i < numData; i++) {
+                    distMultiMap.put1(genRandStr("k" + pg.rank()), genRandStr("v" + pg.rank()));
+                }
+                // create RelocationMap from distMap
+                final MultiMapEntryDispatcher<String, String> dispatcher = distMultiMap.getObjectDispatcher(gatherDist);
+                // add data at each place and relocate
+                for (int i = 0; i < numData; i++) {
+                    dispatcher.put1(genRandStr("kr") + pg.rank(), genRandStr("vr") + pg.rank());
+                }
+                dispatcher.TEAM.dispatch();
+                // check size
+                if (pg.rank() == 0) {
+                    assertEquals(numData * (pg.size() + 1), distMultiMap.size());
                 } else {
-                    assertEquals(0, relocationMultiMap.convertToDistMap().size());
+                    assertEquals(numData, distMultiMap.size());
                 }
             });
         } catch (final MultipleException me) {
@@ -154,25 +164,4 @@ public class IT_RelocationMultiMap implements Serializable {
         }
     }
 
-    @Test
-    public void testRelocateGlobal() {
-        final Distribution<String> distribution = (key) -> {
-            return pg.get(1);
-        };
-        relocationMultiMap.setDistribution(distribution);
-        for (int i = 0; i < numData; i++) {
-            relocationMultiMap.put1(genRandStr("k"), genRandStr("v"));
-        }
-        try {
-            relocationMultiMap.relocateGlobal();
-        } catch (final MultipleException me) {
-            me.printStackTrace();
-        }
-        pg.broadcastFlat(() -> {
-            final int rank = pg.rank();
-            if (rank == 1) {
-                assertEquals(numData, relocationMultiMap.convertToDistMap().size());
-            }
-        });
-    }
 }
