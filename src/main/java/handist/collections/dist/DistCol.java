@@ -18,6 +18,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import apgas.Place;
@@ -80,7 +81,11 @@ public class DistCol<T> extends DistChunkedList<T> implements ElementLocationMan
      * @param id         the global id used to identify all the local handles
      */
     private DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id) {
-        super(placeGroup, id, (TeamedPlaceGroup pg, GlobalID gid) -> new DistCol<>(pg, gid));
+        this(placeGroup, id, (TeamedPlaceGroup pg, GlobalID gid) -> new DistCol<>(pg, gid));
+    }
+    protected DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id,
+                      BiFunction<TeamedPlaceGroup, GlobalID, ? extends DistChunkedList<T>> lazyCreator) {
+        super(placeGroup, id, lazyCreator);
         ldist = new ElementLocationManager<>();
     }
 
@@ -98,6 +103,9 @@ public class DistCol<T> extends DistChunkedList<T> implements ElementLocationMan
 
     @Override
     public void clear() {
+        // TODO
+        // the current implementation assumes TEAMED operation of clear() and
+        // does not support the situation where clear() is only called on some places.
         super.clear();
         ldist.clear();
     }
@@ -132,9 +140,11 @@ public class DistCol<T> extends DistChunkedList<T> implements ElementLocationMan
         }
     }
 
+    /*
     Map<LongRange, Integer> getDiff() {
         return ldist.diff;
     }
+     */
 
     public ConcurrentHashMap<LongRange, Place> getDist() {
         return ldist.dist;
@@ -222,8 +232,7 @@ public class DistCol<T> extends DistChunkedList<T> implements ElementLocationMan
     @Deprecated
     @Override
     public RangedList<T> remove(final RangedList<T> c) {
-        ldist.remove(c.getRange());
-        return super.remove(c);
+        return this.remove(c.getRange());
     }
 
     private void removeForMove(final LongRange r) {

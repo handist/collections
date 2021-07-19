@@ -487,6 +487,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         return result;
     }
 
+    public static String itemOffset = "  ";
     public void printAll(PrintStream out) {
         final TreeMap<LogKey, Collection<LogItem>> sorted = new TreeMap<>((o1, o2) -> {
             int result = Integer.compareUnsigned(o1.place.id, o2.place.id);
@@ -504,7 +505,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         sorted.forEach((LogKey key, Collection<LogItem> items) -> {
             out.println("LogKey: " + key);
             for (final LogItem item : items) {
-                out.println(item);
+                out.println(itemOffset + item);
             }
         });
 

@@ -641,6 +641,50 @@ public class TestChunkedList {
     }
 
     @Test
+    public void testForEachChunk() {
+        // Remove the null value
+        chunkedList.set(4l, elems[4]);
+
+        final int[] originalValues = new int[elems.length];
+        for (int i = 0; i < elems.length; i++) {
+            originalValues[i] = elems[i].n;
+        }
+
+        chunkedList.forEachChunk((chunk) -> {
+            chunk.forEach((e) -> {
+                e.increase(2);
+            });
+        });
+
+        // Check that each element has its value increased by 2
+        for (int i = 0; i < elems.length; i++) {
+            assertEquals(originalValues[i] + 2, chunkedList.get(i).n);
+        }
+    }
+
+    @Test
+    public void testForEachChunkWithRange() {
+        // Remove the null value
+        chunkedList.set(4l, elems[4]);
+
+        final int[] originalValues = new int[elems.length];
+        for (int i = 0; i < elems.length; i++) {
+            originalValues[i] = elems[i].n;
+        }
+
+        chunkedList.forEachChunk(new LongRange(0, chunkedList.size() + 1), (chunk) -> {
+            chunk.forEach((e) -> {
+                e.increase(2);
+            });
+        });
+
+        // Check that each element has its value increased by 2
+        for (int i = 0; i < elems.length; i++) {
+            assertEquals(originalValues[i] + 2, chunkedList.get(i).n);
+        }
+    }
+
+    @Test
     public void testForEachConsumer() {
         final ExecutorService pool = Executors.newFixedThreadPool(2);
         chunkedList.forEach(pool, 2, (e) -> {
