@@ -13,14 +13,7 @@ package handist.collections;
 import static apgas.Constructs.*;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableSet;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -47,6 +40,285 @@ import handist.collections.function.LongTBiConsumer;
  *            elements handled by the {@link ChunkedList}
  */
 public class ChunkedList<T> implements Iterable<T>, Serializable {
+
+    public static class UnmodifiableView<S> extends ChunkedList<S> {
+        ChunkedList<S> base;
+        public UnmodifiableView(ChunkedList<S> base) {
+            this.base = base;
+        }
+        @Override
+        public void add(RangedList<S> c) {
+            throw new UnsupportedOperationException("UmmodifiableView does not support add()");
+        }
+        @Override
+        public void add_unchecked(RangedList<S> c) {
+            throw new UnsupportedOperationException("UmmodifiableView does not support add_unchecked()");
+        }
+        @Override
+        public <U> void asyncForEach(BiConsumer<? super S, Consumer<? super U>> action, ParallelReceiver<? super U> toStore) {
+            base.asyncForEach(action, toStore);
+        }
+        @Override
+        public void asyncForEach(Consumer<? super S> action) {
+            base.asyncForEach(action);
+        }
+        @Override
+        public <U> Future<ChunkedList<S>> asyncForEach(ExecutorService pool, int nthreads, BiConsumer<? super S, Consumer<? super U>> action, ParallelReceiver<? super U> toStore) {
+            return base.asyncForEach(pool, nthreads, action, toStore);
+        }
+        @Override
+        @Deprecated
+        public Future<ChunkedList<S>> asyncForEach(ExecutorService pool, int nthreads, Consumer<? super S> action) {
+            return base.asyncForEach(pool, nthreads, action);
+        }
+        @Override
+        @Deprecated
+        public Future<ChunkedList<S>> asyncForEach(ExecutorService pool, int nthreads, LongTBiConsumer<? super S> action) {
+            return base.asyncForEach(pool, nthreads, action);
+        }
+        @Override
+        public void asyncForEach(LongTBiConsumer<? super S> action) {
+            base.asyncForEach(action);
+        }
+        @Override
+        public <S1> Future<ChunkedList<S1>> asyncMap(ExecutorService pool, int nthreads, Function<? super S, ? extends S1> func) {
+            return base.asyncMap(pool, nthreads, func);
+        }
+
+        @Override
+        public boolean attemptSplitChunkAtSinglePoint(LongRange lr) {
+            throw new UnsupportedOperationException("UmmodifiableView does not support split operations.");
+        }
+
+        @Override
+        public boolean attemptSplitChunkAtTwoPoints(LongRange lr) {
+            throw new UnsupportedOperationException("UmmodifiableView does not support split operations.");
+        }
+
+        @Override
+        public void clear() {
+            throw new UnsupportedOperationException("UmmodifiableView does not support clear().");
+        }
+
+        @Override
+        public Object clone() {
+            return base.clone();
+        }
+
+        @Override
+        public boolean contains(Object o) {
+            return base.contains(o);
+        }
+
+        @Override
+        public boolean containsAll(Collection<?> c) {
+            return base.containsAll(c);
+        }
+
+        @Override
+        public boolean containsChunk(RangedList<S> c) {
+            return base.containsChunk(c);
+        }
+
+        @Override
+        public boolean containsIndex(long i) {
+            return base.containsIndex(i);
+        }
+
+        @Override
+        public boolean containsRange(LongRange range) {
+            return base.containsRange(range);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return base.equals(o);
+        }
+
+        @Override
+        public List<RangedList<S>> filterChunk(Predicate<RangedList<? super S>> filter) {
+            return base.filterChunk(filter);
+        }
+
+        @Override
+        public <U> void forEach(BiConsumer<? super S, Consumer<? super U>> action, Collection<? super U> toStore) {
+            base.forEach(action, toStore);
+        }
+
+        @Override
+        public <U> void forEach(BiConsumer<? super S, Consumer<? super U>> action, Consumer<? super U> receiver) {
+            base.forEach(action, receiver);
+        }
+
+        @Override
+        public <U> void forEach(BiConsumer<? super S, Consumer<? super U>> action, ParallelReceiver<? super U> toStore) {
+            base.forEach(action, toStore);
+        }
+
+        @Override
+        public void forEach(Consumer<? super S> action) {
+            base.forEach(action);
+        }
+
+        @Override
+        @Deprecated
+        public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super S, Consumer<? super U>> action, ParallelReceiver<U> toStore) {
+            base.forEach(pool, nthreads, action, toStore);
+        }
+
+        @Override
+        @Deprecated
+        public void forEach(ExecutorService pool, int nthreads, Consumer<? super S> action) {
+            base.forEach(pool, nthreads, action);
+        }
+
+        @Override
+        @Deprecated
+        public void forEach(ExecutorService pool, int nthreads, LongTBiConsumer<? super S> action) {
+            base.forEach(pool, nthreads, action);
+        }
+
+        @Override
+        public void forEach(LongRange range, Consumer<? super S> action) {
+            base.forEach(range, action);
+        }
+
+        @Override
+        public void forEach(LongRange range, LongTBiConsumer<? super S> action) {
+            base.forEach(range, action);
+        }
+
+        @Override
+        public void forEach(LongTBiConsumer<? super S> action) {
+            base.forEach(action);
+        }
+
+        @Override
+        public void forEachChunk(Consumer<RangedList<S>> op) {
+            base.forEachChunk(op);
+        }
+
+        @Override
+        public void forEachChunk(LongRange range, Consumer<RangedList<S>> op) {
+            base.forEachChunk(range, op);
+        }
+
+        @Override
+        public S get(long i) {
+            return base.get(i);
+        }
+
+        @Override
+        public RangedList<S> getChunk(LongRange lr) {
+            return base.getChunk(lr);
+        }
+
+        @Override
+        public int hashCode() {
+            return base.hashCode();
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return base.isEmpty();
+        }
+
+        @Override
+        public Iterator<S> iterator() {
+            return base.iterator();
+        }
+
+        @Override
+        public <S1> ChunkedList<S1> map(ExecutorService pool, int nthreads, Function<? super S, ? extends S1> func) {
+            return base.map(pool, nthreads, func);
+        }
+
+        @Override
+        public <S1> ChunkedList<S1> map(Function<? super S, ? extends S1> func) {
+            return base.map(func);
+        }
+
+        @Override
+        public int numChunks() {
+            return base.numChunks();
+        }
+
+        @Override
+        public <U> void parallelForEach(BiConsumer<? super S, Consumer<? super U>> action, ParallelReceiver<? super U> toStore) {
+            base.parallelForEach(action, toStore);
+        }
+
+        @Override
+        public void parallelForEach(Consumer<? super S> action) {
+            base.parallelForEach(action);
+        }
+
+        @Override
+        public void parallelForEach(LongTBiConsumer<? super S> action) {
+            base.parallelForEach(action);
+        }
+
+        @Override
+        public Collection<LongRange> ranges() {
+            return base.ranges();
+        }
+
+        @Override
+        public <R extends Reducer<R, S>> R reduce(R reducer) {
+            return base.reduce(reducer);
+        }
+
+        @Override
+        public <R extends Reducer<R, RangedList<S>>> R reduceChunk(R reducer) {
+            return base.reduceChunk(reducer);
+        }
+
+        @Override
+        public RangedList<S> remove(LongRange range) {
+            throw new UnsupportedOperationException("UmmodifiableView does not support remove operations.");
+        }
+
+        @Override
+        @Deprecated
+        public RangedList<S> remove(RangedList<S> c) {
+            throw new UnsupportedOperationException("UmmodifiableView does not support remove operations.");
+        }
+
+        @Override
+        public List<ChunkedList<S>> separate(int n) {
+            throw new UnsupportedOperationException("UmmodifiableView does not support separate operations.");
+        }
+
+        @Override
+        public S set(long i, S value) {
+            return base.set(i, value);
+        }
+
+        @Override
+        public long size() {
+            return base.size();
+        }
+
+        @Override
+        public ArrayList<RangedList<S>> splitChunks(LongRange range) {
+            throw new UnsupportedOperationException("UmmodifiableView does not support split operations.");
+        }
+
+        @Override
+        public ChunkedList<S> subList(LongRange range) {
+            return new UnmodifiableView<S>(base.subList(range));
+        }
+
+        @Override
+        public String toString() {
+            return base.toString();
+        }
+
+        @Override
+        public Spliterator<S> spliterator() {
+            return base.spliterator();
+        }
+    }
 
     /**
      * Iterator class for {@link ChunkedList}. Iterates on two levels between the
@@ -886,6 +1158,35 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             op.accept(c);
         }
     }
+    /**
+     * Performs the provided operation on each {@link Chunk} contained in this
+     * instance and overlapped with the given range, then returns.
+     * Note that the {@code op} receives {@link Chunk} that may not be contained in the range.
+     * If the {@code range} is {@code null}, all the chunk will be scanned.
+     *
+     * This method dynamically scans the contained chunks. When searching the next chunk, its search from the end of the previous chunk.
+     *
+     * @param range range to be scanned
+     * @param op operation to make on each chunk
+     */
+    public void forEachChunk(LongRange range, Consumer<RangedList<T>> op) {
+        LongRange result = (range!=null)? range.findOverlap(chunks): chunks.firstKey();
+        while (true) {
+            if (result == null) {
+                break;
+            }
+            final LongRange inter = range.intersection(result);
+            if (inter != null) {
+                op.accept(chunks.get(result));
+            }
+            if (range != null && result.to >= range.to) {
+                break;
+            }
+            result = chunks.higherKey(new LongRange(result.to - 1));
+        }
+    }
+
+
 
     private int defaultParallelism() {
         return Runtime.getRuntime().availableProcessors() * 2;
