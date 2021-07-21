@@ -27,8 +27,8 @@ import apgas.util.SerializableWithReplace;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
+import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.Serializer;
-import mpi.MPIException;
 
 /**
  * A class for handling objects using the Master-Proxy mechanism. The master
@@ -103,6 +103,28 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
         throw new UnsupportedOperationException("[CachableArray] No modification of members is allowed.");
     }
 
+    public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
+        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup);
+        allreduce(pack, unpack, mm);
+        mm.execute();
+    }
+
+    public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack, CollectiveRelocator.Allgather mm) {
+        final Serializer serProcess = (ObjectOutput s) -> {
+            for (final T elem : data) {
+                s.writeObject(pack.apply(elem));
+            }
+        };
+        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
+            for (final T elem : data) {
+                @SuppressWarnings("unchecked")
+                final U diff = (U) ds.readObject();
+                unpack.accept(elem, diff);
+            }
+        };
+        mm.request(serProcess, desProcess);
+    }
+
     /**
      * Broadcast from master place to proxy place, packing elements using the
      * specified function. It is assumed that the type U is declared as a struct and
@@ -119,8 +141,13 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
      * @param unpack a function which unpacks the received data and inserts the
      *               unpacked data into the instance local to each proxy.
      */
-    @SuppressWarnings("unchecked")
     public <U> void broadcast(Function<T, U> pack, BiConsumer<T, U> unpack) {
+        final CollectiveRelocator.Bcast manager = new CollectiveRelocator.Bcast(placeGroup, master);
+        broadcast(pack, unpack, manager);
+        manager.execute();
+    }
+
+    public <U> void broadcast(Function<T, U> pack, BiConsumer<T, U> unpack, CollectiveRelocator.Bcast manager) {
         final Serializer serProcess = (ObjectOutput s) -> {
             for (final T elem : data) {
                 s.writeObject(pack.apply(elem));
@@ -128,16 +155,12 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
         };
         final DeSerializer desProcess = (ObjectInput ds) -> {
             for (final T elem : data) {
+                @SuppressWarnings("unchecked")
                 final U diff = (U) ds.readObject();
                 unpack.accept(elem, diff);
             }
         };
-        try {
-            CollectiveRelocator.bcastSer(placeGroup, master, serProcess, desProcess);
-        } catch (final MPIException e) {
-            e.printStackTrace();
-            throw new Error("[CachableArray] MPIException raised.");
-        }
+        manager.request(serProcess, desProcess);
     }
 
     @Override
@@ -197,6 +220,28 @@ public class CachableArray<T> extends PlaceLocalObject implements List<T>, Seria
      */
     public TeamedPlaceGroup placeGroup() {
         return placeGroup;
+    }
+
+    public <U> void reduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
+        final CollectiveRelocator.Gather manager = new CollectiveRelocator.Gather(placeGroup, master);
+        reduce(pack, unpack, manager);
+        manager.execute();
+    }
+
+    public <U> void reduce(Function<T, U> pack, BiConsumer<T, U> unpack, CollectiveRelocator.Gather manager) {
+        final Serializer serProcess = (ObjectOutput s) -> {
+            for (final T elem : data) {
+                s.writeObject(pack.apply(elem));
+            }
+        };
+        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
+            for (final T elem : data) {
+                @SuppressWarnings("unchecked")
+                final U diff = (U) ds.readObject();
+                unpack.accept(elem, diff);
+            }
+        };
+        manager.request(serProcess, desProcess);
     }
 
     @Override

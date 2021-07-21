@@ -16,21 +16,26 @@ import static handist.collections.glb.Util.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
 import apgas.Place;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
 import handist.collections.dist.CollectiveMoveManager;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -55,14 +60,27 @@ public class IT_GlbProgramTest1 implements Serializable {
     /** Serial Version UID */
     private static final long serialVersionUID = -5017047700763986362L;
 
-    /** Total number of elements contained in the {@link DistCol} */
+    /** Total number of elements contained in the {@link DistChunkedList} */
     final static long TOTAL_DATA_SIZE = LONGRANGE_COUNT * RANGE_SIZE;
 
     /** DistCol used to test the GLB functionalities */
-    DistCol<Element> col;
+    DistChunkedList<Element> col;
 
     /** PlaceGroup on which collection #col is defined */
     TeamedPlaceGroup placeGroup;
+
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     /**
      * Subroutine used in several tests. This checks that the {@link #col}
@@ -85,7 +103,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     @Before
     public void setup() {
         placeGroup = TeamedPlaceGroup.getWorld();
-        col = new DistCol<>(placeGroup);
+        col = new DistChunkedList<>(placeGroup);
 
         y_populateCollection();
         y_makeDistribution();
@@ -110,7 +128,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     public void testDistFutureGetResult() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final DistCol<Element> result = col.GLB.forEach(addZToPrefix).result();
+                final DistChunkedList<Element> result = col.GLB.forEach(addZToPrefix).result();
                 assertEquals(result, col); // In the case of forEach, result is the same object
 
                 // As the result is a blocking call, the checks will only be made after the
@@ -144,7 +162,7 @@ public class IT_GlbProgramTest1 implements Serializable {
      * @throws Throwable if thrown during the test
      */
     @Test(expected = RuntimeException.class, timeout = 1000)
-    public void testIllegalStateUnderGlb() throws Throwable {
+    public void testExceptionInUnderGlb() throws Throwable {
         final ArrayList<Exception> exc = underGLB(() -> {
             throw new RuntimeException("This runtime exception is part of a test, everything is fine.");
         });
@@ -154,6 +172,32 @@ public class IT_GlbProgramTest1 implements Serializable {
         // Throw the exception, the test will pass if the exception thrown is a
         // RuntimeException
         throw exc.get(0);
+    }
+
+    /**
+     * Checks that setting the priority of an operation is possible and is correctly
+     * registered.
+     *
+     * @throws Throwable if thrown during the test
+     */
+    @Test(timeout = 1000)
+    public void testPriority() throws Throwable {
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                final DistFuture<DistChunkedList<Element>> future = col.GLB.forEach(makePrefixTest);
+                assertEquals(0, future.getPriority());
+                future.setPriority(42);
+                assertEquals(42, future.getPriority());
+                future.waitGlobalTermination();
+                assertThrows(IllegalStateException.class, () -> future.setPriority(0));
+            });
+            if (!ex.isEmpty()) {
+                throw ex.get(0);
+            }
+
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        }
     }
 
     /**
@@ -288,10 +332,10 @@ public class IT_GlbProgramTest1 implements Serializable {
     public void testWaitGlobalTerminationRedundantCall() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final DistFuture<DistCol<Element>> future = col.GLB.forEach(addZToPrefix);
+                final DistFuture<DistChunkedList<Element>> future = col.GLB.forEach(addZToPrefix);
                 future.waitGlobalTermination();
                 future.waitGlobalTermination(); // This second call should not do anything
-                final DistCol<Element> result = future.result(); // Result should already be available
+                final DistChunkedList<Element> result = future.result(); // Result should already be available
 
                 // As the result is a blocking call, the checks will only be made after the
                 // first forEach operation has completed

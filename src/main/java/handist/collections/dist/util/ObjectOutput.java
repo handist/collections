@@ -10,7 +10,7 @@
  ******************************************************************************/
 package handist.collections.dist.util;
 
-import java.io.OutputStream;
+import java.io.ByteArrayOutputStream;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Output;
@@ -19,70 +19,71 @@ import apgas.impl.KryoSerializer;
 
 public class ObjectOutput {
 
-    private boolean isClosed = false;
+    private int count;
     final Kryo kryo;
     final Output output;
+    final ByteArrayOutputStream stream;
 
-    final OutputStream stream;
+    public ObjectOutput(ByteArrayOutputStream out) {
+        this(out, true);
+    }
 
-    public ObjectOutput(OutputStream out) {
+    public ObjectOutput(ByteArrayOutputStream out, boolean references) {
         if (out == null) {
             throw new NullPointerException();
         }
         stream = out;
         output = new Output(stream);
-        kryo = KryoSerializer.kryoThreadLocal.get();
-        kryo.reset();
+        kryo = KryoSerializer.getKryoInstance();
         kryo.setAutoReset(false);
+        kryo.setReferences(references);
+        count = 0;
+    }
+
+    public void clear() {
+        kryo.reset();
+        stream.reset();
+        count = 0;
     }
 
     public void close() {
         output.close();
         kryo.reset();
-        kryo.setAutoReset(true); // Need for using at remote place.
-        isClosed = true;
     }
 
     public void flush() {
         output.flush();
     }
 
+    public int getCount() {
+        return count;
+    }
+
     public void reset() {
         kryo.reset();
     }
 
-    public void setAutoReset(boolean autoReset) {
-        if (isClosed) {
-            return;
-        }
-        kryo.setAutoReset(autoReset);
+    public byte[] toByteArray() {
+        return stream.toByteArray();
     }
 
     public void writeByte(byte val) {
-        if (isClosed) {
-            throw new RuntimeException(this + " has closed.");
-        }
         output.writeByte(val);
+        count++;
     }
 
     public void writeInt(int val) {
-        if (isClosed) {
-            throw new RuntimeException(this + " has closed.");
-        }
         output.writeInt(val);
+        count++;
     }
 
     public void writeLong(long val) {
-        if (isClosed) {
-            throw new RuntimeException(this + " has closed.");
-        }
         output.writeLong(val);
+        count++;
     }
 
     public void writeObject(Object obj) {
-        if (isClosed) {
-            throw new RuntimeException(this + " has closed.");
-        }
         kryo.writeClassAndObject(output, obj);
+        count++;
     }
 }

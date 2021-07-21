@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
 
 import static apgas.Constructs.*;
@@ -6,20 +16,25 @@ import static handist.collections.glb.Util.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.Place;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
 import handist.collections.dist.CollectiveMoveManager;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -49,10 +64,10 @@ public class IT_AfterDependencies implements Serializable {
      * distributing the ranges can be done easily with a simple modulus operation.
      */
     final static long RANGE_SIZE = 100 * PLACEGROUP_SIZE + 1;
-    /** Total number of elements contained in the {@link DistCol} */
+    /** Total number of elements contained in the {@link DistChunkedList} */
     final static long TOTAL_DATA_SIZE = LONGRANGE_COUNT * RANGE_SIZE;
 
-    private static void y_makeEvenDistribution(DistCol<Element> col) {
+    private static void y_makeEvenDistribution(DistChunkedList<Element> col) {
         col.placeGroup().broadcastFlat(() -> {
             final CollectiveMoveManager mm = new CollectiveMoveManager(col.placeGroup());
             col.forEachChunk((RangedList<Element> c) -> {
@@ -72,7 +87,7 @@ public class IT_AfterDependencies implements Serializable {
      *
      * @param col the collection to non-evenly distribute
      */
-    private static void y_makePoorDistribution(DistCol<Element> col) {
+    private static void y_makePoorDistribution(DistChunkedList<Element> col) {
         col.placeGroup().broadcastFlat(() -> {
             final CollectiveMoveManager mm = new CollectiveMoveManager(col.placeGroup());
             col.forEachChunk((RangedList<Element> c) -> {
@@ -91,7 +106,7 @@ public class IT_AfterDependencies implements Serializable {
      *
      * @param col the collection to populate
      */
-    private static void y_populateCollection(DistCol<Element> col, long rangeCount) {
+    private static void y_populateCollection(DistChunkedList<Element> col, long rangeCount) {
         // Put some initial values in col
         for (long l = 0l; l < rangeCount; l++) {
             final long from = l * RANGE_SIZE;
@@ -109,13 +124,13 @@ public class IT_AfterDependencies implements Serializable {
 
     /**
      * Checks that the distCol contains exactly the specified number of entries. The
-     * {@link DistCol#size()} needs to match the specified parameter.
+     * {@link DistChunkedList#size()} needs to match the specified parameter.
      *
      * @param col           DistCol whose global size is to be checked
      * @param expectedCount expected total number of entries in the DistCol instance
      * @throws Throwable if thrown during the check
      */
-    private static void z_checkDistColTotalElements(DistCol<Element> col, long expectedCount) throws Throwable {
+    private static void z_checkDistColTotalElements(DistChunkedList<Element> col, long expectedCount) throws Throwable {
         long count = 0;
         for (final Place p : col.placeGroup().places()) {
             count += at(p, () -> {
@@ -125,17 +140,30 @@ public class IT_AfterDependencies implements Serializable {
         assertEquals(expectedCount, count);
     }
 
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
     /** DistCol used to test the GLB functionalities */
-    DistCol<Element> collection1, collection2;
+    DistChunkedList<Element> collection1, collection2;
 
     /** PlaceGroup on which collection #col is defined */
     TeamedPlaceGroup placeGroup;
 
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
+
     @Before
     public void setup() {
         placeGroup = TeamedPlaceGroup.getWorld();
-        collection1 = new DistCol<>(placeGroup);
-        collection2 = new DistCol<>(placeGroup);
+        collection1 = new DistChunkedList<>(placeGroup);
+        collection2 = new DistChunkedList<>(placeGroup);
 
         y_populateCollection(collection1, LONGRANGE_COUNT);
         y_makePoorDistribution(collection1);
@@ -162,7 +190,7 @@ public class IT_AfterDependencies implements Serializable {
     @Test(timeout = 10000)
     public void testAfter() throws Throwable {
         final ArrayList<Exception> ex = underGLB(() -> {
-            final DistFuture<DistCol<Element>> test = collection1.GLB.forEach(makePrefixTest);
+            final DistFuture<DistChunkedList<Element>> test = collection1.GLB.forEach(makePrefixTest);
             collection1.GLB.forEach((e) -> assertTrue(e.s.startsWith("Test"))).after(test);
         });
         if (!ex.isEmpty()) {
@@ -174,7 +202,7 @@ public class IT_AfterDependencies implements Serializable {
     @Test(timeout = 10000)
     public void testAfterOnCompletedOperation() throws Throwable {
         final ArrayList<Exception> exceptions = underGLB(() -> {
-            final DistFuture<DistCol<Element>> future = collection1.GLB.forEach(makePrefixTest);
+            final DistFuture<DistChunkedList<Element>> future = collection1.GLB.forEach(makePrefixTest);
             future.waitGlobalTermination();
             collection1.GLB.forEach(makeSuffixTest).after(future);
         });
@@ -187,8 +215,8 @@ public class IT_AfterDependencies implements Serializable {
     @Test(timeout = 10000)
     public void testAfterOnRunningOperation() throws Throwable {
         final ArrayList<Exception> exceptions = underGLB(() -> {
-            final DistFuture<DistCol<Element>> earlyFuture = collection2.GLB.forEach(makePrefixTest);
-            final DistFuture<DistCol<Element>> laterFuture = collection1.GLB.forEach(makePrefixTest);
+            final DistFuture<DistChunkedList<Element>> earlyFuture = collection2.GLB.forEach(makePrefixTest);
+            final DistFuture<DistChunkedList<Element>> laterFuture = collection1.GLB.forEach(makePrefixTest);
             earlyFuture.waitGlobalTermination();
             final List<Throwable> errors = collection1.GLB.forEach(e -> {
                 assertTrue(e.s.startsWith("Test"));
@@ -215,8 +243,8 @@ public class IT_AfterDependencies implements Serializable {
     public void testAfterTwo() throws Throwable {
         final ArrayList<Exception> ex = underGLB(() -> {
             //
-            final DistFuture<DistCol<Element>> test = collection1.GLB.forEach(makePrefixTest);
-            final DistFuture<DistCol<Element>> addZ = collection1.GLB.forEach(addZToPrefix).after(test);
+            final DistFuture<DistChunkedList<Element>> test = collection1.GLB.forEach(makePrefixTest);
+            final DistFuture<DistChunkedList<Element>> addZ = collection1.GLB.forEach(addZToPrefix).after(test);
             collection1.GLB.forEach((e) -> assertTrue(e.s.startsWith("ZTest"))).after(addZ);
         });
         if (!ex.isEmpty()) {
@@ -238,8 +266,8 @@ public class IT_AfterDependencies implements Serializable {
     @Test(timeout = 10000)
     public void testAfterTwo_Alternative() throws Throwable {
         final ArrayList<Exception> ex = underGLB(() -> {
-            final DistFuture<DistCol<Element>> test = collection1.GLB.forEach(makePrefixTest);
-            final DistFuture<DistCol<Element>> addZ = collection1.GLB.forEach(addZToPrefix).after(test);
+            final DistFuture<DistChunkedList<Element>> test = collection1.GLB.forEach(makePrefixTest);
+            final DistFuture<DistChunkedList<Element>> addZ = collection1.GLB.forEach(addZToPrefix).after(test);
             collection1.GLB.forEach((e) -> assertTrue(e.s.startsWith("ZTest"))).after(test).after(addZ);
         });
         if (!ex.isEmpty()) {

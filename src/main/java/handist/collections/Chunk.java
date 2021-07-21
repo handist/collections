@@ -18,17 +18,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongFunction;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
-import handist.collections.function.LongTBiConsumer;
 
 /**
  * Large collection that can contain objects mapped to long indices.
@@ -38,41 +34,84 @@ import handist.collections.function.LongTBiConsumer;
 public class Chunk<T> extends RangedList<T> implements Serializable, KryoSerializable {
 
     /**
-     * Iterator class for Chunk
+     * ListIterator class for Chunk
      *
      * @param <T> type on which the iterator operates
      */
-    private static class It<T> implements RangedListIterator<T> {
+    protected static class ListIt<T> implements RangedListIterator<T> {
         private final Chunk<T> chunk;
         private int i; // offset inside the chunk
+        private int head;
+        private int limit;
         private int lastReturnedShift = -1;
 
-        public It(Chunk<T> chunk) {
+        public ListIt(Chunk<T> chunk) {
             this.chunk = chunk;
+            this.head = 0;
+            this.limit = (int)chunk.size();
             this.i = -1;
         }
+        public ListIt() {
+            this.chunk = null;
+            this.head = 0;
+            this.limit = 0;
+            this.i = -1;
+        }
+        private LongRange iterRange() {
+            return new LongRange(chunk.getRange().from + head, chunk.getRange().from + limit);
+        }
 
-        public It(Chunk<T> chunk, long i0) {
+
+
+        public ListIt(Chunk<T> chunk, long i0) {
             if (!chunk.range.contains(i0)) {
                 throw new IndexOutOfBoundsException();
             }
             this.chunk = chunk;
+            this.head = 0;
+            this.limit = (int)chunk.size();
             this.i = (int) (i0 - chunk.range.from - 1);
         }
+        public ListIt(Chunk<T> chunk, LongRange range0, long i0) {
+            range0 = chunk.getRange().intersection(range0);
+            if(range0 == null) {
+                throw new IndexOutOfBoundsException();
+            }
+            if (!range0.contains(i0)) {
+                throw new IndexOutOfBoundsException();
+            }
+            this.chunk = chunk;
+            this.head = (int)(range0.from-chunk.range.from);
+            this.limit = (int)(range0.to-chunk.range.from);
+            this.i = (int) (i0 - chunk.range.from - 1);
+        }
+        public ListIt(Chunk<T> chunk, LongRange range0) {
+            range0 = chunk.getRange().intersection(range0);
+            if(range0 == null) {
+                throw new IndexOutOfBoundsException();
+            }
+            this.chunk = chunk;
+            this.head = (int)(range0.from-chunk.range.from);
+            this.limit = (int)(range0.to-chunk.range.from);
+            this.i = (int) (range0.from - chunk.range.from - 1);
+        }
+
 
         @Override
         public boolean hasNext() {
-            return i + 1 < chunk.size();
+            return i + 1 < limit;
         }
 
         @Override
         public boolean hasPrevious() {
-            return i > 0;
+            return i > head;
         }
 
         @Override
         @SuppressWarnings("unchecked")
         public T next() {
+            if(!hasNext())
+                throw new IndexOutOfBoundsException("[Chunk.It] range mismatch: " + iterRange() + " does not include " + i);
             lastReturnedShift = 0;
             return (T) chunk.a[++i];
         }
@@ -85,6 +124,8 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         @Override
         @SuppressWarnings("unchecked")
         public T previous() {
+            if(!hasPrevious())
+                throw new IndexOutOfBoundsException("[Chunk.It] range mismatch: " + iterRange() + " does not include " + i);
             lastReturnedShift = 1;
             return (T) chunk.a[i--];
         }
@@ -103,6 +144,49 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
             chunk.a[i + lastReturnedShift] = e; // FIXME THIS IS NOT CORRECT !!!
         }
     }
+
+    /**
+     * Iterator class for Chunk
+     *
+     * @param <T> type on which the iterator operates
+     */
+    protected static class It<T> implements Iterator<T> {
+        private final Chunk<T> chunk;
+        private int i; // offset inside the chunk
+        private int limit;
+
+        public It(Chunk<T> chunk) {
+            this.chunk = chunk;
+            this.limit = (int)chunk.size();
+            this.i = -1;
+        }
+        public It() {
+            this.chunk = null;
+            this.limit = 0;
+            this.i = -1;
+        }
+        public It(Chunk<T> chunk, LongRange range0) {
+            range0 = chunk.getRange().intersection(range0);
+            if(range0 == null) {
+                throw new IndexOutOfBoundsException();
+            }
+            this.chunk = chunk;
+            this.limit = (int)(range0.to-chunk.range.from);
+            this.i = (int) (range0.from - chunk.range.from - 1);
+        }
+        @Override
+        public boolean hasNext() {
+            return i + 1 < limit;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public T next() {
+            if(!hasNext()) throw new IndexOutOfBoundsException();
+            return (T) chunk.a[++i];
+        }
+    }
+
 
     /** Serial Version UID */
     private static final long serialVersionUID = -7691832846457812518L;
@@ -267,36 +351,6 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         return RangedList.equals(this, o);
     }
 
-    @Override
-    public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
-            Consumer<? super U> receiver) {
-        rangeCheck(range);
-        // IntStream.range(begin, end).forEach();
-        for (long i = range.from; i < range.to; i++) {
-            action.accept(get(i), receiver);
-        }
-    }
-
-    @Override
-    public void forEach(LongRange range, final Consumer<? super T> action) {
-        rangeCheck(range);
-        final long from = range.from;
-        final long to = range.to;
-
-        for (long i = from; i < to; i++) {
-            action.accept(get(i));
-        }
-    }
-
-    @Override
-    public void forEach(LongRange range, final LongTBiConsumer<? super T> action) {
-        rangeCheck(range);
-        // IntStream.range(begin, end).forEach();
-        for (long i = range.from; i < range.to; i++) {
-            action.accept(i, get(i));
-        }
-    }
-
     /**
      * {@inheritDoc}
      */
@@ -351,8 +405,9 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      *
      * @return a new {@link RangedListIterator}
      */
-    public RangedListIterator<T> rangedListIterator() {
-        return new It<>(this);
+    @Override
+    public RangedListIterator<T> listIterator() {
+        return new ListIt<>(this);
     }
 
     /**
@@ -363,8 +418,8 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      *              {@link RangedListIterator#next()}
      * @return a new {@link RangedListIterator} starting at the specified index
      */
-    public RangedListIterator<T> rangedListIterator(long index) {
-        return new It<>(this, index);
+    public RangedListIterator<T> listIterator(long index) {
+        return new ListIt<>(this, index);
     }
 
     private String rangeMsg(long index) {
@@ -407,18 +462,19 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
     }
 
     @Override
-    final protected LongFunction<T> getUnsafeGetAccessor() {
-        return (long index) -> {
-            return (T) a[(int) (index - range.from)];
-        };
+    public Iterator<T> subIterator(LongRange range) {
+        return new It<>(this, range);
+    }
+    @Override
+    public RangedListIterator<T> subListIterator(LongRange range) {
+        return new ListIt<>(this, range);
+    }
+    @Override
+    public RangedListIterator<T> subListIterator(LongRange range, long i0) {
+        return new ListIt<>(this, range, i0);
     }
 
-    @Override
-    final protected LongTBiConsumer<T> getUnsafePutAccessor() {
-        return (long index, T r) -> {
-            a[(int) (index - range.from)] = r;
-        };
-    }
+
 
     /**
      * {@inheritDoc}

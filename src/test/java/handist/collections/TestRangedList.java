@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections;
 
 import static org.junit.Assert.*;
@@ -7,13 +17,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.LongFunction;
 
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-
-import handist.collections.function.LongTBiConsumer;
 
 /**
  * Test default methods of RangedList.
@@ -61,18 +68,30 @@ public class TestRangedList {
         }
 
         @Override
-        protected LongFunction<T> getUnsafeGetAccessor() {
-            return null;
+        public Iterator<T> iterator() { return chunk.iterator(); }
+
+        @Override
+        public RangedListIterator<T> listIterator() {
+            return chunk.listIterator();
         }
 
         @Override
-        protected LongTBiConsumer<T> getUnsafePutAccessor() {
-            return null;
+        public RangedListIterator<T> listIterator(long from) {
+            return chunk.listIterator(from);
         }
 
         @Override
-        public Iterator<T> iterator() {
-            return chunk.iterator();
+        protected Iterator<T> subIterator(LongRange range) {
+            return chunk.subIterator(range);
+        }
+
+        @Override
+        public RangedListIterator<T> subListIterator(LongRange range) {
+            return chunk.subListIterator(range);
+        }
+        @Override
+        public RangedListIterator<T> subListIterator(LongRange range, long i) {
+            return chunk.subListIterator(range, i);
         }
 
         @Override
@@ -204,6 +223,43 @@ public class TestRangedList {
     }
 
     @Test
+    public void testReduce() {
+        final LongRange range = new LongRange(0, 10);
+        final Chunk<Long> as = new Chunk<>(range, (Long i) -> {
+            return i;
+        });
+
+        final long val = as.reduce((Long sum, Long elem) -> {
+            return sum + elem;
+        });
+        assertEquals(val, 45);
+
+        final String val2 = as.subList(6, 8).reduce((String str, Long elem) -> {
+            return str + ":" + elem;
+        }, "result");
+        assertEquals(val2, "result:6:7");
+
+        final RangedList<Integer> bs = as.map((Long i) -> {
+            return (int) (i * 2);
+        });
+        final BiFunction<Long, Integer, String> func = (Long a, Integer b) -> {
+            return "" + (a.longValue() * b.intValue());
+        };
+        final String val3 = as.reduce(bs, func, "start", (String sum, String elem) -> {
+            return sum + "," + elem;
+        });
+        assertEquals(val3, "start,0,2,8,18,32,50,72,98,128,162");
+
+        final RangedList<String> cs = as.map(new LongRange(6, 8), bs, (Long a, Integer b) -> {
+            return "" + a + "," + b;
+        });
+        assertEquals(cs.get(6), "6,12");
+        assertEquals(cs.get(7), "7,14");
+        assertEquals(cs.getRange(), new LongRange(6, 8));
+
+    }
+
+    @Test
     public void testSize() {
         assertEquals(10, rangedList.size());
     }
@@ -246,41 +302,5 @@ public class TestRangedList {
             assertEquals(elems[i], list.get(i));
         }
     }
-
-    @Test
-    public void testReduce() {
-        LongRange range = new LongRange(0, 10);
-        final Chunk<Long> as = new Chunk<>(range, (Long i) -> {
-            return i;
-        });
-
-        long val = as.reduce((Long sum, Long elem) -> {
-            return sum + elem;
-        });
-        assertEquals(val, 45);
-
-        String val2 = as.subList(6, 8).reduce((String str, Long elem) -> {
-            return str + ":" + elem;
-        }, "result");
-        assertEquals(val2, "result:6:7");
-
-        final RangedList<Integer> bs = as.map((Long i) -> {
-            return (int) (i * 2);
-        });
-        BiFunction<Long,Integer, String> func = (Long a, Integer b) -> {
-            return "" + (a.longValue() * b.intValue());
-        };
-        String val3 = as.reduce(bs, func, "start", (String sum, String elem)->{ return sum+","+elem; });
-        assertEquals(val3, "start,0,2,8,18,32,50,72,98,128,162");
-
-        RangedList<String> cs = as.map(new LongRange(6,8), bs, (Long a, Integer b)-> {
-            return "" + a + "," + b;
-        });
-        assertEquals(cs.get(6), "6,12");
-        assertEquals(cs.get(7), "7,14");
-        assertEquals(cs.getRange(), new LongRange(6, 8));
-
-    }
-
 
 }

@@ -14,15 +14,20 @@ import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
 import apgas.Place;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.function.SerializableFunction;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -54,11 +59,24 @@ public class IT_DistMap implements Serializable {
         return prefix + rand;
     }
 
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
     /** Map which undergoes the various tests */
     private DistMap<String, String> distMap;
 
     /** PlaceGroup on which the DistMap is defined on */
     TeamedPlaceGroup pg = TeamedPlaceGroup.getWorld();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     @Test
     public void run() throws Throwable {

@@ -14,18 +14,23 @@ import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
 import apgas.Place;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.function.SerializableFunction;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -57,6 +62,19 @@ public class IT_DistMultiMap implements Serializable {
     TeamedPlaceGroup pg = TeamedPlaceGroup.getWorld();
 
     Random random;
+
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     public String genRandStr(String header) {
         final long rand = random.nextLong();
@@ -93,7 +111,7 @@ public class IT_DistMultiMap implements Serializable {
         // This array will be used repeatedly to check
         final int keyCount[] = new int[pg.size()];
         final long[] temporaryArray = new long[pg.size];
-        distMultiMap.GLOBAL.size(temporaryArray);
+        distMultiMap.GLOBAL.getSizeDistribution(temporaryArray);
         for (int i = 0; i < pg.size; i++) {
             keyCount[i] = (int) temporaryArray[i];
             // System.out.println("On rank " + i + " " + keyCount[i]);
@@ -267,7 +285,6 @@ public class IT_DistMultiMap implements Serializable {
      * Checks that each rank participating in this test holds the expected number of
      * keys, and number of entries per key
      *
-     * @param s
      */
     private void x_checkSize(SerializableFunction<Integer, Integer> expectedKey,
             SerializableFunction<String, Integer> entryPerKey) throws Throwable {
@@ -278,7 +295,7 @@ public class IT_DistMultiMap implements Serializable {
                         "Expected " + keysExpected + " keys on rank " + pg.rank() + "  but was " + distMultiMap.size(),
                         keysExpected, distMultiMap.size());
 
-                for (final Entry<String, List<String>> e : distMultiMap.entrySet()) {
+                for (final Entry<String, Collection<String>> e : distMultiMap.entrySet()) {
                     final int expectedListSize = entryPerKey.apply(e.getKey());
                     final int actualListSize = e.getValue().size();
                     assertEquals(

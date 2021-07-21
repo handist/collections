@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
@@ -263,7 +264,7 @@ class GlbComputer extends PlaceLocalObject {
          * {@link #getAssignment()}.
          */
         @SuppressWarnings("rawtypes")
-        ConcurrentHashMap<GlbOperation, GlbTask> tasksWithWork;
+        ConcurrentSkipListMap<GlbOperation, GlbTask> tasksWithWork;
 
         /**
          * Constructor
@@ -273,7 +274,7 @@ class GlbComputer extends PlaceLocalObject {
         WorkReserve() {
             lock = new ReentrantReadWriteLock();
             allTasks = new HashMap<>();
-            tasksWithWork = new ConcurrentHashMap<>();
+            tasksWithWork = new ConcurrentSkipListMap<>();
         }
 
         /**
@@ -281,6 +282,10 @@ class GlbComputer extends PlaceLocalObject {
          * <p>
          * If at the time this method is called no work could be selected, returns null
          * instead.
+         * <p>
+         * This implementation uses the natural ordering of class {@link GlbOperation}
+         * in a {@link ConcurrentSkipListMap} to favor the higher priority
+         * {@link GlbOperation}s.
          *
          * @param wInfo the worker info instance which will be placed back into the
          *              #idleWorkers collection if calling this method did not result in
@@ -720,7 +725,11 @@ class GlbComputer extends PlaceLocalObject {
             final ConcurrentHashMap<Place, AtomicInteger> map = new ConcurrentHashMap<>();
             Lifeline l;
             try {
-                l = LifelineFactory.newLifeline(col.placeGroup());
+                if (op.lifelineClass == null) {
+                    l = LifelineFactory.newLifeline(col.placeGroup());
+                } else {
+                    l = LifelineFactory.newLifeline(col.placeGroup(), op.lifelineClass);
+                }
             } catch (final Exception e) {
                 e.printStackTrace();
                 System.err.println("Faced a " + e + " when attempting to initialize a new lifeline strategy. Using "

@@ -1,20 +1,36 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
 
 import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
+import apgas.impl.DebugFinish;
 import handist.collections.LongRange;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.DistributedCollection;
 import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.glb.DistColGlbTask.DistColLambda;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -55,6 +71,19 @@ public class IT_ObjectsUsedAsMapKeys implements Serializable {
         });
     }
 
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(apgas.impl.Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
+
     @Before
     public void setUp() throws Exception {
         glbOperationMap = new HashMap<>();
@@ -63,12 +92,12 @@ public class IT_ObjectsUsedAsMapKeys implements Serializable {
 
     @Test
     public void testCollectionAsKey() {
-        final DistCol<Element> collection = new DistCol<>();
+        final DistChunkedList<Element> collection = new DistChunkedList<>();
         distributedCollectionMap.put(collection, new Integer(42));
         finish(() -> {
             asyncAt(place(1), () -> {
                 @SuppressWarnings("rawtypes")
-                final DistCol c = collection;
+                final DistChunkedList c = collection;
                 asyncAt(place(0), () -> {
                     assertNotNull(IT_ObjectsUsedAsMapKeys.distributedCollectionMap.get(c));
                     assertTrue(IT_ObjectsUsedAsMapKeys.distributedCollectionMap.containsKey(c));
@@ -80,13 +109,11 @@ public class IT_ObjectsUsedAsMapKeys implements Serializable {
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Test
     public void testGlbOperationAsKey() throws Exception {
-        final DistCol<Element> collection = new DistCol<>();
-        final GlbOperation<DistCol<Element>, Element, LongRange, LongRange, DistCol<Element>> operationKey = new GlbOperation(
-                collection, (a, b) -> {
-                    ;
-                }, new DistFuture(collection), () -> {
+        final DistChunkedList<Element> collection = new DistChunkedList<>();
+        final GlbOperation<DistChunkedList<Element>, Element, LongRange, LongRange, DistChunkedList<Element>, DistColLambda<Element>> operationKey = new GlbOperation(
+                collection, null, new DistFuture(collection), () -> {
                     return null;
-                }, null);
+                }, null, null);
         glbOperationMap.put(operationKey, new Integer(43));
         assertNotNull(operationKey);
 

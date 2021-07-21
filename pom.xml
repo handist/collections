@@ -168,7 +168,7 @@
 		<dependency>
 			<groupId>com.github.handist</groupId>
 			<artifactId>apgas</artifactId>
-			<version>v1.2.0</version>
+			<version>handist-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.handist</groupId>

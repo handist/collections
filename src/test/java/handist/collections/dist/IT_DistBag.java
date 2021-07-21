@@ -13,16 +13,21 @@ package handist.collections.dist;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -53,6 +58,19 @@ public class IT_DistBag implements Serializable {
 
     /** Instance under test */
     DistBag<Element> distBag;
+
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     @After
     public void cleanup() throws Throwable {
@@ -124,7 +142,7 @@ public class IT_DistBag implements Serializable {
             expected[i] = NB_ELEMS[i] * NB_LISTS[i];
         }
 
-        distBag.GLOBAL.size(size);
+        distBag.GLOBAL.getSizeDistribution(size);
 
         assertArrayEquals(expected, size);
     }
@@ -150,7 +168,7 @@ public class IT_DistBag implements Serializable {
         try {
             WORLD.broadcastFlat(() -> {
                 final long[] size = new long[WORLD.size()];
-                distBag.TEAM.size(size);
+                distBag.TEAM.getSizeDistribution(size);
                 assertArrayEquals(expected, size);
             });
         } catch (final MultipleException me) {

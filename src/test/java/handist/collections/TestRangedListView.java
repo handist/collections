@@ -133,6 +133,16 @@ public class TestRangedListView implements Serializable {
                 return null;
             }
 
+            //@Override
+            protected Object[] getBody() {
+                return new Object[0];
+            }
+
+            //@Override
+            protected long getBodyOffset() {
+                return 0;
+            }
+
             @Override
             public LongRange getRange() {
                 // TODO Auto-generated method stub
@@ -153,7 +163,32 @@ public class TestRangedListView implements Serializable {
 
             @Override
             public Iterator<T> iterator() {
+                return null;
+            }
+
+            @Override
+            public RangedListIterator<T> listIterator() {
                 // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public RangedListIterator<T> listIterator(long from) {
+                return null;
+            }
+
+            @Override
+            protected Iterator<T> subIterator(LongRange range) {
+                return null;
+            }
+
+            @Override
+            public RangedListIterator<T> subListIterator(LongRange range) {
+                return null;
+            }
+
+            @Override
+            protected RangedListIterator<T> subListIterator(LongRange range, long from) {
                 return null;
             }
 
@@ -332,7 +367,7 @@ public class TestRangedListView implements Serializable {
 
     @Test
     public void testIteratorFrom() {
-        final Iterator<Element> it = view.iterator(3l);
+        final Iterator<Element> it = view.listIterator(3l);
 
         while (it.hasNext()) {
             it.next().n = 0;
@@ -356,7 +391,7 @@ public class TestRangedListView implements Serializable {
      */
     @Test(expected = IndexOutOfBoundsException.class)
     public void testIteratorFromOutOfChunkRange() {
-        view.iterator(-1l);
+        view.listIterator(-1l);
     }
 
     /**
@@ -365,7 +400,7 @@ public class TestRangedListView implements Serializable {
      */
     @Test(expected = IndexOutOfBoundsException.class)
     public void testIteratorFromOutOfViewRange() {
-        view.iterator(0l);
+        view.listIterator(0l);
     }
 
     /**

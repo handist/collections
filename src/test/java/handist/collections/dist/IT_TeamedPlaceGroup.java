@@ -11,16 +11,19 @@
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
-import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 
+import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
-import apgas.MultipleException;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -34,40 +37,22 @@ public class IT_TeamedPlaceGroup implements Serializable {
 
     TeamedPlaceGroup world;
 
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
+
     @Before
     public void setup() {
         world = TeamedPlaceGroup.getWorld();
-    }
-
-    @Ignore
-    @Test
-    public void testRank() throws Throwable {
-        // I don't quite understand the relationship between rank and place number.
-        // Until then this test will be skipped.
-        // Check that every place has a correct rank in world place group
-        try {
-            world.broadcastFlat(() -> {
-                assertEquals(here().id, world.rank());
-            });
-        } catch (final MultipleException me) {
-            me.printStackTrace();
-            throw me.getSuppressed()[0];
-        }
-
-        final TeamedPlaceGroup zeroAndOne = world.splitHalf();
-        assertEquals(0, zeroAndOne.rank(here()));
-        assertEquals(0, zeroAndOne.rank());
-        assertEquals(0, zeroAndOne.rank(place(1)));
-        assertThrows(RuntimeException.class, () -> zeroAndOne.rank(place(2)));
-        assertThrows(RuntimeException.class, () -> zeroAndOne.rank(place(3)));
-
-        try {
-            asyncAt(place(2), () -> {
-                zeroAndOne.rank();
-            });
-        } catch (final MultipleException me) {
-            assertEquals(RuntimeException.class, me.getSuppressed()[0].getClass());
-        }
     }
 
     @Test(timeout = 60000)

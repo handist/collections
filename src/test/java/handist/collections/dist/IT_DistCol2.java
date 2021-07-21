@@ -15,15 +15,20 @@ import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.mpijunit.MpiConfig;
@@ -31,7 +36,8 @@ import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
 
 /**
- * Second class used to test the distributed features of class {@link DistCol}
+ * Second class used to test the distributed features of class
+ * {@link DistChunkedList}
  *
  * @author Patrick Finnerty
  *
@@ -69,25 +75,38 @@ public class IT_DistCol2 implements Serializable {
         random = new Random(12345l);
     }
 
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
     /** First chunk contained by the DistCol */
     Chunk<Element> chunk0To100;
+
     /** Second chunk contained by the DistCol */
     Chunk<Element> chunk100To200;
     /** Third chunk contained by the DistCol */
     Chunk<Element> chunk200To250;
-
     /** Instance used under test */
     DistCol<Element> distCol;
 
     /** First range on which DistCol is defined */
     LongRange range0To100;
+
     /** Second range on which DistCol is defined */
     LongRange range100To200;
     /** Third range on which DistCol is defined */
     LongRange range200To250;
-
     /** TeamedPlaceGroup representing the whole world */
     TeamedPlaceGroup world;
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     /**
      * Prepares the various objects used for the tests
@@ -136,7 +155,7 @@ public class IT_DistCol2 implements Serializable {
             final long[] size = new long[world.size()];
 
             distCol.TEAM.updateDist(); // Here is the important call
-            distCol.TEAM.size(size); // We check the result of TEAM.size
+            distCol.TEAM.getSizeDistribution(size); // We check the result of TEAM.size
 
             assertEquals(world.size(), size.length);
             for (int i = 0; i < size.length; i++) {
@@ -299,8 +318,9 @@ public class IT_DistCol2 implements Serializable {
 
     /**
      * Tests the
-     * {@link DistCol#moveRangeAtSync(LongRange, apgas.Place, MoveManager)} method
-     * in a situation where the range to move matches that of an existing chunk
+     * {@link DistChunkedList#moveRangeAtSync(LongRange, apgas.Place, MoveManager)}
+     * method in a situation where the range to move matches that of an existing
+     * chunk
      *
      * @throws IOException if thrown during the test
      */

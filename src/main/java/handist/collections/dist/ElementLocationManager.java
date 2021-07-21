@@ -24,7 +24,14 @@ import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.Serializer;
 
-public class DistManager<T> {
+/**
+ * This class manages the elements of a distributed collection in a
+ * difference-basis.
+ *
+ * @param <T> the type of the unit of index/key management. Currently
+ *            {@code Long} and {@code LongRange} are supported.
+ */
+public class ElementLocationManager<T> {
 
     static class ParameterErrorException extends RuntimeException {
         /**
@@ -310,7 +317,7 @@ public class DistManager<T> {
                 applyDiff(k, v, from);
             }
         };
-        CollectiveRelocator.allgatherSer(pg, serProcess, desProcess);
+        new CollectiveRelocator.Allgather(pg).request(serProcess, desProcess).execute();
         importedDiffKeys.clear();
         diff.clear();
     }

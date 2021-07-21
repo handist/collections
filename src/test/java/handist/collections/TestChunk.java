@@ -264,7 +264,7 @@ public class TestChunk implements Serializable {
 
     @Test(expected = IndexOutOfBoundsException.class)
     public void testIteratorErrorIndex() {
-        chunk.rangedListIterator(100l);
+        chunk.listIterator(100l);
     }
 
     /*
@@ -281,7 +281,7 @@ public class TestChunk implements Serializable {
         }
         assertFalse(it.hasNext());
 
-        it = chunk.rangedListIterator(3l);
+        it = chunk.listIterator(3l);
         for (int i = 2; i < elems.length - 1; i++) {
             assertTrue(it.hasNext());
             it.next();
@@ -291,16 +291,16 @@ public class TestChunk implements Serializable {
 
     @Test
     public void testIteratorHasPrevious() {
-        RangedListIterator<Element> it = chunk.rangedListIterator();
+        RangedListIterator<Element> it = chunk.listIterator();
         assertFalse(it.hasPrevious());
-        it = chunk.rangedListIterator(2l);
+        it = chunk.listIterator(2l);
         assertTrue(it.hasPrevious());
         assertEquals(it.previous(), elems[1]);
     }
 
     @Test(expected = IllegalStateException.class)
     public void testIteratorIllegalState() {
-        chunk.rangedListIterator().set(null);
+        chunk.listIterator().set(null);
     }
 
     @Test
@@ -313,7 +313,7 @@ public class TestChunk implements Serializable {
 
     @Test
     public void testIteratorNextIndex() {
-        final RangedListIterator<Element> it = chunk.rangedListIterator();
+        final RangedListIterator<Element> it = chunk.listIterator();
         assertEquals(0l, it.nextIndex());
     }
 
@@ -326,7 +326,7 @@ public class TestChunk implements Serializable {
 
     @Test
     public void testIteratorPreviousIndex() {
-        final RangedListIterator<Element> it = chunk.rangedListIterator();
+        final RangedListIterator<Element> it = chunk.listIterator();
         assertEquals(-1l, it.previousIndex());
     }
 
@@ -336,7 +336,7 @@ public class TestChunk implements Serializable {
         // Check the fact the "last object returned" by either previous or next
         // is modified
         final Element e = new Element(-1);
-        final RangedListIterator<Element> it = chunk.rangedListIterator(1l);
+        final RangedListIterator<Element> it = chunk.listIterator(1l);
         final Element oldValue = it.next();
         assertEquals(elems[1], oldValue);
         it.set(e); // Replace oldValue with e
