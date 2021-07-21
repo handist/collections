@@ -133,17 +133,6 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public boolean equals(Object o) {
         return RangedList.equals(this, o);
     }
-    /*
-     * @Override public <U> void forEach(LongRange range, BiConsumer<? super T,
-     * Consumer<? super U>> action, Consumer<? super U> receiver) {
-     * rangeCheck(range); base.forEach(range, action, receiver); }
-     *
-     * @Override public void forEach(LongRange range, Consumer<? super T> action) {
-     * rangeCheck(range); base.forEach(range, action); }
-     *
-     * @Override public void forEach(LongRange range, LongTBiConsumer<? super T>
-     * action) { rangeCheck(range); base.forEach(range, action); }
-     */
 
     /**
      * Get the element at the provided {@code index}.
@@ -155,16 +144,6 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public T get(long index) {
         rangeCheck(index);
         return base.get(index);
-    }
-
-  //  @Override
-    protected Object[] getBody() {
-        return base.getBody();
-    }
-
- //   @Override
-    protected long getBodyOffset() {
-        return base.getBodyOffset();
     }
 
     /**
@@ -335,18 +314,6 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
         out.writeObject(chunk);
     }
 
-    /*
-     * public static void main(String[] args) { long i = 10; Chunk<Integer> c = new
-     * Chunk<>(new LongRange(10 * i, 11 * i)); System.out.println("prepare:" + c);
-     * for (long j = 0; j < i; j++) { int v = (int) (10 * i + j);
-     * System.out.println("set@" + v); c.set(10 * i + j, v); }
-     * System.out.println("Chunk :" + c); RangedList<Integer> r1 = c.subList(10 * i
-     * + 0, 10 * i + 2); RangedList<Integer> r2 = c.subList(10 * i + 2, 10 * i + 8);
-     * RangedList<Integer> r3 = c.subList(10 * i + 8, 10 * i + 9);
-     * RangedList<Integer> r4 = c.subList(10 * i + 0, 10 * i + 9);
-     * System.out.println("RangedListView: " + r1);
-     * System.out.println("RangedListView: " + r2);
-     * System.out.println("RangedListView: " + r3);
-     * System.out.println("RangedListView: " + r4); }
-     */
+
+
 }

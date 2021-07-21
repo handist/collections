@@ -14,7 +14,10 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.function.*;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import handist.collections.function.LongTBiConsumer;
 
@@ -199,7 +202,6 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param range  range of indices on which to apply the action
      * @param action action to perform taking a long and a T as parameter
      */
-    @SuppressWarnings("unchecked")
     public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
         forEachImpl(range, action);
     }
@@ -393,8 +395,22 @@ public abstract class RangedList<T> implements Iterable<T> {
     public abstract T set(long index, T value);
 
     /**
-     * Initializes the values in the {code range} of this instance by applying the
-     * provided function on the elements contained in {@code source}
+     * Initializes the values in this instance by applying the provided function on
+     * the elements contained in {@code source}
+     *
+     * @param <S>    the type handled by the {@link RangedList} given as parameter,
+     *               input for the function
+     * @param source {@link RangedList} instance from which entried for this
+     *               instance will be extracted
+     * @param func   function that takes an object of type S as parameter and
+     *               returns a type T
+     */
+    public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
+        setupFrom(source.getRange(), source, func);
+    }
+    /**
+     * Initializes the values in the {code range} of this instance by applying the provided function on
+     * the elements contained in {@code source}
      *
      * @param <S>    the type handled by the {@link RangedList} given as parameter,
      *               input for the function
@@ -452,22 +468,6 @@ public abstract class RangedList<T> implements Iterable<T> {
             iter0.set(func.apply(iter1.next(), iter2.next()));
         }
     }
-
-    /**
-     * Initializes the values in this instance by applying the provided function on
-     * the elements contained in {@code source}
-     *
-     * @param <S>    the type handled by the {@link RangedList} given as parameter,
-     *               input for the function
-     * @param source {@link RangedList} instance from which entried for this
-     *               instance will be extracted
-     * @param func   function that takes an object of type S as parameter and
-     *               returns a type T
-     */
-    public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
-        setupFrom(source.getRange(), source, func);
-    }
-
 
     /**
      * Returns the number of entries in this collection as a {@code long}

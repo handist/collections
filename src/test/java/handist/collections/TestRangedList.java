@@ -67,16 +67,6 @@ public class TestRangedList {
             return chunk.getRange();
         }
 
-        //@Override
-        protected Object[] getBody() {
-            return chunk.getBody();
-        }
-
-        //@Override
-        protected long getBodyOffset() {
-            return chunk.getBodyOffset();
-        }
-
         @Override
         public Iterator<T> iterator() { return chunk.iterator(); }
 
