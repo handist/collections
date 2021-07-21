@@ -14,13 +14,18 @@ import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
+import apgas.impl.DebugFinish;
 import handist.collections.LongRange;
 import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.DistributedCollection;
@@ -64,6 +69,19 @@ public class IT_ObjectsUsedAsMapKeys implements Serializable {
         TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
             System.setProperty("apgas.serialization", "true");
         });
+    }
+
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(apgas.impl.Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
     }
 
     @Before

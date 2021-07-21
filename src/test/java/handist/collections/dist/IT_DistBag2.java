@@ -14,12 +14,18 @@ import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 
+import org.junit.After;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.Place;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.dist.DistBag.DistBagTeam;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -43,7 +49,7 @@ public class IT_DistBag2 implements Serializable {
         public Element(Place p, int key) {
             this.p = p;
             this.key = key;
-            this.val = 0;
+            val = 0;
         }
 
         public int inc() {
@@ -63,9 +69,21 @@ public class IT_DistBag2 implements Serializable {
         return "" + p + ":" + i;
     }
 
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
     // TODO implement tests for the various features of class DistBag
     /** PlaceGroup on which the DistMap is defined on */
     TeamedPlaceGroup pg = TeamedPlaceGroup.getWorld();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     @SuppressWarnings("unused")
     @Test(timeout = 30000)

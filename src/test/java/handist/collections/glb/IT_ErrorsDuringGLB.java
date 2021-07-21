@@ -16,6 +16,7 @@ import static handist.collections.glb.Util.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,11 +25,15 @@ import org.hamcrest.core.IsInstanceOf;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
 import apgas.Place;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
@@ -68,7 +73,7 @@ public class IT_ErrorsDuringGLB implements Serializable {
     @BeforeClass
     public static void before() throws Exception {
         TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
-            System.setProperty(Config.LIFELINE_STRATEGY, NoLifeline.class.getCanonicalName());
+            System.setProperty(handist.collections.glb.Config.LIFELINE_STRATEGY, NoLifeline.class.getCanonicalName());
         });
     }
 
@@ -107,6 +112,9 @@ public class IT_ErrorsDuringGLB implements Serializable {
         }
     }
 
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
     /**
      * Distributed collection which is the object of the tests. It is defined on the
      * entire world.
@@ -117,6 +125,16 @@ public class IT_ErrorsDuringGLB implements Serializable {
      * Whole world
      */
     TeamedPlaceGroup placeGroup;
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     @Before
     public void setUp() throws Exception {

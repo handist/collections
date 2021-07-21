@@ -3,15 +3,10 @@ package handist.collections.dist;
 import static apgas.Constructs.*;
 
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.io.StringWriter;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -36,12 +31,12 @@ import handist.collections.dist.util.SerializableBiFunction;
 public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<DistLog.LogKey, DistLog.LogItem>, DistLog>
         implements Serializable {
 
-    static class ListDiff<E> {
+    static class ListDiff {
         int index;
-        E first;
-        E second;
+        LogItem first;
+        LogItem second;
 
-        public ListDiff(int index, E first, E second) {
+        public ListDiff(int index, LogItem first, LogItem second) {
             this.index = index;
             this.first = first;
             this.second = second;
@@ -53,11 +48,12 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         }
     }
 
-    static class LogItem implements Serializable {
+    public static class LogItem implements Serializable {
         private static final long serialVersionUID = -1365865614858381506L;
+        public static boolean appendixPrint = true;
         public static Comparator<LogItem> cmp = Comparator.comparing(i0 -> i0.msg);
-        String msg;
-        String appendix;
+        public final String msg;
+        public final String appendix;
 
         LogItem(Object body, Object app) {
             msg = (body != null ? body.toString() : "");
@@ -79,21 +75,25 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
 
         @Override
         public String toString() {
-            return "LogItem:" + msg + " : " + appendix;
+
+            if(appendixPrint)
+                return "LogItem:" + msg + ", " + appendix;
+            else
+                return "LogItem:" + msg;
         }
     }
 
-    static final class LogKey implements Serializable {
+    public static final class LogKey implements Serializable,Comparable<LogKey> {
 
         /** Serial Version UID */
         private static final long serialVersionUID = -7799219001690238705L;
 
-        Place p;
-        String tag;
-        long phase;
+        public final Place place;
+        public final String tag;
+        public final long phase;
 
         public LogKey(Place p, String tag, long phase) {
-            this.p = p;
+            this.place = p;
             this.tag = tag;
             this.phase = phase;
         }
@@ -107,12 +107,12 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
                 return false;
             }
             final LogKey key2 = (LogKey) obj;
-            return p.equals(key2.p) && strEq(tag, key2.tag) && (phase == key2.phase);
+            return place.equals(key2.place) && strEq(tag, key2.tag) && (phase == key2.phase);
         }
 
         @Override
         public int hashCode() {
-            return p.id + (tag.hashCode() << 2) + (int) (phase << 4 + phase >> 16);
+            return place.id + (tag.hashCode() << 2) + (int) (phase << 4 + phase >> 16);
         }
 
         boolean strEq(String s1, String s2) {
@@ -124,7 +124,15 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
 
         @Override
         public String toString() {
-            return "Log@" + p + ", tag: " + tag + ", phase: " + phase;
+            return "Log@" + place + ", tag: " + tag + ", phase: " + phase;
+        }
+
+        @Override
+        public int compareTo(LogKey o) {
+            int result = Long.compare(phase, o.phase);
+            if(result==0) result = tag.compareTo(o.tag);
+            if(result==0) result = Integer.compare(place.id, o.place.id);
+            return result;
         }
     }
 
@@ -132,22 +140,21 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
      *
      */
 
-    static class SetDiff<E> {
-        E first;
-        E second;
+    static class SetDiff {
+        Collection<LogItem> first;
+        Collection<LogItem> second;
 
-        public SetDiff(E first, E second) {
+        public SetDiff(Collection<LogItem> first, Collection<LogItem> second) {
             this.first = first;
             this.second = second;
         }
+        public boolean isEmpty() {
+            return (first==null || first.isEmpty()) && (second==null ||second.isEmpty());
+        }
 
-        @Override
-        public String toString() {
-            if (first != null) {
-                return "" + first + " is only included in the first collection.";
-            } else {
-                return "" + second + " is only included in the second collection.";
-            }
+        public void print(PrintStream out) {
+            out.println("  1st:" + (first==null? "": first));
+            out.println("  2nd:" + (second==null? "": second));
         }
     }
 
@@ -161,7 +168,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
 
     public static HashMap<GlobalID, DistLog> map = new HashMap<>();
 
-    public static <E> Collection<E> concat(Collection<? extends Collection<E>> lists) {
+    private static <E> Collection<E> concat(Collection<? extends Collection<E>> lists) {
         if (lists == null) {
             return null;
         }
@@ -189,75 +196,54 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         DistLog.defaultLog.globalSetPhase(phase);
     }
 
-    public static <E> ListDiff<E> diffCheckList(List<E> list0, List<E> list1) {
+    private static ListDiff diffCheckList(List<LogItem> list0, List<LogItem> list1) {
         final int size = Math.min(list0.size(), list1.size());
         for (int i = 0; i < size; i++) {
-            final E item0 = list0.get(i);
-            final E item1 = list1.get(i);
+            final LogItem item0 = list0.get(i);
+            final LogItem item1 = list1.get(i);
             if (!item0.equals(item1)) {
-                return new ListDiff<>(i, item0, item1);
+                return new ListDiff(i, item0, item1);
             }
         }
         if (list0.size() > list1.size()) {
-            return new ListDiff<>(size, list0.get(size), null);
+            return new ListDiff(size, list0.get(size), null);
         } else if (list0.size() < list1.size()) {
-            return new ListDiff<>(size, null, list1.get(size));
-        } else {
-            return null;
-        }
-    }
-    /*
-     * public static void main(String[] args) { List<String> strs0 =
-     * Arrays.asList("abc", "bdd", "cde", "def"); List<String> strs1 =
-     * Arrays.asList("bdd", "abc", "def", "cde"); List<String> strs2 =
-     * Arrays.asList("bdd", "abc", "aaa" );
-     *
-     * System.out.println(diffCheckSet(strs0, strs1,
-     * String.CASE_INSENSITIVE_ORDER)); System.out.println(diffCheckSet(strs0,
-     * strs2, String.CASE_INSENSITIVE_ORDER)); Collection<Collection<String>> x =
-     * Arrays.asList(strs0, strs1, strs2); Collection<Collection<String>> y =
-     * Arrays.asList(strs2, strs0, strs1); System.out.println("" + x + "-> " +
-     * concat(x)); System.out.println(diffCheckSplitSet(x, y,
-     * String.CASE_INSENSITIVE_ORDER)); }
-     *
-     */
-
-    // DistConcurrentMultiMap<LogKey, LogItem> base;
-
-    public static <E> SetDiff<E> diffCheckSet(Collection<E> olist0, Collection<E> olist1, Comparator<E> comp) {
-        final ArrayList<E> list0 = new ArrayList<>(olist0);
-        final ArrayList<E> list1 = new ArrayList<>(olist1);
-        list0.sort(comp);
-        list1.sort(comp);
-        final int size = Math.min(list0.size(), list1.size());
-        for (int i = 0; i < size; i++) {
-            final E item0 = list0.get(i);
-            final E item1 = list1.get(i);
-            final int result = comp.compare(item0, item1);
-            if (result < 0) {
-                return new SetDiff<>(item0, null);
-            } else if (result > 0) {
-                return new SetDiff<>(null, item1);
-            }
-        }
-        if (list0.size() > list1.size()) {
-            return new SetDiff<>(list0.get(size), null);
-        } else if (list0.size() < list1.size()) {
-            return new SetDiff<>(null, list1.get(size));
+            return new ListDiff(size, null, list1.get(size));
         } else {
             return null;
         }
     }
 
-    public static <E> SetDiff<E> diffCheckSplitSet(Collection<? extends Collection<E>> lists0,
-            Collection<? extends Collection<E>> lists1, Comparator<E> comp) {
+    private static SetDiff diffCheckSet0(Collection<LogItem> olist0, Collection<LogItem> olist1) {
+        if(olist0.isEmpty()&&olist1.isEmpty()) return null;
+        if(olist0.isEmpty() || olist1.isEmpty()) {
+            return new SetDiff(olist0, olist1);
+        }
+        final ArrayList<LogItem> list0 = new ArrayList<>(olist0);
+        final ArrayList<LogItem> list1 = new ArrayList<>(olist1);
+        list0.sort(LogItem.cmp);
+        list1.sort(LogItem.cmp);
+        SetDiff result = new SetDiff(list0, list1);
+        if(list0.size()!=list1.size()) return result;
+        for(int i=0; i< list0.size(); i++) {
+            if(!list0.get(i).equals(list1.get(i))) return result;
+        }
+        return null;
+    }
+
+    private static SetDiff diffCheckSet(Collection<? extends Collection<LogItem>> lists0,
+            Collection<? extends Collection<LogItem>> lists1) {
         if (lists0 == null) {
             lists0 = Collections.emptySet();
         }
         if (lists1 == null) {
             lists1 = Collections.emptySet();
         }
-        return diffCheckSet(concat(lists0), concat(lists1), comp);
+        return diffCheckSet0(concat(lists0), concat(lists1));
+    }
+
+    public DistConcurrentMultiMap<LogKey, LogItem> getDistMultiMap() {
+        return getPlanet();
     }
 
     /**
@@ -292,7 +278,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         }
     }
 
-    TeamedPlaceGroup pg;
+    public final TeamedPlaceGroup pg;
 
     /** The current logging phase */
     AtomicLong phase;
@@ -330,21 +316,32 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
      */
 
     public boolean distributionFreeEquals(DistLog target, PrintStream out) {
-        final Map<Pair<String, Long>, List<Collection<LogItem>>> g0 = groupBy();
-        final Map<Pair<String, Long>, List<Collection<LogItem>>> g1 = target.groupBy();
-
-        for (final Map.Entry<Pair<String, Long>, List<Collection<LogItem>>> entry : g0.entrySet()) {
-            final Pair<String, Long> key = entry.getKey();
-            final List<Collection<LogItem>> entries0 = entry.getValue();
+        boolean result = true;
+        final TreeMap<Pair<String, Long>, List<Collection<LogItem>>> g0 = groupBy();
+        final TreeMap<Pair<String, Long>, List<Collection<LogItem>>> g1 = target.groupBy();
+        TreeSet<Pair<String, Long>> keys = new TreeSet<>(gcmp);
+        keys.addAll(g0.keySet());
+        keys.addAll(g1.keySet());
+        long phase = 0;
+        for (Pair<String, Long> key: keys) {
+            if((!result) && phase < key.second) return false;
+            final List<Collection<LogItem>> entries0 = g0.get(key);
             final List<Collection<LogItem>> entries1 = g1.get(key);
-            final SetDiff<LogItem> diff = diffCheckSplitSet(entries0, entries1, LogItem.cmp);
+            final SetDiff diff = diffCheckSet(entries0, entries1);
             if (diff != null) {
-                out.println("Diff @ [tag: " + key.first + ", phase" + key.second + "]:" + diff);
-                return false;
+                if(result==true) out.println("Diff first found in phase " + key.second);
+                out.println("Diff with tag: " + key.first + ", phase: " + key.second);
+                diff.print(out);
+                result = false;
+                phase = key.second;
             }
         }
-        return true;
+        return result;
     }
+
+    private static final Comparator<Pair<String,Long>> gcmp =
+            Comparator.comparing(Pair<String,Long>::getSecond).thenComparing(Pair<String,Long>::getFirst);
+
 
     @Override
     public SerializableBiFunction<DistConcurrentMultiMap<LogKey, LogItem>, Place, DistLog> getBranchCreator() {
@@ -353,6 +350,19 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         return (DistConcurrentMultiMap<LogKey, LogItem> base, Place place) -> new DistLog(base0.placeGroup(), phase0,
                 base0);
     }
+
+    public Collection<LogItem> getLog(String key) {
+        return base.get(new LogKey(here(), key, phase.get()));
+    }
+    public Collection<LogItem> removeLog(String key) {
+        return base.remove(new LogKey(here(), key, phase.get()));
+    }
+
+    public long getPhase() {
+        return phase.get();
+    }
+
+
 
     /**
      * gather the log to the receiving place initially specified
@@ -410,8 +420,8 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         }
     }
 
-    private Map<Pair<String, Long>, List<Collection<LogItem>>> groupBy() {
-        final Map<Pair<String, Long>, List<Collection<LogItem>>> results = new HashMap<>();
+    private TreeMap<Pair<String, Long>, List<Collection<LogItem>>> groupBy() {
+        final TreeMap<Pair<String, Long>, List<Collection<LogItem>>> results = new TreeMap<>(gcmp);
         base.forEach((LogKey key, Collection<LogItem> items) -> {
             final Pair<String, Long> keyWOp = new Pair<>(key.tag, key.phase);
             final List<Collection<LogItem>> bag = results.computeIfAbsent(keyWOp, k -> new ArrayList<>());
@@ -440,32 +450,47 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
             return false;
         }
 
-        for (final Map.Entry<LogKey, ? extends Collection<LogItem>> entry : base.entrySet()) {
-            final LogKey key = entry.getKey();
-            final Collection<LogItem> elems1 = entry.getValue();
+        TreeSet<LogKey> keys = new TreeSet<>();
+        keys.addAll(base.keySet());
+        keys.addAll(target.base.keySet());
+
+        boolean result = true;
+        long bugPhase = 0;
+
+        for (final LogKey key: keys) {
+            if((!result) && key.phase > bugPhase) return false;
+            final Collection<LogItem> elems1 = base.get(key);
             final Collection<LogItem> elems2 = target.base.get(key);
-            final ArrayList<LogItem> lists1 = new ArrayList<>(elems1);
-            final ArrayList<LogItem> lists2 = new ArrayList<>(elems2);
+            final List<LogItem> lists1 = elems1==null? Collections.EMPTY_LIST: new ArrayList<>(elems1);
+            final List<LogItem> lists2 = elems2==null? Collections.EMPTY_LIST: new ArrayList<>(elems2);
             if (asList) {
-                final ListDiff<LogItem> diff = diffCheckList(lists1, lists2);
+                final ListDiff diff = diffCheckList(lists1, lists2);
                 if (diff != null) {
+                    if(result) {
+                        out.println("Diff first found in phase " + key.phase);
+                        bugPhase = key.phase; result = false;
+                    }
                     out.println("Diff in " + key + "::" + diff);
-                    return false;
                 }
             } else {
-                final SetDiff<LogItem> diff = diffCheckSet(lists1, lists2, LogItem.cmp);
+                final SetDiff diff = diffCheckSet0(lists1, lists2);
                 if (diff != null) {
-                    out.println("Diff in " + key + "::" + diff);
-                    return false;
+                    if(result) {
+                        out.println("Diff first found in phase " + key.phase);
+                        bugPhase = key.phase; result = false;
+                    }
+                    out.println("Diff in " + key);
+                    diff.print(out);
                 }
             }
         }
-        return true;
+        return result;
     }
 
+    public static String itemOffset = "  ";
     public void printAll(PrintStream out) {
         final TreeMap<LogKey, Collection<LogItem>> sorted = new TreeMap<>((o1, o2) -> {
-            int result = Integer.compareUnsigned(o1.p.id, o2.p.id);
+            int result = Integer.compareUnsigned(o1.place.id, o2.place.id);
             if (result == 0) {
                 result = o1.tag.compareTo(o2.tag);
             }
@@ -480,7 +505,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         sorted.forEach((LogKey key, Collection<LogItem> items) -> {
             out.println("LogKey: " + key);
             for (final LogItem item : items) {
-                out.println(item);
+                out.println(itemOffset + item);
             }
         });
 
@@ -500,7 +525,11 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         base.put1(new LogKey(Constructs.here(), tag, phase.get()), new LogItem(msg, appendix));
     }
 
-    private void setPhase(long phase) {
+    public void put(long phaseVal, String tag, Object msg, Object appendix) {
+        base.put1(new LogKey(Constructs.here(), tag, phaseVal), new LogItem(msg, appendix));
+    }
+
+    public void setPhase(long phase) {
         this.phase.set(phase);
     }
 }

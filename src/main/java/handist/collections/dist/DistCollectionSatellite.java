@@ -67,6 +67,8 @@ public abstract class DistCollectionSatellite<B extends DistributedCollection<?,
      */
     abstract public SerializableBiFunction<B, Place, W> getBranchCreator();
 
+    protected B getPlanet() { return base; }
+
     public Object writeReplace() throws ObjectStreamException {
         final B base0 = this.base;
         final SerializableBiFunction<B, Place, W> init = getBranchCreator();

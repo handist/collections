@@ -10,6 +10,7 @@
  ******************************************************************************/
 package handist.mpijunit.launcher;
 
+import apgas.impl.DebugFinish;
 import apgas.mpi.MPILauncher;
 import handist.collections.dist.TeamedPlaceGroup;
 
@@ -46,6 +47,7 @@ public class TestLauncher {
         }
 
         // Call TeamedPlaceGroup setup method to add its plugin to MPILauncher
+        System.setProperty(apgas.impl.Config.APGAS_FINISH, DebugFinish.class.getCanonicalName());
         TeamedPlaceGroup.setup();
 
         // Call the MPILauncher with the modified arguments

@@ -18,12 +18,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
+
+import handist.collections.function.LongTBiConsumer;
 
 /**
  * Large collection that can contain objects mapped to long indices.
@@ -31,6 +36,7 @@ import com.esotericsoftware.kryo.io.Output;
  * @param <T> type of the elements handled by this instance
  */
 public class Chunk<T> extends RangedList<T> implements Serializable, KryoSerializable {
+
     /**
      * ListIterator class for Chunk
      *
@@ -408,7 +414,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         return a;
     }
 
-//    @Override
+    @Override
     protected long getBodyOffset() {
         return range.from;
     }
@@ -434,9 +440,13 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         return RangedList.hashCode(this);
     }
 
-
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public Iterator<T> iterator() { return new It<>(this); }
+    public Iterator<T> iterator() {
+        return new It<>(this);
+    }
 
     /**
      * Creates and returns a new {@link RangedListIterator} on the elements

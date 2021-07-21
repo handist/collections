@@ -40,6 +40,7 @@ import handist.collections.function.DeSerializer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
 import handist.collections.glb.DistMapGlb;
+import mpjbuf.IllegalArgumentException;
 
 /**
  * A Map data structure spread over the multiple places.
@@ -81,6 +82,8 @@ public class DistMap<K, V>
 
     @SuppressWarnings("rawtypes")
     private DistCollectionSatellite satellite;
+
+    private final MapEntryDispatcher<K, V> dispatcher;
 
     /**
      * Construct an empty DistMap which can have local handles on all the hosts in
@@ -145,6 +148,7 @@ public class DistMap<K, V>
         this.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistMap<>(pg0, gid));
         GLB = new DistMapGlb<>(this);
         TEAM = new TeamOperations<>(this);
+        dispatcher = new MapEntryDispatcher<>(this, null);
         id.putHere(this);
     }
 
@@ -282,6 +286,36 @@ public class DistMap<K, V>
             }
         }
         return data.keySet();
+    }
+
+    /**
+     * Return {@link MapEntryDispatcher} instance that enable fast relocation
+     * between places than normal. One {@link DistMap} has one dispatcher.
+     *
+     * @param rule Determines the dispatch destination.
+     * @return :
+     */
+    public MapEntryDispatcher<K, V> getObjectDispatcher(Distribution<K> rule) {
+        dispatcher.setDistribution(rule);
+        return dispatcher;
+    }
+
+    /**
+     * Return {@link MapEntryDispatcher} instance that enable fast relocation
+     * between places than normal. One {@link DistMap} has one dispatcher.
+     *
+     * @param rule Determines the dispatch destination.
+     * @param pg   Relocate in this placegroup.
+     * @return :
+     * @throws IllegalArgumentException :
+     */
+    public MapEntryDispatcher<K, V> getObjectDispatcher(Distribution<K> rule, TeamedPlaceGroup pg)
+            throws IllegalArgumentException {
+        if (placeGroup.places.containsAll(pg.places)) {
+            throw new IllegalArgumentException("The TeamedlaceGroup passed to DistMapDispatcher must be part of or "
+                    + "the same as TeamedPlaceGroup in origin DistMap.");
+        }
+        return new MapEntryDispatcher<>(this, pg, rule);
     }
 
     @SuppressWarnings("unchecked")
