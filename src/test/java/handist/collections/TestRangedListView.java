@@ -150,18 +150,6 @@ public class TestRangedListView implements Serializable {
             }
 
             @Override
-            protected LongFunction<T> getUnsafeGetAccessor() {
-                // TODO 自動生成されたメソッド・スタブ
-                return null;
-            }
-
-            @Override
-            protected LongTBiConsumer<T> getUnsafePutAccessor() {
-                // TODO 自動生成されたメソッド・スタブ
-                return null;
-            }
-
-            @Override
             public Iterator<T> iterator() {
                 return null;
             }

@@ -33,161 +33,6 @@ import com.esotericsoftware.kryo.io.Output;
  */
 public class Chunk<T> extends RangedList<T> implements Serializable, KryoSerializable {
 
-    /**
-     * ListIterator class for Chunk
-     *
-     * @param <T> type on which the iterator operates
-     */
-    protected static class ListIt<T> implements RangedListIterator<T> {
-        private final Chunk<T> chunk;
-        private int i; // offset inside the chunk
-        private int head;
-        private int limit;
-        private int lastReturnedShift = -1;
-
-        public ListIt(Chunk<T> chunk) {
-            this.chunk = chunk;
-            this.head = 0;
-            this.limit = (int)chunk.size();
-            this.i = -1;
-        }
-        public ListIt() {
-            this.chunk = null;
-            this.head = 0;
-            this.limit = 0;
-            this.i = -1;
-        }
-        private LongRange iterRange() {
-            return new LongRange(chunk.getRange().from + head, chunk.getRange().from + limit);
-        }
-
-
-
-        public ListIt(Chunk<T> chunk, long i0) {
-            if (!chunk.range.contains(i0)) {
-                throw new IndexOutOfBoundsException();
-            }
-            this.chunk = chunk;
-            this.head = 0;
-            this.limit = (int)chunk.size();
-            this.i = (int) (i0 - chunk.range.from - 1);
-        }
-        public ListIt(Chunk<T> chunk, LongRange range0, long i0) {
-            range0 = chunk.getRange().intersection(range0);
-            if(range0 == null) {
-                throw new IndexOutOfBoundsException();
-            }
-            if (!range0.contains(i0)) {
-                throw new IndexOutOfBoundsException();
-            }
-            this.chunk = chunk;
-            this.head = (int)(range0.from-chunk.range.from);
-            this.limit = (int)(range0.to-chunk.range.from);
-            this.i = (int) (i0 - chunk.range.from - 1);
-        }
-        public ListIt(Chunk<T> chunk, LongRange range0) {
-            range0 = chunk.getRange().intersection(range0);
-            if(range0 == null) {
-                throw new IndexOutOfBoundsException();
-            }
-            this.chunk = chunk;
-            this.head = (int)(range0.from-chunk.range.from);
-            this.limit = (int)(range0.to-chunk.range.from);
-            this.i = (int) (range0.from - chunk.range.from - 1);
-        }
-
-
-        @Override
-        public boolean hasNext() {
-            return i + 1 < limit;
-        }
-
-        @Override
-        public boolean hasPrevious() {
-            return i > head;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public T next() {
-            if(!hasNext())
-                throw new IndexOutOfBoundsException("[Chunk.It] range mismatch: " + iterRange() + " does not include " + i);
-            lastReturnedShift = 0;
-            return (T) chunk.a[++i];
-        }
-
-        @Override
-        public long nextIndex() {
-            return chunk.range.from + i + 1;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public T previous() {
-            if(!hasPrevious())
-                throw new IndexOutOfBoundsException("[Chunk.It] range mismatch: " + iterRange() + " does not include " + i);
-            lastReturnedShift = 1;
-            return (T) chunk.a[i--];
-        }
-
-        @Override
-        public long previousIndex() {
-            return chunk.range.from + i;
-        }
-
-        @Override
-        public void set(T e) {
-            if (lastReturnedShift == -1) {
-                throw new IllegalStateException("[Chunk.It] Either method "
-                        + "previous or next needs to be called before method set" + " can be used");
-            }
-            chunk.a[i + lastReturnedShift] = e; // FIXME THIS IS NOT CORRECT !!!
-        }
-    }
-
-    /**
-     * Iterator class for Chunk
-     *
-     * @param <T> type on which the iterator operates
-     */
-    protected static class It<T> implements Iterator<T> {
-        private final Chunk<T> chunk;
-        private int i; // offset inside the chunk
-        private int limit;
-
-        public It(Chunk<T> chunk) {
-            this.chunk = chunk;
-            this.limit = (int)chunk.size();
-            this.i = -1;
-        }
-        public It() {
-            this.chunk = null;
-            this.limit = 0;
-            this.i = -1;
-        }
-        public It(Chunk<T> chunk, LongRange range0) {
-            range0 = chunk.getRange().intersection(range0);
-            if(range0 == null) {
-                throw new IndexOutOfBoundsException();
-            }
-            this.chunk = chunk;
-            this.limit = (int)(range0.to-chunk.range.from);
-            this.i = (int) (range0.from - chunk.range.from - 1);
-        }
-        @Override
-        public boolean hasNext() {
-            return i + 1 < limit;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public T next() {
-            if(!hasNext()) throw new IndexOutOfBoundsException();
-            return (T) chunk.a[++i];
-        }
-    }
-
-
     /** Serial Version UID */
     private static final long serialVersionUID = -7691832846457812518L;
 
@@ -396,7 +241,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      */
     @Override
     public Iterator<T> iterator() {
-        return new It<>(this);
+        return new ChunkIterator<>(this.range, this.a);
     }
 
     /**
@@ -407,7 +252,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      */
     @Override
     public RangedListIterator<T> listIterator() {
-        return new ListIt<>(this);
+        return new ChunkListIterator<>(this.range, this.a);
     }
 
     /**
@@ -419,7 +264,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      * @return a new {@link RangedListIterator} starting at the specified index
      */
     public RangedListIterator<T> listIterator(long index) {
-        return new ListIt<>(this, index);
+        return new ChunkListIterator<>(this.range, index, this.a);
     }
 
     private String rangeMsg(long index) {
@@ -460,18 +305,30 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         a[(int) offset] = v;
         return prev;
     }
-
+    private LongRange calcSubIteratorRange(LongRange range) {
+        range = this.getRange().intersection(range);
+        if(range == null) {
+            throw new IndexOutOfBoundsException();
+        }
+        return range;
+    }
     @Override
     public Iterator<T> subIterator(LongRange range) {
-        return new It<>(this, range);
+        range = calcSubIteratorRange(range);
+        int offset = (int)(range.from-this.getRange().from);
+        return new ChunkIterator(offset, range, this.a);
     }
     @Override
     public RangedListIterator<T> subListIterator(LongRange range) {
-        return new ListIt<>(this, range);
+        range = calcSubIteratorRange(range);
+        int offset = (int)(range.from-this.getRange().from);
+        return new ChunkListIterator<T>(offset, range, this.a);
     }
     @Override
     public RangedListIterator<T> subListIterator(LongRange range, long i0) {
-        return new ListIt<>(this, range, i0);
+        range = calcSubIteratorRange(range);
+        int offset = (int)(range.from-this.getRange().from);
+        return new ChunkListIterator<T>(offset, range, i0, this.a);
     }
 
 

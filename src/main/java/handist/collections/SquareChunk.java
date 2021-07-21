@@ -10,7 +10,6 @@
  ******************************************************************************/
 package handist.collections;
 
-import handist.collections.dist.util.Pair;
 import handist.collections.function.LongTBiConsumer;
 import handist.collections.function.SquareIndexTConsumer;
 import handist.collections.function.SquareIndexTFunction;
@@ -319,24 +318,42 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         }
 
         @Override
-        protected LongFunction<T> getUnsafeGetAccessor() {
-            return (long index)->{
-                return (T)a[offset + (int)(index - baseRange.from)];
-            };
-        }
-
-        @Override
-        protected LongTBiConsumer<T> getUnsafePutAccessor() {
-            return (long index, T elem)->{
-                a[offset + (int)(index - baseRange.from)] = elem;
-            };
-        }
-
-        @Override
         public Iterator<T> iterator() {
-            throw new UnsupportedOperationException("not implemented yet");
+            return new ChunkIterator<>(offset, baseRange, a);
+        }
+
+        @Override
+        public RangedListIterator<T> listIterator() {
+            return new ChunkListIterator<>(offset, baseRange, a);
+        }
+
+        @Override
+        public RangedListIterator<T> listIterator(long from) {
+            return new ChunkListIterator<>(offset, baseRange, from, a);
+        }
+
+        @Override
+        protected Iterator<T> subIterator(LongRange range) {
+            //TODO rangecheck
+            int newOffset = offset+(int)(range.from-baseRange.from);
+            return new ChunkIterator<>(newOffset, range, a);
+        }
+
+        @Override
+        protected RangedListIterator<T> subListIterator(LongRange range) {
+            //TODO range check
+            int newOffset = offset+(int)(range.from-baseRange.from);
+            return new ChunkListIterator<>(newOffset, range, a);
+        }
+
+        @Override
+        protected RangedListIterator<T> subListIterator(LongRange range, long from) {
+            //TODO range check
+            int newOffset = offset+(int)(range.from-baseRange.from);
+            return new ChunkListIterator<>(newOffset, range, from, a);
         }
     }
+
     static class ColumnView<T> extends MyView<T> {
         int offset;
         LongRange baseRange;
@@ -383,24 +400,38 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
                 index += stride;
             }
         }
-
-        @Override
-        protected LongFunction<T> getUnsafeGetAccessor() {
-            return (long index)->{
-                return (T) a[offset + (int)(index - baseRange.from)*stride];
-            };
-        }
-
-        @Override
-        protected LongTBiConsumer<T> getUnsafePutAccessor() {
-            return (long index, T val)->{
-                a[offset + (int)(index - baseRange.from)*stride] = val;
-            };
-        }
-
         @Override
         public Iterator<T> iterator() {
-            throw new UnsupportedOperationException("not implemented yet");
+            return new ColumnIterator<>(offset, baseRange, a, stride);
+        }
+
+        @Override
+        public RangedListIterator<T> listIterator() {
+            return new ColumnListIterator<>(offset, baseRange, a, stride);
+        }
+
+        @Override
+        public RangedListIterator<T> listIterator(long from) {
+            return new ColumnListIterator<>(offset, baseRange, from, a, stride);
+        }
+
+        @Override
+        protected Iterator<T> subIterator(LongRange range) {
+            // TODO check
+            int newOffset = offset + (int)(range.from-baseRange.from)* stride;
+            return new ColumnIterator<>(newOffset, range, a, stride);
+        }
+
+        @Override
+        protected RangedListIterator<T> subListIterator(LongRange range) {
+            int newOffset = offset + (int)(range.from-baseRange.from)* stride;
+            return new ColumnListIterator<>(newOffset, range, a, stride);
+        }
+
+        @Override
+        protected RangedListIterator<T> subListIterator(LongRange range, long from) {
+            int newOffset = offset + (int)(range.from-baseRange.from)* stride;
+            return new ColumnListIterator<>(newOffset, range, from, a, stride);
         }
     }
     public RangedList<T> getRowView(long row) {
