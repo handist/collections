@@ -18,40 +18,45 @@ public class RangedListProduct<S,T> implements SquareRangedList<Pair<S,T>> {
     @Override
     public RangedList<Pair<S, T>> getRowView(long row) {
         final S s0 = first.get(row);
-        // TODO should use lazy map??
-        return second.map((T t0)-> new Pair<>(s0, t0));
+        return new LazyRangedList<>(second, (T t0)-> new Pair<>(s0, t0));
     }
 
     @Override
     public RangedList<Pair<S, T>> getColumnView(long column) {
         final T t0 = second.get(column);
-        // TODO should use lazy map??
-        return first.map((S s0)-> new Pair<>(s0, t0));
+        return new LazyRangedList<>(first, (S s0)-> new Pair<>(s0, t0));
     }
 
     @Override
     public void forEachColumn(LongTBiConsumer<RangedList<Pair<S, T>>> columnAction) {
-        // TODO iterator for outer loop
-        for(long column: first.getRange()) {
-            columnAction.accept(column, getColumnView(column));
-        }
+        first.forEach((long column, S s0)->{
+            columnAction.accept(column, new LazyRangedList<>(second, (T t0)-> new Pair<>(s0, t0)));
+        });
     }
 
     @Override
     public void forEachRow(LongTBiConsumer<RangedList<Pair<S, T>>> rowAction) {
-        for(long row: second.getRange()) {
-            rowAction.accept(row, getRowView(row));
-        }
+        second.forEach((long row, T t0)->{
+            rowAction.accept(row, new LazyRangedList<>(first, (S s0)-> new Pair<>(s0, t0)));
+        });
     }
 
     @Override
     public RangedList<RangedList<Pair<S, T>>> asRowList() {
-        return null;
+        return new LazyRangedList<>(first, (S s0)-> {
+            return new LazyRangedList<>(second, (T t0) -> {
+                return new Pair(s0, t0);
+            });
+        });
     }
 
     @Override
     public RangedList<RangedList<Pair<S, T>>> asColumnList() {
-        return null;
+        return new LazyRangedList<>(second, (T t0) -> {
+            return new LazyRangedList<>(first, (S s0)-> {
+                return new Pair(s0, t0);
+            });
+        });
     }
 
     @Override
@@ -61,12 +66,20 @@ public class RangedListProduct<S,T> implements SquareRangedList<Pair<S,T>> {
 
     @Override
     public void forEach(SquareIndexTConsumer<? super Pair<S, T>> action) {
-
+        first.forEach((long row, S s)-> {
+            second.forEach((long column, T t)->{
+                action.accept(row, column, new Pair<>(s, t));
+            });
+        });
     }
 
     @Override
     public void forEach(Consumer<? super Pair<S, T>> action) {
-
+        for(S s: first) {
+            for(T t: second) {
+                action.accept(new Pair<>(s,t));
+            }
+        }
     }
 
     @Override
