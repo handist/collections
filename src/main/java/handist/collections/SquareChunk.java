@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.function.*;
 
 
-public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializable /*, KryoSerializable*/ {
+public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializable, SquareRangedList<T> /*, KryoSerializable*/ {
 
     /** Array containing the T objects */
     private final Object[] a;
@@ -434,35 +434,41 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
             return new ColumnListIterator<>(newOffset, range, from, a, stride);
         }
     }
+    @Override
     public RangedList<T> getRowView(long row) {
         // TODO range check
         int offset = (int)(innerSize * (row - getRange().outer.from));
         return new RowView<>(offset, getRange().inner, a);
     }
 
+    @Override
     public RangedList<T> getColumnView(long column) {
         // TODO range check
         int offset = (int)(column - getRange().inner.from);
         return new ColumnView<>(offset, (int)innerSize, getRange().outer, a);
     }
+    @Override
     public void forEachColumn(LongTBiConsumer<RangedList<T>> columnAction) {
         for(long index = getRange().inner.from; index < getRange().inner.to; index++) {
             RangedList<T> cView = getColumnView(index);
             columnAction.accept(index, cView);
         }
     }
+    @Override
     public void forEachRow(LongTBiConsumer<RangedList<T>> rowAction) {
         for(long index = getRange().outer.from; index < getRange().outer.to; index++) {
             RangedList<T> rView = getRowView(index);
             rowAction.accept(index, rView);
         }
     }
+    @Override
     public RangedList<RangedList<T>> asRowList() {
         // TODO view style implementation
         return new Chunk<RangedList<T>>(range.outer, (Long rowIndex)->{
             return getRowView(rowIndex);
         });
     }
+    @Override
     public RangedList<RangedList<T>> asColumnList() {
         // TODO view style implementation
         return new Chunk<RangedList<T>>(range.inner, (Long columnIndex)->{
@@ -471,6 +477,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
     }
 
 
+    @Override
     public void forEach(SquareRange range, final Consumer<SquareSiblingAccessor<T>> action) {
         // TODO
         // rangeCheck(range);
@@ -502,6 +509,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
 
 
 
+    @Override
     public void forEach(final SquareIndexTConsumer<? super T> action) {
         // TODO
         // rangeCheck(range);
@@ -522,6 +530,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
             }
         }
     }
+    @Override
     public void forEach(final Consumer<? super T> action) {
         // TODO
         // rangeCheck(range);
@@ -551,6 +560,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
     /**
      * {@inheritDoc}
      */
+    @Override
     public T get(long index, long index2) {
         if (!getRange().outer.contains(index)) {
             throw new IndexOutOfBoundsException(/*rangeMsg(index)*/ index + " is outof "+getRange().outer);
@@ -561,6 +571,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         return getUnsafe(index, index2);
     }
 
+    @Override
     public SquareRange getRange() {
         return range;
     }
@@ -643,6 +654,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
     /**
      * {@inheritDoc}
      */
+    @Override
     public T set(long index, long index2, T value) {
         if (!getRange().outer.contains(index)) {
             throw new IndexOutOfBoundsException(/*rangeMsg(index)*/ index + " is outof "+getRange().outer);
