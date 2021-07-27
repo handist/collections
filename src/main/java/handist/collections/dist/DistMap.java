@@ -703,7 +703,7 @@ public class DistMap<K, V>
     }
 
     /**
-     * Return the number of the local entries.
+     * Return the number of local entries.
      *
      * @return the number of the local entries.
      */

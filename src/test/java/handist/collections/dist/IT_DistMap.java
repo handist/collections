@@ -72,7 +72,7 @@ public class IT_DistMap implements Serializable {
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException {
         if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
-            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
             // If we are using the DebugFinish, dump all throwables collected on each host
             DebugFinish.dumpAllSuppressedExceptions();
         }

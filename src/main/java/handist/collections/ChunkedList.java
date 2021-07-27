@@ -13,7 +13,15 @@ package handist.collections;
 import static apgas.Constructs.*;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableSet;
+import java.util.Spliterator;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -41,47 +49,142 @@ import handist.collections.function.LongTBiConsumer;
  */
 public class ChunkedList<T> implements Iterable<T>, Serializable {
 
+    /**
+     * Iterator class for {@link ChunkedList}. Iterates on two levels between the
+     * chunks contained in the {@link ChunkedList} and the elements contained in the
+     * {@link Chunk}s.
+     *
+     * @param <S> type of the elements handled by the {@link ChunkedList}
+     */
+    private static class It<S> implements Iterator<S> {
+        public ConcurrentSkipListMap<LongRange, RangedList<S>> chunks;
+        private Iterator<S> cIter;
+        private LongRange range;
+
+        public It(ConcurrentSkipListMap<LongRange, RangedList<S>> chunks) {
+            this.chunks = chunks;
+            final Map.Entry<LongRange, RangedList<S>> firstEntry = chunks.firstEntry();
+            if (firstEntry != null) {
+                final RangedList<S> firstChunk = firstEntry.getValue();
+                range = firstChunk.getRange();
+                cIter = firstChunk.iterator();
+            } else {
+                range = null;
+                cIter = null;
+            }
+        }
+
+        @Override
+        public boolean hasNext() {
+            if (range == null) {
+                return false;
+            }
+            if (cIter.hasNext()) {
+                return true;
+            }
+            final Map.Entry<LongRange, RangedList<S>> nextEntry = chunks.higherEntry(range);
+            if (nextEntry == null) {
+                range = null;
+                cIter = null;
+                return false;
+            }
+            range = nextEntry.getKey();
+            cIter = nextEntry.getValue().iterator();
+            return cIter.hasNext();
+        }
+
+        @Override
+        public S next() {
+            if (hasNext()) {
+                return cIter.next();
+            }
+            throw new IndexOutOfBoundsException();
+        }
+
+    }
+
+    /**
+     * Class which defines the order in which Chunks are stored in the underlying
+     * {@link ConcurrentSkipListMap}. Contrary to the default ordering of class
+     * {@link LongRange}, entries in this member will be sorted by increasing
+     * {@link LongRange#from} and <em>decreasing</em> {@link LongRange#to}. This
+     * simplifies a number of retrieval operations proposed by class
+     * {@link ChunkedList} as retrieving a target range
+     *
+     * @author Patrick Finnerty
+     *
+     */
+    public static final class LongRangeOrdering implements Comparator<LongRange>, Serializable {
+        /** Serial Version UID */
+        private static final long serialVersionUID = 8092975204762862773L;
+
+        @Override
+        public int compare(LongRange arg0, LongRange arg1) {
+            final int fromComparison = (int) (arg0.from - arg1.from);
+            return (int) ((fromComparison) == 0 ? arg1.to - arg0.to : fromComparison);
+        }
+
+    }
+
     public static class UnmodifiableView<S> extends ChunkedList<S> {
+        /**
+         *
+         */
+        private static final long serialVersionUID = 7195102432562086394L;
         ChunkedList<S> base;
+
         public UnmodifiableView(ChunkedList<S> base) {
             this.base = base;
         }
+
         @Override
         public void add(RangedList<S> c) {
             throw new UnsupportedOperationException("UmmodifiableView does not support add()");
         }
+
         @Override
         public void add_unchecked(RangedList<S> c) {
             throw new UnsupportedOperationException("UmmodifiableView does not support add_unchecked()");
         }
+
         @Override
-        public <U> void asyncForEach(BiConsumer<? super S, Consumer<? super U>> action, ParallelReceiver<? super U> toStore) {
+        public <U> void asyncForEach(BiConsumer<? super S, Consumer<? super U>> action,
+                ParallelReceiver<? super U> toStore) {
             base.asyncForEach(action, toStore);
         }
+
         @Override
         public void asyncForEach(Consumer<? super S> action) {
             base.asyncForEach(action);
         }
+
         @Override
-        public <U> Future<ChunkedList<S>> asyncForEach(ExecutorService pool, int nthreads, BiConsumer<? super S, Consumer<? super U>> action, ParallelReceiver<? super U> toStore) {
+        public <U> Future<ChunkedList<S>> asyncForEach(ExecutorService pool, int nthreads,
+                BiConsumer<? super S, Consumer<? super U>> action, ParallelReceiver<? super U> toStore) {
             return base.asyncForEach(pool, nthreads, action, toStore);
         }
+
         @Override
         @Deprecated
         public Future<ChunkedList<S>> asyncForEach(ExecutorService pool, int nthreads, Consumer<? super S> action) {
             return base.asyncForEach(pool, nthreads, action);
         }
+
         @Override
         @Deprecated
-        public Future<ChunkedList<S>> asyncForEach(ExecutorService pool, int nthreads, LongTBiConsumer<? super S> action) {
+        public Future<ChunkedList<S>> asyncForEach(ExecutorService pool, int nthreads,
+                LongTBiConsumer<? super S> action) {
             return base.asyncForEach(pool, nthreads, action);
         }
+
         @Override
         public void asyncForEach(LongTBiConsumer<? super S> action) {
             base.asyncForEach(action);
         }
+
         @Override
-        public <S1> Future<ChunkedList<S1>> asyncMap(ExecutorService pool, int nthreads, Function<? super S, ? extends S1> func) {
+        public <S1> Future<ChunkedList<S1>> asyncMap(ExecutorService pool, int nthreads,
+                Function<? super S, ? extends S1> func) {
             return base.asyncMap(pool, nthreads, func);
         }
 
@@ -151,7 +254,8 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         }
 
         @Override
-        public <U> void forEach(BiConsumer<? super S, Consumer<? super U>> action, ParallelReceiver<? super U> toStore) {
+        public <U> void forEach(BiConsumer<? super S, Consumer<? super U>> action,
+                ParallelReceiver<? super U> toStore) {
             base.forEach(action, toStore);
         }
 
@@ -162,7 +266,8 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
         @Override
         @Deprecated
-        public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super S, Consumer<? super U>> action, ParallelReceiver<U> toStore) {
+        public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super S, Consumer<? super U>> action,
+                ParallelReceiver<U> toStore) {
             base.forEach(pool, nthreads, action, toStore);
         }
 
@@ -244,7 +349,8 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         }
 
         @Override
-        public <U> void parallelForEach(BiConsumer<? super S, Consumer<? super U>> action, ParallelReceiver<? super U> toStore) {
+        public <U> void parallelForEach(BiConsumer<? super S, Consumer<? super U>> action,
+                ParallelReceiver<? super U> toStore) {
             base.parallelForEach(action, toStore);
         }
 
@@ -305,96 +411,19 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         }
 
         @Override
+        public Spliterator<S> spliterator() {
+            return base.spliterator();
+        }
+
+        @Override
         public ChunkedList<S> subList(LongRange range) {
-            return new UnmodifiableView<S>(base.subList(range));
+            return new UnmodifiableView<>(base.subList(range));
         }
 
         @Override
         public String toString() {
             return base.toString();
         }
-
-        @Override
-        public Spliterator<S> spliterator() {
-            return base.spliterator();
-        }
-    }
-
-    /**
-     * Iterator class for {@link ChunkedList}. Iterates on two levels between the
-     * chunks contained in the {@link ChunkedList} and the elements contained in the
-     * {@link Chunk}s.
-     *
-     * @param <S> type of the elements handled by the {@link ChunkedList}
-     */
-    private static class It<S> implements Iterator<S> {
-        public ConcurrentSkipListMap<LongRange, RangedList<S>> chunks;
-        private Iterator<S> cIter;
-        private LongRange range;
-
-        public It(ConcurrentSkipListMap<LongRange, RangedList<S>> chunks) {
-            this.chunks = chunks;
-            final Map.Entry<LongRange, RangedList<S>> firstEntry = chunks.firstEntry();
-            if (firstEntry != null) {
-                final RangedList<S> firstChunk = firstEntry.getValue();
-                range = firstChunk.getRange();
-                cIter = firstChunk.iterator();
-            } else {
-                range = null;
-                cIter = null;
-            }
-        }
-
-        @Override
-        public boolean hasNext() {
-            if (range == null) {
-                return false;
-            }
-            if (cIter.hasNext()) {
-                return true;
-            }
-            final Map.Entry<LongRange, RangedList<S>> nextEntry = chunks.higherEntry(range);
-            if (nextEntry == null) {
-                range = null;
-                cIter = null;
-                return false;
-            }
-            range = nextEntry.getKey();
-            cIter = nextEntry.getValue().iterator();
-            return cIter.hasNext();
-        }
-
-        @Override
-        public S next() {
-            if (hasNext()) {
-                return cIter.next();
-            }
-            throw new IndexOutOfBoundsException();
-        }
-
-    }
-
-    /**
-     * Class which defines the order in which Chunks are stored in the underlying
-     * {@link ConcurrentSkipListMap}. Contrary to the default ordering of class
-     * {@link LongRange}, entries in this member will be sorted by increasing
-     * {@link LongRange#from} and <em>decreasing</em> {@link LongRange#to}. This
-     * simplifies a number of retrieval operations proposed by class
-     * {@link ChunkedList} as retrieving a target range
-     *
-     * @author Patrick Finnerty
-     *
-     */
-    public static final class LongRangeOrdering implements Comparator<LongRange>, Serializable {
-        /** Serial Version UID */
-        private static final long serialVersionUID = 8092975204762862773L;
-
-        @Override
-        public int compare(LongRange arg0, LongRange arg1) {
-            final int fromComparison = (int) (arg0.from - arg1.from);
-            return (int) ((fromComparison) == 0 ? arg1.to - arg0.to : fromComparison);
-        }
-
     }
 
     /** Serial Version UID */
@@ -479,27 +508,13 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     public <U> void asyncForEach(BiConsumer<? super T, Consumer<? super U>> action,
-                                 final ParallelReceiver<? super U> toStore) {
+            final ParallelReceiver<? super U> toStore) {
         asyncForEach(defaultParallelism(), action, toStore);
-    }
-
-    public <U> void asyncForEach(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
-                                 final ParallelReceiver<? super U> toStore) {
-        forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
-            sub.forEach(action, toStore.getReceiver());
-        });
     }
 
     public void asyncForEach(Consumer<? super T> action) {
         asyncForEach(defaultParallelism(), action);
     }
-
-    public void asyncForEach(int parallelism, Consumer<? super T> action) {
-        forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
-            sub.forEach(action);
-        });
-    }
-
 
     /**
      * Performs the provided action on every element in the collection
@@ -532,7 +547,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     @Deprecated
     public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads,
-                                                   BiConsumer<? super T, Consumer<? super U>> action, final ParallelReceiver<? super U> toStore) {
+            BiConsumer<? super T, Consumer<? super U>> action, final ParallelReceiver<? super U> toStore) {
         final List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
             sub.forEach(action, toStore.getReceiver());
         });
@@ -587,14 +602,27 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         return new FutureN.ReturnGivenResult<>(futures, this);
     }
 
-    public void asyncForEach(LongTBiConsumer<? super T> action) {
-        asyncForEach(defaultParallelism(), action);
+    public <U> void asyncForEach(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
+            final ParallelReceiver<? super U> toStore) {
+        forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
+            sub.forEach(action, toStore.getReceiver());
+        });
+    }
+
+    public void asyncForEach(int parallelism, Consumer<? super T> action) {
+        forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
+            sub.forEach(action);
+        });
     }
 
     public void asyncForEach(int parallelism, LongTBiConsumer<? super T> action) {
         forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
             sub.forEach(action);
         });
+    }
+
+    public void asyncForEach(LongTBiConsumer<? super T> action) {
+        asyncForEach(defaultParallelism(), action);
     }
 
     /**
@@ -920,6 +948,10 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         return range.contained(chunks);
     }
 
+    private int defaultParallelism() {
+        return Runtime.getRuntime().availableProcessors() * 2;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || !(o instanceof ChunkedList)) {
@@ -1158,19 +1190,21 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             op.accept(c);
         }
     }
+
     /**
      * Performs the provided operation on each {@link Chunk} contained in this
-     * instance and overlapped with the given range, then returns.
-     * Note that the {@code op} receives {@link Chunk} that may not be contained in the range.
-     * If the {@code range} is {@code null}, all the chunk will be scanned.
+     * instance and overlapped with the given range, then returns. Note that the
+     * {@code op} receives {@link Chunk} that may not be contained in the range. If
+     * the {@code range} is {@code null}, all the chunk will be scanned.
      *
-     * This method dynamically scans the contained chunks. When searching the next chunk, its search from the end of the previous chunk.
+     * This method dynamically scans the contained chunks. When searching the next
+     * chunk, its search from the end of the previous chunk.
      *
      * @param range range to be scanned
-     * @param op operation to make on each chunk
+     * @param op    operation to make on each chunk
      */
     public void forEachChunk(LongRange range, Consumer<RangedList<T>> op) {
-        LongRange result = (range!=null)? range.findOverlap(chunks): chunks.firstKey();
+        LongRange result = (range != null) ? range.findOverlap(chunks) : chunks.firstKey();
         while (true) {
             if (result == null) {
                 break;
@@ -1186,21 +1220,6 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         }
     }
 
-
-
-    private int defaultParallelism() {
-        return Runtime.getRuntime().availableProcessors() * 2;
-    }
-
-    private void forEachParallelBody(int parallelism, Consumer<ChunkedList<T>> run) {
-        final List<ChunkedList<T>> separated = this.separate(parallelism);
-        for (final ChunkedList<T> sub : separated) {
-            async(() -> {
-                run.accept(sub);
-            });
-        }
-    }
-
     @Deprecated
     private List<Future<?>> forEachParallelBody(ExecutorService pool, int nthreads, Consumer<ChunkedList<T>> run) {
         final List<ChunkedList<T>> separated = this.separate(nthreads);
@@ -1211,6 +1230,15 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             }));
         }
         return futures;
+    }
+
+    private void forEachParallelBody(int parallelism, Consumer<ChunkedList<T>> run) {
+        final List<ChunkedList<T>> separated = this.separate(parallelism);
+        for (final ChunkedList<T> sub : separated) {
+            async(() -> {
+                run.accept(sub);
+            });
+        }
     }
 
     /**
@@ -1390,17 +1418,8 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      *                extracted from this collection
      */
     public <U> void parallelForEach(BiConsumer<? super T, Consumer<? super U>> action,
-                                    final ParallelReceiver<? super U> toStore) {
+            final ParallelReceiver<? super U> toStore) {
         parallelForEach(defaultParallelism(), action, toStore);
-    }
-
-    public <U> void parallelForEach(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
-                                    final ParallelReceiver<? super U> toStore) {
-        finish(() -> {
-            forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
-                sub.forEach(action, toStore.getReceiver());
-            });
-        });
     }
 
     /**
@@ -1412,7 +1431,25 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     public void parallelForEach(Consumer<? super T> action) {
         parallelForEach(defaultParallelism(), action);
     }
+
+    public <U> void parallelForEach(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
+            final ParallelReceiver<? super U> toStore) {
+        finish(() -> {
+            forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
+                sub.forEach(action, toStore.getReceiver());
+            });
+        });
+    }
+
     public void parallelForEach(int parallelism, Consumer<? super T> action) {
+        finish(() -> {
+            forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
+                sub.forEach(action);
+            });
+        });
+    }
+
+    public void parallelForEach(int parallelism, LongTBiConsumer<? super T> action) {
         finish(() -> {
             forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
                 sub.forEach(action);
@@ -1430,13 +1467,6 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public void parallelForEach(LongTBiConsumer<? super T> action) {
         parallelForEach(defaultParallelism(), action);
-    }
-    public void parallelForEach(int parallelism, LongTBiConsumer<? super T> action) {
-        finish(() -> {
-            forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
-                sub.forEach(action);
-            });
-        });
     }
 
     /**

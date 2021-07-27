@@ -11,6 +11,7 @@
 package handist.collections.glb;
 
 import static apgas.Constructs.*;
+import static handist.collections.glb.GlobalLoadBalancer.*;
 import static org.junit.Assert.*;
 
 import java.io.IOException;
@@ -171,12 +172,8 @@ public class DistColGlbTask implements GlbTask {
                 operationCompletedForThisAssignment = true;
             }
 
-//            progress.put(op, limit);
-
             // Computation loop is made on the following LongRange inside the "action"
             // carried by the GlbOperation.
-//          final LongRange lr = new LongRange(next, limit);
-//          op.operation.accept(lr, ws);
             final DistColLambda lambda = (DistColLambda) op.operation;
             lambda.process(parent.collection.getChunk(range), next.next, limit, ws);
             next.next = limit;
@@ -472,8 +469,11 @@ public class DistColGlbTask implements GlbTask {
          */
         final HashMap<GlbOperation, Integer> numbers = new HashMap<>();
 
+        long totalObjectStolen = 0l;
         for (final Assignment s : stolen) {
             final DistColAssignment assignment = (DistColAssignment) s;
+            totalObjectStolen += assignment.range.size();
+
             final long upperBound = assignment.range.to;
             assignment.progress.entrySet().forEach((entry) -> {
                 final Progress progress = entry.getValue();
@@ -510,6 +510,10 @@ public class DistColGlbTask implements GlbTask {
             final DistColAssignment assignment = (DistColAssignment) s;
             collection.moveRangeAtSync(assignment.range, thief, m);
         }
+
+        // Log the transfer
+        GlbComputer.getComputer().logger.put(LOGKEY_GLB, "DistCol#LifelineAnswer;" + totalObjectStolen,
+                Long.toString(System.nanoTime()));
 
         switch (answerMode) {
         case MPI:
@@ -573,6 +577,8 @@ public class DistColGlbTask implements GlbTask {
     @Override
     @SuppressWarnings("rawtypes")
     public void mergeAssignments(HashMap<GlbOperation, Integer> quantities, ArrayList<Assignment> assignments) {
+        long totalReceivedObjects = 0l;
+
         // As the first part and before placing assignments into the queues, we
         // increment the counters for the number of assignments left to process for each
         // operation. This can be done without any particular protections.
@@ -595,7 +601,13 @@ public class DistColGlbTask implements GlbTask {
             final DistColAssignment dca = (DistColAssignment) a; // Cast to the proper type
             dca.setParent(this); // From now on, "this" DistColGlbTask is handling the assignment
             availableAssignments.add(dca);
+            totalReceivedObjects += dca.range.size();
         }
+
+        // We log the number of objects received
+        GlbComputer.getComputer().logger.put(LOGKEY_GLB, "DistCol#LifelineReceived;" + totalReceivedObjects,
+                Long.toString(System.nanoTime()));
+
         // The critical step has ended, we release the writeLock
         lockForWorkAssignmentSplittingAndNewOperation.writeLock().unlock();
     }

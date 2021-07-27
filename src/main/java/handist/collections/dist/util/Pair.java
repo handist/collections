@@ -34,9 +34,6 @@ public class Pair<F, S> {
         this.second = second;
     }
 
-    public F getFirst() { return first; }
-    public S getSecond() { return second; }
-
     @Override
     public boolean equals(Object target) {
         if (!(target instanceof Pair)) {
@@ -45,6 +42,14 @@ public class Pair<F, S> {
         @SuppressWarnings("rawtypes")
         final Pair target0 = (Pair) target;
         return first.equals(target0.first) && second.equals(target0.second);
+    }
+
+    public F getFirst() {
+        return first;
+    }
+
+    public S getSecond() {
+        return second;
     }
 
     @Override
