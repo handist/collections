@@ -13,7 +13,9 @@ package handist.collections;
 import handist.collections.dist.util.Pair;
 import org.junit.Test;
 
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 
@@ -51,6 +53,21 @@ public class TestProduct {
         long result2 = (range.from+range.to-1+1) * (range.size()-1);
         chunk.forEach((long index, Element e)->{
             assertEquals(index==10? 0: result2, e.sum);
+            e.sum=0;
+        });
+
+        Collection<SquareRangedList<Pair<Element, Element>>> split = pro.split(2,2);
+        split.forEach((sub)->{
+            System.out.println("Range"+sub.getRange());
+            sub.forEach((Pair<Element,Element> pair)->{
+                pair.second.sum += pair.first.index;
+                pair.first.sum += pair.second.index;
+            });
+        });
+
+        chunk.forEach((long index, Element e)->{
+            assertEquals(result, e.sum);
+            e.sum=0;
         });
 
     }

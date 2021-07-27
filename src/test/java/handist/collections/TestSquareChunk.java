@@ -45,7 +45,7 @@ public class TestSquareChunk {
         });
         SquareRange rangeY =
                 new SquareRange(new LongRange(102, 105), new LongRange(12, 15));
-        chunkXstr.forEach(rangeY, (SquareSiblingAccessor<String> acc) -> {
+        chunkXstr.forEachWithSiblings(rangeY, (SquareSiblingAccessor<String> acc) -> {
             System.out.println("SIB[" + acc.get(0, 0) + "::"
                     + acc.get(0, -1) + ":" + acc.get(0, 1) + "^" +
                     acc.get(-1, 0) + "_" + acc.get(1, 0) + "]");

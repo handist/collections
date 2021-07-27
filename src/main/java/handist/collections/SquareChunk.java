@@ -478,7 +478,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
 
 
     @Override
-    public void forEach(SquareRange range, final Consumer<SquareSiblingAccessor<T>> action) {
+    public void forEachWithSiblings(SquareRange range, final Consumer<SquareSiblingAccessor<T>> action) {
         // TODO
         // rangeCheck(range);
         // TODO
@@ -507,8 +507,6 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         }
     }
 
-
-
     @Override
     public void forEach(final SquareIndexTConsumer<? super T> action) {
         // TODO
@@ -530,6 +528,35 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
             }
         }
     }
+
+    @Override
+    public void forEach(SquareRange range, final SquareIndexTConsumer<? super T> action) {
+        // TODO
+        // rangeCheck(range);
+        // TODO
+        // IntStream.range(begin, end).forEach();
+        long index1 = range.outer.from;
+        long index2 = range.inner.from;
+        long offset1 = index1 - getRange().outer.from;
+        long offset2 = index2 - getRange().inner.from;
+        //TODO overflow assert
+        int offset = (int) (offset1 * innerSize + offset2);
+        while (true) {
+            // TODO overflow assert
+            System.out.println("index:"+ index1 +","+index2 + ", offset" + offset1 + ","+offset2 + ","+offset);
+            action.accept(index1, index2, (T)a[offset]);
+            index2++;
+            offset++;
+            if(index2==range.inner.to) {
+                index2 = range.inner.from;
+                index1++;
+                if(index1==range.outer.to) return;
+                offset1++;
+                offset = (int)(offset1 * innerSize + offset2);
+            }
+        }
+    }
+
     @Override
     public void forEach(final Consumer<? super T> action) {
         // TODO
@@ -538,6 +565,33 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         // IntStream.range(begin, end).forEach();
         for (Object o: a) {
             action.accept((T)o);
+        }
+    }
+
+    @Override
+    public void forEach(SquareRange range, final Consumer<? super T> action) {
+        // TODO
+        // rangeCheck(range);
+        // TODO
+        // IntStream.range(begin, end).forEach();
+        long index1 = range.outer.from;
+        long index2 = range.inner.from;
+        long offset1 = index1 - getRange().outer.from;
+        long offset2 = index2 - getRange().inner.from;
+        //TODO overflow assert
+        int offset = (int) (offset1 * innerSize + offset2);
+        while (true) {
+            // TODO overflow assert
+            action.accept((T)a[offset]);
+            index2++;
+            offset++;
+            if(index2==range.inner.to) {
+                index2 = range.inner.from;
+                index1++;
+                if(index1==range.outer.to) return;
+                offset1++;
+                offset = (int)(offset1 * innerSize + offset2);
+            }
         }
     }
 
@@ -663,6 +717,11 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
             throw new IndexOutOfBoundsException(/*rangeMsg(index2)*/ index2  + " is outof " + getRange().inner);
         }
         return setUnsafe(index, index2, value);
+    }
+
+    @Override
+    public SquareRangedList<T> subView(SquareRange range) {
+        return new SquareRangedListView<>(this, range);
     }
 
     @SuppressWarnings("unchecked")
