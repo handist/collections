@@ -83,8 +83,9 @@ public class DistCol<T> extends DistChunkedList<T> implements ElementLocationMan
     private DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id) {
         this(placeGroup, id, (TeamedPlaceGroup pg, GlobalID gid) -> new DistCol<>(pg, gid));
     }
+
     protected DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id,
-                      BiFunction<TeamedPlaceGroup, GlobalID, ? extends DistChunkedList<T>> lazyCreator) {
+            BiFunction<TeamedPlaceGroup, GlobalID, ? extends DistChunkedList<T>> lazyCreator) {
         super(placeGroup, id, lazyCreator);
         ldist = new ElementLocationManager<>();
     }
@@ -141,9 +142,7 @@ public class DistCol<T> extends DistChunkedList<T> implements ElementLocationMan
     }
 
     /*
-    Map<LongRange, Integer> getDiff() {
-        return ldist.diff;
-    }
+     * Map<LongRange, Integer> getDiff() { return ldist.diff; }
      */
 
     public ConcurrentHashMap<LongRange, Place> getDist() {
