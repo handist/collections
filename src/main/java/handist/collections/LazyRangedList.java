@@ -1,20 +1,24 @@
 package handist.collections;
 
+import handist.collections.function.LongTBiFunction;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
 public class LazyRangedList<S,T> extends RangedList<T> {
-    RangedList<S> base;
-    Function<S,T> func;
+    private final RangedList<S> base;
+    private final LongTBiFunction<S,T> func;
 
     static class Iter<S,T> implements Iterator<T> {
         private final Iterator<S> base;
-        private final Function<S,T> func;
+        private final LongTBiFunction<S,T> func;
+        private long index;
 
-        Iter(Iterator<S> base, Function<S,T> func) {
+        Iter(Iterator<S> base, LongTBiFunction<S,T> func, long index) {
             this.base = base;
             this.func = func;
+            this.index = index;
         }
 
         @Override
@@ -24,11 +28,11 @@ public class LazyRangedList<S,T> extends RangedList<T> {
 
         @Override
         public T next() {
-            return func.apply(base.next());
+            return func.apply(index++, base.next());
         }
     }
 
-    LazyRangedList(RangedList<S> base, Function<S,T> func) {
+    LazyRangedList(RangedList<S> base, LongTBiFunction<S,T> func) {
         this.base = base;
         this.func = func;
     }
@@ -45,7 +49,7 @@ public class LazyRangedList<S,T> extends RangedList<T> {
 
     @Override
     public T get(long index) {
-        return func.apply(base.get(index));
+        return func.apply(index, base.get(index));
     }
 
     @Override
@@ -55,7 +59,7 @@ public class LazyRangedList<S,T> extends RangedList<T> {
 
     @Override
     public Iterator<T> iterator() {
-        return new Iter<S,T>(base.iterator(), func);
+        return new Iter<S,T>(base.iterator(), func, base.getRange().from);
     }
 
     @Override
@@ -70,7 +74,7 @@ public class LazyRangedList<S,T> extends RangedList<T> {
 
     @Override
     protected Iterator<T> subIterator(LongRange range) {
-        return new Iter<S,T>(base.subIterator(range), func);
+        return new Iter<S,T>(base.subIterator(range), func, range.from);
     }
 
     @Override

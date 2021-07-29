@@ -226,7 +226,7 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
 
     @Override
     protected Iterator<T> subIterator(LongRange range) {
-        if(base==null) return new ChunkIterator<>();
+        if(base==null || (range.size()==0)) return new ChunkIterator<>();
         LongRange subrange = getRange().intersection(range);
         if(subrange==null) throw new IndexOutOfBoundsException();
         return base.subIterator(subrange);

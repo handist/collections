@@ -10,34 +10,48 @@ public class SquareRangedListView<T> implements SquareRangedList<T>{
 
     public SquareRangedListView(SquareRangedList<T> base, SquareRange subrange) {
         this.base = base;
-        this.subrange = subrange;
+        this.subrange = base.getRange().intersectionCheck(subrange);
     }
 
     final SquareRange subrange;
 
     @Override
     public RangedList<T> getRowView(long row) {
-        // TODO row check
-        return base.getRowView(row).subList(subrange.inner);
+        getRange().containsRowCheck(row);
+        return base.getRowView(row).subList(subrange.columnRange(row));
     }
 
     @Override
     public RangedList<T> getColumnView(long column) {
-        // TODO column check
-        return base.getColumnView(column).subList(subrange.outer);
+        getRange().containsColumnCheck(column);
+        return base.getColumnView(column).subList(subrange.rowRange(column));
     }
 
     @Override
     public void forEachColumn(LongTBiConsumer<RangedList<T>> columnAction) {
-        base.forEachColumn((long column, RangedList<T> cView)->{
-            columnAction.accept(column, cView.subList(subrange.outer));
+        base.forEachColumn(subrange.inner, (long column, RangedList<T> cView)->{
+            columnAction.accept(column, cView.subList(subrange.rowRange(column)));
+        });
+    }
+
+    @Override
+    public void forEachColumn(LongRange columnRange, LongTBiConsumer<RangedList<T>> columnAction) {
+        base.forEachColumn(subrange.inner, (long column, RangedList<T> cView)->{
+            columnAction.accept(column, cView.subList(subrange.rowRange(column).intersection(columnRange)));
         });
     }
 
     @Override
     public void forEachRow(LongTBiConsumer<RangedList<T>> rowAction) {
-        base.forEachColumn((long row, RangedList<T> rView)->{
-            rowAction.accept(row, rView.subList(subrange.inner));
+        base.forEachRow(subrange.outer, (long row, RangedList<T> rView)->{
+            rowAction.accept(row, rView.subList(subrange.columnRange(row)));
+        });
+    }
+
+    @Override
+    public void forEachRow(LongRange rowRange, LongTBiConsumer<RangedList<T>> rowAction) {
+        base.forEachRow(subrange.outer, (long row, RangedList<T> rView)->{
+            rowAction.accept(row, rView.subList(subrange.columnRange(row).intersection(rowRange)));
         });
     }
 
@@ -59,36 +73,40 @@ public class SquareRangedListView<T> implements SquareRangedList<T>{
 
     @Override
     public void forEachWithSiblings(SquareRange range, Consumer<SquareSiblingAccessor<T>> action) {
-         //TODO rangecheck
+        if(subrange.isUpperTriangle || range.isUpperTriangle) {
+            throw new UnsupportedOperationException("Method forEachWithSiblings() does not support triangle ranges.");
+        }
+        range = getRange().intersectionCheck(range);
         base.forEachWithSiblings(range, action);
     }
 
     @Override
     public void forEach(SquareIndexTConsumer<? super T> action) {
-        base.forEach(subrange, action);
+        base.forEach(subrange, action); // filter dependent
     }
 
     @Override
     public void forEach(SquareRange range, SquareIndexTConsumer<? super T> action) {
-        // TODO range check
-        base.forEach(range, action);
+        range = getRange().intersectionCheck(range);
+        base.forEach(range, action); // filter dependent
     }
 
     @Override
     public void forEach(Consumer<? super T> action) {
-        base.forEach(subrange, action);
+        base.forEach(subrange, action); // filter dependent
     }
 
     @Override
     public void forEach(SquareRange range, Consumer<? super T> action) {
         // TODO rance check
-        base.forEach(range, action);
+        range = getRange().intersection(range);
+        base.forEach(range, action); // filter dependent
     }
 
     @Override
     public T get(long index, long index2) {
         // TODO range check
-        rangeCheck(index, index2);
+        getRange().containsCheck(index, index2);
         return base.get(index, index2);
     }
 
@@ -99,17 +117,13 @@ public class SquareRangedListView<T> implements SquareRangedList<T>{
 
     @Override
     public T set(long index, long index2, T value) {
-        rangeCheck(index, index2);
+        getRange().containsCheck(index, index2);
         return base.set(index, index2, value);
-    }
-
-    private void rangeCheck(long outer, long inner) {
-        if(!subrange.outer.contains(outer)) throw new IndexOutOfBoundsException("" + outer + " is not includeded in range:" + subrange.outer);
-        if(!subrange.inner.contains(inner)) throw new IndexOutOfBoundsException("" + inner + " is not includeded in range:" + subrange.inner);
     }
 
     //@Override
     public SquareRangedList<T> subView(SquareRange range) {
+        range = getRange().intersection(range);
         return new SquareRangedListView<T>(base, range);
     }
 }

@@ -14,7 +14,9 @@ public interface SquareRangedList<T> {
     RangedList<T> getColumnView(long column);
 
     void forEachColumn(LongTBiConsumer<RangedList<T>> columnAction);
+    void forEachColumn(LongRange range, LongTBiConsumer<RangedList<T>> columnAction);
     void forEachRow(LongTBiConsumer<RangedList<T>> rowAction);
+    void forEachRow(LongRange range, LongTBiConsumer<RangedList<T>> rowAction);
 
     RangedList<RangedList<T>> asRowList();
     RangedList<RangedList<T>> asColumnList();
@@ -38,13 +40,9 @@ public interface SquareRangedList<T> {
 
     default Collection<SquareRangedList<T>> split(int outer, int inner) {
         Collection<SquareRangedList<T>> results = new ArrayList<>();
-        List<LongRange> splitOuters = getRange().outer.split(outer);
-        List<LongRange> splitInners = getRange().inner.split(inner);
-        for (LongRange out0 : splitOuters) {
-            for (LongRange in0 : splitInners) {
-                results.add(subView(new SquareRange(out0, in0)));
-            }
-        }
+        getRange().split(outer,inner).forEach((SquareRange range)->{
+            results.add(subView(range));
+        });
         return results;
     }
 

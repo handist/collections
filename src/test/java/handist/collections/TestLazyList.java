@@ -35,8 +35,8 @@ public class TestLazyList {
     @Test
     public void test0() {
         Chunk<Long> chunk = new Chunk<Long>(new LongRange(10, 20), (Long index)->new Long(index));
-        LazyRangedList<Long,Long> c2 = new LazyRangedList<>(chunk, (Long a)->new Long(a*a));
-        LazyRangedList<Long,Long> c3 = new LazyRangedList<>(chunk, (Long a)->new Long(a*a*a));
+        LazyRangedList<Long,Long> c2 = new LazyRangedList<>(chunk, (long index, Long a)->new Long(a*a));
+        LazyRangedList<Long,Long> c3 = new LazyRangedList<>(chunk, (long index, Long a)->new Long(a*a*a));
 
         long index = 10;
         for(Long c: c2) {

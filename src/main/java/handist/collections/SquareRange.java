@@ -12,7 +12,10 @@ package handist.collections;
 
 import handist.collections.function.SquareIndexConsumer;
 
+import java.awt.*;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.BiConsumer;
 
@@ -62,6 +65,10 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
     /** the range of the second dimension */
     public final LongRange inner;
 
+    // TODO more variations...
+    boolean isUpperTriangle;
+    long triangleDiff;
+
 
     /**
      * Constructs a LongRange with the provided parameters.
@@ -73,7 +80,47 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
     public SquareRange(LongRange outer, LongRange inner) {
         this.outer = outer;
         this.inner = inner;
+        this.isUpperTriangle = false;
     }
+    public SquareRange(LongRange outer, LongRange inner, boolean isUpperTriangle) {
+        this.outer = outer;
+        this.inner = inner;
+        this.isUpperTriangle = isUpperTriangle;
+        this.triangleDiff = inner.from - outer.from;
+    }
+    private SquareRange(LongRange outer, LongRange inner, boolean isUpperTriangle, long tri) {
+        this.outer = outer;
+        this.inner = inner;
+        this.isUpperTriangle = isUpperTriangle;
+        this.triangleDiff = tri;
+    }
+
+    /**
+     * the start column index of the specified row.
+     * @param row the index value of the row
+     * @return
+     */
+    public long startColumn(long row) {
+        if(isUpperTriangle) return Math.max(row + triangleDiff + 1, inner.from);
+        return inner.from;
+    }
+    public long endColumn(long row) {
+        return inner.to;
+    }
+    public LongRange columnRange(long row) {
+        return new LongRange(startColumn(row), endColumn(row));
+    }
+    public long startRow(long column) {
+        return outer.from;
+    }
+    public long endRow(long column) {
+        if(isUpperTriangle) return Math.min(column - triangleDiff, outer.to);
+        return outer.to;
+    }
+    public LongRange rowRange(long column) {
+        return new LongRange(startRow(column), endRow(column));
+    }
+
 
 //    /**
 //     * TK: needless??
@@ -122,33 +169,52 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
 //        throws new UnsupportedOperationException("not implmented yet");
 //    }
 
-//    /**
-//     * Indicates if the provided index is included in this instance. A {@code long}
-//     * l is contained in a {@link SquareRange} [a,b) (a &lt; b) iff a &le; l &lt; b.
-//     * If the {@link SquareRange} has identical lower and upper bound, it does not
-//     * contain any index.
-//     *
-//     * @param index the long value whose inclusion in this instance is to be checked
-//     * @return {@code true} if the index is included within the bounds of this
-//     *         {@link SquareRange}, {@code false} otherwise
-//     */
-//    public boolean contains(long index) {
-//        return (from <= index) && (index < to);
-//    }
+    /**
+     * Indicates if the provided index point is included in this instance.
+     *
+     * @param outer0 the long value whose represents the outer index of the point
+     * @param inner0 the long value whose represents the inner index of the point
+     * @return {@code true} if the index point is included within the bounds of this
+     *         {@link SquareRange}, {@code false} otherwise
+     */
+    public boolean contains(long outer0, long inner0) {
+       return outer.contains(outer0) && columnRange(outer0).contains(inner0);
+    }
+    public void containsCheck(long outer0, long inner0) {
+        boolean result = contains(outer0, inner0);
+        if(!result) throw new IndexOutOfBoundsException("ContainsCheck: " + this + " does not contains [" + outer0 +", "+ inner0 + "].");
+    }
 
-//    /**
-//     * Indicates if the provided {@link SquareRange} is included within this instance.
-//     * A LongRange is included inside this instance iff its lower bound is greater
-//     * than or equal to this instance lower bound, and if its upper bound is less
-//     * than or equal to this instance upper bound.
-//     *
-//     * @param range the range whose inclusion into this instance needs to be checked
-//     * @return true if all the indices of the provided long range are present in
-//     *         this instance.
-//     */
-//    public boolean contains(SquareRange range) {
-//        return (from <= range.from) && (range.to <= to);
-//    }
+
+    /**
+     * Indicates if the provided {@link SquareRange} is included within this instance.
+     * A SquareRange is included inside the outer and inner ranges of this instance
+     * contains the outer and inner ranges of the provided instance respectively.
+     *
+     * @param range the square range whose inclusion into this instance needs to be checked
+     * @return true if all the indices of the provided long range are present in
+     *         this instance.
+     */
+    public boolean contains(SquareRange range) {
+        if(range.isUpperTriangle || this.isUpperTriangle) throw new UnsupportedOperationException("not implemented yet");
+        return outer.contains(range.outer) && inner.contains(range.inner);
+    }
+    public void containsCheck(SquareRange range) {
+        boolean result = contains(range);
+        if(!result) throw new IndexOutOfBoundsException("ContainsCheck: " + this + " does not contains " + range);
+    }
+    public void containsRowCheck(long row) {
+        if(this.isUpperTriangle) throw new UnsupportedOperationException("not implemented yet");
+        boolean result = outer.contains(row);
+        if(!result) throw new IndexOutOfBoundsException("ContainsRowCheck: " + this + " does not contains row " + row);
+    }
+    public void containsColumnCheck(long column) {
+        if(this.isUpperTriangle) throw new UnsupportedOperationException("not implemented yet");
+        boolean result = inner.contains(column);
+        if(!result) throw new IndexOutOfBoundsException("ContainsColumnCheck: " + this + " does not contains column " + column);
+    }
+
+
 
     /**
      * Checks whether the provided instance and this instance are equal. Two
@@ -163,7 +229,8 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
             return false;
         }
         final SquareRange sqrange2 = (SquareRange) o;
-        return inner.equals(sqrange2.inner) && outer.equals(sqrange2.outer);
+        return inner.equals(sqrange2.inner) && outer.equals(sqrange2.outer) &&
+                isUpperTriangle==sqrange2.isUpperTriangle && triangleDiff == sqrange2.triangleDiff;
     }
 
     // TODO
@@ -207,7 +274,7 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
      */
     public void forEach(SquareIndexConsumer func) {
         outer.forEach((long i)->{
-            inner.forEach((long j)->{
+            columnRange(i).forEach((long j)->{
                 func.accept(i, j);
             });
         });
@@ -225,25 +292,44 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
         return  ((inner.hashCode() << 4) + (inner.hashCode() >> 16) + outer.hashCode());
     }
 
-//    /**
-//     * Return the intersection range of this instance ad the provided one. If there
-//     * are no indices that belongs to either ranges, returns null;
-//     * <p>
-//     * If either {@code this} or the provided argument are singular point
-//     * LongRanges, the result will always be {@code null}.
-//     *
-//     * @param range the range whose intersection with this instance is to be checked
-//     * @return a {@link SquareRange} representing the intersection between this and
-//     *         the provided instance, {@code null} if there is no intersection
-//     */
-//    public SquareRange intersection(SquareRange range) {
-//        final long from = Math.max(range.from, this.from);
-//        final long to = Math.min(range.to, this.to);
-//        if (from >= to) {
-//            return null;
-//        }
-//        return new SquareRange(from, to);
-//    }
+
+
+    /**
+     * Return the intersection range of this instance and the provided one. If there
+     * are no index regions that belongs to either ranges, returns null;
+     *
+     * @param range the square range whose intersection with this instance is to be checked
+     * @return a {@link SquareRange} representing the intersection between this and
+     *         the provided instance, {@code null} if there is no intersection
+     */
+    public SquareRange intersection(SquareRange range) {
+        LongRange interOut = outer.intersection(range.outer);
+        LongRange interInn = inner.intersection(range.inner);
+        if (interOut == null || interOut.size()==0 || interInn == null || interInn.size()==0) {
+            return null;
+        }
+        boolean isUpper = this.isUpperTriangle || range.isUpperTriangle;
+        if(!isUpper) return new SquareRange(interOut, interInn, false);
+        long triDiff =
+                isUpperTriangle?
+                        (range.isUpperTriangle? Math.max(triangleDiff, range.triangleDiff): triangleDiff): // TODO min will be used for lowerTriangle
+                        range.triangleDiff;
+        return new SquareRange(interOut, interInn, isUpper, triDiff).normalizeTriangle();
+    }
+    private SquareRange normalizeTriangle() {
+        if(startColumn(outer.from) >= inner.to) return null;
+        if(startColumn(outer.to) < inner.from) return new SquareRange(inner, outer); // normal rec
+        return new SquareRange(rowRange(inner.to), columnRange(outer.from-1), true, triangleDiff);
+    }
+    public SquareRange intersectionCheck(SquareRange subrange) {
+        containsCheck(subrange);
+        // TODO
+        // upper rect care...
+        return intersection(subrange);
+    }
+
+
+
 
 //    /**
 //     * Returns true if the provided {@link SquareRange} and this instance are
@@ -329,6 +415,21 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
 //    public LongStream stream() {
 //        return LongStream.range(from, to);
 //    }
+    public Collection<SquareRange> split(int outerN, int innerN) {
+        // TODO
+        // more smart split for upper rectangle
+        // lazy way??
+        Collection<SquareRange> results = new ArrayList<>();
+        List<LongRange> splitOuters = outer.split(outerN);
+        List<LongRange> splitInners = inner.split(innerN);
+        for (LongRange out0 : splitOuters) {
+            for (LongRange in0 : splitInners) {
+                SquareRange sq = intersection(new SquareRange(out0, in0));
+                if(sq!=null) results.add(sq);
+            }
+        }
+        return results;
+    }
 
     /**
      * Returns this SquareRange printed in the following format:
@@ -340,4 +441,5 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
     public String toString() {
         return "[" + outer + "," + inner + "]";
     }
+
 }

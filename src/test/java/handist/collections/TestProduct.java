@@ -70,6 +70,39 @@ public class TestProduct {
             e.sum=0;
         });
 
+        RangedListProduct<Element,Element> proH = new RangedListProduct<>(chunk, chunk, true);
+        proH.forEach((Pair<Element,Element> pair)->{
+            pair.second.sum += pair.first.index;
+            pair.first.sum += pair.second.index;
+        });
+        long result3 = (range.from+range.to-1) * range.size() / 2;
+        chunk.forEach((long index, Element e)->{
+            assertEquals(result3-index, e.sum);
+            e.sum=0;
+        });
+        Collection<SquareRangedList<Pair<Element, Element>>> split3 = proH.split(3,3);
+        for(SquareRangedList<Pair<Element,Element>> pro3 : split3) {
+            pro3.forEach((Pair<Element, Element> pair) -> {
+                pair.second.sum += pair.first.index;
+                pair.first.sum += pair.second.index;
+            });
+        }
+        chunk.forEach((long index, Element e)->{
+            assertEquals(result3-index, e.sum);
+            e.sum=0;
+        });
+        Collection<SquareRangedList<Pair<Element, Element>>> split4 = proH.split(3,5);
+        for(SquareRangedList<Pair<Element,Element>> pro4 : split4) {
+            pro4.forEach((Pair<Element, Element> pair) -> {
+                pair.second.sum += pair.first.index;
+                pair.first.sum += pair.second.index;
+            });
+        }
+        chunk.forEach((long index, Element e)->{
+            assertEquals(result3-index, e.sum);
+            e.sum=0;
+        });
+
     }
 
 }
