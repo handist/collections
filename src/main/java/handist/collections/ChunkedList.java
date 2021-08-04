@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Spliterator;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -1233,7 +1234,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     private void forEachParallelBody(int parallelism, Consumer<ChunkedList<T>> run) {
-        final List<ChunkedList<T>> separated = this.separate(parallelism);
+        final List<ChunkedList<T>> separated = separate(parallelism);
         for (final ChunkedList<T> sub : separated) {
             async(() -> {
                 run.accept(sub);
@@ -1467,6 +1468,55 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public void parallelForEach(LongTBiConsumer<? super T> action) {
         parallelForEach(defaultParallelism(), action);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements present in this collection.
+     *
+     * @param <R>         the type of the reducer used
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param reducer     the instance into which the result will be stored
+     * @return the instance provided as parameter containing the result of the
+     *         reduction
+     */
+    public <R extends Reducer<R, T>> R parallelReduce(int parallelism, R reducer) {
+        final ConcurrentLinkedQueue<R> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final R threadLocalReducer = reducer.newReducer();
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> threadLocalReducer.reduce(t));
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            reducer.merge(reducers.poll());
+        }
+
+        return reducer;
+    }
+
+    /**
+     * Performs a parallel reduction on all the elements of contained in this
+     * {@link ChunkedList}.
+     *
+     * @param <R>     the type of the reducer used
+     * @param reducer the instance into which the final result will be stored
+     * @return the instance provided as parameter containing the result of the
+     *         reduction
+     */
+    public <R extends Reducer<R, T>> R parallelReduce(R reducer) {
+        return parallelReduce(Runtime.getRuntime().availableProcessors(), reducer);
     }
 
     /**
