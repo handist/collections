@@ -82,8 +82,8 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
         final Object[] ov = (Object[]) secondOperandAndResultArray;
         final Object[] iv = (Object[]) firstOperandArray;
 
-        for (int i = secondOperandArrayOffset, j = firstOperandArrayOffset; i < count
-                + secondOperandArrayOffset; i++, j++) {
+        for (int i = secondOperandArrayOffset,
+                j = firstOperandArrayOffset; i < count + secondOperandArrayOffset; i++, j++) {
             final R result = (R) ov[i];
             final R operand = (R) iv[j];
             result.merge(operand);
@@ -121,6 +121,8 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
             throw new IllegalArgumentException("Method Reducer#globalReduction does not tolerate null parameters");
         }
 
+        final int reductionRank = placeGroup.myrank;
+
         placeGroup.broadcastFlat(() -> {
             // Retrieve the local object through the global id
             @SuppressWarnings("unchecked")
@@ -144,7 +146,7 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
             buffer[0] = local;
 
             // 3. Make the MPI AllReduce call
-            placeGroup.comm.Allreduce(buffer, 0, buffer, 0, 1, MPI.OBJECT, mpiOperation);
+            placeGroup.comm.Reduce(buffer, 0, buffer, 0, 1, MPI.OBJECT, mpiOperation, reductionRank);
         });
     }
 
@@ -187,7 +189,7 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
      * @param placeGroup into which this instance is participating
      */
     @SuppressWarnings("deprecation")
-    public void teamReduction(TeamedPlaceGroup placeGroup) {
+    public R teamReduction(TeamedPlaceGroup placeGroup) {
         if (placeGroup == null) {
             throw new IllegalStateException("This Reducer is not allowed to perform any global reduction");
         }
@@ -212,5 +214,7 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
 
         // Make the MPI AllReduce call
         placeGroup.comm.Allreduce(buffer, 0, buffer, 0, 1, MPI.OBJECT, mpiOperation);
+
+        return (R) buffer[0];
     }
 }

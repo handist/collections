@@ -65,25 +65,25 @@ public class TestChunkedList {
     /**
      * Dummy reducer which counts the elements in a {@link ChunkedList}
      */
-    public class ElementCounter extends Reducer<ElementCounter, Element> {
+    public static class ElementCounter<T> extends Reducer<ElementCounter<T>, T> {
 
         /** Serial Version UID */
         private static final long serialVersionUID = 4389792260775069565L;
 
-        long counter = 0l;
+        public long counter = 0l;
 
         @Override
-        public void merge(ElementCounter reducer) {
+        public void merge(ElementCounter<T> reducer) {
             counter += reducer.counter;
         }
 
         @Override
-        public ElementCounter newReducer() {
-            return new ElementCounter();
+        public ElementCounter<T> newReducer() {
+            return new ElementCounter<>();
         }
 
         @Override
-        public void reduce(Element input) {
+        public void reduce(T input) {
             counter++;
         }
     }
@@ -967,6 +967,15 @@ public class TestChunkedList {
         }
     }
 
+    @Test(timeout = 10000)
+    public void testParallelReduce() {
+        final ElementCounter<Element> ec = chunkedList.parallelReduce(new ElementCounter<>());
+        assertEquals(chunkedList.size(), ec.counter);
+
+        final ElementCounter<Element> noElements = newlyCreatedChunkedList.parallelReduce(new ElementCounter<>());
+        assertEquals(0l, noElements.counter);
+    }
+
     @Test
     public void testRanges() {
         int i = 0;
@@ -978,10 +987,10 @@ public class TestChunkedList {
 
     @Test
     public void testReduce() {
-        final ElementCounter ec = chunkedList.reduce(new ElementCounter());
+        final ElementCounter<Element> ec = chunkedList.reduce(new ElementCounter<>());
         assertEquals(chunkedList.size(), ec.counter);
 
-        final ElementCounter noElements = newlyCreatedChunkedList.reduce(new ElementCounter());
+        final ElementCounter<Element> noElements = newlyCreatedChunkedList.reduce(new ElementCounter<>());
         assertEquals(0l, noElements.counter);
     }
 
