@@ -12,16 +12,16 @@ public class RangedListProduct<S, T> implements SquareRangedList<Pair<S, T>> {
     private final SquareRange range;
     private final boolean simpleRect;
 
-    RangedListProduct(RangedList<S> first, RangedList<T> second) {
+    public RangedListProduct(RangedList<S> first, RangedList<T> second) {
         this.first = first;
         this.second = second;
         this.range = new SquareRange(first.getRange(), second.getRange());
         this.simpleRect = true;
     }
-    RangedListProduct(RangedList<S> first, RangedList<T> second, boolean isUpperRect) {
+    public RangedListProduct(RangedList<S> first, RangedList<T> second, boolean isUpperRect) {
         this(first, second, new SquareRange(first.getRange(), second.getRange(), isUpperRect));
     }
-    RangedListProduct(RangedList<S> first, RangedList<T> second, SquareRange range) {
+    public RangedListProduct(RangedList<S> first, RangedList<T> second, SquareRange range) {
         this.first = first;
         this.second = second;
         this.range = range;

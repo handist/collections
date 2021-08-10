@@ -5,6 +5,7 @@ import handist.collections.function.SquareIndexTConsumer;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -38,11 +39,25 @@ public interface SquareRangedList<T> {
 
     SquareRangedList<T> subView(SquareRange range);
 
-    default Collection<SquareRangedList<T>> split(int outer, int inner) {
-        Collection<SquareRangedList<T>> results = new ArrayList<>();
+    default List<SquareRangedList<T>> split(int outer, int inner) {
+        List<SquareRangedList<T>> results = new ArrayList<>();
         getRange().split(outer,inner).forEach((SquareRange range)->{
             results.add(subView(range));
         });
+        return results;
+    }
+    default List<List<SquareRangedList<T>>> splitN(int outer, int inner, int num, boolean randomize) {
+        List<SquareRangedList<T>> flat = split(outer,inner);
+        if(randomize) Collections.shuffle(flat);
+        List<List<SquareRangedList<T>>> results = new ArrayList<>();
+        int div = flat.size() / num;
+        int rem = flat.size() % num;
+        int current = 0;
+        for(int i=0; i<num; i++) {
+            int next = current + div + (i<rem? 1:0);
+            results.add(flat.subList(current, next));
+            current = next;
+        }
         return results;
     }
 
