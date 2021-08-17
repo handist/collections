@@ -125,7 +125,7 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param action   action to perform on each element, potentially
      * @param receiver collector of information extracted
      */
-    public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
+    public final <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
         forEach(getRange(), action, receiver);
     }
 
@@ -159,7 +159,7 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param receiver collector of information extracted
      * @see #forEach(LongRange, BiConsumer, Consumer)
      */
-    public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+    public final <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
             Consumer<? super U> receiver) {
         forEachImpl(range, action, receiver);
     }
@@ -181,11 +181,12 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param range  range of application of the action
      * @param action action to perform on individual elements
      */
-    public void forEach(LongRange range, Consumer<? super T> action) {
-        forEachImpl(range, action);
+    public final void forEach(LongRange range, Consumer<? super T> action) {
+            forEachImpl(range, action);
     }
     protected void forEachImpl(LongRange range, Consumer<? super T> action) {
         rangeCheck(range);
+        if(range.size()==0) return;
         Iterator<T> iter0 = subIterator(range);
         while (iter0.hasNext()) {
             action.accept(iter0.next());
@@ -202,7 +203,7 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param range  range of indices on which to apply the action
      * @param action action to perform taking a long and a T as parameter
      */
-    public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
+    public final void forEach(LongRange range, LongTBiConsumer<? super T> action) {
         forEachImpl(range, action);
     }
     protected void forEachImpl(LongRange range, LongTBiConsumer<? super T> action) {
@@ -220,7 +221,7 @@ public abstract class RangedList<T> implements Iterable<T> {
      *
      * @param action action to perform taking a long and a T as parameter
      */
-    public void forEach(LongTBiConsumer<? super T> action) {
+    public final void forEach(LongTBiConsumer<? super T> action) {
         forEach(getRange(), action);
     }
 
@@ -302,7 +303,7 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param <U>    the type handled by the {@link RangedList} given as parameter,
      *               second input for the function
      */
-    public <U> void map(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
+    public final <U> void map(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
         mapImpl(range, target, func);
     }
     protected <U> void mapImpl(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
@@ -314,7 +315,7 @@ public abstract class RangedList<T> implements Iterable<T> {
             func.accept(iter0.next(), iter.next());
         }
     }
-    public <S, U> RangedList<U> map(LongRange range, RangedList<S> target, BiFunction<T, S, U> func) {
+    public final <S, U> RangedList<U> map(LongRange range, RangedList<S> target, BiFunction<T, S, U> func) {
         final Chunk<U> result = new Chunk<>(range);
         rangeCheck(range);
         target.rangeCheck(range);
@@ -420,7 +421,7 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param func   function that takes an object of type S as parameter and
      *               returns a type T
      */
-    public <S> void setupFrom(LongRange range, RangedList<S> source, Function<? super S, ? extends T> func) {
+    public final <S> void setupFrom(LongRange range, RangedList<S> source, Function<? super S, ? extends T> func) {
         setupFromImpl(range, source, func);
     }
     protected <S> void setupFromImpl(LongRange range, RangedList<S> source, Function<? super S, ? extends T> func) {
@@ -453,7 +454,7 @@ public abstract class RangedList<T> implements Iterable<T> {
      *                and returns a type T
      */
 
-    public <S,U> void setupFrom(LongRange range, RangedList<S> source1, RangedList<U> source2, BiFunction<S,U,T> func) {
+    public final <S,U> void setupFrom(LongRange range, RangedList<S> source1, RangedList<U> source2, BiFunction<S,U,T> func) {
         setupFromImpl(range, source1, source2, func);
     }
     protected <S,U> void setupFromImpl(LongRange range, RangedList<S> source1, RangedList<U> source2, BiFunction<S,U,T> func) {

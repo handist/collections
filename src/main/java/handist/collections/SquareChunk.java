@@ -274,7 +274,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         public LongRange getRange() { return baseRange; }
 
         @Override
-        public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+        public <U> void forEachImpl(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
                                 Consumer<? super U> receiver) {
             // TODO rangeCheck(range);
             long current = range.from;
@@ -285,7 +285,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         }
 
         @Override
-        public void forEach(LongRange range, Consumer<? super T> action) {
+        public void forEachImpl(LongRange range, Consumer<? super T> action) {
             // TODO rangeCheck(range);
             long current = range.from;
             int index = offset + (int)(range.from - baseRange.from);
@@ -295,7 +295,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         }
 
         @Override
-        public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
+        public void forEachImpl(LongRange range, LongTBiConsumer<? super T> action) {
             // TODO rangeCheck(range);
             long current = range.from;
             int index = offset + (int)(range.from - baseRange.from);
@@ -356,7 +356,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         }
         public LongRange getRange() { return baseRange; }
         @Override
-        public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+        public <U> void forEachImpl(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
                                 Consumer<? super U> receiver) {
             // TODO rangeCheck(range);
             long current = range.from;
@@ -368,7 +368,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         }
 
         @Override
-        public void forEach(LongRange range, Consumer<? super T> action) {
+        public void forEachImpl(LongRange range, Consumer<? super T> action) {
             // TODO rangeCheck(range);
             long current = range.from;
             int index = offset + (int)(range.from - baseRange.from);
@@ -379,7 +379,7 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
         }
 
         @Override
-        public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
+        public void forEachImpl(LongRange range, LongTBiConsumer<? super T> action) {
             // TODO rangeCheck(range);
             long current = range.from;
             int index = offset + (int)(range.from - baseRange.from)*stride;

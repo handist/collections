@@ -16,6 +16,8 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
@@ -160,7 +162,7 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     }
     @Override
     public Iterator<T> iterator() {
-        if(base==null) return new ChunkIterator<>();
+        if(base==null || this.getRange().size()==0) return new ChunkIterator<>();
         return base.subIterator(this.getRange());
     }
 
@@ -170,7 +172,7 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
      */
     @Override
     public RangedListIterator<T> listIterator() {
-        if(base==null) return new ChunkListIterator<>();
+        if(base==null||this.getRange().size()==0) return new ChunkListIterator<>();
         return base.subListIterator(this.getRange());
     }
 

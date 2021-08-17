@@ -6,7 +6,7 @@ public class ChunkIterator<T> implements Iterator<T> {
     private final Object[] a;
     private final LongRange range;
     private int i; // offset inside the chunk
-    private int limit;
+    private final int limit;
 
 
     public ChunkIterator() {
