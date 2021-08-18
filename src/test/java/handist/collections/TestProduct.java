@@ -59,7 +59,7 @@ public class TestProduct {
             e.sum.set(0);
         });
 
-        Collection<SquareRangedList<Pair<Element, Element>>> split = pro.split(2, 2);
+        List<SquareRangedList<Pair<Element, Element>>> split = pro.split(2, 2);
         split.forEach((sub) -> {
             System.out.println("Range" + sub.getRange());
             sub.forEach((Pair<Element, Element> pair) -> {
@@ -105,7 +105,7 @@ public class TestProduct {
             assertEquals(result3 - index, e.sum.get());
             e.sum.set(0);
         });
-        List<List<SquareRangedList<Pair<Element, Element>>>> ss = proH.splitN(3, 7, 4, true);
+        List<List<RangedListProduct<Element, Element>>> ss = proH.splitN2(3, 7, 4, true);
         finish(() -> {
             ss.forEach((ones) -> {
                 ones.forEach((one) -> {
