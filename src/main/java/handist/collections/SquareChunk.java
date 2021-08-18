@@ -14,7 +14,6 @@ import handist.collections.function.LongTBiConsumer;
 import handist.collections.function.SquareIndexTConsumer;
 import handist.collections.function.SquareIndexTFunction;
 
-import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
@@ -25,6 +24,7 @@ import java.util.function.*;
 
 public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializable, SquareRangedList<T> /*, KryoSerializable*/ {
 
+    private static final long serialVersionUID = -8282656629771334491L;
     /** Array containing the T objects */
     private final Object[] a;
 
@@ -472,14 +472,14 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
     @Override
     public RangedList<RangedList<T>> asRowList() {
         // TODO view style implementation
-        return new Chunk<RangedList<T>>(range.outer, (Long rowIndex)->{
+        return new Chunk<>(range.outer, (Long rowIndex)->{
             return getRowView(rowIndex); // OK filter dependet
         });
     }
     @Override
     public RangedList<RangedList<T>> asColumnList() {
         // TODO view style implementation
-        return new Chunk<RangedList<T>>(range.inner, (Long columnIndex)->{
+        return new Chunk<>(range.inner, (Long columnIndex)->{
             return getColumnView(columnIndex);
         });
     }
@@ -666,14 +666,11 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
 
 //    @Override
 //    public void read(Kryo kryo, Input input) {
-//        this.range = (LongRange) kryo.readClassAndObject(input);
-//        this.a = (Object[]) kryo.readClassAndObject(input);
+//
 //    }
 //
 //    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-//        this.range = (LongRange) in.readObject();
-//        this.a = (Object[]) in.readObject();
-//        // System.out.println("readChunk:"+this);
+//
 //    }
 
     /**
@@ -714,50 +711,16 @@ public class SquareChunk<T> /* extends SquareRangedList<T>*/ implements Serializ
 
 //    @Override
 //    public Object[] toArray(LongRange newRange) {
-//        if (!range.contains(newRange)) {
-//            throw new IndexOutOfBoundsException(rangeMsg(newRange));
-//        }
-//        if (newRange.from == range.from && newRange.to == range.to) {
-//            return a;
-//        }
-//        if (newRange.from == newRange.to) {
-//            return new Object[0];
-//        }
-//        final long newSize = (newRange.to - newRange.from);
-//        if (newSize > Config.maxChunkSize) {
-//            throw new IllegalArgumentException("[Chunk] the size of the result cannot exceed " + Config.maxChunkSize);
-//        }
-//        final Object[] newRail = new Object[(int) newSize];
-//        Arrays.fill(newRail, a[0]);
-//        System.arraycopy(a, (int) (newRange.from - range.from), newRail, 0, (int) newSize);
-//        return newRail;
 //    }
 
-//    /**
-//     * {@inheritDoc}
-//     */
 //    @Override
 //    public SquareChunk<T> toChunk(LongRange newRange) {
-//        final Object[] newRail = toArray(newRange);
-//        if (newRail == a) {
-//            return this;
-//        }
-//        if (newRail.length == 0) {
-//            throw new IllegalArgumentException("[Chunk] toChunk(emptyRange) is not permitted.");
-//        }
-//        return new SquareChunk<>(newRange, newRail);
 //    }
 
-//    /**
-//     * {@inheritDoc}
-//     */
 //    @Override
 //    public List<T> toList(LongRange r) {
-//        final ArrayList<T> list = new ArrayList<>((int) r.size());
-//        forEach(r, (t) -> list.add(t));
-//        return list;
 //    }
-//
+
     /**
      * {@inheritDoc}
      */

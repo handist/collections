@@ -4,13 +4,10 @@ import handist.collections.dist.util.Pair;
 import handist.collections.function.LongTBiConsumer;
 import handist.collections.function.SquareIndexTConsumer;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class RangedListProduct<S, T> implements SquareRangedList<Pair<S, T>> {
+public class RangedListProduct<S, T> implements SquareRangedListAbstract<Pair<S, T>,RangedListProduct<S,T>> {
     private final RangedList<S> first;
     private final RangedList<T> second;
     private final SquareRange range;
@@ -88,7 +85,7 @@ public class RangedListProduct<S, T> implements SquareRangedList<Pair<S, T>> {
     public RangedList<RangedList<Pair<S, T>>> asRowList() {
         return new LazyRangedList<>(first, (long row, S s0) -> {
             return new LazyRangedList<>(getSecondView(row), (long column, T t0) -> {
-                return new Pair(s0, t0);
+                return new Pair<>(s0, t0);
             });
         });
     }
@@ -97,7 +94,7 @@ public class RangedListProduct<S, T> implements SquareRangedList<Pair<S, T>> {
     public RangedList<RangedList<Pair<S, T>>> asColumnList() {
         return new LazyRangedList<>(second, (long column, T t0) -> {
             return new LazyRangedList<>(getFirstView(column), (long row, S s0) -> {
-                return new Pair(s0, t0);
+                return new Pair<>(s0, t0);
             });
         });
     }
@@ -152,27 +149,6 @@ public class RangedListProduct<S, T> implements SquareRangedList<Pair<S, T>> {
     @Override
     public RangedListProduct<S, T> subView(SquareRange range) {
         range = getRange().intersection(range);
-        return new RangedListProduct<S, T>(first.subList(range.outer), second.subList(range.inner),range);
-    }
-    public List<RangedListProduct<S,T>> split2(int outer, int inner) {
-        List<RangedListProduct<S,T>> results = new ArrayList<>();
-        getRange().split(outer,inner).forEach((SquareRange range)->{
-            results.add(subView(range));
-        });
-        return results;
-    }
-    public List<List<RangedListProduct<S,T>>> splitN2(int outer, int inner, int num, boolean randomize) {
-        List<RangedListProduct<S,T>> flat = split2(outer,inner);
-        if(randomize) Collections.shuffle(flat);
-        List<List<RangedListProduct<S,T>>> results = new ArrayList<>();
-        int div = flat.size() / num;
-        int rem = flat.size() % num;
-        int current = 0;
-        for(int i=0; i<num; i++) {
-            int next = current + div + (i<rem? 1:0);
-            results.add(flat.subList(current, next));
-            current = next;
-        }
-        return results;
+        return new RangedListProduct<S, T>(first.subList(range.outer), second.subList(range.inner), range);
     }
 }

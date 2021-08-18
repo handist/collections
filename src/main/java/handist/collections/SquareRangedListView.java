@@ -5,7 +5,7 @@ import handist.collections.function.SquareIndexTConsumer;
 
 import java.util.function.Consumer;
 
-public class SquareRangedListView<T> implements SquareRangedList<T>{
+public class SquareRangedListView<T> implements SquareRangedList<T> {
     final SquareRangedList<T> base;
 
     public SquareRangedListView(SquareRangedList<T> base, SquareRange subrange) {
@@ -121,7 +121,7 @@ public class SquareRangedListView<T> implements SquareRangedList<T>{
         return base.set(index, index2, value);
     }
 
-    //@Override
+    @Override
     public SquareRangedList<T> subView(SquareRange range) {
         range = getRange().intersection(range);
         return new SquareRangedListView<T>(base, range);

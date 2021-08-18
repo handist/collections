@@ -4,12 +4,17 @@ import handist.collections.function.LongTBiConsumer;
 import handist.collections.function.SquareIndexTConsumer;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
-public interface SquareRangedList<T> {
+/**
+ * SquareRangedListAbstract is a general interface for SquareRangedList and RangedListProduct.
+ *
+ * @param <T> represents the type of each element
+ * @param <X> represents the type used for the return type of method {@Code subview()} or {@Code split()} methods. In practice, SquareChunk or SquareRangedListView uses SquareRangedList as X and RangedListProduct uses RangedListProduct as X.
+ */
+public interface SquareRangedListAbstract<T, X extends SquareRangedListAbstract<T, X>> {
     RangedList<T> getRowView(long row);
 
     RangedList<T> getColumnView(long column);
@@ -37,19 +42,19 @@ public interface SquareRangedList<T> {
 
     T set(long index, long index2, T value);
 
-    SquareRangedList<T> subView(SquareRange range);
+    X subView(SquareRange range);
 
-    default List<SquareRangedList<T>> split(int outer, int inner) {
-        List<SquareRangedList<T>> results = new ArrayList<>();
+    default List<X> split(int outer, int inner) {
+        List<X> results = new ArrayList<>();
         getRange().split(outer,inner).forEach((SquareRange range)->{
             results.add(subView(range));
         });
         return results;
     }
-    default List<List<SquareRangedList<T>>> splitN(int outer, int inner, int num, boolean randomize) {
-        List<SquareRangedList<T>> flat = split(outer,inner);
+    default List<List<X>> splitN(int outer, int inner, int num, boolean randomize) {
+        List<X> flat = split(outer,inner);
         if(randomize) Collections.shuffle(flat);
-        List<List<SquareRangedList<T>>> results = new ArrayList<>();
+        List<List<X>> results = new ArrayList<>();
         int div = flat.size() / num;
         int rem = flat.size() % num;
         int current = 0;

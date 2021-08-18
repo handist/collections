@@ -14,11 +14,9 @@ import handist.collections.dist.util.Pair;
 import org.junit.Test;
 
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static apgas.Constructs.async;
 import static apgas.Constructs.finish;
 import static org.junit.Assert.assertEquals;
 
@@ -33,7 +31,7 @@ public class TestProduct {
 
     @Test
     public void test0() {
-        Chunk<Element> chunk = new Chunk<Element>(new LongRange(10, 20), (Long index) -> new Element(index));
+        Chunk<Element> chunk = new Chunk<>(new LongRange(10, 20), (Long index) -> new Element(index));
         RangedListProduct<Element, Element> pro = new RangedListProduct<>(chunk, chunk);
 
         pro.forEach((Pair<Element, Element> pair) -> {
@@ -59,7 +57,7 @@ public class TestProduct {
             e.sum.set(0);
         });
 
-        List<SquareRangedList<Pair<Element, Element>>> split = pro.split(2, 2);
+        List<RangedListProduct<Element, Element>> split = pro.split(2, 2);
         split.forEach((sub) -> {
             System.out.println("Range" + sub.getRange());
             sub.forEach((Pair<Element, Element> pair) -> {
@@ -83,8 +81,8 @@ public class TestProduct {
             assertEquals(result3 - index, e.sum.get());
             e.sum.set(0);
         });
-        Collection<SquareRangedList<Pair<Element, Element>>> split3 = proH.split(3, 3);
-        for (SquareRangedList<Pair<Element, Element>> pro3 : split3) {
+        Collection<RangedListProduct<Element, Element>> split3 = proH.split(3, 3);
+        for (RangedListProduct<Element, Element> pro3 : split3) {
             pro3.forEach((Pair<Element, Element> pair) -> {
                 pair.second.sum.addAndGet(pair.first.index);
                 pair.first.sum.addAndGet(pair.second.index);
@@ -94,8 +92,8 @@ public class TestProduct {
             assertEquals(result3 - index, e.sum.get());
             e.sum.set(0);
         });
-        Collection<SquareRangedList<Pair<Element, Element>>> split4 = proH.split(3, 5);
-        for (SquareRangedList<Pair<Element, Element>> pro4 : split4) {
+        Collection<RangedListProduct<Element, Element>> split4 = proH.split(3, 5);
+        for (RangedListProduct<Element, Element> pro4 : split4) {
             pro4.forEach((Pair<Element, Element> pair) -> {
                 pair.second.sum.addAndGet(pair.first.index);
                 pair.first.sum.addAndGet(pair.second.index);
@@ -105,7 +103,7 @@ public class TestProduct {
             assertEquals(result3 - index, e.sum.get());
             e.sum.set(0);
         });
-        List<List<RangedListProduct<Element, Element>>> ss = proH.splitN2(3, 7, 4, true);
+        List<List<RangedListProduct<Element, Element>>> ss = proH.splitN(3, 7, 4, true);
         finish(() -> {
             ss.forEach((ones) -> {
                 ones.forEach((one) -> {
