@@ -17,7 +17,7 @@ import java.util.LinkedList;
 import java.util.concurrent.ForkJoinPool;
 
 import apgas.SerializableJob;
-import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.dist.DistLog;
 import handist.collections.glb.GlbOperation.OperationCompletionManagedBlocker;
 import handist.collections.glb.GlbOperation.State;
 
@@ -30,10 +30,89 @@ import handist.collections.glb.GlbOperation.State;
  *
  */
 public class GlobalLoadBalancer {
+
+    /**
+     * Key used to gather the events related to the GLB system
+     */
+    public static final String LOGKEY_GLB = "glb_event";
+
+    /**
+     * Key used to gather the events related to the creation, interruption, and
+     * termination of asynchronous worker activities
+     */
+    public static final String LOGKEY_WORKER = "glb_worker";
+
+    /**
+     * Message used to record the number of workers initalized on a host
+     */
+    public static final String LOG_INITIALIZED_WORKERS = "WorkerInitialized";
+
+    /**
+     * Message used to record the moment at which the GlbComputer instance is
+     * initialized on a host
+     */
+    public static final String LOG_INITIALIZED_AT_NANOTIME = "InitializedAtTime";
+
+    /**
+     * Message used to signal that a worker has stopped
+     */
+    public static final String LOG_WORKER_STOPPED = "Worker Stopped";
+
+    /**
+     * Message used to record that a worker was unable to answer a lifeline
+     */
+    public static final String LOG_LIFELINE_NOT_ANSWERED = "Lifeline not answered";
+
+    /**
+     * Message used to record that a worker answered a lifeline
+     */
+    public static final String LOG_LIFELINE_ANSWERED = "Lifeline answered";
+
+    /**
+     * Message used to record that a worker resumed after yielding
+     */
+    public static final String LOG_WORKER_RESUMED = "Worker resumed";
+
+    /**
+     * Message used to record that a started yielding so that other activites may
+     * run on the host
+     */
+    public static final String LOG_WORKER_YIELDING = "Worker yielding";
+
+    /**
+     * Message used to record that a worker started running
+     */
+    public static final String LOG_WORKER_STARTED = "Worker Started";
+
+    public static final String LOGKEY_UNDER_GLB = "UnderGlb";
+
+    public static final String LOG_PROGRAM_STARTED = "ProgramStarted";
+    public static final String LOG_PROGRAM_ENDED = "ProgramEnded";
+
     /**
      * Singleton
      */
     static GlobalLoadBalancer glb = null;
+
+    /**
+     * Member keeping the logger instance of the previously executed GLB program. It
+     * can be retrieved after method {@link #underGLB(SerializableJob)} has
+     * completed through method #getPreviousLog();
+     */
+    static DistLog previousLog = null;
+
+    /**
+     * Returns the {@link DistLog} containing the information logged during the
+     * previous {@link #underGLB(SerializableJob)} method call.
+     * <p>
+     * The logs are returned in their non-gathered state, meaning the entries are
+     * still distributed across all hosts. Call method
+     * {@link DistLog#globalGather()} on the returned {@link DistLog} instance to
+     * gather all the logs on the caller host.
+     */
+    public static DistLog getPreviousLog() {
+        return previousLog;
+    }
 
     /**
      * Helper method used to launch the computations submitted to the global load
@@ -95,11 +174,16 @@ public class GlobalLoadBalancer {
      */
     public static ArrayList<Exception> underGLB(SerializableJob program) {
         if (GlobalLoadBalancer.glb == null) {
+            // Logger instance for the entire GLB
+            final DistLog logger = new DistLog();
+            previousLog = logger;
+            logger.put(LOGKEY_UNDER_GLB, LOG_PROGRAM_STARTED, Long.toString(System.nanoTime()));
+
             // Create a new GlobalLoadBalancer instance that will handle the program
             glb = new GlobalLoadBalancer();
 
             // Also initialize the GlbComputer on all hosts before trying to submit anything
-            GlbComputer.getComputer();
+            GlbComputer.initializeComputer(logger);
 
             final ArrayList<Exception> exc = new ArrayList<>();
             finish(() -> {
@@ -113,12 +197,13 @@ public class GlobalLoadBalancer {
                     exc.add(e);
                 }
             });
+            logger.put(LOGKEY_UNDER_GLB, LOG_PROGRAM_ENDED, Long.toString(System.nanoTime()));
+
             // Destroy the singletons for new ones to be created next time this method is
             // called
             glb = null;
-            TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
-                GlbComputer.destroyGlbComputer();
-            });
+
+            GlbComputer.destroyGlbComputer();
             // Also reset the priority for the future GlbOperations to be created
             GlbOperation.nextPriority = 0;
 

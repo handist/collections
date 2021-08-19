@@ -1,12 +1,19 @@
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
+import static handist.collections.util.StringUtilities.*;
 
 import java.io.PrintStream;
-import java.io.PrintWriter;
 import java.io.Serializable;
-import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -48,16 +55,22 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         }
     }
 
+    /**
+     * Class used to represent information logged. Logged information takes the
+     * shape of a message and an optional "appendix". Logged items can be compared
+     * to one-another, but only the message value is considered. The appendix may
+     * differ between two instances but the two logged items may still be equal.
+     */
     public static class LogItem implements Serializable {
         private static final long serialVersionUID = -1365865614858381506L;
+        public static Comparator<LogItem> cmp = Comparator.nullsFirst(Comparator.comparing(i0 -> i0.msg));
         public static boolean appendixPrint = true;
-        public static Comparator<LogItem> cmp = Comparator.comparing(i0 -> i0.msg);
         public final String msg;
         public final String appendix;
 
-        LogItem(Object body, Object app) {
-            msg = (body != null ? body.toString() : "");
-            appendix = (app != null ? app.toString() : null);
+        LogItem(String message, String appendix) {
+            msg = message;
+            this.appendix = appendix;
         }
 
         @Override
@@ -76,28 +89,61 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         @Override
         public String toString() {
 
-            if(appendixPrint)
+            if (appendixPrint) {
                 return "LogItem:" + msg + ", " + appendix;
-            else
+            } else {
                 return "LogItem:" + msg;
+            }
         }
     }
 
-    public static final class LogKey implements Serializable,Comparable<LogKey> {
+    /**
+     * Class used as a key to record elements in a {@link DistLog}. A {@link LogKey}
+     * is a combination of a {@link Place}, a {@link String} tag, and a {@code long}
+     * phase tuple.
+     */
+    public static final class LogKey implements Serializable, Comparable<LogKey> {
 
         /** Serial Version UID */
         private static final long serialVersionUID = -7799219001690238705L;
 
+        /** Place on which the record was made */
         public final Place place;
+        /** Tag, or topic under which the record was made */
         public final String tag;
+
+        /** Phase during which the record was made */
         public final long phase;
 
+        /**
+         * Constructor
+         *
+         * @param p     place on which the record is recorded
+         * @param tag   the subject tag for the record
+         * @param phase the phase during which the record is made
+         */
         public LogKey(Place p, String tag, long phase) {
-            this.place = p;
+            place = p;
             this.tag = tag;
             this.phase = phase;
         }
 
+        @Override
+        public int compareTo(LogKey o) {
+            int result = Long.compare(phase, o.phase);
+            if (result == 0) {
+                result = tag.compareTo(o.tag);
+            }
+            if (result == 0) {
+                result = Integer.compare(place.id, o.place.id);
+            }
+            return result;
+        }
+
+        /**
+         * Two {@link LogKey}s are equal iff their respective {@link #place},
+         * {@link #tag} and {@link #phase} match.
+         */
         @Override
         public boolean equals(Object obj) {
             if (obj == null) {
@@ -107,7 +153,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
                 return false;
             }
             final LogKey key2 = (LogKey) obj;
-            return place.equals(key2.place) && strEq(tag, key2.tag) && (phase == key2.phase);
+            return place.equals(key2.place) && nullSafeEquals(tag, key2.tag) && (phase == key2.phase);
         }
 
         @Override
@@ -115,31 +161,15 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
             return place.id + (tag.hashCode() << 2) + (int) (phase << 4 + phase >> 16);
         }
 
-        boolean strEq(String s1, String s2) {
-            if (s1 == null) {
-                return s2 == null;
-            }
-            return s1.equals(s2);
-        }
-
         @Override
         public String toString() {
             return "Log@" + place + ", tag: " + tag + ", phase: " + phase;
-        }
-
-        @Override
-        public int compareTo(LogKey o) {
-            int result = Long.compare(phase, o.phase);
-            if(result==0) result = tag.compareTo(o.tag);
-            if(result==0) result = Integer.compare(place.id, o.place.id);
-            return result;
         }
     }
 
     /**
      *
      */
-
     static class SetDiff {
         Collection<LogItem> first;
         Collection<LogItem> second;
@@ -148,13 +178,14 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
             this.first = first;
             this.second = second;
         }
+
         public boolean isEmpty() {
-            return (first==null || first.isEmpty()) && (second==null ||second.isEmpty());
+            return (first == null || first.isEmpty()) && (second == null || second.isEmpty());
         }
 
         public void print(PrintStream out) {
-            out.println("  1st:" + (first==null? "": first));
-            out.println("  2nd:" + (second==null? "": second));
+            out.println("  1st:" + (first == null ? "" : first));
+            out.println("  2nd:" + (second == null ? "" : second));
         }
     }
 
@@ -162,11 +193,20 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
     private static final long serialVersionUID = 3453720633747873404L;
 
     /**
-     * The default DistLog instance used by {@code DistLog.log} method.
+     * The default DistLog instance used by the static
+     * {@link DistLog#log(String, String, String)} method.
      */
     public static DistLog defaultLog;
 
+    /**
+     * Map used to keep a record of {@link DistLog} instances in use
+     */
     public static HashMap<GlobalID, DistLog> map = new HashMap<>();
+
+    private static final Comparator<Pair<String, Long>> gcmp = Comparator.comparing(Pair<String, Long>::getSecond)
+            .thenComparing(Pair<String, Long>::getFirst);
+
+    public static String itemOffset = "  ";
 
     private static <E> Collection<E> concat(Collection<? extends Collection<E>> lists) {
         if (lists == null) {
@@ -214,23 +254,6 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         }
     }
 
-    private static SetDiff diffCheckSet0(Collection<LogItem> olist0, Collection<LogItem> olist1) {
-        if(olist0.isEmpty()&&olist1.isEmpty()) return null;
-        if(olist0.isEmpty() || olist1.isEmpty()) {
-            return new SetDiff(olist0, olist1);
-        }
-        final ArrayList<LogItem> list0 = new ArrayList<>(olist0);
-        final ArrayList<LogItem> list1 = new ArrayList<>(olist1);
-        list0.sort(LogItem.cmp);
-        list1.sort(LogItem.cmp);
-        SetDiff result = new SetDiff(list0, list1);
-        if(list0.size()!=list1.size()) return result;
-        for(int i=0; i< list0.size(); i++) {
-            if(!list0.get(i).equals(list1.get(i))) return result;
-        }
-        return null;
-    }
-
     private static SetDiff diffCheckSet(Collection<? extends Collection<LogItem>> lists0,
             Collection<? extends Collection<LogItem>> lists1) {
         if (lists0 == null) {
@@ -242,8 +265,27 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         return diffCheckSet0(concat(lists0), concat(lists1));
     }
 
-    public DistConcurrentMultiMap<LogKey, LogItem> getDistMultiMap() {
-        return getPlanet();
+    private static SetDiff diffCheckSet0(Collection<LogItem> olist0, Collection<LogItem> olist1) {
+        if (olist0.isEmpty() && olist1.isEmpty()) {
+            return null;
+        }
+        if (olist0.isEmpty() || olist1.isEmpty()) {
+            return new SetDiff(olist0, olist1);
+        }
+        final ArrayList<LogItem> list0 = new ArrayList<>(olist0);
+        final ArrayList<LogItem> list1 = new ArrayList<>(olist1);
+        list0.sort(LogItem.cmp);
+        list1.sort(LogItem.cmp);
+        final SetDiff result = new SetDiff(list0, list1);
+        if (list0.size() != list1.size()) {
+            return result;
+        }
+        for (int i = 0; i < list0.size(); i++) {
+            if (!list0.get(i).equals(list1.get(i))) {
+                return result;
+            }
+        }
+        return null;
     }
 
     /**
@@ -270,7 +312,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
      *                 object
      * @param appendix appendix of the log message
      */
-    public static void log(String tag, Object msg, Object appendix) {
+    public static void log(String tag, String msg, String appendix) {
         if (defaultLog != null) {
             defaultLog.put(tag, msg, appendix);
         } else {
@@ -284,7 +326,25 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
     AtomicLong phase;
 
     /**
-     * create a DistLog instance that records logs within a place group and gather
+     * Creates a {@link DistLog} instance for events that occur in the whole
+     * {@link TeamedPlaceGroup#getWorld()} with an initial phse of {@value 0l}.l
+     */
+    public DistLog() {
+        this(TeamedPlaceGroup.getWorld());
+    }
+
+    /**
+     * Creates a {@link DistLog} instance for events to be logged on the provided
+     * place group. The initial logging phase is arbitrarily set to {@value 0l};
+     *
+     * @param pg the group of places on which events are gathered
+     */
+    public DistLog(final TeamedPlaceGroup pg) {
+        this(pg, 0l);
+    }
+
+    /**
+     * Create a DistLog instance that records logs within a place group and gathers
      * them to a place
      *
      * @param pg    the place group
@@ -294,7 +354,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         this(pg, phase, new DistConcurrentMultiMap<>(pg));
     }
 
-    DistLog(TeamedPlaceGroup pg, long phase, DistConcurrentMultiMap<LogKey, LogItem> base) {
+    private DistLog(TeamedPlaceGroup pg, long phase, DistConcurrentMultiMap<LogKey, LogItem> base) {
         super(base);
         this.pg = pg;
         this.phase = new AtomicLong(phase);
@@ -304,10 +364,10 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
     }
 
     /**
-     * Determines whether the log set of this and the target is equals. It
-     * distinguish only tags and ignores the generated places. It return true iff
-     * the sets of the logs having the same tag are the same. Diff will be output to
-     * {@code out} if they differs.
+     * Determines whether the log set of this and the target DistLog isntances are
+     * equal. It distinguish only tags and ignores the generated places. It return
+     * true iff the sets of the logs having the same tag are the same. Diff will be
+     * output to {@code out} if they differ.
      *
      * @param target the logger instance to compare to this
      * @param out    the output to which the difference is printed
@@ -319,29 +379,33 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         boolean result = true;
         final TreeMap<Pair<String, Long>, List<Collection<LogItem>>> g0 = groupBy();
         final TreeMap<Pair<String, Long>, List<Collection<LogItem>>> g1 = target.groupBy();
-        TreeSet<Pair<String, Long>> keys = new TreeSet<>(gcmp);
+        final TreeSet<Pair<String, Long>> keys = new TreeSet<>(gcmp);
         keys.addAll(g0.keySet());
         keys.addAll(g1.keySet());
         long phase = 0;
-        for (Pair<String, Long> key: keys) {
-            if((!result) && phase < key.second) return false;
+        for (final Pair<String, Long> key : keys) {
+            if ((!result) && phase < key.second) {
+                return false;
+            }
             final List<Collection<LogItem>> entries0 = g0.get(key);
             final List<Collection<LogItem>> entries1 = g1.get(key);
             final SetDiff diff = diffCheckSet(entries0, entries1);
             if (diff != null) {
-                if(result==true) out.println("Diff first found in phase " + key.second);
+                if (result == true) {
+                    out.println("Diff first found in phase " + key.second);
+                }
                 out.println("Diff with tag: " + key.first + ", phase: " + key.second);
                 diff.print(out);
                 result = false;
                 phase = key.second;
             }
         }
+        for (final Map.Entry<Pair<String, Long>, List<Collection<LogItem>>> entry : g1.entrySet()) {
+            out.println("Diff @ [tag: " + entry.getKey().first + ", phase" + entry.getKey().second
+                    + "]: target only has values:" + entry.getValue());
+        }
         return result;
     }
-
-    private static final Comparator<Pair<String,Long>> gcmp =
-            Comparator.comparing(Pair<String,Long>::getSecond).thenComparing(Pair<String,Long>::getFirst);
-
 
     @Override
     public SerializableBiFunction<DistConcurrentMultiMap<LogKey, LogItem>, Place, DistLog> getBranchCreator() {
@@ -351,18 +415,68 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
                 base0);
     }
 
-    public Collection<LogItem> getLog(String key) {
-        return base.get(new LogKey(here(), key, phase.get()));
+    public DistConcurrentMultiMap<LogKey, LogItem> getDistMultiMap() {
+        return getPlanet();
     }
-    public Collection<LogItem> removeLog(String key) {
-        return base.remove(new LogKey(here(), key, phase.get()));
+
+    /**
+     * Returns the {@link LogItem}s mapped to the specified key
+     *
+     * @param k the key which specify the place, tag, and phase of the targeted
+     *          records
+     * @return collection of {@link LogItem} mapped to the specified key,
+     *         {@code null} if there are no such items
+     */
+    public Collection<LogItem> getLog(LogKey k) {
+        return base.get(k);
+    }
+
+    /**
+     * Returns the logged items of the specified place for the specified key and the
+     * current phase. If the specified place is the local place, then calling this
+     * method is equivalent to calling method {@link #getLog(String)}. If the
+     * specified place is remote, then programmers should be careful to call method
+     * {@link #globalGather()} so that events logged on remote hosts are relocated
+     * and accessible on this host.
+     *
+     * @param p   the place on which the logged events occurred
+     * @param key the key under which the events were recorded
+     * @return the collection of items logged under the specified key at the
+     *         specified host
+     */
+    public Collection<LogItem> getLog(Place p, String key) {
+        return getLog(p, key, getPhase());
+    }
+
+    /**
+     * Returns the logged items of the specified place, tag and phase.
+     * <p>
+     * Note that is the targeted log entries are of a remote host, method
+     * {@link #globalGather()} should be called prior to attempting to retrieve such
+     * logs.
+     *
+     * @param p     the place on which events were recorded
+     * @param tag   the tag under which events were recorded
+     * @param phase the phase during which the events were recorded
+     * @return the collection of {@link LogItem} recorded under the specified key
+     */
+    public Collection<LogItem> getLog(Place p, String tag, long phase) {
+        return getLog(new LogKey(p, tag, phase));
+    }
+
+    /**
+     * Returns the logged items of this place for the specified key
+     *
+     * @param key the key whose logged events needs to be retrieved
+     * @return the collection of events logged on this place with the specified key
+     */
+    public Collection<LogItem> getLog(String key) {
+        return getLog(here(), key);
     }
 
     public long getPhase() {
         return phase.get();
     }
-
-
 
     /**
      * gather the log to the receiving place initially specified
@@ -450,34 +564,38 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
             return false;
         }
 
-        TreeSet<LogKey> keys = new TreeSet<>();
+        final TreeSet<LogKey> keys = new TreeSet<>();
         keys.addAll(base.keySet());
         keys.addAll(target.base.keySet());
 
         boolean result = true;
         long bugPhase = 0;
 
-        for (final LogKey key: keys) {
-            if((!result) && key.phase > bugPhase) return false;
+        for (final LogKey key : keys) {
+            if ((!result) && key.phase > bugPhase) {
+                return false;
+            }
             final Collection<LogItem> elems1 = base.get(key);
             final Collection<LogItem> elems2 = target.base.get(key);
-            final List<LogItem> lists1 = elems1==null? Collections.EMPTY_LIST: new ArrayList<>(elems1);
-            final List<LogItem> lists2 = elems2==null? Collections.EMPTY_LIST: new ArrayList<>(elems2);
+            final List<LogItem> lists1 = elems1 == null ? Collections.emptyList() : new ArrayList<>(elems1);
+            final List<LogItem> lists2 = elems2 == null ? Collections.emptyList() : new ArrayList<>(elems2);
             if (asList) {
                 final ListDiff diff = diffCheckList(lists1, lists2);
                 if (diff != null) {
-                    if(result) {
+                    if (result) {
                         out.println("Diff first found in phase " + key.phase);
-                        bugPhase = key.phase; result = false;
+                        bugPhase = key.phase;
+                        result = false;
                     }
                     out.println("Diff in " + key + "::" + diff);
                 }
             } else {
                 final SetDiff diff = diffCheckSet0(lists1, lists2);
                 if (diff != null) {
-                    if(result) {
+                    if (result) {
                         out.println("Diff first found in phase " + key.phase);
-                        bugPhase = key.phase; result = false;
+                        bugPhase = key.phase;
+                        result = false;
                     }
                     out.println("Diff in " + key);
                     diff.print(out);
@@ -487,7 +605,6 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
         return result;
     }
 
-    public static String itemOffset = "  ";
     public void printAll(PrintStream out) {
         final TreeMap<LogKey, Collection<LogItem>> sorted = new TreeMap<>((o1, o2) -> {
             int result = Integer.compareUnsigned(o1.place.id, o2.place.id);
@@ -508,7 +625,18 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
                 out.println(itemOffset + item);
             }
         });
+    }
 
+    /**
+     * Puts the specified message for the specified tag
+     *
+     * @param phaseVal the phase under which this log message will be kept
+     * @param tag      the topic into which this message will be recorded
+     * @param msg      the message to log
+     * @param appendix may be null
+     */
+    public void put(long phaseVal, String tag, String msg, String appendix) {
+        base.put1(new LogKey(Constructs.here(), tag, phaseVal), new LogItem(msg, appendix));
     }
 
     /**
@@ -521,12 +649,12 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
      *                 is not used for equality check of {@code DistLog} instances
      *                 while {@code msg} is used.
      */
-    public void put(String tag, Object msg, Object appendix) {
-        base.put1(new LogKey(Constructs.here(), tag, phase.get()), new LogItem(msg, appendix));
+    public void put(String tag, String msg, String appendix) {
+        put(phase.get(), tag, msg, appendix);
     }
 
-    public void put(long phaseVal, String tag, Object msg, Object appendix) {
-        base.put1(new LogKey(Constructs.here(), tag, phaseVal), new LogItem(msg, appendix));
+    public Collection<LogItem> removeLog(String key) {
+        return base.remove(new LogKey(here(), key, phase.get()));
     }
 
     public void setPhase(long phase) {

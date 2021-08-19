@@ -73,6 +73,53 @@ public class DistChunkedList<T> extends ChunkedList<T>
 
     }
 
+    /**
+     * Specialization of {@link TeamOperations} for the purposes of
+     * {@link DistChunkedList}
+     *
+     * @param <T> the type of the instances held by the underlying
+     *            {@link DistChunkedList}
+     */
+    public static class Team<T> extends TeamOperations<T, DistChunkedList<T>> {
+
+        private Team(DistChunkedList<T> localObject) {
+            super(localObject);
+        }
+
+        /**
+         * Performs a parallel reduction on each local handle of the underlyin
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param <R>     the type of the reducer used
+         * @param reducer the reduction operation to perform
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public <R extends Reducer<R, T>> R parallelReduce(R reducer) {
+            final R localReduce = handle.parallelReduce(reducer);
+            return localReduce.teamReduction(handle.placeGroup());
+        }
+
+        /**
+         * Performs a sequential reduction on each handle of the underlying
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param<R> type of the reducer used
+         * @param reducer the reduction operation to perform
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public <R extends Reducer<R, T>> R reduce(R reducer) {
+            final R localReduce = handle.reduce(reducer);
+
+            return localReduce.teamReduction(handle.placeGroup());
+        }
+    }
+
     private static int _debug_level = 5;
 
     private static float[] initialLocality(final int size) {
@@ -97,7 +144,7 @@ public class DistChunkedList<T> extends ChunkedList<T>
     /**
      * Handle to Team Operations implemented by {@link DistChunkedList}.
      */
-    protected final transient TeamOperations<T, DistChunkedList<T>> TEAM;
+    protected final transient Team<T> TEAM;
 
     @SuppressWarnings("rawtypes")
     DistCollectionSatellite satellite;
@@ -144,7 +191,7 @@ public class DistChunkedList<T> extends ChunkedList<T>
         id.putHere(this);
         manager = new DistributionManager<>(placeGroup, id, this);
         manager.locality = initialLocality(placeGroup.size);
-        TEAM = new TeamOperations<>(this);
+        TEAM = new Team<>(this);
         GLOBAL = new GlobalOperations<>(this, lazyCreator);
         GLB = new DistColGlb<>(this);
     }
@@ -354,7 +401,7 @@ public class DistChunkedList<T> extends ChunkedList<T>
     }
 
     @Override
-    public TeamOperations<T, DistChunkedList<T>> team() {
+    public Team<T> team() {
         return TEAM;
     }
 

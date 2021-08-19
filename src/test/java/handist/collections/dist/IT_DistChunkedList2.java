@@ -34,6 +34,7 @@ import apgas.impl.Config;
 import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
+import handist.collections.TestChunkedList.ElementCounter;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -105,7 +106,7 @@ public class IT_DistChunkedList2 implements Serializable {
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException {
         if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
-            System.out.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
             // If we are using the DebugFinish, dump all throwables collected on each host
             DebugFinish.dumpAllSuppressedExceptions();
         }
@@ -511,6 +512,39 @@ public class IT_DistChunkedList2 implements Serializable {
     }
 
     /**
+     * Tests multithreaded Teamed reduction
+     */
+    @Test(timeout = 10000)
+    public void testParallelTeamReduction() {
+        world.broadcastFlat(() -> {
+            // First, empty sum reduction
+            final ElementCounter<Element> count = distChunkedList.team().parallelReduce(new ElementCounter<Element>());
+            assertEquals(0l, count.counter);
+
+            // Add some chunks depending on the rank of the host
+            switch (world.myrank) {
+            case 0:
+                distChunkedList.add(chunk0To100);
+                break;
+            case 1:
+                distChunkedList.add(chunk100To200);
+                break;
+            case 2:
+                distChunkedList.add(chunk0To100);
+                distChunkedList.add(chunk200To250);
+                break;
+            case 3:
+            default:
+                // Add no chunk
+            }
+
+            // There are now a total of 350 elements in the distributed chunkedList
+            final ElementCounter<Element> secondCount = distChunkedList.team().parallelReduce(new ElementCounter<>());
+            assertEquals(350l, secondCount.counter);
+        });
+    }
+
+    /**
      * Checks that the distCol is in the expected state after method
      * {@link #setUp()} is called
      */
@@ -521,6 +555,39 @@ public class IT_DistChunkedList2 implements Serializable {
             assertTrue(distChunkedList.isEmpty());
             assertEquals(0l, distChunkedList.size());
             assertEquals(distChunkedList, distChunkedList.id().getHere());
+        });
+    }
+
+    /**
+     * Tests single-threaded Teamed reduction
+     */
+    @Test(timeout = 10000)
+    public void testTeamReduction() {
+        world.broadcastFlat(() -> {
+            // First, empty sum reduction
+            final ElementCounter<Element> count = distChunkedList.team().reduce(new ElementCounter<Element>());
+            assertEquals(0l, count.counter);
+
+            // Add some chunks depending on the rank of the host
+            switch (world.myrank) {
+            case 0:
+                distChunkedList.add(chunk0To100);
+                break;
+            case 1:
+                distChunkedList.add(chunk100To200);
+                break;
+            case 2:
+                distChunkedList.add(chunk0To100);
+                distChunkedList.add(chunk200To250);
+                break;
+            case 3:
+            default:
+                // Add no chunk
+            }
+
+            // There are now a total of 350 elements in the distributed chunkedList
+            final ElementCounter<Element> secondCount = distChunkedList.team().reduce(new ElementCounter<>());
+            assertEquals(350l, secondCount.counter);
         });
     }
 

@@ -7,3 +7,8 @@ bin/
 hosts
 hostfile
 HOSTFILE
+*.png
+*.csv
+*.sh
+*.plt
+*.txt

@@ -66,6 +66,7 @@ public class TeamOperations<T, C extends DistributedCollection<T, C>> {
         result[pg.myrank] = handle.longSize();
         try {
             // THIS WORKS FOR MPJ-NATIVE implementation
+            // There appears to be a bug in the mpiJava implementation
             pg.comm.Allgather(result, pg.myrank, 1, MPI.LONG, result, 0, 1, MPI.LONG);
         } catch (final MPIException e) {
             e.printStackTrace();
@@ -78,7 +79,7 @@ public class TeamOperations<T, C extends DistributedCollection<T, C>> {
     }
 
     /**
-     * Redisitributes all the entries of the underlying distributed collection
+     * Redistributes all the entries of the underlying distributed collection
      * between the places.
      *
      * @param mm move manager in charge of the transfer
