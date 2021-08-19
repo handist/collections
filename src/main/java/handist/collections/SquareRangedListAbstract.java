@@ -2,10 +2,12 @@ package handist.collections;
 
 import handist.collections.function.LongTBiConsumer;
 import handist.collections.function.SquareIndexTConsumer;
+import handist.collections.util.ListUtil;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.function.Consumer;
 
 /**
@@ -37,33 +39,44 @@ public interface SquareRangedListAbstract<T, X extends SquareRangedListAbstract<
     void forEach(SquareRange subrange, Consumer<? super T> action);
 
     T get(long index, long index2);
-
     SquareRange getRange();
-
-    T set(long index, long index2, T value);
-
-    X subView(SquareRange range);
-
-    default List<X> split(int outer, int inner) {
+    default List<X> getViews(List<SquareRange> ranges) {
         List<X> results = new ArrayList<>();
-        getRange().split(outer,inner).forEach((SquareRange range)->{
+        ranges.forEach((SquareRange range)->{
             results.add(subView(range));
         });
         return results;
     }
+
+    T set(long index, long index2, T value);
+    X subView(SquareRange range);
+
+    default List<X> split(int outer, int inner) {
+        return getViews(splitRange(outer,inner));
+    }
     default List<List<X>> splitN(int outer, int inner, int num, boolean randomize) {
-        List<X> flat = split(outer,inner);
-        if(randomize) Collections.shuffle(flat);
+        List<SquareRange> ranges = splitRange(outer,inner);
+        if(randomize) Collections.shuffle(ranges);
         List<List<X>> results = new ArrayList<>();
-        int div = flat.size() / num;
-        int rem = flat.size() % num;
-        int current = 0;
         for(int i=0; i<num; i++) {
-            int next = current + div + (i<rem? 1:0);
-            results.add(flat.subList(current, next));
-            current = next;
+            List<SquareRange> assigned = ListUtil.splitGet(ranges, i, num);
+            results.add(getViews(assigned));
         }
         return results;
+    }
+    default List<List<X>> splitNM(int outer, int inner, int ithHost, int numHosts, int numThreads, Random rand) {
+        List<SquareRange> ranges = splitRange(outer,inner);
+        if(rand!=null) Collections.shuffle(ranges, rand);
+        List<List<X>> results = new ArrayList<>();
+        for(int i=0; i<numThreads; i++) {
+            List<SquareRange> assigned = ListUtil.splitGet2(ranges, ithHost, numHosts, i, numThreads);
+            results.add(getViews(assigned));
+        }
+        return results;
+    }
+
+    default List<SquareRange> splitRange(int outer, int inner) {
+        return getRange().split(outer, inner);
     }
 
 }

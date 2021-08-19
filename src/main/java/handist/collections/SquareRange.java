@@ -415,11 +415,11 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
 //    public LongStream stream() {
 //        return LongStream.range(from, to);
 //    }
-    public Collection<SquareRange> split(int outerN, int innerN) {
+    public List<SquareRange> split(int outerN, int innerN) {
         // TODO
         // more smart split for upper rectangle
         // lazy way??
-        Collection<SquareRange> results = new ArrayList<>();
+        List<SquareRange> results = new ArrayList<>();
         List<LongRange> splitOuters = outer.split(outerN);
         List<LongRange> splitInners = inner.split(innerN);
         for (LongRange out0 : splitOuters) {
