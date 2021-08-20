@@ -1740,6 +1740,23 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         return sub;
     }
 
+    /**
+     * returns a continuous RangedList with the given {@Code range} from this Chunked List.
+     *
+     * @param range
+     * @return retun null if such a ranged list does not exist.
+     */
+    public RangedList<T> subList1(LongRange range) {
+        LongRange result = range.findOverlap(chunks);
+        if (result == null) {
+            return null;
+        }
+        if (result.contains(range)) {
+            return chunks.get(result).subList(range);
+        }
+        return null;
+    }
+
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder();

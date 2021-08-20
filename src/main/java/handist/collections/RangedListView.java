@@ -16,6 +16,8 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
@@ -30,42 +32,6 @@ import com.esotericsoftware.kryo.io.Output;
  *            access to
  */
 public class RangedListView<T> extends RangedList<T> implements Serializable, KryoSerializable {
-
-    /**
-     * Iterator on the elements of {@link #base} this {@link RangedListView}
-     * provides access to
-     *
-     * @param <T> the type handled by the {@link RangedList} {@link #base}
-     */
-    private static class It<T> implements Iterator<T> {
-        private long i;
-        private final LongRange range;
-        private final RangedListView<T> rangedListView;
-
-        public It(RangedListView<T> view) {
-            rangedListView = view;
-            range = rangedListView.getRange();
-            this.i = range.from - 1;
-        }
-
-        public It(RangedListView<T> view, long i0) {
-            view.rangeCheck(i0);
-            rangedListView = view;
-            this.range = rangedListView.getRange();
-            this.i = i0 - 1;
-        }
-
-        @Override
-        public boolean hasNext() {
-            return i + 1 < range.to;
-        }
-
-        @Override
-        public T next() {
-            return rangedListView.get(++i);
-        }
-
-    }
 
     /** Serial Version UID */
     private static final long serialVersionUID = 8258165981421352660L;
@@ -169,17 +135,6 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public boolean equals(Object o) {
         return RangedList.equals(this, o);
     }
-    /*
-     * @Override public <U> void forEach(LongRange range, BiConsumer<? super T,
-     * Consumer<? super U>> action, Consumer<? super U> receiver) {
-     * rangeCheck(range); base.forEach(range, action, receiver); }
-     *
-     * @Override public void forEach(LongRange range, Consumer<? super T> action) {
-     * rangeCheck(range); base.forEach(range, action); }
-     *
-     * @Override public void forEach(LongRange range, LongTBiConsumer<? super T>
-     * action) { rangeCheck(range); base.forEach(range, action); }
-     */
 
     /**
      * Get the element at the provided {@code index}.
@@ -191,16 +146,6 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public T get(long index) {
         rangeCheck(index);
         return base.get(index);
-    }
-
-    @Override
-    protected Object[] getBody() {
-        return base.getBody();
-    }
-
-    @Override
-    protected long getBodyOffset() {
-        return base.getBodyOffset();
     }
 
     /**
@@ -215,14 +160,20 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
     public int hashCode() {
         return RangedList.hashCode(this);
     }
+    @Override
+    public Iterator<T> iterator() {
+        if(base==null || this.getRange().size()==0) return new ChunkIterator<>();
+        return base.subIterator(this.getRange());
+    }
 
     /**
      * Returns a new iterator on the elements of the RangedList this instance
      * provides access to.
      */
     @Override
-    public Iterator<T> iterator() {
-        return new It<>(this);
+    public RangedListIterator<T> listIterator() {
+        if(base==null||this.getRange().size()==0) return new ChunkListIterator<>();
+        return base.subListIterator(this.getRange());
     }
 
     /**
@@ -232,10 +183,10 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
      * @return iterator on the elements this {@link RangedListView} grants access to
      *         starting at the specified index
      */
-    public Iterator<T> iterator(long l) {
-        return new It<>(this, l);
+    public RangedListIterator<T> listIterator(long l) {
+        if(base==null) return new ChunkListIterator<>();
+        return base.subListIterator(getRange(), l);
     }
-
     @Override
     public void read(Kryo kryo, Input input) {
         @SuppressWarnings("unchecked")
@@ -275,6 +226,27 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
         return super.size();
     }
 
+    @Override
+    protected Iterator<T> subIterator(LongRange range) {
+        if(base==null || (range.size()==0)) return new ChunkIterator<>();
+        LongRange subrange = getRange().intersection(range);
+        if(subrange==null) throw new IndexOutOfBoundsException();
+        return base.subIterator(subrange);
+    }
+    @Override
+    protected RangedListIterator<T> subListIterator(LongRange range) {
+        if(base==null) return new ChunkListIterator<>();
+        LongRange subrange = getRange().intersection(range);
+        if(subrange==null) throw new IndexOutOfBoundsException();
+        return base.subListIterator(subrange);
+    }
+    @Override
+    protected RangedListIterator<T> subListIterator(LongRange range, long l) {
+        if(base==null) return new ChunkListIterator<>();
+        LongRange subrange = getRange().intersection(range);
+        if(subrange==null) throw new IndexOutOfBoundsException();
+        return base.subListIterator(subrange, l);
+    }
     /**
      * {@inheritDoc}
      */
@@ -344,18 +316,6 @@ public class RangedListView<T> extends RangedList<T> implements Serializable, Kr
         out.writeObject(chunk);
     }
 
-    /*
-     * public static void main(String[] args) { long i = 10; Chunk<Integer> c = new
-     * Chunk<>(new LongRange(10 * i, 11 * i)); System.out.println("prepare:" + c);
-     * for (long j = 0; j < i; j++) { int v = (int) (10 * i + j);
-     * System.out.println("set@" + v); c.set(10 * i + j, v); }
-     * System.out.println("Chunk :" + c); RangedList<Integer> r1 = c.subList(10 * i
-     * + 0, 10 * i + 2); RangedList<Integer> r2 = c.subList(10 * i + 2, 10 * i + 8);
-     * RangedList<Integer> r3 = c.subList(10 * i + 8, 10 * i + 9);
-     * RangedList<Integer> r4 = c.subList(10 * i + 0, 10 * i + 9);
-     * System.out.println("RangedListView: " + r1);
-     * System.out.println("RangedListView: " + r2);
-     * System.out.println("RangedListView: " + r3);
-     * System.out.println("RangedListView: " + r4); }
-     */
+
+
 }

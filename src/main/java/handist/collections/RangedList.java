@@ -11,6 +11,7 @@
 package handist.collections;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -124,7 +125,7 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param action   action to perform on each element, potentially
      * @param receiver collector of information extracted
      */
-    public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
+    public final <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
         forEach(getRange(), action, receiver);
     }
 
@@ -158,15 +159,16 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param receiver collector of information extracted
      * @see #forEach(LongRange, BiConsumer, Consumer)
      */
-    @SuppressWarnings("unchecked")
-    public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+    public final <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
             Consumer<? super U> receiver) {
+        forEachImpl(range, action, receiver);
+    }
+    protected <U> void forEachImpl(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+                            Consumer<? super U> receiver) {
         rangeCheck(range);
-        final Object[] a = getBody();
-        int index = (int) (range.from - getBodyOffset());
-        final int limit = (int) (range.to - getBodyOffset());
-        while (index < limit) {
-            action.accept((T) a[index++], receiver);
+        Iterator<T> iter0 = subIterator(range);
+        while (iter0.hasNext()) {
+            action.accept(iter0.next(), receiver);
         }
     }
 
@@ -179,14 +181,15 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param range  range of application of the action
      * @param action action to perform on individual elements
      */
-    @SuppressWarnings("unchecked")
-    public void forEach(LongRange range, Consumer<? super T> action) {
+    public final void forEach(LongRange range, Consumer<? super T> action) {
+            forEachImpl(range, action);
+    }
+    protected void forEachImpl(LongRange range, Consumer<? super T> action) {
         rangeCheck(range);
-        final Object[] a = getBody();
-        int index = (int) (range.from - getBodyOffset());
-        final int limit = (int) (range.to - getBodyOffset());
-        while (index < limit) {
-            action.accept((T) a[index++]);
+        if(range.size()==0) return;
+        Iterator<T> iter0 = subIterator(range);
+        while (iter0.hasNext()) {
+            action.accept(iter0.next());
         }
     }
 
@@ -200,13 +203,15 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param range  range of indices on which to apply the action
      * @param action action to perform taking a long and a T as parameter
      */
-    @SuppressWarnings("unchecked")
-    public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
+    public final void forEach(LongRange range, LongTBiConsumer<? super T> action) {
+        forEachImpl(range, action);
+    }
+    protected void forEachImpl(LongRange range, LongTBiConsumer<? super T> action) {
         rangeCheck(range);
-        final Object[] a = getBody();
-        int index = (int) (range.from - getBodyOffset());
-        for (long i = range.from; i < range.to; i++) {
-            action.accept(i, (T) a[index++]);
+        long index = range.from;
+        Iterator<T> iter0 = subIterator(range);
+        while (iter0.hasNext()) {
+            action.accept(index++, iter0.next());
         }
     }
 
@@ -216,7 +221,7 @@ public abstract class RangedList<T> implements Iterable<T> {
      *
      * @param action action to perform taking a long and a T as parameter
      */
-    public void forEach(LongTBiConsumer<? super T> action) {
+    public final void forEach(LongTBiConsumer<? super T> action) {
         forEach(getRange(), action);
     }
 
@@ -227,10 +232,6 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @return the value associated with this index
      */
     public abstract T get(long index);
-
-    protected abstract Object[] getBody();
-
-    protected abstract long getBodyOffset();
 
     /**
      * Obtain the {@link LongRange} on which this instance is defined.
@@ -249,6 +250,15 @@ public abstract class RangedList<T> implements Iterable<T> {
     public boolean isEmpty() {
         return getRange().size() == 0;
     }
+
+    public abstract Iterator<T> iterator();
+    public abstract RangedListIterator<T> listIterator();
+    public abstract RangedListIterator<T> listIterator(long from);
+
+    protected abstract Iterator<T> subIterator(LongRange range);
+    protected abstract RangedListIterator<T> subListIterator(LongRange range);
+    protected abstract RangedListIterator<T> subListIterator(LongRange range, long from);
+
 
     /**
      * Creates a new collection from the elements contained in this instance by
@@ -280,14 +290,6 @@ public abstract class RangedList<T> implements Iterable<T> {
         return this.subList(range.from, range.to).map(func);
     }
 
-    public <S, U> RangedList<U> map(LongRange range, RangedList<S> target, BiFunction<T, S, U> func) {
-        final Chunk<U> result = new Chunk<>(range);
-        rangeCheck(range);
-        target.rangeCheck(range);
-        result.setupFrom(range, this, target, func);
-        return result;
-    }
-
     /**
      * Iterates on the elements of this instance and the {@code target}
      * {@link RangedList} and applies the given function to each pair of this and
@@ -301,18 +303,24 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param <U>    the type handled by the {@link RangedList} given as parameter,
      *               second input for the function
      */
-    @SuppressWarnings("unchecked")
-    public <U> void map(LongRange range, RangedList<U> target, BiConsumer<T, U> func) {
+    public final <U> void map(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
+        mapImpl(range, target, func);
+    }
+    protected <U> void mapImpl(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
         rangeCheck(range);
         target.rangeCheck(range);
-        final Object[] a = getBody();
-        int index = (int) (range.from - getBodyOffset());
-        final int limit = (int) (range.to - getBodyOffset());
-        final Object[] targetA = target.getBody();
-        int tIndex = (int) (range.from - target.getBodyOffset());
-        while (index < limit) {
-            func.accept((T) a[index++], (U) targetA[tIndex++]);
+        Iterator<T> iter0 = subIterator(range);
+        Iterator<U> iter = target.subList(range).iterator();
+        while(iter0.hasNext()) {
+            func.accept(iter0.next(), iter.next());
         }
+    }
+    public final <S, U> RangedList<U> map(LongRange range, RangedList<S> target, BiFunction<T, S, U> func) {
+        final Chunk<U> result = new Chunk<>(range);
+        rangeCheck(range);
+        target.rangeCheck(range);
+        result.setupFrom(range, this, target, func);
+        return result;
     }
 
     /**
@@ -388,8 +396,22 @@ public abstract class RangedList<T> implements Iterable<T> {
     public abstract T set(long index, T value);
 
     /**
-     * Initializes the values in the {code range} of this instance by applying the
-     * provided function on the elements contained in {@code source}
+     * Initializes the values in this instance by applying the provided function on
+     * the elements contained in {@code source}
+     *
+     * @param <S>    the type handled by the {@link RangedList} given as parameter,
+     *               input for the function
+     * @param source {@link RangedList} instance from which entried for this
+     *               instance will be extracted
+     * @param func   function that takes an object of type S as parameter and
+     *               returns a type T
+     */
+    public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
+        setupFrom(source.getRange(), source, func);
+    }
+    /**
+     * Initializes the values in the {code range} of this instance by applying the provided function on
+     * the elements contained in {@code source}
      *
      * @param <S>    the type handled by the {@link RangedList} given as parameter,
      *               input for the function
@@ -399,20 +421,20 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param func   function that takes an object of type S as parameter and
      *               returns a type T
      */
-    @SuppressWarnings("unchecked")
-    public <S> void setupFrom(LongRange range, RangedList<S> source, Function<? super S, ? extends T> func) {
+    public final <S> void setupFrom(LongRange range, RangedList<S> source, Function<? super S, ? extends T> func) {
+        setupFromImpl(range, source, func);
+    }
+    protected <S> void setupFromImpl(LongRange range, RangedList<S> source, Function<? super S, ? extends T> func) {
         rangeCheck(range);
         source.rangeCheck(range);
-        final Object[] a = getBody();
-        int index = (int) (range.from - getBodyOffset());
-        final int limit = (int) (range.to - getBodyOffset());
-        final Object[] sourceA = source.getBody();
-        int sIndex = (int) (range.from - source.getBodyOffset());
-        while (index < limit) {
-            a[index++] = func.apply((S) sourceA[sIndex++]);
-        }
-        ;
+        RangedListIterator<T> iter0 = subListIterator(range);
+        Iterator<S> iter = source.subIterator(range);
+        while(iter0.hasNext()) {
+            iter0.next();
+            iter0.set(func.apply(iter.next()));
+        };
     }
+
 
     /**
      * Initializes the values in the {code range} of this instance by applying the
@@ -432,48 +454,20 @@ public abstract class RangedList<T> implements Iterable<T> {
      *                and returns a type T
      */
 
-    @SuppressWarnings("unchecked")
-    public <S, U> void setupFrom(LongRange range, RangedList<S> source1, RangedList<U> source2,
-            BiFunction<S, U, T> func) {
+    public final <S,U> void setupFrom(LongRange range, RangedList<S> source1, RangedList<U> source2, BiFunction<S,U,T> func) {
+        setupFromImpl(range, source1, source2, func);
+    }
+    protected <S,U> void setupFromImpl(LongRange range, RangedList<S> source1, RangedList<U> source2, BiFunction<S,U,T> func) {
         rangeCheck(range);
         source1.rangeCheck(range);
         source2.rangeCheck(range);
-        final Object[] a = getBody();
-        int index = (int) (range.from - getBodyOffset());
-        final int limit = (int) (range.to - getBodyOffset());
-        final Object[] s1A = source1.getBody();
-        int s1index = (int) (range.from - source1.getBodyOffset());
-        final Object[] s2A = source2.getBody();
-        int s2index = (int) (range.from - source2.getBodyOffset());
-        while (index < limit) {
-            a[index++] = func.apply((S) s1A[s1index++], (U) s2A[s2index++]);
+        RangedListIterator<T> iter0 = subListIterator(range);
+        final Iterator<S> iter1 = source1.subIterator(range);
+        final Iterator<U> iter2 = source2.subIterator(range);
+        while(iter0.hasNext()) {
+            iter0.next();
+            iter0.set(func.apply(iter1.next(), iter2.next()));
         }
-    }
-
-    /**
-     * Initializes the values in this instance by applying the provided function on
-     * the elements contained in {@code source}
-     *
-     * @param <S>    the type handled by the {@link RangedList} given as parameter,
-     *               input for the function
-     * @param source {@link RangedList} instance from which entried for this
-     *               instance will be extracted
-     * @param func   function that takes an object of type S as parameter and
-     *               returns a type T
-     */
-    public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
-        setupFrom(source.getRange(), source, func);
-    }
-
-    final public <S> void setupFromLikeOld(LongRange range, RangedList<S> source,
-            Function<? super S, ? extends T> func) {
-        rangeCheck(range);
-        final Object[] a = getBody();
-        final LongTBiConsumer<S> consumer = (long index, S s) -> {
-            final T r = func.apply(s);
-            a[(int) (index - range.from)] = r;
-        };
-        source.forEach(consumer);
     }
 
     /**

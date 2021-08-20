@@ -25,79 +25,13 @@ import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
+
 /**
  * Large collection that can contain objects mapped to long indices.
  *
  * @param <T> type of the elements handled by this instance
  */
 public class Chunk<T> extends RangedList<T> implements Serializable, KryoSerializable {
-
-    /**
-     * Iterator class for Chunk
-     *
-     * @param <T> type on which the iterator operates
-     */
-    private static class It<T> implements RangedListIterator<T> {
-        private final Chunk<T> chunk;
-        private int i; // offset inside the chunk
-        private int lastReturnedShift = -1;
-
-        public It(Chunk<T> chunk) {
-            this.chunk = chunk;
-            this.i = -1;
-        }
-
-        public It(Chunk<T> chunk, long i0) {
-            if (!chunk.range.contains(i0)) {
-                throw new IndexOutOfBoundsException();
-            }
-            this.chunk = chunk;
-            this.i = (int) (i0 - chunk.range.from - 1);
-        }
-
-        @Override
-        public boolean hasNext() {
-            return i + 1 < chunk.size();
-        }
-
-        @Override
-        public boolean hasPrevious() {
-            return i > 0;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public T next() {
-            lastReturnedShift = 0;
-            return (T) chunk.a[++i];
-        }
-
-        @Override
-        public long nextIndex() {
-            return chunk.range.from + i + 1;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public T previous() {
-            lastReturnedShift = 1;
-            return (T) chunk.a[i--];
-        }
-
-        @Override
-        public long previousIndex() {
-            return chunk.range.from + i;
-        }
-
-        @Override
-        public void set(T e) {
-            if (lastReturnedShift == -1) {
-                throw new IllegalStateException("[Chunk.It] Either method "
-                        + "previous or next needs to be called before method set" + " can be used");
-            }
-            chunk.a[i + lastReturnedShift] = e; // FIXME THIS IS NOT CORRECT !!!
-        }
-    }
 
     /** Serial Version UID */
     private static final long serialVersionUID = -7691832846457812518L;
@@ -262,24 +196,6 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         return RangedList.equals(this, o);
     }
 
-    /*
-     * @Override public <U> void forEach(LongRange range, BiConsumer<? super T,
-     * Consumer<? super U>> action, Consumer<? super U> receiver) {
-     * rangeCheck(range); // IntStream.range(begin, end).forEach(); for (long i =
-     * range.from; i < range.to; i++) { action.accept(get(i), receiver); } }
-     *
-     * @Override public void forEach(LongRange range, final Consumer<? super T>
-     * action) { rangeCheck(range); final long from = range.from; final long to =
-     * range.to;
-     *
-     * for (long i = from; i < to; i++) { action.accept(get(i)); } }
-     *
-     * @Override public void forEach(LongRange range, final LongTBiConsumer<? super
-     * T> action) { rangeCheck(range); // IntStream.range(begin, end).forEach(); for
-     * (long i = range.from; i < range.to; i++) { action.accept(i, getUnsafe(i)); }
-     * }
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -289,16 +205,6 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
             throw new IndexOutOfBoundsException(rangeMsg(index));
         }
         return getUnsafe(index);
-    }
-
-    @Override
-    protected Object[] getBody() {
-        return a;
-    }
-
-    @Override
-    protected long getBodyOffset() {
-        return range.from;
     }
 
     /**
@@ -335,7 +241,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      */
     @Override
     public Iterator<T> iterator() {
-        return new It<>(this);
+        return new ChunkIterator<>(this.range, this.a);
     }
 
     /**
@@ -344,8 +250,9 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      *
      * @return a new {@link RangedListIterator}
      */
-    public RangedListIterator<T> rangedListIterator() {
-        return new It<>(this);
+    @Override
+    public RangedListIterator<T> listIterator() {
+        return new ChunkListIterator<>(this.range, this.a);
     }
 
     /**
@@ -356,8 +263,8 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      *              {@link RangedListIterator#next()}
      * @return a new {@link RangedListIterator} starting at the specified index
      */
-    public RangedListIterator<T> rangedListIterator(long index) {
-        return new It<>(this, index);
+    public RangedListIterator<T> listIterator(long index) {
+        return new ChunkListIterator<>(this.range, index, this.a);
     }
 
     private String rangeMsg(long index) {
@@ -398,6 +305,33 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         a[(int) offset] = v;
         return prev;
     }
+    private LongRange calcSubIteratorRange(LongRange range) {
+        range = this.getRange().intersection(range);
+        if(range == null) {
+            throw new IndexOutOfBoundsException();
+        }
+        return range;
+    }
+    @Override
+    public Iterator<T> subIterator(LongRange range) {
+        range = calcSubIteratorRange(range);
+        int offset = (int)(range.from-this.getRange().from);
+        return new ChunkIterator(offset, range, this.a);
+    }
+    @Override
+    public RangedListIterator<T> subListIterator(LongRange range) {
+        range = calcSubIteratorRange(range);
+        int offset = (int)(range.from-this.getRange().from);
+        return new ChunkListIterator<T>(offset, range, this.a);
+    }
+    @Override
+    public RangedListIterator<T> subListIterator(LongRange range, long i0) {
+        range = calcSubIteratorRange(range);
+        int offset = (int)(range.from-this.getRange().from);
+        return new ChunkListIterator<T>(offset, range, i0, this.a);
+    }
+
+
 
     /**
      * {@inheritDoc}

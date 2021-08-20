@@ -23,6 +23,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import org.junit.After;
 import org.junit.Before;
@@ -30,6 +31,7 @@ import org.junit.Test;
 
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
+import handist.collections.function.LongTBiConsumer;
 
 /**
  * Junit test class for class {@link RangedListView}.
@@ -131,12 +133,12 @@ public class TestRangedListView implements Serializable {
                 return null;
             }
 
-            @Override
+            //@Override
             protected Object[] getBody() {
                 return new Object[0];
             }
 
-            @Override
+            //@Override
             protected long getBodyOffset() {
                 return 0;
             }
@@ -149,7 +151,32 @@ public class TestRangedListView implements Serializable {
 
             @Override
             public Iterator<T> iterator() {
+                return null;
+            }
+
+            @Override
+            public RangedListIterator<T> listIterator() {
                 // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public RangedListIterator<T> listIterator(long from) {
+                return null;
+            }
+
+            @Override
+            protected Iterator<T> subIterator(LongRange range) {
+                return null;
+            }
+
+            @Override
+            public RangedListIterator<T> subListIterator(LongRange range) {
+                return null;
+            }
+
+            @Override
+            protected RangedListIterator<T> subListIterator(LongRange range, long from) {
                 return null;
             }
 
@@ -328,7 +355,7 @@ public class TestRangedListView implements Serializable {
 
     @Test
     public void testIteratorFrom() {
-        final Iterator<Element> it = view.iterator(3l);
+        final Iterator<Element> it = view.listIterator(3l);
 
         while (it.hasNext()) {
             it.next().n = 0;
@@ -352,7 +379,7 @@ public class TestRangedListView implements Serializable {
      */
     @Test(expected = IndexOutOfBoundsException.class)
     public void testIteratorFromOutOfChunkRange() {
-        view.iterator(-1l);
+        view.listIterator(-1l);
     }
 
     /**
@@ -361,7 +388,7 @@ public class TestRangedListView implements Serializable {
      */
     @Test(expected = IndexOutOfBoundsException.class)
     public void testIteratorFromOutOfViewRange() {
-        view.iterator(0l);
+        view.listIterator(0l);
     }
 
     /**

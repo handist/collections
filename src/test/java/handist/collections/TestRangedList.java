@@ -63,23 +63,35 @@ public class TestRangedList {
         }
 
         @Override
-        protected Object[] getBody() {
-            return chunk.getBody();
-        }
-
-        @Override
-        protected long getBodyOffset() {
-            return chunk.getBodyOffset();
-        }
-
-        @Override
         public LongRange getRange() {
             return chunk.getRange();
         }
 
         @Override
-        public Iterator<T> iterator() {
-            return chunk.iterator();
+        public Iterator<T> iterator() { return chunk.iterator(); }
+
+        @Override
+        public RangedListIterator<T> listIterator() {
+            return chunk.listIterator();
+        }
+
+        @Override
+        public RangedListIterator<T> listIterator(long from) {
+            return chunk.listIterator(from);
+        }
+
+        @Override
+        protected Iterator<T> subIterator(LongRange range) {
+            return chunk.subIterator(range);
+        }
+
+        @Override
+        public RangedListIterator<T> subListIterator(LongRange range) {
+            return chunk.subListIterator(range);
+        }
+        @Override
+        public RangedListIterator<T> subListIterator(LongRange range, long i) {
+            return chunk.subListIterator(range, i);
         }
 
         @Override
