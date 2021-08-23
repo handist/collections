@@ -2,7 +2,7 @@ package handist.collections;
 
 import handist.collections.function.LongTBiConsumer;
 import handist.collections.function.SquareIndexTConsumer;
-import handist.collections.util.ListUtil;
+import handist.collections.util.Splitter;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,8 +58,9 @@ public interface SquareRangedListAbstract<T, X extends SquareRangedListAbstract<
         List<SquareRange> ranges = splitRange(outer,inner);
         if(randomize) Collections.shuffle(ranges);
         List<List<X>> results = new ArrayList<>();
+        Splitter split = new Splitter(ranges.size(), num);
         for(int i=0; i<num; i++) {
-            List<SquareRange> assigned = ListUtil.splitGet(ranges, i, num);
+            List<SquareRange> assigned = split.getIth(i, ranges);
             results.add(getViews(assigned));
         }
         return results;
@@ -68,8 +69,10 @@ public interface SquareRangedListAbstract<T, X extends SquareRangedListAbstract<
         List<SquareRange> ranges = splitRange(outer,inner);
         if(rand!=null) Collections.shuffle(ranges, rand);
         List<List<X>> results = new ArrayList<>();
+        Splitter split = new Splitter(ranges.size(), numHosts);
+        Splitter splitIn = new Splitter(split.ith(ithHost), split.ith(ithHost+1), numThreads);
         for(int i=0; i<numThreads; i++) {
-            List<SquareRange> assigned = ListUtil.splitGet2(ranges, ithHost, numHosts, i, numThreads);
+            List<SquareRange> assigned = splitIn.getIth(i, ranges);
             results.add(getViews(assigned));
         }
         return results;
