@@ -36,7 +36,7 @@ public abstract class Lifeline {
      * indices in this {@link ArrayList} can be used as a substitute to the "random"
      * list of places being manipulated.
      */
-    ArrayList<Place> sortedListOfPlaces;
+    protected ArrayList<Place> sortedListOfPlaces;
 
     /**
      * Constructor specifying the set of places considered for the lifeline network.
