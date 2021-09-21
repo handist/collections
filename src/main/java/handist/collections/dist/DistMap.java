@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,7 @@ import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
+import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
 import handist.collections.glb.DistMapGlb;
@@ -230,6 +232,43 @@ public class DistMap<K, V>
         for (final Collection<V> sub : separated) {
             async(() -> {
                 sub.forEach(action);
+            });
+        }
+    }
+
+    /**
+     * Helper method which separates the keys contained in the local map into even
+     * batches for the number of threads available on the system and applies the
+     * provided action on each key/value pair contained in the collection in
+     * parallel
+     *
+     * @param action action to perform on the key/value pair contained in the map
+     */
+    private void forEachParallelKey(SerializableBiConsumer<? super K, ? super V> action) {
+        final int batches = Runtime.getRuntime().availableProcessors();
+
+        // Dispatch the existing keys into batches
+        final List<Collection<K>> keys = new ArrayList<>(batches);
+        for (int i = 0; i < batches; i++) {
+            keys.add(new HashSet<>());
+        }
+        // Round-robin of keys into batches
+        int i = 0;
+        for (final K k : data.keySet()) {
+            keys.get(i++).add(k);
+            if (i >= batches) {
+                i = 0;
+            }
+        }
+
+        // Spawn asynchronous activity for each batch
+        for (final Collection<K> keysToProcess : keys) {
+            async(() -> {
+                // Apply the supplied action on each key in the batch
+                for (final K key : keysToProcess) {
+                    final V value = data.get(key);
+                    action.accept(key, value);
+                }
             });
         }
     }
@@ -468,19 +507,6 @@ public class DistMap<K, V>
         mm.request(pl, serialize, deserialize);
     }
 
-    @Override
-    public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManager mm) throws Exception {
-        for (final IntLongPair pair : moveList) {
-            if (_debug_level > 5) {
-                System.out.println("MOVE src: " + here() + " dest: " + pair.first + " size: " + pair.second);
-            }
-            if (pair.second > Integer.MAX_VALUE) {
-                throw new Error("One place cannot receive so much elements: " + pair.second);
-            }
-            moveAtSyncCount((int) pair.second, placeGroup.get(pair.first), mm);
-        }
-    }
-
     /*
      * void teamedBalance() { LoadBalancer.MapBalancer<T, U> balance = new
      * LoadBalancer.MapBalancer<>(this.data, placeGroup); balance.execute();
@@ -497,6 +523,21 @@ public class DistMap<K, V>
      * }
      */
 
+    @Override
+    public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManager mm) throws Exception {
+        for (final IntLongPair pair : moveList) {
+            if (_debug_level > 5) {
+                System.out.println("MOVE src: " + here() + " dest: " + pair.first + " size: " + pair.second);
+            }
+            if (pair.second > Integer.MAX_VALUE) {
+                throw new Error("One place cannot receive so much elements: " + pair.second);
+            }
+            moveAtSyncCount((int) pair.second, placeGroup.get(pair.first), mm);
+        }
+    }
+
+    // TODO different naming convention of balance methods with DistMap
+
     public void moveAtSyncCount(int count, Place dest, MoveManager mm) {
         if (count == 0) {
             return;
@@ -504,7 +545,17 @@ public class DistMap<K, V>
         moveAtSync(getNKeys(count), dest, mm);
     }
 
-    // TODO different naming convention of balance methods with DistMap
+    /**
+     * Parallel version of {@link #forEach(BiConsumer)}
+     *
+     * @param action the action to perform on every key/value pair contained in this
+     *               local map
+     */
+    public void parallelForEach(SerializableBiConsumer<? super K, ? super V> action) {
+        finish(() -> {
+            forEachParallelKey(action);
+        });
+    }
 
     @Override
     public void parallelForEach(SerializableConsumer<V> action) {
