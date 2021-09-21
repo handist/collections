@@ -226,6 +226,32 @@ public class IT_DistMap2 implements Serializable {
         }
     }
 
+    @Test(timeout = 10000)
+    public void testParallelForEachKeyValue() {
+        distMap.parallelForEach((k, e) -> {
+            e.s = e.s + "K" + k;
+        });
+
+        // Check that every element contains K
+        for (final String key : distMap.keySet()) {
+            final Element e = distMap.get(key);
+            assertTrue(e.s.contains("K"));
+            assertTrue(e.s.contains(key));
+        }
+    }
+
+    @Test(timeout = 10000)
+    public void testParallelForEachValue() {
+        distMap.parallelForEach(e -> {
+            e.s = e.s + "K";
+        });
+
+        // Check that every element contains K
+        for (final Element e : distMap.values()) {
+            assertTrue(e.s.contains("K"));
+        }
+    }
+
     /**
      * Checks that the initialization of the distMap was done correctly
      */
