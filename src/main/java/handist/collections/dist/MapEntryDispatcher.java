@@ -46,7 +46,7 @@ import handist.collections.dist.util.ObjectOutput;
  */
 public class MapEntryDispatcher<K, V> implements KryoSerializable, Serializable {
 
-    class TeamOperations {
+    public class TeamOperations {
         private final MapEntryDispatcher<K, V> handle;
 
         public TeamOperations(MapEntryDispatcher<K, V> localObject) {
@@ -75,7 +75,7 @@ public class MapEntryDispatcher<K, V> implements KryoSerializable, Serializable 
 
     protected TeamedPlaceGroup placeGroup;
     protected DistMap<K, V> base;
-    protected TeamOperations TEAM;
+    public TeamOperations TEAM;
 
     protected Map<Place, Map<Thread, ObjectOutput>> outputMap;
     /** The entries are relocated following the rules defined by this. */
