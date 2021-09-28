@@ -472,6 +472,52 @@ public class IT_GLB_DistChunkedList implements Serializable {
         }
     }
 
+    /**
+     * Checks
+     * {@link DistColGlb#toBag(handist.collections.function.SerializableBiConsumer, DistBag)}
+     * method
+     *
+     * @throws Throwable if thrown during the test
+     */
+    @Test(timeout = 60000)
+    public void testToBagVariant() throws Throwable {
+        final DistBag<Element> resultBag = new DistBag<>();
+        try {
+            final ArrayList<Exception> ex = underGLB(() -> {
+                final DistBag<Element> result = distChunkedList.GLB.toBag((e, r) -> {
+                    final Element ele = new Element(e.s + "Test");
+                    r.accept(ele);
+                }, resultBag).result();
+
+                try {
+                    assertEquals(result, resultBag);
+                    z_checkDistColTotalElements(distChunkedList, TOTAL_DATA_SIZE); // This shouldn't have changed
+                    // There should be as many lists in the handles of the DistBag as there are
+                    // workers on the hosts
+                    z_checkBagNumberOfLists(result, GlbComputer.getComputer().MAX_WORKERS);
+                    z_checkBagTotalElements(result, TOTAL_DATA_SIZE); // Should contain the same number of elements
+                    z_checkSuffixIs(result, "Test"); // The elements contained in the result should have 'Test' as
+                    // prefix
+                } catch (final Throwable e) {
+                    throw new RuntimeException(e);
+                }
+
+            });
+            if (!ex.isEmpty()) {
+                ex.get(0).printStackTrace();
+                throw ex.get(0);
+            }
+        } catch (final MultipleException me) {
+            printExceptionAndThrowFirst(me);
+        } catch (final RuntimeException re) {
+            if (re.getCause() instanceof AssertionError) {
+                throw re.getCause();
+            } else {
+                throw re;
+            }
+        }
+    }
+
     @Test(timeout = 60000)
     public void testTwoConcurrentForEach() throws Throwable {
         try {

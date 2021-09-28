@@ -15,10 +15,12 @@ import java.util.function.Consumer;
 
 import apgas.util.GlobalID;
 import handist.collections.Chunk;
+import handist.collections.ChunkedList;
 import handist.collections.LongRange;
 import handist.collections.dist.DistBag;
 import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.Reducer;
+import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.SerializableFunction;
 import handist.collections.function.SerializableLongTBiConsumer;
@@ -285,6 +287,83 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
             });
         });
 
+        return future;
+    }
+
+    /**
+     * GLB variant of
+     * {@link ChunkedList#parallelForEach(java.util.function.BiConsumer, handist.collections.ParallelReceiver)}
+     *
+     * @param <U>              type of elements accepted by the parallel receiver
+     * @param action           user-specified action, generally consisting of
+     *                         extracting some "U" object from an element of the
+     *                         distributed collection and placing it in the Consumer
+     *                         given as second parameter. Unlike
+     *                         {@link #toBag(SerializableFunction)}, the present
+     *                         variant allows for some intermediary checks and
+     *                         choice between placing elements in the bag rather
+     *                         than directly applying a function to each element of
+     *                         the collection and placing the obtained object in the
+     *                         bag directly.
+     * @param resultCollection {@link DistBag} instance into which the various U
+     *                         elements are placed
+     * @return {@link DistFuture} waiting on the completion of this operation and
+     *         returning the {@link DistBag} provided as parameter as the result
+     */
+    public <U> DistFuture<DistBag<U>> toBag(SerializableBiConsumer<T, Consumer<U>> action,
+            DistBag<U> resultCollection) {
+        final GlobalLoadBalancer glb = getGlb();
+
+        // Check that the provided bag is defined on the same place group as the
+        // distributed collection
+        if (resultCollection.placeGroup != col.placeGroup()) {
+            throw new IllegalArgumentException(
+                    "The provided bag should be defined on the same place group as the underlying DistributedChunkedList");
+        }
+
+        // Initialization for workers to be made before the computation starts.
+        // This will bind a handle to place the U elements into the DistBag to each
+        // worker in the system.
+        final SerializableConsumer<WorkerService> workerInit = (w) -> w.attachOperationObject(resultCollection,
+                resultCollection.getReceiver());
+
+        // Adapt the provided function to represent what the glb workers will actually
+        // perform
+        final DistColLambda<T> realAction = (chunk, from, to, ws) -> {
+            // First, retrieve the consumer of U which is bound to the worker
+            // The object used as key to retrieve the object bound to workers is the result
+            // collection
+            @SuppressWarnings("unchecked")
+            final Consumer<U> destination = (Consumer<U>) ws.retrieveOperationObject(resultCollection);
+
+            // Iterate on the elements
+            for (long l = from; l < to; l++) {
+                try {
+                    final T t = chunk.get(l);
+                    action.accept(t, destination);
+                } catch (final Throwable t) {
+                    ws.throwableInOperation(new DistColGlbError(new LongRange(from, to), l, t));
+                }
+            }
+        };
+
+        // Initialize the future returned to the programmer in the underGLB method
+        // The result of this operation is the DistBag "resultCollection"
+        final DistFuture<DistBag<U>> future = new DistFuture<>(resultCollection);
+
+        // Initializer for GlbTask of this DistCol in case it is not yet initialized
+        final SerializableSupplier<GlbTask> initGlbTask = () -> {
+            return new DistColGlbTask(col);
+        };
+
+        // Create the operation with all the types/arguments
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, DistBag<U>, DistColLambda<T>> operation = new GlbOperation<>(
+                col, realAction, future, initGlbTask, workerInit, lifelineClass);
+
+        // Submit the operation to the GLB
+        glb.submit(operation);
+
+        // return the future to the programmer
         return future;
     }
 
