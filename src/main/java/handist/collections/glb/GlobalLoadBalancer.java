@@ -169,13 +169,14 @@ public class GlobalLoadBalancer {
      * made at the time. If a second call is made while a program is under way, this
      * second call will be blocked.
      *
+     * @param logger  existing {@link DistLog} into which the logged events of the
+     *                GLB will be kept
      * @param program program to launch under GLB
      * @return collection of all the Exceptions that occurred during the glb program
      */
-    public static ArrayList<Exception> underGLB(SerializableJob program) {
+    public static ArrayList<Exception> underGLB(DistLog logger, SerializableJob program) {
         if (GlobalLoadBalancer.glb == null) {
             // Logger instance for the entire GLB
-            final DistLog logger = new DistLog();
             previousLog = logger;
             logger.put(LOGKEY_UNDER_GLB, LOG_PROGRAM_STARTED, Long.toString(System.nanoTime()));
 
@@ -211,6 +212,18 @@ public class GlobalLoadBalancer {
         } else {
             throw new IllegalStateException("Method was called even though another glb program is already running");
         }
+    }
+
+    /**
+     * Method to call to launch a GLB program. A single call to this method can be
+     * made at the time. If a second call is made while a program is under way, this
+     * second call will be blocked.
+     *
+     * @param program program to launch under GLB
+     * @return collection of all the Exceptions that occurred during the glb program
+     */
+    public static ArrayList<Exception> underGLB(SerializableJob program) {
+        return underGLB(new DistLog(), program);
     }
 
     /**
