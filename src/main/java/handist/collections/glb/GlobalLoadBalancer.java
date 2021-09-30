@@ -115,10 +115,19 @@ public class GlobalLoadBalancer {
     }
 
     /**
-     * Helper method used to launch the computations submitted to the global load
-     * balancer.
+     * Helper method used to launch the computations staged into the global load
+     * balancer. Is not blocking.
+     * <p>
+     * You would only need to call this method if you have some tasks other than the
+     * GLB computations that should be executed concurrently. In such a situation,
+     * stage the various GLB operations by calling their
+     * <em>collection.GLB.method()</em> and setup the potential
+     * {@link DistFuture#after(DistFuture)} completion dependencies. Then, call this
+     * method. In the remainder of the ongoing block, you lay out the other
+     * activities that should run while the GLB computations previously staged are
+     * being computed.
      */
-    static void start() {
+    public static void start() {
         while (!glb.operationsStaged.isEmpty()) {
             final GlbOperation<?, ?, ?, ?, ?, ?> op = glb.operationsStaged.poll();
             boolean needsToBeLaunched;
