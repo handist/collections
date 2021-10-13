@@ -1,4 +1,4 @@
-package handist.collections.glb.util;
+package handist.collections.util;
 
 import static apgas.Constructs.*;
 import static handist.collections.util.StringUtilities.*;
@@ -39,7 +39,7 @@ import handist.collections.glb.GlobalLoadBalancer;
  * @author Patrick Finnerty
  *
  */
-public class GlbLog {
+public class SavedLog {
 
     /**
      * Class used as a substitute to {@link LogKey} in which the use of the APGAS
@@ -133,7 +133,7 @@ public class GlbLog {
         final DistLog distLog = GlobalLoadBalancer.getPreviousLog();
         distLog.globalGather();
         distLog.printAll(System.out);
-        final GlbLog log = new GlbLog(distLog);
+        final SavedLog log = new SavedLog(distLog);
         try {
             log.saveToFile(new File(args[0]));
         } catch (final IOException e) {
@@ -155,7 +155,7 @@ public class GlbLog {
      * @param log the distributed log instance into which events that occurred
      *            during a GLB execution were recorded
      */
-    public GlbLog(DistLog log) {
+    public SavedLog(DistLog log) {
         numberOfHosts = Constructs.places().size();
 
         log.globalGather();
@@ -183,7 +183,7 @@ public class GlbLog {
      *                                specified file
      */
     @SuppressWarnings("unchecked")
-    public GlbLog(File file) throws IOException, ClassNotFoundException {
+    public SavedLog(File file) throws IOException, ClassNotFoundException {
         final ObjectInputStream inStream = new ObjectInputStream(new FileInputStream(file));
         numberOfHosts = inStream.readInt();
         loggedEntries = (HashMap<Key, Collection<LogItem>>) inStream.readObject();
@@ -195,8 +195,8 @@ public class GlbLog {
         if (o == null) {
             return false;
         }
-        if (o instanceof GlbLog) {
-            return equalsGlbLog((GlbLog) o);
+        if (o instanceof SavedLog) {
+            return equalsGlbLog((SavedLog) o);
         } else if (o instanceof DistLog) {
             return equalsDistLog((DistLog) o);
         } else {
@@ -234,7 +234,7 @@ public class GlbLog {
      * @param log
      * @return
      */
-    private boolean equalsGlbLog(GlbLog log) {
+    private boolean equalsGlbLog(SavedLog log) {
         final Map<Key, Collection<LogItem>> logMap = log.loggedEntries;
         if (logMap.size() != loggedEntries.size()) {
             return false;
@@ -286,7 +286,7 @@ public class GlbLog {
     /**
      * Obtain the logged entries for the specified log key. The provided key is
      * converted from {@link LogKey} to {@link Key} to retrieve the logged elements
-     * from the {@link GlbLog} object.
+     * from the {@link SavedLog} object.
      *
      * @param k key from a {@link DistLog} instance
      * @return collection of logged items that
@@ -297,7 +297,7 @@ public class GlbLog {
 
     /**
      * Returns the number of hosts that took part in the execution this
-     * {@link GlbLog} is the
+     * {@link SavedLog} is the
      *
      * @return the number of processes involved in this computation
      */

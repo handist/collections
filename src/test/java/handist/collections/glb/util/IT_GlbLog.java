@@ -21,6 +21,7 @@ import apgas.impl.DebugFinish;
 import handist.collections.dist.DistLog;
 import handist.collections.dist.DistLog.LogItem;
 import handist.collections.dist.DistLog.LogKey;
+import handist.collections.util.SavedLog;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -48,7 +49,7 @@ public class IT_GlbLog implements Serializable {
      * Instance into which all the distributed logs of DistLog are gathered back
      * into. This object is the main subject of this test class
      */
-    public GlbLog glbLog;
+    public SavedLog glbLog;
 
     @Rule
     public transient TestName nameOfCurrentTest = new TestName();
@@ -97,11 +98,11 @@ public class IT_GlbLog implements Serializable {
         // Gather all logged entries on Place 0
         distLog.globalGather();
         // Create a GlbLog based on this DistLog
-        glbLog = new GlbLog(distLog);
+        glbLog = new SavedLog(distLog);
     }
 
     /**
-     * Checks if storing a {@link GlbLog} instance to a file and restoring an
+     * Checks if storing a {@link SavedLog} instance to a file and restoring an
      * instance from this recording preserves the properties of the instance
      *
      * @throws IOException            if thrown during the execution of the test
@@ -118,7 +119,7 @@ public class IT_GlbLog implements Serializable {
         assertTrue(fileForInput.exists());
         assertTrue(fileForInput.canRead());
 
-        final GlbLog logFromFile = new GlbLog(fileForInput);
+        final SavedLog logFromFile = new SavedLog(fileForInput);
 
         // Check that every key in DistLog has its equivalent in the GlbLog
         final Collection<LogKey> keys = distLog.getDistMultiMap().keySet();
@@ -132,7 +133,7 @@ public class IT_GlbLog implements Serializable {
     }
 
     /**
-     * Checks that a {@link GlbLog} instance created from a {@link DistLog} contains
+     * Checks that a {@link SavedLog} instance created from a {@link DistLog} contains
      * all its logged instances
      */
     @Test
