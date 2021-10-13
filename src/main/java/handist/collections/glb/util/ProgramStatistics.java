@@ -18,6 +18,7 @@ import org.apache.commons.cli.ParseException;
 
 import handist.collections.dist.DistLog.LogItem;
 import handist.collections.glb.GlobalLoadBalancer;
+import handist.collections.util.SavedLog;
 
 public class ProgramStatistics {
 
@@ -49,7 +50,7 @@ public class ProgramStatistics {
         }
 
         // Open the input log file
-        GlbLog log = null;
+        SavedLog log = null;
         final String inputFileName = args[args.length - 1];
         final File f = new File(inputFileName);
         if (!f.exists()) {
@@ -58,7 +59,7 @@ public class ProgramStatistics {
             System.exit(-1);
         }
         try {
-            log = new GlbLog(f);
+            log = new SavedLog(f);
         } catch (final Exception e) {
             System.err.println("A problem occurred while parsing input file " + inputFileName);
             e.printStackTrace();
@@ -125,7 +126,7 @@ public class ProgramStatistics {
      * Logger of a GLB execution. Is used by this class to produce various data
      * tables to generates various plots about the glb execution considered
      */
-    final private GlbLog log;
+    final private SavedLog log;
 
     /**
      * Constructor
@@ -133,7 +134,7 @@ public class ProgramStatistics {
      * @param logger DistLog instance retrieved through method
      *               {@link GlobalLoadBalancer#getPreviousLog()}
      */
-    public ProgramStatistics(GlbLog logger) {
+    public ProgramStatistics(SavedLog logger) {
         log = logger;
     }
 
