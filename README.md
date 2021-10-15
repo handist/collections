@@ -57,3 +57,8 @@ The "mpjNative" profile relies on the usual declaration of the `MPJ_HOME` envirn
 # Related repository
 
 This work was inspired by the distributed collections library of X10. You can check this project named "Cassia" there: [cassiaX10lib](https://github.com/handist/cassiaX10lib)@github
+
+# Authors
+- Tomio Kamada
+- Patrick Finnerty
+- Yoshiki Kawanishi
