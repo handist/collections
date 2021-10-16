@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistChunkedList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistChunkedList.java</span></div><h1>DistChunkedList.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist;
+
+import static apgas.Constructs.*;
+
+import java.io.ObjectStreamException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
+import com.esotericsoftware.kryo.DefaultSerializer;
+import com.esotericsoftware.kryo.serializers.JavaSerializer;
+
+import apgas.Place;
+import apgas.util.GlobalID;
+import apgas.util.SerializableWithReplace;
+import handist.collections.ChunkedList;
+import handist.collections.LongRange;
+import handist.collections.RangedList;
+import handist.collections.dist.util.IntLongPair;
+import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+import handist.collections.dist.util.Pair;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.SerializableConsumer;
+import handist.collections.function.Serializer;
+import handist.collections.glb.DistColGlb;
+
+/**
+ * A class for handling objects at multiple places. It is allowed to add new
+ * elements dynamically. This class provides the method for load balancing.
+ * &lt;p&gt;
+ * Note: In the current implementation, there are some limitations.
+ * &lt;ul&gt;
+ * &lt;li&gt;There is only one load balancing method: the method flattens the number
+ * of elements of the all places.
+ * &lt;/ul&gt;
+ *
+ * @param &lt;T&gt; the type of elements handled by this {@link DistChunkedList}
+ */
+@DefaultSerializer(JavaSerializer.class)
+public class DistChunkedList&lt;T&gt; extends ChunkedList&lt;T&gt;
+        implements DistributedCollection&lt;T, DistChunkedList&lt;T&gt;&gt;, RangeRelocatable&lt;LongRange&gt;, SerializableWithReplace {
+
+    static class DistributionManager&lt;T&gt; extends GeneralDistManager&lt;DistChunkedList&lt;T&gt;&gt; implements Serializable {
+
+        /** Serial Version UID */
+        private static final long serialVersionUID = 456677767130722164L;
+
+        public DistributionManager(TeamedPlaceGroup placeGroup, GlobalID id, DistChunkedList&lt;T&gt; branch) {
+<span class="fc" id="L66">            super(placeGroup, id, branch);</span>
+<span class="fc" id="L67">        }</span>
+
+        @Override
+        protected void moveAtSyncCount(ArrayList&lt;IntLongPair&gt; moveList, CollectiveMoveManager mm) throws Exception {
+<span class="nc" id="L71">            branch.moveAtSyncCount(moveList, mm);</span>
+<span class="nc" id="L72">        }</span>
+
+    }
+
+    /**
+     * Specialization of {@link TeamOperations} for the purposes of
+     * {@link DistChunkedList}
+     *
+     * @param &lt;T&gt; the type of the instances held by the underlying
+     *            {@link DistChunkedList}
+     */
+    public static class Team&lt;T&gt; extends TeamOperations&lt;T, DistChunkedList&lt;T&gt;&gt; {
+
+        private Team(DistChunkedList&lt;T&gt; localObject) {
+<span class="fc" id="L86">            super(localObject);</span>
+<span class="fc" id="L87">        }</span>
+
+        /**
+         * Performs a parallel reduction on each local handle of the underlyin
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param &lt;R&gt;     the type of the reducer used
+         * @param reducer the reduction operation to perform
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public &lt;R extends Reducer&lt;R, T&gt;&gt; R parallelReduce(R reducer) {
+<span class="fc" id="L101">            final R localReduce = handle.parallelReduce(reducer);</span>
+<span class="fc" id="L102">            return localReduce.teamReduction(handle.placeGroup());</span>
+        }
+
+        /**
+         * Performs a sequential reduction on each handle of the underlying
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param&lt;R&gt; type of the reducer used
+         * @param reducer the reduction operation to perform
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public &lt;R extends Reducer&lt;R, T&gt;&gt; R reduce(R reducer) {
+<span class="fc" id="L117">            final R localReduce = handle.reduce(reducer);</span>
+
+<span class="fc" id="L119">            return localReduce.teamReduction(handle.placeGroup());</span>
+        }
+    }
+
+<span class="fc" id="L123">    private static int _debug_level = 5;</span>
+
+    private static float[] initialLocality(final int size) {
+<span class="fc" id="L126">        final float[] result = new float[size];</span>
+<span class="fc" id="L127">        Arrays.fill(result, 1.0f);</span>
+<span class="fc" id="L128">        return result;</span>
+    }
+
+    /**
+     * Handle to operations that can benefit from load balance when called inside an
+     * &quot;underGLB&quot; method.
+     */
+    public transient final DistColGlb&lt;T&gt; GLB;
+
+    /**
+     * Handle to Global Operations implemented by {@link DistChunkedList}.
+     */
+    public transient final GlobalOperations&lt;T, DistChunkedList&lt;T&gt;&gt; GLOBAL;
+
+    protected transient DistributionManager&lt;T&gt; manager;
+
+    /**
+     * Handle to Team Operations implemented by {@link DistChunkedList}.
+     */
+    protected final transient Team&lt;T&gt; TEAM;
+
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    DistCollectionSatellite satellite;
+
+    /**
+     * Create a new DistCol. All the hosts participating in the distributed
+     * computation are susceptible to handle the created instance. This constructor
+     * is equivalent to calling {@link #DistChunkedList(TeamedPlaceGroup)} with
+     * {@link TeamedPlaceGroup#getWorld()} as argument.
+     */
+    public DistChunkedList() {
+<span class="fc" id="L159">        this(TeamedPlaceGroup.getWorld());</span>
+<span class="fc" id="L160">    }</span>
+
+    /**
+     * Constructor for {@link DistChunkedList} whose handles are restricted to the
+     * {@link TeamedPlaceGroup} passed as parameter.
+     *
+     * @param placeGroup the places on which the DistCol will hold handles.
+     */
+    public DistChunkedList(final TeamedPlaceGroup placeGroup) {
+<span class="fc" id="L169">        this(placeGroup, new GlobalID());</span>
+<span class="fc" id="L170">    }</span>
+
+    /**
+     * Private constructor by which the locality and the GlobalId associated with
+     * the {@link DistChunkedList} are explicitly given. This constructor should
+     * only be used internally when creating the local handle of a DistCol already
+     * created on a remote place. Calling this constructor with an existing
+     * {@link GlobalID} which is already linked with existing and potentially
+     * different objects could prove disastrous.
+     *
+     * @param placeGroup the hosts on which the distributed collection the created
+     *                   instance may have handles on
+     * @param id         the global id used to identify all the local handles
+     */
+    private DistChunkedList(final TeamedPlaceGroup placeGroup, final GlobalID id) {
+<span class="pc" id="L185">        this(placeGroup, id, (TeamedPlaceGroup pg, GlobalID gid) -&gt; new DistChunkedList&lt;&gt;(pg, gid));</span>
+<span class="fc" id="L186">    }</span>
+
+    protected DistChunkedList(final TeamedPlaceGroup placeGroup, final GlobalID id,
+            BiFunction&lt;TeamedPlaceGroup, GlobalID, ? extends DistChunkedList&lt;T&gt;&gt; lazyCreator) {
+<span class="fc" id="L190">        super();</span>
+<span class="fc" id="L191">        id.putHere(this);</span>
+<span class="fc" id="L192">        manager = new DistributionManager&lt;&gt;(placeGroup, id, this);</span>
+<span class="fc" id="L193">        manager.locality = initialLocality(placeGroup.size);</span>
+<span class="fc" id="L194">        TEAM = new Team&lt;&gt;(this);</span>
+<span class="fc" id="L195">        GLOBAL = new GlobalOperations&lt;&gt;(this, lazyCreator);</span>
+<span class="fc" id="L196">        GLB = new DistColGlb&lt;&gt;(this);</span>
+<span class="fc" id="L197">    }</span>
+
+    @Override
+    public void clear() {
+<span class="fc" id="L201">        super.clear();</span>
+<span class="fc" id="L202">        Arrays.fill(manager.locality, 1.0f);</span>
+<span class="fc" id="L203">    }</span>
+
+    @Override
+    public void forEach(SerializableConsumer&lt;T&gt; action) {
+<span class="fc" id="L207">        super.forEach(action);</span>
+<span class="fc" id="L208">    }</span>
+
+    @Override
+    public Collection&lt;LongRange&gt; getAllRanges() {
+<span class="fc" id="L212">        return ranges();</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @Override
+    public &lt;S extends DistCollectionSatellite&lt;DistChunkedList&lt;T&gt;, S&gt;&gt; S getSatellite() {
+<span class="nc" id="L218">        return (S) satellite;</span>
+    }
+
+    @Override
+    public GlobalOperations&lt;T, DistChunkedList&lt;T&gt;&gt; global() {
+<span class="fc" id="L223">        return GLOBAL;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L228">        return (int) id().gid();</span>
+    }
+
+    @Override
+    public GlobalID id() {
+<span class="fc" id="L233">        return manager.id;</span>
+    }
+
+    @Override
+    public float[] locality() {
+        // TODO check if this is correct
+<span class="nc" id="L239">        return manager.locality;</span>
+    }
+
+    @Override
+    public long longSize() {
+<span class="fc" id="L244">        return super.size();</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    protected void moveAtSync(final List&lt;RangedList&lt;T&gt;&gt; cs, final Place dest, final MoveManager mm) {
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L250">            System.out.print(&quot;[&quot; + here().id + &quot;] moveAtSync List[RangedList[T]]: &quot;);</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">            for (final RangedList&lt;T&gt; rl : cs) {</span>
+<span class="nc" id="L252">                System.out.print(&quot;&quot; + rl.getRange() + &quot;, &quot;);</span>
+<span class="nc" id="L253">            }</span>
+<span class="nc" id="L254">            System.out.println(&quot; dest: &quot; + dest.id);</span>
+        }
+
+<span class="fc bfc" id="L257" title="All 2 branches covered.">        if (dest.equals(here())) {</span>
+<span class="fc" id="L258">            return;</span>
+        }
+
+<span class="fc" id="L261">        final DistChunkedList&lt;T&gt; toBranch = this; // using plh@AbstractCol</span>
+<span class="fc" id="L262">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="fc bfc" id="L263" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; c : cs) {</span>
+<span class="fc" id="L264">                this.remove(c.getRange());</span>
+<span class="fc" id="L265">            }</span>
+<span class="fc" id="L266">            s.writeObject(cs);</span>
+<span class="fc" id="L267">        };</span>
+<span class="fc" id="L268">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="fc" id="L269">            final List&lt;RangedList&lt;T&gt;&gt; chunks = (List&lt;RangedList&lt;T&gt;&gt;) ds.readObject();</span>
+<span class="fc bfc" id="L270" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; c : chunks) {</span>
+<span class="fc" id="L271">                toBranch.add(c);</span>
+<span class="fc" id="L272">            }</span>
+<span class="fc" id="L273">        };</span>
+<span class="fc" id="L274">        mm.request(dest, serialize, deserialize);</span>
+<span class="fc" id="L275">    }</span>
+
+    @Override
+    public void moveAtSyncCount(final ArrayList&lt;IntLongPair&gt; moveList, final MoveManager mm) throws Exception {
+        // TODO -&gt;LinkedList? sort??
+<span class="nc" id="L280">        final ArrayList&lt;LongRange&gt; localKeys = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L281">        localKeys.addAll(ranges());</span>
+<span class="nc" id="L282">        localKeys.sort((LongRange range1, LongRange range2) -&gt; {</span>
+<span class="nc" id="L283">            final long len1 = range1.to - range1.from;</span>
+<span class="nc" id="L284">            final long len2 = range2.to - range2.from;</span>
+<span class="nc" id="L285">            return (int) (len1 - len2);</span>
+        });
+<span class="nc bnc" id="L287" title="All 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L288">            System.out.print(&quot;[&quot; + here() + &quot;] &quot;);</span>
+<span class="nc bnc" id="L289" title="All 2 branches missed.">            for (int i = 0; i &lt; localKeys.size(); i++) {</span>
+<span class="nc" id="L290">                System.out.print(&quot;&quot; + localKeys.get(i).from + &quot;..&quot; + localKeys.get(i).to + &quot;, &quot;);</span>
+            }
+<span class="nc" id="L292">            System.out.println();</span>
+        }
+<span class="nc bnc" id="L294" title="All 2 branches missed.">        for (final IntLongPair moveinfo : moveList) {</span>
+<span class="nc" id="L295">            final long count = moveinfo.second;</span>
+<span class="nc" id="L296">            final Place dest = manager.placeGroup.get(moveinfo.first);</span>
+<span class="nc bnc" id="L297" title="All 2 branches missed.">            if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L298">                System.out.println(&quot;[&quot; + here() + &quot;] move count=&quot; + count + &quot; to dest &quot; + dest.id);</span>
+            }
+<span class="nc bnc" id="L300" title="All 2 branches missed.">            if (dest.equals(here())) {</span>
+<span class="nc" id="L301">                continue;</span>
+            }
+<span class="nc" id="L303">            long sizeToSend = count;</span>
+<span class="nc bnc" id="L304" title="All 2 branches missed.">            while (sizeToSend &gt; 0) {</span>
+<span class="nc" id="L305">                final LongRange lk = localKeys.remove(0);</span>
+<span class="nc" id="L306">                final long len = lk.to - lk.from;</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">                if (len &gt; sizeToSend) {</span>
+<span class="nc" id="L308">                    moveRangeAtSync(new LongRange(lk.from, lk.from + sizeToSend), dest, mm);</span>
+<span class="nc" id="L309">                    localKeys.add(0, new LongRange(lk.from + sizeToSend, lk.to));</span>
+<span class="nc" id="L310">                    break;</span>
+                } else {
+<span class="nc" id="L312">                    moveRangeAtSync(lk, dest, mm);</span>
+<span class="nc" id="L313">                    sizeToSend -= len;</span>
+                }
+<span class="nc" id="L315">            }</span>
+<span class="nc" id="L316">        }</span>
+<span class="nc" id="L317">    }</span>
+
+    public void moveRangeAtSync(final Distribution&lt;Long&gt; dist, final CollectiveMoveManager mm) {
+<span class="nc" id="L320">        moveRangeAtSync((LongRange range) -&gt; {</span>
+<span class="nc" id="L321">            final ArrayList&lt;Pair&lt;Place, LongRange&gt;&gt; listPlaceRange = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L322" title="All 2 branches missed.">            for (final Long key : range) {</span>
+<span class="nc" id="L323">                listPlaceRange.add(new Pair&lt;&gt;(dist.place(key), new LongRange(key, key + 1)));</span>
+<span class="nc" id="L324">            }</span>
+<span class="nc" id="L325">            return listPlaceRange;</span>
+        }, mm);
+<span class="nc" id="L327">    }</span>
+
+    public void moveRangeAtSync(Function&lt;LongRange, List&lt;Pair&lt;Place, LongRange&gt;&gt;&gt; rule, CollectiveMoveManager mm) {
+<span class="nc" id="L330">        final DistChunkedList&lt;T&gt; collection = this;</span>
+<span class="nc" id="L331">        final HashMap&lt;Place, ArrayList&lt;LongRange&gt;&gt; rangesToMove = new HashMap&lt;&gt;();</span>
+
+<span class="nc" id="L333">        collection.forEachChunk((RangedList&lt;T&gt; c) -&gt; {</span>
+<span class="nc" id="L334">            final List&lt;Pair&lt;Place, LongRange&gt;&gt; destinationList = rule.apply(c.getRange());</span>
+<span class="nc bnc" id="L335" title="All 2 branches missed.">            for (final Pair&lt;Place, LongRange&gt; destination : destinationList) {</span>
+<span class="nc" id="L336">                final Place destinationPlace = destination.first;</span>
+<span class="nc" id="L337">                final LongRange destinationRange = destination.second;</span>
+<span class="nc bnc" id="L338" title="All 2 branches missed.">                if (!rangesToMove.containsKey(destinationPlace)) {</span>
+<span class="nc" id="L339">                    rangesToMove.put(destinationPlace, new ArrayList&lt;LongRange&gt;());</span>
+
+                }
+<span class="nc" id="L342">                rangesToMove.get(destinationPlace).add(destinationRange);</span>
+<span class="nc" id="L343">            }</span>
+<span class="nc" id="L344">        });</span>
+<span class="nc bnc" id="L345" title="All 2 branches missed.">        for (final Place place : rangesToMove.keySet()) {</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">            for (final LongRange range : rangesToMove.get(place)) {</span>
+<span class="nc" id="L347">                moveRangeAtSync(range, place, mm);</span>
+<span class="nc" id="L348">            }</span>
+<span class="nc" id="L349">        }</span>
+<span class="nc" id="L350">    }</span>
+
+    /**
+     * This implementation only accepts for range that either match an existing
+     * chunk contained in this collection or a range which is entirely contained
+     * within a single chunk of this collection. Ranges which span multiple chunks
+     * will cause exceptions to be thrown.
+     */
+    @Override
+    public void moveRangeAtSync(final LongRange range, final Place dest, final MoveManager mm) {
+<span class="pc bpc" id="L360" title="1 of 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L361">            System.out.println(&quot;[&quot; + here().id + &quot;] moveAtSync range: &quot; + range + &quot; dest: &quot; + dest.id);</span>
+        }
+
+<span class="fc" id="L364">        final ArrayList&lt;RangedList&lt;T&gt;&gt; chunksToMove = splitChunks(range);</span>
+<span class="fc bfc" id="L365" title="All 2 branches covered.">        if (chunksToMove.isEmpty()) {</span>
+<span class="fc" id="L366">            return;</span>
+        }
+<span class="fc" id="L368">        moveAtSync(chunksToMove, dest, mm);</span>
+<span class="fc" id="L369">    }</span>
+
+    public void moveRangeAtSync(final RangedDistribution&lt;LongRange&gt; dist, final CollectiveMoveManager mm)
+            throws Exception {
+<span class="nc" id="L373">        moveRangeAtSync((LongRange range) -&gt; {</span>
+<span class="nc" id="L374">            return dist.placeRanges(range);</span>
+        }, mm);
+<span class="nc" id="L376">    }</span>
+
+    // Method moved to GLOBAL and TEAM operations
+    // @Override
+    // public void distSize(long[] result) {
+    // for (final Map.Entry&lt;LongRange, Place&gt; entry : ldist.dist.entrySet()) {
+    // final LongRange k = entry.getKey();
+    // final Place p = entry.getValue();
+    // result[manager.placeGroup.rank(p)] += k.size();
+    // }
+    // }
+
+    @Override
+    public void parallelForEach(SerializableConsumer&lt;T&gt; action) {
+<span class="fc" id="L390">        super.parallelForEach(action);</span>
+<span class="fc" id="L391">    }</span>
+
+    @Override
+    public TeamedPlaceGroup placeGroup() {
+<span class="fc" id="L395">        return manager.placeGroup;</span>
+    }
+
+    @Override
+    public &lt;S extends DistCollectionSatellite&lt;DistChunkedList&lt;T&gt;, S&gt;&gt; void setSatellite(S s) {
+<span class="nc" id="L400">        satellite = s;</span>
+<span class="nc" id="L401">    }</span>
+
+    @Override
+    public Team&lt;T&gt; team() {
+<span class="fc" id="L405">        return TEAM;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L410">        return getClass().getSimpleName() + &quot;:&quot; + id();</span>
+    }
+
+    @Override
+    public Object writeReplace() throws ObjectStreamException {
+<span class="fc" id="L415">        final TeamedPlaceGroup pg1 = manager.placeGroup;</span>
+<span class="fc" id="L416">        final GlobalID id1 = id();</span>
+<span class="fc" id="L417">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L418">            return new DistChunkedList&lt;&gt;(pg1, id1);</span>
+        });
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

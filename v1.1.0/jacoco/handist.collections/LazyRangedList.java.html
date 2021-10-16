@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LazyRangedList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">LazyRangedList.java</span></div><h1>LazyRangedList.java</h1><pre class="source lang-java linenums">package handist.collections;
+
+import handist.collections.function.LongTBiFunction;
+
+import java.util.Iterator;
+import java.util.List;
+import java.util.function.Function;
+
+public class LazyRangedList&lt;S,T&gt; extends RangedList&lt;T&gt; {
+    private final RangedList&lt;S&gt; base;
+    private final LongTBiFunction&lt;S,T&gt; func;
+
+    static class Iter&lt;S,T&gt; implements Iterator&lt;T&gt; {
+        private final Iterator&lt;S&gt; base;
+        private final LongTBiFunction&lt;S,T&gt; func;
+        private long index;
+
+<span class="fc" id="L18">        Iter(Iterator&lt;S&gt; base, LongTBiFunction&lt;S,T&gt; func, long index) {</span>
+<span class="fc" id="L19">            this.base = base;</span>
+<span class="fc" id="L20">            this.func = func;</span>
+<span class="fc" id="L21">            this.index = index;</span>
+<span class="fc" id="L22">        }</span>
+
+        @Override
+        public boolean hasNext() {
+<span class="fc" id="L26">            return base.hasNext();</span>
+        }
+
+        @Override
+        public T next() {
+<span class="fc" id="L31">            return func.apply(index++, base.next());</span>
+        }
+    }
+
+<span class="fc" id="L35">    LazyRangedList(RangedList&lt;S&gt; base, LongTBiFunction&lt;S,T&gt; func) {</span>
+<span class="fc" id="L36">        this.base = base;</span>
+<span class="fc" id="L37">        this.func = func;</span>
+<span class="fc" id="L38">    }</span>
+
+    @Override
+    public RangedList&lt;T&gt; cloneRange(LongRange range) {
+<span class="nc" id="L42">        return new LazyRangedList&lt;S,T&gt;(base.cloneRange(range), func);</span>
+    }
+
+    @Override
+    public boolean contains(Object o) {
+<span class="nc" id="L47">        throw new UnsupportedOperationException(&quot;not supported.&quot;);</span>
+    }
+
+    @Override
+    public T get(long index) {
+<span class="nc" id="L52">        return func.apply(index, base.get(index));</span>
+    }
+
+    @Override
+    public LongRange getRange() {
+<span class="nc" id="L57">        return base.getRange();</span>
+    }
+
+    @Override
+    public Iterator&lt;T&gt; iterator() {
+<span class="fc" id="L62">        return new Iter&lt;S,T&gt;(base.iterator(), func, base.getRange().from);</span>
+    }
+
+    @Override
+    public RangedListIterator&lt;T&gt; listIterator() {
+<span class="nc" id="L67">        throw new UnsupportedOperationException(&quot;not supported.&quot;);</span>
+    }
+
+    @Override
+    public RangedListIterator&lt;T&gt; listIterator(long from) {
+<span class="nc" id="L72">        throw new UnsupportedOperationException(&quot;not supported.&quot;);</span>
+    }
+
+    @Override
+    protected Iterator&lt;T&gt; subIterator(LongRange range) {
+<span class="fc" id="L77">        return new Iter&lt;S,T&gt;(base.subIterator(range), func, range.from);</span>
+    }
+
+    @Override
+    protected RangedListIterator&lt;T&gt; subListIterator(LongRange range) {
+<span class="nc" id="L82">        throw new UnsupportedOperationException(&quot;not supported.&quot;);</span>
+    }
+
+    @Override
+    protected RangedListIterator&lt;T&gt; subListIterator(LongRange range, long from) {
+<span class="nc" id="L87">        throw new UnsupportedOperationException(&quot;not supported.&quot;);</span>
+    }
+
+    @Override
+    public T set(long index, T value) {
+<span class="nc" id="L92">        throw new UnsupportedOperationException(&quot;set is not supported by LazyRangedList.&quot;);</span>
+    }
+
+    @Override
+    public Object[] toArray() {
+<span class="nc" id="L97">        throw new UnsupportedOperationException(&quot;not supported yet.&quot;);</span>
+    }
+
+    @Override
+    public Object[] toArray(LongRange r) {
+<span class="nc" id="L102">        throw new UnsupportedOperationException(&quot;not supported yet.&quot;);</span>
+    }
+
+    @Override
+    public Chunk&lt;T&gt; toChunk(LongRange r) {
+<span class="nc" id="L107">        throw new UnsupportedOperationException(&quot;not supported yet.&quot;);</span>
+    }
+
+    @Override
+    public List&lt;T&gt; toList(LongRange r) {
+<span class="nc" id="L112">        throw new UnsupportedOperationException(&quot;not supported yet.&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

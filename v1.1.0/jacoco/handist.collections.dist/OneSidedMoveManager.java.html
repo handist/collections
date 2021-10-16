@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OneSidedMoveManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">OneSidedMoveManager.java</span></div><h1>OneSidedMoveManager.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist;
+
+import static apgas.Constructs.*;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import apgas.Place;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.Serializer;
+import mpi.MPI;
+
+/**
+ * Implementation of {@link MoveManager} which provides features to make data
+ * transfer at the sole initiative of the sender.
+ *
+ * @author Patrick Finnerty
+ *
+ */
+public class OneSidedMoveManager implements MoveManager {
+
+    /** Private counter used to generate tags for MPI calls */
+<span class="fc" id="L38">    private static int intTag = 10;</span>
+
+    private static final int MINIMUM_TAG_VALUE = 10;
+
+    /**
+     * Private method used to assign tags for MPI calls.
+     *
+     * @return a safe integer to use as tag
+     */
+    /*
+     * When refactoring of MPI features access is made, this method should be moved.
+     */
+    protected static synchronized int nextTag() {
+<span class="fc" id="L51">        final int toReturn = intTag++;</span>
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">        if (intTag &lt; 0) {</span>
+<span class="nc" id="L53">            intTag = MINIMUM_TAG_VALUE;</span>
+        }
+<span class="fc" id="L55">        return toReturn;</span>
+    }
+
+    /**
+     * List of deserializers used to process the received data on the destination
+     */
+    final protected List&lt;DeSerializer&gt; deserializers;
+    /**
+     * Place to which the objects need to be sent
+     */
+    final protected Place destination;
+
+    /**
+     * List of serializers used to transform the objects of the local host into
+     * bytes to be sent to the remote host
+     */
+    final protected List&lt;Serializer&gt; serializers;
+
+    /**
+     * Constructor
+     *
+     * @param d the place which will be the destination of all the objects
+     *          transferred
+     */
+<span class="fc" id="L79">    public OneSidedMoveManager(Place d) {</span>
+<span class="fc" id="L80">        destination = d;</span>
+<span class="fc" id="L81">        deserializers = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L82">        serializers = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L83">    }</span>
+
+    /**
+     * Sends the elements that have been requested to this move manager. The
+     * elements will be received on the remote host with an asynchronous task
+     * registered within the same Finish instance as the calling thread.
+     *
+     * @throws IOException if thrown during the serialization process
+     */
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public void asyncSend() throws IOException {
+<span class="fc" id="L94">        final byte[] bytesToSend = prepareByteArray();</span>
+
+<span class="fc" id="L96">        final int nbOfBytes = bytesToSend.length;</span>
+<span class="fc" id="L97">        final int destinationRank = TeamedPlaceGroup.world.rank(destination);</span>
+<span class="fc" id="L98">        final int myRank = TeamedPlaceGroup.world.rank();</span>
+<span class="fc" id="L99">        final int tag = nextTag();</span>
+
+<span class="fc" id="L101">        TeamedPlaceGroup.world.comm.Isend(bytesToSend, 0, nbOfBytes, MPI.BYTE, destinationRank, tag);</span>
+
+<span class="fc" id="L103">        asyncAt(destination, () -&gt; {</span>
+            // Receive the array of bytes
+<span class="fc" id="L105">            TeamedPlaceGroup.world.comm.Recv(new byte[nbOfBytes], 0, nbOfBytes, MPI.BYTE, myRank, tag);</span>
+<span class="fc" id="L106">            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);</span>
+<span class="fc" id="L107">            final ObjectInput oInput = new ObjectInput(inStream);</span>
+
+            // The first object to come out of the byte array is a list of deserializers
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L111">            final List&lt;DeSerializer&gt; ds = (List&lt;DeSerializer&gt;) oInput.readObject();</span>
+
+            // We know apply each deserializer one after the other
+<span class="fc bfc" id="L114" title="All 2 branches covered.">            for (final DeSerializer deserializer : ds) {</span>
+<span class="fc" id="L115">                deserializer.accept(oInput);</span>
+<span class="fc" id="L116">            }</span>
+<span class="fc" id="L117">            oInput.close();</span>
+<span class="fc" id="L118">        });</span>
+<span class="fc" id="L119">    }</span>
+
+    /**
+     * Applies all the serializers accumulated so far and produces a byte array
+     * which is going to be transmitted to the destination
+     *
+     * @return a byte array containing the deserializers and the serialized form of
+     *         the objects that were targeted by the serializers
+     * @throws IOException if thrown during serialization of objects
+     */
+    protected byte[] prepareByteArray() throws IOException {
+<span class="fc" id="L130">        final ByteArrayOutputStream stream = new ByteArrayOutputStream();</span>
+<span class="fc" id="L131">        final ObjectOutput oo = new ObjectOutput(stream);</span>
+
+<span class="fc" id="L133">        oo.writeObject(deserializers); // Write all the serializers first</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">        for (final Serializer s : serializers) {</span>
+<span class="fc" id="L135">            s.accept(oo); // Convert the objects targeted by the serializers into bytes.</span>
+<span class="fc" id="L136">        }</span>
+<span class="fc" id="L137">        oo.close();</span>
+
+<span class="fc" id="L139">        final byte[] bytesToSend = stream.toByteArray();</span>
+<span class="fc" id="L140">        return bytesToSend;</span>
+    }
+
+    @Override
+    public void request(Place dest, Serializer s, DeSerializer d) {
+<span class="fc bfc" id="L145" title="All 2 branches covered.">        if (dest.id != destination.id) {</span>
+<span class="fc" id="L146">            throw new RuntimeException(&quot;OneSidedMoveManager received a request for &quot; + dest</span>
+                    + &quot; but is only accepting submissions for&quot; + destination);
+        }
+<span class="fc" id="L149">        serializers.add(s);</span>
+<span class="fc" id="L150">        deserializers.add(d);</span>
+<span class="fc" id="L151">    }</span>
+
+    /**
+     * Sends the elements that have been requested in a synchronous fashion. This
+     * method will only return when the remote host has completed the reception of
+     * all the objects and has processed all of them with their deserializers
+     *
+     * @throws IOException if thrown during the serialization process
+     */
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public void send() throws IOException {
+<span class="fc" id="L162">        final byte[] bytesToSend = prepareByteArray();</span>
+
+<span class="fc" id="L164">        final int nbOfBytes = bytesToSend.length;</span>
+<span class="fc" id="L165">        final int destinationRank = TeamedPlaceGroup.world.rank(destination);</span>
+<span class="fc" id="L166">        final int myRank = TeamedPlaceGroup.world.rank();</span>
+<span class="fc" id="L167">        final int tag = nextTag();</span>
+
+<span class="fc" id="L169">        TeamedPlaceGroup.world.comm.Isend(bytesToSend, 0, nbOfBytes, MPI.BYTE, destinationRank, tag);</span>
+
+<span class="fc" id="L171">        at(destination, () -&gt; {</span>
+            // Receive the array of bytes
+<span class="fc" id="L173">            TeamedPlaceGroup.world.comm.Recv(new byte[nbOfBytes], 0, nbOfBytes, MPI.BYTE, myRank, tag);</span>
+<span class="fc" id="L174">            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);</span>
+<span class="fc" id="L175">            final ObjectInput oInput = new ObjectInput(inStream);</span>
+
+            // The first object to come out of the byte array is a list of deserializers
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L179">            final List&lt;DeSerializer&gt; ds = (List&lt;DeSerializer&gt;) oInput.readObject();</span>
+
+            // We know apply each deserializer one after the other
+<span class="fc bfc" id="L182" title="All 2 branches covered.">            for (final DeSerializer deserializer : ds) {</span>
+<span class="fc" id="L183">                deserializer.accept(oInput);</span>
+<span class="fc" id="L184">            }</span>
+<span class="fc" id="L185">            oInput.close();</span>
+<span class="fc" id="L186">        });</span>
+<span class="fc" id="L187">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

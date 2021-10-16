@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LifelineFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb.lifeline</a> &gt; <span class="el_source">LifelineFactory.java</span></div><h1>LifelineFactory.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.glb.lifeline;
+
+import java.lang.reflect.Constructor;
+
+import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.glb.Config;
+
+/**
+ * Class in charge of performing the reflection operations necessary to
+ * instanciate lifeline instance.
+ *
+ * @author Patrick Finnerty
+ *
+ */
+<span class="nc" id="L25">public class LifelineFactory {</span>
+    /**
+     * Constructor used to produce new Lifeline instances when the need arises.
+     */
+<span class="fc" id="L29">    private static Constructor&lt;Lifeline&gt; constructor = null;</span>
+
+    /**
+     * Factory method returning a new instance of the lifeline implementation
+     * specified through property settings.
+     *
+     * @param pg the place group among which a lifeline network needs to be
+     *           established
+     * @return a new Lifeline implementation instance prepared for the specified
+     *         group of laces
+     * @throws Exception if thrown while making a reflection operation
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static Lifeline newLifeline(TeamedPlaceGroup pg) throws Exception {
+<span class="fc bfc" id="L43" title="All 2 branches covered.">        if (constructor == null) {</span>
+            @SuppressWarnings(&quot;rawtypes&quot;)
+<span class="fc" id="L45">            final Class lifelineClass = Class.forName(Config.getLifelineClassName());</span>
+<span class="fc" id="L46">            constructor = lifelineClass.getConstructor(TeamedPlaceGroup.class);</span>
+        }
+
+<span class="fc" id="L49">        return constructor.newInstance(pg);</span>
+    }
+
+    /**
+     * Facotry method returning a new instance of the lifeline class specified as
+     * parameter and the designated {@link TeamedPlaceGroup}.
+     *
+     * @param pg            the group of places on which the collection is defined
+     * @param lifelineClass the class to be used as lifeline implementation
+     * @return a constructed lifeline instance
+     * @throws Exception if thrown while making reflective operation
+     */
+    @SuppressWarnings({ &quot;rawtypes&quot;, &quot;unchecked&quot; })
+    public static Lifeline newLifeline(TeamedPlaceGroup pg, Class lifelineClass) throws Exception {
+<span class="nc" id="L63">        final Constructor&lt;Lifeline&gt; classConstructor = lifelineClass.getConstructor(TeamedPlaceGroup.class);</span>
+<span class="nc" id="L64">        return classConstructor.newInstance(pg);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

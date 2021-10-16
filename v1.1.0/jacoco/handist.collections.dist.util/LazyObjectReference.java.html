@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LazyObjectReference.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist.util</a> &gt; <span class="el_source">LazyObjectReference.java</span></div><h1>LazyObjectReference.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist.util;
+
+import java.io.ObjectStreamException;
+import java.io.Serializable;
+
+import apgas.SerializableCallable;
+import apgas.util.GlobalID;
+import handist.collections.dist.TeamedPlaceGroup;
+
+/**
+ * Class used as a substitute when serializing an object. This class allows us
+ * to delay the initialization of an object on a remote place until an
+ * asynchronous remote activity is actually executed on this remote host.
+ *
+ * @param &lt;T&gt; type of the object being referenced
+ * @see MemberOfLazyObjectReference
+ */
+public class LazyObjectReference&lt;T&gt; implements Serializable {
+
+    /** Serial Version UID */
+    private static final long serialVersionUID = -968836449183221397L;
+    /**
+     * Global ID used to identify an object with replication on multiple places
+     */
+    public GlobalID globalId;
+    /**
+     * Initializer called when an object replicated on multiple hosts has not yet
+     * been allocated in a local object.
+     */
+    public SerializableCallable&lt;T&gt; initializer;
+
+    /**
+     * Place group on which the object of interest can be allocated on
+     */
+    public TeamedPlaceGroup placeGroup;
+
+    /**
+     * Constructor
+     *
+     * @param pg   place group on which the distributed object can be manipulated
+     * @param id   global identifier of the distributed object
+     * @param init initializer for the &quot;local&quot; instance of the distributed object
+     *             when it is attempted to be accessed
+     */
+<span class="fc" id="L55">    public LazyObjectReference(TeamedPlaceGroup pg, GlobalID id, SerializableCallable&lt;T&gt; init) {</span>
+<span class="fc" id="L56">        globalId = id;</span>
+<span class="fc" id="L57">        placeGroup = pg;</span>
+<span class="fc" id="L58">        initializer = init;</span>
+<span class="fc" id="L59">    }</span>
+
+    protected Object readResolve() throws ObjectStreamException {
+<span class="fc" id="L62">        final Object result = globalId.getHere();</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        if (result == null) {</span>
+            try {
+<span class="fc" id="L65">                final T r = initializer.call();</span>
+<span class="fc" id="L66">                globalId.putHereIfAbsent(r);</span>
+<span class="nc" id="L67">            } catch (final Exception e) {</span>
+<span class="nc" id="L68">                throw new Error(&quot;[General Dist Manager: init should not raise exceptions.&quot;);</span>
+<span class="fc" id="L69">            }</span>
+<span class="fc" id="L70">            return globalId.getHere();</span>
+        } else {
+<span class="fc" id="L72">            return result;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

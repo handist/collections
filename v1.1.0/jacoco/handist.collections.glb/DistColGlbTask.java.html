@@ -1,0 +1,693 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistColGlbTask.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb</a> &gt; <span class="el_source">DistColGlbTask.java</span></div><h1>DistColGlbTask.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.glb;
+
+import static apgas.Constructs.*;
+import static handist.collections.glb.GlobalLoadBalancer.*;
+import static org.junit.Assert.*;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import apgas.Place;
+import apgas.impl.Finish;
+import handist.collections.LongRange;
+import handist.collections.RangedList;
+import handist.collections.dist.DistChunkedList;
+import handist.collections.glb.Config.LifelineAnswerMode;
+import handist.collections.glb.GlbComputer.LifelineToken;
+
+/**
+ * Implementation of GlbTask for the {@link DistChunkedList} distributed
+ * collection. This implementation relies on {@link LongRange} to describe
+ * assignments taken up by workers.
+ *
+ * @author Patrick Finnerty
+ *
+ */
+public class DistColGlbTask implements GlbTask {
+
+    /**
+     * Class describing the progress of the various operations taking place on a
+     * range pertaining to the {@link DistChunkedList}
+     *
+     * @author Patrick Finnerty
+     *
+     */
+    static class DistColAssignment implements Assignment {
+
+        /** Serial Version UID */
+        private static final long serialVersionUID = 5397031649035798704L;
+
+        /**
+         * This member avoids re-computing the priority of this assignment repeatedly.
+         * Only when an operation on this assignment completes that this member is
+         * updated.
+         */
+        private int currentPriority;
+
+        /**
+         * {@link DistColGlbTask} currently handling this assignment. This member is not
+         * serialized as it will need to be set to an existing object when the
+         * assignment is received on the remote host.
+         */
+        transient DistColGlbTask parent;
+
+        /**
+         * Progress of each operation in progress on this range
+         * &lt;p&gt;
+         * As operation are completed on this assignment, the mapping for this operation
+         * will be removed.
+         */
+        @SuppressWarnings(&quot;rawtypes&quot;)
+        final ConcurrentSkipListMap&lt;GlbOperation, Progress&gt; progress;
+
+        /** Range of indices on which this assignment will operate */
+        LongRange range;
+
+        /**
+         * Constructor
+         *
+         * Builds a new assignment with a dedicated LongRange instance
+         *
+         * @param lr range of entries on which the assignment is being created and on
+         *           which the various operations will operate
+         * @param p  parent {@link DistColGlbTask} in charge of this instance
+         */
+<span class="fc" id="L96">        DistColAssignment(LongRange lr, DistColGlbTask p) {</span>
+<span class="fc" id="L97">            range = lr;</span>
+<span class="fc" id="L98">            progress = new ConcurrentSkipListMap&lt;&gt;();</span>
+<span class="fc" id="L99">            parent = p;</span>
+<span class="fc" id="L100">            currentPriority = Integer.MAX_VALUE;</span>
+<span class="fc" id="L101">        }</span>
+
+        /*
+         * As the progress member is a concurrenSkipList which sorts the entries using
+         * the priority ordering of GlbOperation, the first entry corresponds to the
+         * operation on this assignment with the highest priority.
+         *
+         * Of course, if there is a single operation taking place on the underlying
+         * collection, the first entry will also be the only one.
+         */
+        @SuppressWarnings(&quot;rawtypes&quot;)
+        @Override
+        public GlbOperation chooseOperationToProgress() {
+<span class="fc" id="L114">            return progress.firstKey();</span>
+        }
+
+        /**
+         * Indicates if an assignment of {@link DistChunkedList} can be split in two
+         * assignments with work in both of them. For an assignment of
+         * {@link DistChunkedList}, this method will return {@code true} if the
+         * following two conditions are met:
+         * &lt;ol&gt;
+         * &lt;li&gt;The range of this assignment is greater than the provided parameter
+         * &lt;li&gt;There is at least one operation in progress on this assignment which has
+         * more than the provided parameter of instances left to process
+         * &lt;/ol&gt;
+         */
+        @Override
+        public boolean isSplittable(int qtt) {
+            // First condition, range greater than minimum
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">            if (range.size() &lt;= qtt) {</span>
+<span class="nc" id="L132">                return false;</span>
+            }
+
+            // Second condition, at least one operation has greater than minimum elements
+            // left to process
+<span class="fc bfc" id="L137" title="All 2 branches covered.">            for (final Progress operationProgress : progress.values()) {</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">                if (range.to - operationProgress.next &gt;= qtt) {</span>
+<span class="fc" id="L139">                    return true;</span>
+                }
+<span class="fc" id="L141">            }</span>
+
+<span class="fc" id="L143">            return false;</span>
+        }
+
+        @Override
+        public int priority() {
+<span class="nc" id="L148">            return currentPriority;</span>
+        }
+
+        /**
+         * Processes the specified amount of elements in a GlbOperation which is
+         * available for this assignment.
+         *
+         * @param qtt number of elements to process
+         * @param ws  service provided by the worker to the operation
+         * @param op  GLB operation to progress in this assignment
+         * @return true if there is some work remaining in the operation that was
+         *         progressed, false if the operation that was chosen was completed on
+         *         this fragment
+         */
+        @Override
+        @SuppressWarnings({ &quot;rawtypes&quot;, &quot;unchecked&quot; })
+        public boolean process(int qtt, WorkerService ws, GlbOperation op) {
+<span class="fc" id="L165">            final Progress next = progress.get(op);</span>
+
+<span class="fc" id="L167">            long limit = next.next + qtt;</span>
+<span class="fc" id="L168">            boolean operationCompletedForThisAssignment = false;</span>
+<span class="fc bfc" id="L169" title="All 2 branches covered.">            if (limit &gt;= range.to) {</span>
+                // The operation selected will be completed on this assignment
+<span class="fc" id="L171">                limit = range.to;</span>
+<span class="fc" id="L172">                operationCompletedForThisAssignment = true;</span>
+            }
+
+            // Computation loop is made on the following LongRange inside the &quot;action&quot;
+            // carried by the GlbOperation.
+<span class="fc" id="L177">            final DistColLambda lambda = (DistColLambda) op.operation;</span>
+<span class="fc" id="L178">            lambda.process(parent.collection.getChunk(range), next.next, limit, ws);</span>
+<span class="fc" id="L179">            next.next = limit;</span>
+
+            // Signal the parent GlbTask that the operation has completed on this
+            // assignment.
+<span class="fc bfc" id="L183" title="All 2 branches covered.">            if (operationCompletedForThisAssignment) {</span>
+<span class="fc" id="L184">                parent.operationTerminatedOnAssignment(op);</span>
+                // We remove the tracker for the current operation
+<span class="fc" id="L186">                progress.remove(op);</span>
+
+                // Depending if there are other operations on this assignment, we
+                // place it the appropriate collection of the parent DistColGlbTask
+
+                // This part is protected using a read/write lock against newOperation.
+<span class="fc" id="L192">                parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();</span>
+<span class="fc bfc" id="L193" title="All 2 branches covered.">                if (!progress.isEmpty()) {</span>
+                    // There are other operations left
+                    // Update the priority before placing it back into the availableAssignments
+                    // collection
+<span class="fc" id="L197">                    updatePriority();</span>
+<span class="fc" id="L198">                    parent.assignedAssignments.remove(this);</span>
+<span class="fc" id="L199">                    parent.availableAssignments.add(this);</span>
+                } else {
+                    // No other operations left
+<span class="fc" id="L202">                    parent.assignedAssignments.remove(this);</span>
+<span class="fc" id="L203">                    parent.completedAssignments.add(this);</span>
+                }
+<span class="fc" id="L205">                parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();</span>
+            }
+<span class="fc bfc" id="L207" title="All 2 branches covered.">            return !operationCompletedForThisAssignment;</span>
+        }
+
+        /**
+         * Allows to set the DistColGlbTask in charge of this assignment. This is used
+         * when receiving assignments as part of a lifeline answer to make the
+         * assignments used to correct objects accessed through its parent member.
+         *
+         * @param p the new value for member parent
+         */
+        void setParent(DistColGlbTask p) {
+<span class="fc" id="L218">            parent = p;</span>
+<span class="fc" id="L219">        }</span>
+
+        /**
+         * Splits this assignment, creating a new one which is stored in the enclosing
+         * {@link DistColGlbTask} immediately.
+         * &lt;p&gt;
+         * The current assignment will be split at the halfway point between the
+         * operation with the lowest progress and the {@link #range} upper bound. This
+         * ensures that there is work both in the assignment that is split away and the
+         */
+        @Override
+        public void splitIntoGlbTask() {
+<span class="fc" id="L231">            parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();</span>
+            // First determine the splitting point
+<span class="fc" id="L233">            long minimumProgress = Long.MAX_VALUE;</span>
+<span class="fc bfc" id="L234" title="All 2 branches covered.">            for (final Progress operationProgress : progress.values()) {</span>
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">                minimumProgress = operationProgress.next &lt; minimumProgress ? operationProgress.next : minimumProgress;</span>
+<span class="fc" id="L236">            }</span>
+<span class="fc" id="L237">            final long splittingPoint = range.to - ((range.to - minimumProgress) / 2);</span>
+
+            // Create a 'split' assignment
+<span class="fc" id="L240">            final LongRange splitRange = new LongRange(splittingPoint, range.to);</span>
+<span class="fc" id="L241">            final LongRange thisRange = new LongRange(range.from, splittingPoint);</span>
+<span class="fc" id="L242">            final DistColAssignment split = new DistColAssignment(splitRange, parent);</span>
+<span class="fc" id="L243">            range = thisRange;</span>
+
+            // Adjust the progress of both &quot;this&quot; and the created assignment
+            for (@SuppressWarnings(&quot;rawtypes&quot;)
+<span class="fc bfc" id="L247" title="All 2 branches covered.">            final Map.Entry&lt;GlbOperation, Progress&gt; progressEntry : progress.entrySet()) {</span>
+<span class="fc" id="L248">                final Progress currentProgress = progressEntry.getValue();</span>
+                @SuppressWarnings(&quot;rawtypes&quot;)
+<span class="fc" id="L250">                final GlbOperation op = progressEntry.getKey();</span>
+<span class="pc bpc" id="L251" title="1 of 2 branches missed.">                if (currentProgress.next &lt; splitRange.from) {</span>
+                    // The progress of this operation remains unchanged for this (it is within range
+                    // of &quot;thisRange&quot;)
+
+                    // The start of the &quot;splitRange&quot; is set as the initial progress for the &quot;split&quot;
+                    // assignment
+<span class="fc" id="L257">                    split.progress.put(op, new Progress(splittingPoint));</span>
+
+                    // There is an extra Assignment with work on this operation
+                    // We increment the assignmentsLeftToProcess counter
+<span class="fc" id="L261">                    parent.assignmentsLeftToProcess.get(op).incrementAndGet();</span>
+                } else {
+                    // The current progress is out of range for &quot;thisRange&quot;, we remove the tracker
+                    // as if it had completed for this assignment (in effect, this has the same
+                    // consequences as if the operation
+<span class="nc" id="L266">                    progress.remove(op);</span>
+
+                    // The current progress is placed in the &quot;split&quot; progress.
+                    // Note that it is not possible for &quot;currentProgress&quot; to be equal to
+                    // &quot;splitRange.to&quot; as the Long trackers kept in member progress are removed when
+                    // an operation is completed
+<span class="nc" id="L272">                    split.progress.put(op, currentProgress);</span>
+
+                    // Whether there was work or not, the number of assignments that need to
+                    // complete
+                    // for this operation remains unchanged. We do not need to increment the
+                    // assignmentsLeftToProcess counter for this operation
+                }
+<span class="fc" id="L279">            }</span>
+
+            // The progress for the operations may have changed for both assignments, we
+            // refresh their priority
+<span class="fc" id="L283">            updatePriority();</span>
+<span class="fc" id="L284">            split.updatePriority();</span>
+
+            // Add the &quot;splitAssignment&quot; to the DistColGlbTask handling the assignment for
+            // the underlying collection.
+            // NOTE: The counter for the total number of assignments needs to be incremented
+            // BEFORE the assignment is placed in the &quot;available&quot; queue.
+<span class="fc" id="L290">            parent.totalAssignments.incrementAndGet();</span>
+<span class="fc" id="L291">            parent.availableAssignments.add(split);</span>
+
+<span class="fc" id="L293">            parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();</span>
+<span class="fc" id="L294">        }</span>
+
+        @Override
+        public String toString() {
+<span class="nc" id="L298">            return range.toString();</span>
+        }
+
+        /**
+         * Updates the priority level of this Assignment.
+         *
+         * This method needs to be called when a new operation is made available to this
+         * assignment or when an operation contained by this assignment completes
+         */
+        private void updatePriority() {
+            @SuppressWarnings(&quot;rawtypes&quot;)
+<span class="fc" id="L309">            final Map.Entry&lt;GlbOperation, Progress&gt; entry = progress.firstEntry();</span>
+<span class="pc bpc" id="L310" title="1 of 2 branches missed.">            currentPriority = entry == null ? Integer.MAX_VALUE : entry.getKey().priority;</span>
+<span class="fc" id="L311">        }</span>
+    }
+
+    /**
+     * Interface used to avoid packing and unpacking of types in the method called
+     * by workers.
+     *
+     */
+    static interface DistColLambda&lt;T&gt; extends Serializable {
+        public void process(RangedList&lt;T&gt; chunk, long startIndex, long endIndex, WorkerService ws);
+    }
+
+    /**
+     * Class used to avoid packing and unpacking {@link Long} and {@code long} when
+     * tracking the progress of operations in member
+     * {@link DistColAssignment#progress}
+     */
+    final static class Progress implements Serializable {
+        /** Serial Version UID */
+        private static final long serialVersionUID = -5134838227313756599L;
+        long next;
+
+<span class="fc" id="L333">        private Progress(long initialValue) {</span>
+<span class="fc" id="L334">            next = initialValue;</span>
+<span class="fc" id="L335">        }</span>
+    }
+
+    /**
+     * Answer mode used to make lifeline answers
+     */
+<span class="fc" id="L341">    private static final LifelineAnswerMode answerMode = Config.getLifelineSerializationMode();</span>
+
+    /** Serial Version UID */
+    private static final long serialVersionUID = -792674800264517475L;
+
+    /**
+     * Upper bound on the number of assignments which can be transferred to a remote
+     * thief.
+     */
+    private static final int MAX_NUMBER_STOLEN_ASSIGNMENTS = 10;
+
+    /**
+     * Contains the list of all the assignments that are being processed by a worker
+     */
+    ConcurrentLinkedQueue&lt;DistColAssignment&gt; assignedAssignments;
+
+    /**
+     * Map which associates the number of assignments left to process to each
+     * operation in progress.
+     * &lt;p&gt;
+     * As workers complete operations of assignments, they will decrement the
+     * matching atomic counter. When a worker completes the last assignment
+     * available for an operation (i.e. the counter was decremented to 0), local
+     * completion of this operation is reached. That worker will therefore trigger
+     * the stealing process by releasing the operation thread which is currently
+     * blocking on a {@link OperationBlocker}.
+     */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    Map&lt;GlbOperation, AtomicInteger&gt; assignmentsLeftToProcess;
+
+    /** Contains the list of all the assignments that are available to workers */
+    ConcurrentLinkedQueue&lt;DistColAssignment&gt; availableAssignments;
+
+    /**
+     * Contains all the assignments that have been completely processed by a worker.
+     * &lt;p&gt;
+     * The assignments in this collection have all of the current operations
+     * completed.
+     */
+    ConcurrentLinkedQueue&lt;DistColAssignment&gt; completedAssignments;
+
+    /**
+     * This lock is used to maintain consistency of the total assignment counter and
+     * the presence of {@link AtomicLong} in {@link DistColAssignment#progress}.
+     * &lt;p&gt;
+     * &quot;Readers&quot; are threads that perform the {@link #splitIntoGlbTask()} method
+     * while &quot;Writers&quot; are threads that call the {@link #newOperation(GlbOperation)}
+     * method. There can be many concurrent calls to the {@link #splitIntoGlbTask()}
+     * method but not when a new operation becomes available and a number of
+     * modifications to several members of this class need to be made atomically to
+     * preserve consistency.
+     */
+    transient final ReadWriteLock lockForWorkAssignmentSplittingAndNewOperation;
+
+    /**
+     * Total number of assignments located on this place
+     */
+    AtomicInteger totalAssignments;
+
+    /**
+     * Underlying collection on which the assignments operate
+     */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    private final DistChunkedList collection;
+
+    /**
+     * Constructor
+     *
+     * @param localHandle the local handle of the collection which is going to
+     *                    undergo some operations under this class' supervision
+     */
+    @SuppressWarnings({ &quot;unchecked&quot;, &quot;rawtypes&quot; })
+<span class="fc" id="L413">    DistColGlbTask(DistChunkedList localHandle) {</span>
+<span class="fc" id="L414">        collection = localHandle;</span>
+<span class="fc" id="L415">        availableAssignments = new ConcurrentLinkedQueue&lt;&gt;();</span>
+<span class="fc" id="L416">        assignedAssignments = new ConcurrentLinkedQueue&lt;&gt;();</span>
+<span class="fc" id="L417">        completedAssignments = new ConcurrentLinkedQueue&lt;&gt;();</span>
+<span class="fc" id="L418">        assignmentsLeftToProcess = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L419">        lockForWorkAssignmentSplittingAndNewOperation = new ReentrantReadWriteLock();</span>
+
+        // Initialize assignments with each LongRange of the local handle
+<span class="fc" id="L422">        final Collection&lt;LongRange&gt; ranges = localHandle.getAllRanges();</span>
+<span class="fc" id="L423">        totalAssignments = new AtomicInteger(ranges.size());</span>
+<span class="fc" id="L424">        ranges.forEach((l) -&gt; {</span>
+<span class="fc" id="L425">            final LongRange lr = l;</span>
+<span class="fc" id="L426">            final LongRange copyForAssignment = new LongRange(lr.from, lr.to);</span>
+<span class="fc" id="L427">            final DistColAssignment a = new DistColAssignment(copyForAssignment, this);</span>
+<span class="fc" id="L428">            availableAssignments.add(a);</span>
+<span class="fc" id="L429">        });</span>
+<span class="fc" id="L430">    }</span>
+
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    @Override
+    public boolean answerLifeline(final LifelineToken token) {
+<span class="fc" id="L435">        final Place thief = token.place;</span>
+
+        // START OF THE R/W LOCK PROTECTION
+<span class="fc" id="L438">        lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();</span>
+        // Obtain some Assignments from the work reserve
+        // TODO we may need a better way to decide how much work a thief should be able
+        // to take.
+<span class="fc" id="L442">        final ArrayList&lt;Assignment&gt; stolen = new ArrayList&lt;&gt;();</span>
+        DistColAssignment a;
+<span class="fc bfc" id="L444" title="All 4 branches covered.">        while (stolen.size() &lt; MAX_NUMBER_STOLEN_ASSIGNMENTS &amp;&amp; (a = availableAssignments.poll()) != null) {</span>
+<span class="fc" id="L445">            stolen.add(a);</span>
+        }
+        // Decrement the total number of assignments contained locally
+<span class="fc" id="L448">        totalAssignments.getAndAdd(-stolen.size());</span>
+        // END OF THE R/W LOCK PROTECTION
+<span class="fc" id="L450">        lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();</span>
+
+<span class="fc bfc" id="L452" title="All 2 branches covered.">        if (stolen.isEmpty()) {</span>
+            // If no assignment could be taken, there is nothing more to do and the method
+            // return false here
+<span class="fc" id="L455">            return false;</span>
+        }
+
+        // From here onward, we know that some assignments were taken from the reserve.
+        // We flip the place to &quot;here&quot; as the token will be used to indicate to the
+        // thief that this place is the one making the answer.
+<span class="fc" id="L461">        token.place = here();</span>
+
+        /*
+         * Detect which operations are contained in the assignments stolen to determine
+         * under which finish we need to make the lifeline answer. By the same occasion,
+         * count how many assignments of each operation were taken away. This allows us
+         * to decrement the number of assignments left to complete after the assignment
+         * transfer has completed
+         */
+<span class="fc" id="L470">        final HashMap&lt;GlbOperation, Integer&gt; numbers = new HashMap&lt;&gt;();</span>
+
+<span class="fc" id="L472">        long totalObjectStolen = 0l;</span>
+<span class="fc bfc" id="L473" title="All 2 branches covered.">        for (final Assignment s : stolen) {</span>
+<span class="fc" id="L474">            final DistColAssignment assignment = (DistColAssignment) s;</span>
+<span class="fc" id="L475">            totalObjectStolen += assignment.range.size();</span>
+
+<span class="fc" id="L477">            final long upperBound = assignment.range.to;</span>
+<span class="fc" id="L478">            assignment.progress.entrySet().forEach((entry) -&gt; {</span>
+<span class="fc" id="L479">                final Progress progress = entry.getValue();</span>
+<span class="fc" id="L480">                final GlbOperation op = entry.getKey();</span>
+<span class="pc bpc" id="L481" title="1 of 2 branches missed.">                if (progress.next &lt; upperBound) { // If the operation has work left</span>
+<span class="fc" id="L482">                    final Integer v = numbers.computeIfAbsent(op, k -&gt; new Integer(0));</span>
+<span class="fc" id="L483">                    numbers.put(op, new Integer(v + 1)); // Increment the counter</span>
+                }
+<span class="fc" id="L485">            });</span>
+<span class="fc" id="L486">        }</span>
+
+        // Prepare the array of enclosing finishes
+<span class="fc" id="L489">        final Set&lt;GlbOperation&gt; operations = numbers.keySet();</span>
+<span class="fc" id="L490">        final HashMap&lt;GlbOperation, Finish&gt; finishes = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L491">        final Finish[] finishArray = new Finish[operations.size()];</span>
+<span class="fc" id="L492">        final GlbComputer glb = GlbComputer.getComputer();</span>
+<span class="fc" id="L493">        int fidx = 0;</span>
+<span class="fc bfc" id="L494" title="All 2 branches covered.">        for (final GlbOperation op : operations) {</span>
+<span class="fc" id="L495">            final Finish f = glb.finishes.get(op);</span>
+<span class="fc" id="L496">            finishes.put(op, f);</span>
+<span class="fc" id="L497">            finishArray[fidx++] = f;</span>
+<span class="fc" id="L498">        }</span>
+
+        /*
+         * Make the asynchronous answer to the target place. We need serialization of a
+         * certain number of elements and the assignments. Then we need to
+         * asynchronously accept these instances and merge them into the local bag and
+         * check whether a new operation thread is needed.
+         */
+        // Initialize the one-sided move manager
+<span class="fc" id="L507">        final CustomOneSidedMoveManager m = new CustomOneSidedMoveManager(thief);</span>
+        // Submit all the elements of the collection that need to be moved
+<span class="fc bfc" id="L509" title="All 2 branches covered.">        for (final Assignment s : stolen) {</span>
+<span class="fc" id="L510">            final DistColAssignment assignment = (DistColAssignment) s;</span>
+<span class="fc" id="L511">            collection.moveRangeAtSync(assignment.range, thief, m);</span>
+<span class="fc" id="L512">        }</span>
+
+        // Log the transfer
+<span class="fc" id="L515">        GlbComputer.getComputer().logger.put(LOGKEY_GLB, &quot;DistCol#LifelineAnswer;&quot; + totalObjectStolen,</span>
+<span class="fc" id="L516">                Long.toString(System.nanoTime()));</span>
+
+<span class="fc bfc" id="L518" title="All 2 branches covered.">        switch (answerMode) {</span>
+        case MPI:
+            try {
+<span class="fc" id="L521">                m.asyncSendAndDoWithMPI(</span>
+<span class="fc" id="L522">                        () -&gt; GlbComputer.getComputer().lifelineAnswer(token, stolen, numbers, finishes), finishArray);</span>
+<span class="nc" id="L523">            } catch (final Exception e) {</span>
+<span class="nc" id="L524">                System.err.println(&quot;Error while trying to transfer work&quot;);</span>
+<span class="nc" id="L525">                e.printStackTrace();</span>
+<span class="fc" id="L526">            }</span>
+<span class="nc" id="L527">            break;</span>
+        case KRYO:
+        default:
+            try {
+<span class="fc" id="L531">                m.asyncSendAndDoNoMPI(() -&gt; GlbComputer.getComputer().lifelineAnswer(token, stolen, numbers, finishes),</span>
+                        finishArray);
+<span class="nc" id="L533">            } catch (final IOException e) {</span>
+<span class="nc" id="L534">                System.err.println(&quot;Error while trying to transfer work&quot;);</span>
+<span class="nc" id="L535">                e.printStackTrace();</span>
+<span class="fc" id="L536">            }</span>
+        }
+        // The entries for the distributed collection have been transferred, as well as
+        // all the assignments.
+
+        // We decrement the numbers of remaining assignments to process as if they had
+        // been completed locally.
+<span class="fc bfc" id="L543" title="All 2 branches covered.">        for (final Map.Entry&lt;GlbOperation, Integer&gt; entry : numbers.entrySet()) {</span>
+<span class="fc" id="L544">            final GlbOperation operation = entry.getKey();</span>
+<span class="fc" id="L545">            final Integer removedAssignments = entry.getValue();</span>
+
+<span class="fc" id="L547">            final AtomicInteger remainder = assignmentsLeftToProcess.get(operation);</span>
+<span class="pc bpc" id="L548" title="1 of 2 branches missed.">            if (remainder.addAndGet(-removedAssignments) == 0) { // Decrements the counter</span>
+                // All assignments for this operation have completed locally
+<span class="nc" id="L550">                GlbComputer.getComputer().signalLocalOperationCompletion(operation);</span>
+            }
+<span class="fc" id="L552">        }</span>
+
+<span class="fc" id="L554">        return true;</span>
+    }
+
+    @Override
+    public Assignment assignWorkToWorker() {
+<span class="fc" id="L559">        lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();</span>
+<span class="fc" id="L560">        final DistColAssignment a = availableAssignments.poll();</span>
+<span class="fc bfc" id="L561" title="All 2 branches covered.">        if (a != null) {</span>
+<span class="fc" id="L562">            assignedAssignments.add(a);</span>
+        }
+<span class="fc" id="L564">        lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();</span>
+<span class="fc" id="L565">        return a;</span>
+    }
+
+    /**
+     * Merges the given assignments into this GlbTask. This method is called by a
+     * lifeline answer after the instances on which the assignment operate have been
+     * integrated into the underlying {@link DistChunkedList}.
+     *
+     * @param quantities  the number of assignment which have work for each glb
+     *                    operation entered as a key in this map
+     * @param assignments the assignments that were stolen
+     */
+    @Override
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    public void mergeAssignments(HashMap&lt;GlbOperation, Integer&gt; quantities, ArrayList&lt;Assignment&gt; assignments) {
+<span class="fc" id="L580">        long totalReceivedObjects = 0l;</span>
+
+        // As the first part and before placing assignments into the queues, we
+        // increment the counters for the number of assignments left to process for each
+        // operation. This can be done without any particular protections.
+<span class="fc bfc" id="L585" title="All 2 branches covered.">        for (final Map.Entry&lt;GlbOperation, Integer&gt; entry : quantities.entrySet()) {</span>
+<span class="fc" id="L586">            final AtomicInteger i = assignmentsLeftToProcess.get(entry.getKey());</span>
+<span class="fc" id="L587">            assertNotNull(i);</span>
+<span class="fc" id="L588">            i.addAndGet(entry.getValue());</span>
+<span class="fc" id="L589">        }</span>
+
+        // We need to increment the counter for the number of assignments contained
+        // locally, as well as placing all the assignment in the &quot;availableAssignments&quot;
+        // queue. This needs to be done under STRONG protection: we use the writeLock
+<span class="fc" id="L594">        lockForWorkAssignmentSplittingAndNewOperation.writeLock().lock();</span>
+
+<span class="fc" id="L596">        totalAssignments.addAndGet(assignments.size()); // Increment counter for the total number of assignments handled</span>
+                                                        // by this instance
+
+        // All all assignments to the &quot;availableAssignments&quot; collection
+<span class="fc bfc" id="L600" title="All 2 branches covered.">        for (final Assignment a : assignments) {</span>
+<span class="fc" id="L601">            final DistColAssignment dca = (DistColAssignment) a; // Cast to the proper type</span>
+<span class="fc" id="L602">            dca.setParent(this); // From now on, &quot;this&quot; DistColGlbTask is handling the assignment</span>
+<span class="fc" id="L603">            availableAssignments.add(dca);</span>
+<span class="fc" id="L604">            totalReceivedObjects += dca.range.size();</span>
+<span class="fc" id="L605">        }</span>
+
+        // We log the number of objects received
+<span class="fc" id="L608">        GlbComputer.getComputer().logger.put(LOGKEY_GLB, &quot;DistCol#LifelineReceived;&quot; + totalReceivedObjects,</span>
+<span class="fc" id="L609">                Long.toString(System.nanoTime()));</span>
+
+        // The critical step has ended, we release the writeLock
+<span class="fc" id="L612">        lockForWorkAssignmentSplittingAndNewOperation.writeLock().unlock();</span>
+<span class="fc" id="L613">    }</span>
+
+    /**
+     * Initializes the progress tracking in every assignment contained in this local
+     * instance for the provided operation.
+     * &lt;p&gt;
+     * This method acquires the &quot;WriteLock&quot; of this instance to be protected against
+     * calls to
+     * &lt;ul&gt;
+     * &lt;li&gt;{@link #assignWorkToWorker()}
+     * &lt;li&gt;DistColAssignment method used to split assignment
+     * &lt;/ul&gt;
+     *
+     * @param op the new operation available for processing
+     * @return true if some new work is available on the local host as a result of
+     *         this new operation. A case where this method would return false is if
+     *         there were no elements in the local handle of
+     *         {@link DistChunkedList}.
+     */
+    @Override
+    public boolean newOperation(@SuppressWarnings(&quot;rawtypes&quot;) GlbOperation op) {
+<span class="fc" id="L634">        lockForWorkAssignmentSplittingAndNewOperation.writeLock().lock();</span>
+
+        // We allocate an extra counter for completed assignments
+        // This counter is used in #operationTerminatedOnAssignment(GlbOperation)
+        // to check if all assignments of the DistColGlbTask have been performed
+<span class="fc" id="L639">        assignmentsLeftToProcess.put(op, new AtomicInteger(totalAssignments.get()));</span>
+
+<span class="fc" id="L641">        final int expected = totalAssignments.get();</span>
+<span class="fc" id="L642">        int prepared = 0;</span>
+        // Add a progress tracker for each assignment contained locally
+<span class="fc" id="L644">        boolean toReturn = false;</span>
+<span class="fc bfc" id="L645" title="All 2 branches covered.">        for (final DistColAssignment a : availableAssignments) {</span>
+<span class="fc" id="L646">            a.progress.put(op, new Progress(a.range.from));</span>
+<span class="fc" id="L647">            a.updatePriority();</span>
+<span class="fc" id="L648">            toReturn = true;</span>
+<span class="fc" id="L649">            prepared++;</span>
+<span class="fc" id="L650">        }</span>
+
+<span class="fc bfc" id="L652" title="All 2 branches covered.">        for (final DistColAssignment a : assignedAssignments) {</span>
+<span class="fc" id="L653">            a.progress.put(op, new Progress(a.range.from));</span>
+<span class="fc" id="L654">            a.updatePriority();</span>
+<span class="fc" id="L655">            toReturn = true;</span>
+<span class="fc" id="L656">            prepared++;</span>
+<span class="fc" id="L657">        }</span>
+
+<span class="fc bfc" id="L659" title="All 2 branches covered.">        for (final DistColAssignment a : completedAssignments) {</span>
+<span class="fc" id="L660">            a.progress.put(op, new Progress(a.range.from));</span>
+<span class="fc" id="L661">            a.updatePriority();</span>
+<span class="fc" id="L662">            toReturn = true;</span>
+<span class="fc" id="L663">            prepared++;</span>
+<span class="fc" id="L664">        }</span>
+<span class="fc" id="L665">        assertEquals(expected, prepared); // The number of assignments prepared should be the same as the number of</span>
+                                          // assignments known to be held by this instance
+
+        // The formerly completed assignments now have work in them
+<span class="fc" id="L669">        availableAssignments.addAll(completedAssignments);</span>
+<span class="fc" id="L670">        completedAssignments.clear();</span>
+
+<span class="fc" id="L672">        lockForWorkAssignmentSplittingAndNewOperation.writeLock().unlock();</span>
+
+<span class="fc" id="L674">        return toReturn;</span>
+    }
+
+    /**
+     * Signals that the specified operation has been completed for one of the
+     * assignments. This method is called by a worker thread from method
+     * {@link DistColAssignment#process(int)} as it was processing the assignment.
+     *
+     * @param op operation on which an assignment has completed
+     */
+    void operationTerminatedOnAssignment(@SuppressWarnings(&quot;rawtypes&quot;) GlbOperation op) {
+<span class="fc" id="L685">        final AtomicInteger ai = assignmentsLeftToProcess.get(op);</span>
+<span class="fc" id="L686">        final int completedAssignments = ai.decrementAndGet();</span>
+
+<span class="fc bfc" id="L688" title="All 2 branches covered.">        if (completedAssignments == 0) {</span>
+<span class="fc" id="L689">            GlbComputer.getComputer().signalLocalOperationCompletion(op);</span>
+        }
+<span class="fc" id="L691">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

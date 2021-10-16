@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Pair.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist.util</a> &gt; <span class="el_source">Pair.java</span></div><h1>Pair.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist.util;
+
+/**
+ * Small utility class that keeps two objects in a pair
+ *
+ * @param &lt;F&gt; type of the first object
+ * @param &lt;S&gt; type of the second object
+ */
+public class Pair&lt;F, S&gt; {
+    /** first object of type F */
+    public F first;
+    /** second object of type S */
+    public S second;
+
+    /**
+     * Constructor with the initial object values for the two objects contained in
+     * this pair
+     *
+     * @param first  first object of type F
+     * @param second second object of type S
+     */
+<span class="fc" id="L32">    public Pair(F first, S second) {</span>
+<span class="fc" id="L33">        this.first = first;</span>
+<span class="fc" id="L34">        this.second = second;</span>
+<span class="fc" id="L35">    }</span>
+
+    @Override
+    public boolean equals(Object target) {
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        if (!(target instanceof Pair)) {</span>
+<span class="nc" id="L40">            return false;</span>
+        }
+        @SuppressWarnings(&quot;rawtypes&quot;)
+<span class="nc" id="L43">        final Pair target0 = (Pair) target;</span>
+<span class="nc bnc" id="L44" title="All 4 branches missed.">        return first.equals(target0.first) &amp;&amp; second.equals(target0.second);</span>
+    }
+
+    public F getFirst() {
+<span class="fc" id="L48">        return first;</span>
+    }
+
+    public S getSecond() {
+<span class="fc" id="L52">        return second;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L57">        return first.hashCode() &lt;&lt; 2 + second.hashCode();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

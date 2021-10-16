@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ParallelExecutionException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">ParallelExecutionException.java</span></div><h1>ParallelExecutionException.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections;
+
+import java.io.PrintStream;
+import java.io.PrintWriter;
+
+public class ParallelExecutionException extends RuntimeException {
+    /** Serial Version UID */
+    private static final long serialVersionUID = 3091764613344405477L;
+    public final Throwable cause;
+    public final String msg;
+
+    public ParallelExecutionException() {
+<span class="nc" id="L23">        this(null, null);</span>
+<span class="nc" id="L24">    }</span>
+
+    public ParallelExecutionException(String msg) {
+<span class="nc" id="L27">        this(msg, null);</span>
+<span class="nc" id="L28">    }</span>
+
+<span class="fc" id="L30">    public ParallelExecutionException(String msg, Throwable cause) {</span>
+<span class="fc" id="L31">        this.msg = msg;</span>
+<span class="fc" id="L32">        this.cause = cause;</span>
+<span class="fc" id="L33">    }</span>
+
+    public ParallelExecutionException(Throwable cause) {
+<span class="nc" id="L36">        this(null, cause);</span>
+<span class="nc" id="L37">    }</span>
+
+    @Override
+    public void printStackTrace(PrintStream out) {
+<span class="nc" id="L41">        out.print(&quot;[ParallelExecutionException] &quot;);</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">        if (msg != null) {</span>
+<span class="nc" id="L43">            out.println(msg);</span>
+        }
+<span class="nc" id="L45">        out.println();</span>
+        // TODO message for cause
+<span class="nc" id="L47">        super.printStackTrace(out);</span>
+<span class="nc" id="L48">    }</span>
+
+    @Override
+    public void printStackTrace(PrintWriter out) {
+<span class="nc" id="L52">        out.print(&quot;[ParallelExecutionException] &quot;);</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">        if (msg != null) {</span>
+<span class="nc" id="L54">            out.println(msg);</span>
+        }
+<span class="nc" id="L56">        out.println();</span>
+        // TODO message for cause
+<span class="nc" id="L58">        super.printStackTrace(out);</span>
+<span class="nc" id="L59">    }</span>
+
+    @Override
+    public String toString() {
+<span class="nc" id="L63">        return &quot;[ParallelExecutionException,  msg: &quot; + msg + &quot;, cause: &quot; + cause + &quot;.&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

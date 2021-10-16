@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CustomOneSidedMoveManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb</a> &gt; <span class="el_source">CustomOneSidedMoveManager.java</span></div><h1>CustomOneSidedMoveManager.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.glb;
+
+import static apgas.ExtendedConstructs.*;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.List;
+
+import apgas.Place;
+import apgas.SerializableJob;
+import apgas.impl.Finish;
+import handist.collections.dist.MoveManager;
+import handist.collections.dist.OneSidedMoveManager;
+import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.Serializer;
+import mpi.MPI;
+
+/**
+ * Extension of class {@link OneSidedMoveManager} with more advanced and
+ * specific functionalities used in the context of the GLB. The functionalities
+ * of this class would be otherwise confusing to programmers. There are
+ * therefore presented with package visibility so as to avoid exposing them
+ * outside of this package.
+ *
+ * @author Patrick Finnerty
+ *
+ */
+class CustomOneSidedMoveManager extends OneSidedMoveManager {
+
+    /**
+     * Constructor
+     *
+     * @param d place to which instances will be transferred
+     */
+    public CustomOneSidedMoveManager(Place d) {
+<span class="fc" id="L50">        super(d);</span>
+<span class="fc" id="L51">    }</span>
+
+    /**
+     * Performs the transfer of instances using an asynchronous task. The
+     * serializers that were registered into this MoveManager are applied to
+     * generate a byte array. The deserializers are serialized using the default
+     * serialization method used by the APGAS library, most likely &quot;kryo&quot;. After the
+     * deserialization has completed, calls the job passed as parameter, making it
+     * registered with the same finish instances that were passed as parameter.
+     *
+     * @param j       the job to run after the transfer of instances has completed
+     * @param finishs {@link Finish} instances under which the asynchronous task in
+     *                charge of making the transfer and the job given as parameter
+     *                will be registered.
+     * @throws IOException if thrown during the serialization of instances
+     */
+    public void asyncSendAndDoNoMPI(SerializableJob j, Finish... finishs) throws IOException {
+<span class="fc" id="L68">        final byte[] bytesToSend = serializeObjectsOnly();</span>
+
+<span class="fc" id="L70">        final List&lt;DeSerializer&gt; ds = deserializers;</span>
+
+<span class="fc" id="L72">        asyncArbitraryFinish(destination, () -&gt; {</span>
+            // Convert the array of bytes implicitly serialized into a byte stream
+<span class="fc" id="L74">            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);</span>
+<span class="fc" id="L75">            final ObjectInput oInput = new ObjectInput(inStream);</span>
+
+            // Apply the deserializers
+<span class="fc bfc" id="L78" title="All 2 branches covered.">            for (final DeSerializer d : ds) {</span>
+<span class="fc" id="L79">                d.accept(oInput);</span>
+<span class="fc" id="L80">            }</span>
+<span class="fc" id="L81">            oInput.close();</span>
+
+            // Call the job that was passed as parameter
+<span class="fc" id="L84">            j.run();</span>
+<span class="fc" id="L85">        }, finishs);</span>
+<span class="fc" id="L86">    }</span>
+
+    /**
+     * Proceed to the serialization and send the bytes over to the destination. Also
+     * spawn an asynchronous task on the remote place to receive the bytes and
+     * deserialize them.
+     *
+     * @param j       the job to run after the deserialization of the objects that
+     *                were transferred
+     * @param finishs the finishes under which the asynchronous task which is
+     *                spawned on the destination host is registered.
+     * @throws IOException if thrown during serialization
+     */
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public void asyncSendAndDoWithMPI(SerializableJob j, Finish... finishs) throws IOException {
+<span class="fc" id="L101">        final byte[] bytesToSend = prepareByteArray();</span>
+
+<span class="fc" id="L103">        final int nbOfBytes = bytesToSend.length;</span>
+<span class="fc" id="L104">        final int destinationRank = TeamedPlaceGroup.getWorld().rank(destination);</span>
+<span class="fc" id="L105">        final int myRank = TeamedPlaceGroup.getWorld().rank();</span>
+<span class="fc" id="L106">        final int tag = nextTag();</span>
+
+<span class="fc" id="L108">        TeamedPlaceGroup.getWorld().comm.Isend(bytesToSend, 0, nbOfBytes, MPI.BYTE, destinationRank, tag);</span>
+
+<span class="fc" id="L110">        asyncArbitraryFinish(destination, () -&gt; {</span>
+            // Receive the array of bytes
+<span class="fc" id="L112">            TeamedPlaceGroup.getWorld().comm.Recv(new byte[nbOfBytes], 0, nbOfBytes, MPI.BYTE, myRank, tag);</span>
+<span class="fc" id="L113">            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);</span>
+<span class="fc" id="L114">            final ObjectInput oInput = new ObjectInput(inStream);</span>
+
+            // The first object to come out of the byte array is a list of deserializers
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L118">            final List&lt;DeSerializer&gt; ds = (List&lt;DeSerializer&gt;) oInput.readObject();</span>
+
+            // We know apply each deserializer one after the other
+<span class="fc bfc" id="L121" title="All 2 branches covered.">            for (final DeSerializer deserializer : ds) {</span>
+<span class="fc" id="L122">                deserializer.accept(oInput);</span>
+<span class="fc" id="L123">            }</span>
+<span class="fc" id="L124">            oInput.close();</span>
+
+            // Reception is over, launch the job that was given as parameter
+<span class="fc" id="L127">            j.run();</span>
+<span class="fc" id="L128">        }, finishs);</span>
+<span class="fc" id="L129">    }</span>
+
+    /**
+     * Returns the list of the deserializers that have been registered into this
+     * move manager
+     *
+     * @return the list of deserializers registered into this {@link MoveManager}
+     */
+    public List&lt;DeSerializer&gt; getDeSerializer() {
+<span class="nc" id="L138">        return deserializers;</span>
+    }
+
+    /**
+     * Similar to {@link OneSidedMoveManager} method used to prepare bytes, but does
+     * not serialize the deserializers at the beginning of the array. Instead, only
+     * the serializers are called and their output written to the returned array.
+     *
+     * @return byte array containing the serialized form of the objects targeted by
+     *         the serializers
+     * @throws IOException if thrown during the serialization process
+     */
+    public byte[] serializeObjectsOnly() throws IOException {
+<span class="fc" id="L151">        final ByteArrayOutputStream stream = new ByteArrayOutputStream();</span>
+<span class="fc" id="L152">        final ObjectOutput oo = new ObjectOutput(stream);</span>
+
+<span class="fc bfc" id="L154" title="All 2 branches covered.">        for (final Serializer s : serializers) {</span>
+<span class="fc" id="L155">            s.accept(oo); // Convert the objects targeted by the serializers into bytes.</span>
+<span class="fc" id="L156">        }</span>
+<span class="fc" id="L157">        oo.close();</span>
+
+<span class="fc" id="L159">        final byte[] bytesToSend = stream.toByteArray();</span>
+<span class="fc" id="L160">        return bytesToSend;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

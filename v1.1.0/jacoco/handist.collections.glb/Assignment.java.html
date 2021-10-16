@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Assignment.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb</a> &gt; <span class="el_source">Assignment.java</span></div><h1>Assignment.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.glb;
+
+import java.io.Serializable;
+
+/**
+ * Portion of work to assign to a worker.
+ * &lt;p&gt;
+ * The interface represents a portion of a distributed collection on which an
+ * operation needs to be performed. Assignments are assigned to workers or
+ * otherwise kept in reserve of work inside their
+ *
+ * @author Patrick Finnerty
+ *
+ */
+interface Assignment extends Serializable, Comparable&lt;Assignment&gt; {
+
+    /**
+     * Chooses an operation available in this assignment to be processed by the
+     * worker.
+     *
+     *
+     * @return a GlbOperation with work remaining in this assignment
+     */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    GlbOperation chooseOperationToProgress();
+
+    @Override
+    default int compareTo(Assignment o) {
+<span class="nc" id="L39">        return priority() - o.priority();</span>
+    }
+
+    /**
+     * Indicates if this assignment can be split into 2 new assignments. An
+     * assignment is considered splittable if splitting the assignment will result
+     * in some work being available for other workers, and there is at least one
+     * operation for this assignment which contains more work than the integer
+     * quantity specified as parameter.
+     *
+     * @param qtt number of elements left to process under which the assignment
+     *            cannot be split. In order words, the assignment is splittable (and
+     *            this method will return {@code true}) if it contains one operation
+     *            with at least this number of elements left to process.
+     * @return {@code true} if splitting this assignment will result in more work
+     *         being available for other workers, {@code false otherwise}
+     */
+    boolean isSplittable(int qtt);
+
+    /**
+     * Returns the highest priority (i.e. lowest value) held by an operation which
+     * has work contained in this assignment
+     *
+     * @return the priority of this assignment, as an integer
+     */
+    int priority();
+
+    /**
+     * Process a certain amount of an assignment on an operation available for the
+     * current assignment. Then returns true if there remains some work for this
+     * assignment that was progressed in this call, false otherwise.
+     *
+     * @param qtt amount of work to process
+     * @param ws  instance providing service the operation might need
+     * @param op  operation to progress in this assignment (should have been
+     *            previously obtained from {@link #chooseOperationToProgress()})
+     * @return true if there is some work available for the operation that was
+     *         progressed
+     */
+    @SuppressWarnings(&quot;javadoc&quot;)
+    boolean process(int qtt, WorkerService ws, @SuppressWarnings(&quot;rawtypes&quot;) GlbOperation op);
+
+    /**
+     * Splits this assignment and places the created assignments into the GlbTask
+     * which is handling the assignments of the distributed collection on which the
+     * assignments operate.
+     */
+    void splitIntoGlbTask();
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

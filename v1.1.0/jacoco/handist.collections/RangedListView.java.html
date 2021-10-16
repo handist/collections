@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RangedListView.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">RangedListView.java</span></div><h1>RangedListView.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.Iterator;
+import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.KryoSerializable;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+
+/**
+ * {@link RangedListView} provides an access to a {@link Chunk} restricted to a
+ * specific range.
+ *
+ * @param &lt;T&gt; type handled by the {@link RangedListView} this instance provides
+ *            access to
+ */
+public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable, KryoSerializable {
+
+    /** Serial Version UID */
+    private static final long serialVersionUID = 8258165981421352660L;
+
+    /**
+     * Creates a new {@link RangedListView} which does not allow access to any
+     * portion of any {@link RangedList}
+     *
+     * @param &lt;T&gt; type handled by this instance
+     * @return a newly created {@link RangedListView} which does not grant any
+     *         access
+     */
+    public static &lt;T&gt; RangedListView&lt;T&gt; emptyView() {
+<span class="fc" id="L48">        return new RangedListView&lt;&gt;((Chunk&lt;T&gt;) null, new LongRange(0, 0));</span>
+    }
+
+    /** Chunk instance whose access is controlled by this instance */
+    private Chunk&lt;T&gt; base;
+
+    /**
+     * The range of the {@link RangedList} which this object allows access to
+     */
+    protected LongRange range;
+
+    /**
+     * Creates a new {@link RangedListView} which grants access to the provided
+     * {@link RangedList} only on the specified range.
+     * &lt;p&gt;
+     * The provided base can either be a {@link Chunk} or an existing
+     * {@link RangedListView}, in which case the {@link Chunk} base of this
+     * {@link RangedListView} will be extracted.
+     *
+     * @param base  {@link RangedList} this instance will control access to
+     * @param range the range of indices that the created instance allows access to
+     */
+<span class="fc" id="L70">    public RangedListView(RangedList&lt;T&gt; base, LongRange range) {</span>
+<span class="fc" id="L71">        this.range = range;</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (base == null) {</span>
+<span class="fc" id="L73">            this.base = null;</span>
+<span class="fc" id="L74">            return;</span>
+        }
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        if (base instanceof Chunk) {</span>
+<span class="fc" id="L77">            this.base = (Chunk&lt;T&gt;) base;</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        } else if (base instanceof RangedListView) {</span>
+<span class="fc" id="L79">            this.base = ((RangedListView&lt;T&gt;) base).base; // base;</span>
+        } else {
+<span class="fc" id="L81">            throw new UnsupportedOperationException(&quot;not supported class: &quot; + base.getClass());</span>
+        }
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        if (!base.getRange().contains(range)) {</span>
+<span class="fc" id="L84">            throw new IndexOutOfBoundsException(&quot;[RangeListView] &quot; + range + &quot; is not contained in &quot; + base.getRange());</span>
+        }
+<span class="fc" id="L86">    }</span>
+//
+//	@Override
+//	public void clear() {
+//		throw new UnsupportedOperationException();
+//	}
+
+    /**
+     * Creates a new {@link RangedList} which contains clones of the elements this
+     * {@link RangedListView} grants access to.
+     */
+    @Override
+    public RangedList&lt;T&gt; clone() {
+<span class="fc" id="L99">        return cloneRange(range);</span>
+    }
+
+    /**
+     * Creates a new {@link RangedList} on the specified range containing clones of
+     * the elements this view grants access to. The specified range must be included
+     * into this {@link RangedListView}'s range.
+     */
+    @Override
+    public RangedList&lt;T&gt; cloneRange(LongRange range) {
+<span class="fc" id="L109">        rangeCheck(range);</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">        if (range.equals(base.getRange())) {</span>
+<span class="nc" id="L111">            return base.clone();</span>
+        }
+<span class="fc" id="L113">        return base.cloneRange(range);</span>
+    }
+
+    /**
+     * Checks if the provided object is contained in the {@link RangedList} this
+     * instance provided access to on the specific indices this instance allows
+     * access to. If the underlying {@link RangedList} contains the specified object
+     * at an index that this {@link RangedListView} does not grant access to, this
+     * method will return false
+     */
+    @Override
+    public boolean contains(Object o) {
+<span class="fc bfc" id="L125" title="All 2 branches covered.">        for (long i = range.from; i &lt; range.to; i++) {</span>
+<span class="fc" id="L126">            final T elem = base.get(i);</span>
+<span class="pc bpc" id="L127" title="3 of 6 branches missed.">            if (o == null ? elem == null : o.equals(elem)) {</span>
+<span class="fc" id="L128">                return true;</span>
+            }
+        }
+<span class="fc" id="L131">        return false;</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="fc" id="L136">        return RangedList.equals(this, o);</span>
+    }
+
+    /**
+     * Get the element at the provided {@code index}.
+     *
+     * @param index index of the element to retrieve
+     * @return the value stored at the given index
+     */
+    @Override
+    public T get(long index) {
+<span class="fc" id="L147">        rangeCheck(index);</span>
+<span class="fc" id="L148">        return base.get(index);</span>
+    }
+
+    /**
+     * Returns the range this instance allows access to
+     */
+    @Override
+    public LongRange getRange() {
+<span class="fc" id="L156">        return range;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L161">        return RangedList.hashCode(this);</span>
+    }
+    @Override
+    public Iterator&lt;T&gt; iterator() {
+<span class="pc bpc" id="L165" title="1 of 4 branches missed.">        if(base==null || this.getRange().size()==0) return new ChunkIterator&lt;&gt;();</span>
+<span class="fc" id="L166">        return base.subIterator(this.getRange());</span>
+    }
+
+    /**
+     * Returns a new iterator on the elements of the RangedList this instance
+     * provides access to.
+     */
+    @Override
+    public RangedListIterator&lt;T&gt; listIterator() {
+<span class="nc bnc" id="L175" title="All 4 branches missed.">        if(base==null||this.getRange().size()==0) return new ChunkListIterator&lt;&gt;();</span>
+<span class="nc" id="L176">        return base.subListIterator(this.getRange());</span>
+    }
+
+    /**
+     * Returns a new iterator which starts at the provided index
+     *
+     * @param l starting index of the iterator
+     * @return iterator on the elements this {@link RangedListView} grants access to
+     *         starting at the specified index
+     */
+    public RangedListIterator&lt;T&gt; listIterator(long l) {
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">        if(base==null) return new ChunkListIterator&lt;&gt;();</span>
+<span class="fc" id="L188">        return base.subListIterator(getRange(), l);</span>
+    }
+    @Override
+    public void read(Kryo kryo, Input input) {
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L193">        final Chunk&lt;T&gt; chunk = (Chunk&lt;T&gt;) kryo.readClassAndObject(input);</span>
+<span class="fc" id="L194">        this.base = chunk;</span>
+<span class="fc" id="L195">        this.range = chunk.getRange();</span>
+<span class="fc" id="L196">    }</span>
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L200">        final Chunk&lt;T&gt; chunk = (Chunk&lt;T&gt;) in.readObject();</span>
+<span class="fc" id="L201">        this.base = chunk;</span>
+<span class="fc" id="L202">        this.range = chunk.getRange();</span>
+<span class="fc" id="L203">    }</span>
+
+    /**
+     * Set the given value at the specified index.
+     *
+     * @param index index at which the value should be set
+     * @param v     value to set at the specified index
+     * @return old value at the specified index, or {@code null} if there was no
+     *         previous vale or the previous value was {@code null}
+     * @throws IndexOutOfBoundsException if the given index is out of the range
+     *                                   allowed by the view
+     */
+    @Override
+    public T set(long index, T v) {
+<span class="fc" id="L217">        rangeCheck(index);</span>
+<span class="fc" id="L218">        return base.set(index, v);</span>
+    }
+
+    /**
+     * Returns the number of indices this {@link RangedListView} provides access to
+     */
+    @Override
+    public long size() {
+<span class="fc" id="L226">        return super.size();</span>
+    }
+
+    @Override
+    protected Iterator&lt;T&gt; subIterator(LongRange range) {
+<span class="pc bpc" id="L231" title="2 of 4 branches missed.">        if(base==null || (range.size()==0)) return new ChunkIterator&lt;&gt;();</span>
+<span class="fc" id="L232">        LongRange subrange = getRange().intersection(range);</span>
+<span class="pc bpc" id="L233" title="1 of 2 branches missed.">        if(subrange==null) throw new IndexOutOfBoundsException();</span>
+<span class="fc" id="L234">        return base.subIterator(subrange);</span>
+    }
+    @Override
+    protected RangedListIterator&lt;T&gt; subListIterator(LongRange range) {
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">        if(base==null) return new ChunkListIterator&lt;&gt;();</span>
+<span class="fc" id="L239">        LongRange subrange = getRange().intersection(range);</span>
+<span class="pc bpc" id="L240" title="1 of 2 branches missed.">        if(subrange==null) throw new IndexOutOfBoundsException();</span>
+<span class="fc" id="L241">        return base.subListIterator(subrange);</span>
+    }
+    @Override
+    protected RangedListIterator&lt;T&gt; subListIterator(LongRange range, long l) {
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        if(base==null) return new ChunkListIterator&lt;&gt;();</span>
+<span class="nc" id="L246">        LongRange subrange = getRange().intersection(range);</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        if(subrange==null) throw new IndexOutOfBoundsException();</span>
+<span class="nc" id="L248">        return base.subListIterator(subrange, l);</span>
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Object[] toArray() {
+<span class="fc" id="L255">        return toArray(range);</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Object[] toArray(LongRange range) {
+<span class="fc" id="L263">        rangeCheck(range);</span>
+<span class="fc" id="L264">        return base.toArray(range);</span>
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Chunk&lt;T&gt; toChunk(LongRange range) {
+<span class="fc" id="L272">        rangeCheck(range);</span>
+<span class="fc" id="L273">        return base.toChunk(range);</span>
+    }
+
+    @Override
+    public List&lt;T&gt; toList(LongRange r) {
+<span class="fc" id="L278">        rangeCheck(r);</span>
+<span class="fc" id="L279">        return base.toList(r);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L284">        final StringBuilder sb = new StringBuilder();</span>
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">        if (range == null) {</span>
+<span class="nc" id="L286">            return &quot;RangedListView under construction&quot;;</span>
+        }
+<span class="fc" id="L288">        sb.append(&quot;[&quot; + range + &quot;]&quot;);</span>
+<span class="fc" id="L289">        final long sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();</span>
+<span class="fc" id="L290">        long c = 0;</span>
+<span class="pc bpc" id="L291" title="1 of 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
+<span class="nc bnc" id="L292" title="All 2 branches missed.">            if (c++ &gt; 0) {</span>
+<span class="nc" id="L293">                sb.append(&quot;,&quot;);</span>
+            }
+<span class="nc" id="L295">            sb.append(&quot;&quot; + base.get(i));</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">            if (c == sz) {</span>
+<span class="nc" id="L297">                break;</span>
+            }
+        }
+<span class="pc bpc" id="L300" title="1 of 2 branches missed.">        if (sz &lt; size()) {</span>
+<span class="nc" id="L301">            sb.append(&quot;...(omitted &quot; + (size() - sz) + &quot; elements)&quot;);</span>
+        }
+        // sb.append(&quot;@&quot; + range.begin + &quot;..&quot; + last() + &quot;]&quot;);
+<span class="fc" id="L304">        return sb.toString();</span>
+    }
+
+    @Override
+    public void write(Kryo kryo, Output output) {
+<span class="fc" id="L309">        final Chunk&lt;T&gt; chunk = this.toChunk(range);</span>
+<span class="fc" id="L310">        kryo.writeClassAndObject(output, chunk);</span>
+<span class="fc" id="L311">    }</span>
+
+    // TODO this implement generates redundant RangedListView at receiver node.
+    private void writeObject(ObjectOutputStream out) throws IOException {
+<span class="fc" id="L315">        final Chunk&lt;T&gt; chunk = this.toChunk(range);</span>
+<span class="fc" id="L316">        out.writeObject(chunk);</span>
+<span class="fc" id="L317">    }</span>
+
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

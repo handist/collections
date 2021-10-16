@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ColumnListIterator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">ColumnListIterator.java</span></div><h1>ColumnListIterator.java</h1><pre class="source lang-java linenums">package handist.collections;
+
+public class ColumnListIterator&lt;T&gt; implements RangedListIterator&lt;T&gt; {
+    private final LongRange range;
+    private final Object[] a;
+    private final int offset;
+    private final int stride;
+    private int i; // = index - range.from
+    private final int size;
+<span class="pc" id="L10">    private int lastReturnedShift = -1;</span>
+
+<span class="nc" id="L12">    public ColumnListIterator() {</span>
+<span class="nc" id="L13">        this.a = null;</span>
+<span class="nc" id="L14">        this.range = new LongRange(0);</span>
+<span class="nc" id="L15">        this.offset = 0;</span>
+<span class="nc" id="L16">        this.size = 0;</span>
+<span class="nc" id="L17">        this.stride = 1;</span>
+<span class="nc" id="L18">        this.i = -1;</span>
+<span class="nc" id="L19">    }</span>
+
+    /**
+     *
+     * @param offset means the position from which the first element of range resides in the array a.
+     * @param range represents the index ranges where the list iterator can go forward/back.
+     * @param i0 represents the position where the iterator start scanning.
+     * @param a represents the array container
+     */
+<span class="nc" id="L28">    public ColumnListIterator(int offset, LongRange range, long i0, Object[] a, int stride) {</span>
+<span class="nc bnc" id="L29" title="All 2 branches missed.">        if (!range.contains(i0)) {</span>
+<span class="nc" id="L30">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="nc" id="L32">        this.a = a;</span>
+<span class="nc" id="L33">        this.range = range;</span>
+<span class="nc" id="L34">        this.offset = offset;</span>
+<span class="nc" id="L35">        this.size = (int)range.size();</span>
+<span class="nc" id="L36">        this.i = (int)(i0-range.from) - 1;</span>
+<span class="nc" id="L37">        this.stride = stride;</span>
+<span class="nc" id="L38">    }</span>
+<span class="fc" id="L39">    public ColumnListIterator(int offset, LongRange range, Object[] a, int stride) {</span>
+<span class="fc" id="L40">        this.a = a;</span>
+<span class="fc" id="L41">        this.offset = offset;</span>
+<span class="fc" id="L42">        this.range = range;</span>
+<span class="fc" id="L43">        this.size = (int)range.size();</span>
+<span class="fc" id="L44">        this.i = - 1;</span>
+<span class="fc" id="L45">        this.stride = stride;</span>
+<span class="fc" id="L46">    }</span>
+
+    public ColumnListIterator(LongRange range, Object[] a, int stride) {
+<span class="nc" id="L49">        this(0, range, a, stride);</span>
+<span class="nc" id="L50">    }</span>
+    public ColumnListIterator(LongRange range, long i0, Object[] a, int stride) {
+<span class="nc" id="L52">        this(0, range, i0, a, stride);</span>
+<span class="nc" id="L53">    }</span>
+
+    private LongRange iterRange() {
+<span class="nc" id="L56">        return range;</span>
+    }
+
+    @Override
+    public boolean hasNext() {
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        return i + 1 &lt; size;</span>
+    }
+
+    @Override
+    public boolean hasPrevious() {
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        return i &gt; 0;</span>
+    }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public T next() {
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">        if(!hasNext())</span>
+<span class="nc" id="L73">            throw new IndexOutOfBoundsException(&quot;[Chunk.It] range mismatch: &quot; + iterRange() + &quot; does not include &quot; + i);</span>
+<span class="fc" id="L74">        lastReturnedShift = 0;</span>
+<span class="fc" id="L75">        return (T) a[offset + (++i)*stride];</span>
+    }
+
+    @Override
+    public long nextIndex() {
+<span class="nc" id="L80">        return range.from + i + 1;</span>
+    }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public T previous() {
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if(!hasPrevious())</span>
+<span class="nc" id="L87">            throw new IndexOutOfBoundsException(&quot;[Chunk.It] range mismatch: &quot; + iterRange() + &quot; does not include &quot; + i);</span>
+<span class="nc" id="L88">        lastReturnedShift = 1;</span>
+<span class="nc" id="L89">        return (T) a[offset + (i--) * stride];</span>
+    }
+
+    @Override
+    public long previousIndex() {
+<span class="nc" id="L94">        return range.from + i;</span>
+    }
+
+    @Override
+    public void set(T e) {
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        if (lastReturnedShift == -1) {</span>
+<span class="nc" id="L100">            throw new IllegalStateException(&quot;[Chunk.It] Either method &quot;</span>
+                    + &quot;previous or next needs to be called before method set&quot; + &quot; can be used&quot;);
+        }
+<span class="fc" id="L103">        a[offset + (i + lastReturnedShift)*stride] = e; // FIXME THIS IS NOT CORRECT !!!</span>
+<span class="fc" id="L104">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistCol.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistCol.java</span></div><h1>DistCol.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.dist;
+
+import static apgas.Constructs.*;
+
+import java.io.ObjectStreamException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
+import apgas.Place;
+import apgas.util.GlobalID;
+import handist.collections.ElementOverlapException;
+import handist.collections.LongRange;
+import handist.collections.RangedList;
+import handist.collections.dist.util.LazyObjectReference;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
+import handist.collections.function.DeSerializer;
+import handist.collections.function.Serializer;
+
+public class DistCol&lt;T&gt; extends DistChunkedList&lt;T&gt; implements ElementLocationManagable&lt;LongRange&gt; {
+
+<span class="fc" id="L37">    private static int _debug_level = 5;</span>
+    /**
+     * Internal class that handles distribution-related operations.
+     */
+    protected final transient ElementLocationManager&lt;LongRange&gt; ldist;
+
+    /**
+     * Function kept and used when the local handle does not contain the specified
+     * index in method {@link #get(long)}. This proxy will return a value to be
+     * returned by the {@link #get(long)} method rather than throwing an
+     * {@link Exception}.
+     */
+    private Function&lt;Long, T&gt; proxyGenerator;
+
+    /**
+     * Create a new DistCol. All the hosts participating in the distributed
+     * computation are susceptible to handle the created instance. This constructor
+     * is equivalent to calling {@link #DistCol(TeamedPlaceGroup)} with
+     * {@link TeamedPlaceGroup#getWorld()} as argument.
+     */
+    public DistCol() {
+<span class="nc" id="L58">        this(TeamedPlaceGroup.getWorld());</span>
+<span class="nc" id="L59">    }</span>
+
+    /**
+     * Constructor for {@link DistCol} whose handles are restricted to the
+     * {@link TeamedPlaceGroup} passed as parameter.
+     *
+     * @param placeGroup the places on which the DistCol will hold handles.
+     */
+    public DistCol(final TeamedPlaceGroup placeGroup) {
+<span class="fc" id="L68">        this(placeGroup, new GlobalID());</span>
+<span class="fc" id="L69">    }</span>
+
+    /**
+     * Private constructor by which the locality and the GlobalId associated with
+     * the {@link DistChunkedList} are explicitly given. This constructor should
+     * only be used internally when creating the local handle of a DistCol already
+     * created on a remote place. Calling this constructor with an existing
+     * {@link GlobalID} which is already linked with existing and potentially
+     * different objects could prove disastrous.
+     *
+     * @param placeGroup the hosts on which the distributed collection the created
+     *                   instance may have handles on
+     * @param id         the global id used to identify all the local handles
+     */
+    private DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id) {
+<span class="pc" id="L84">        this(placeGroup, id, (TeamedPlaceGroup pg, GlobalID gid) -&gt; new DistCol&lt;&gt;(pg, gid));</span>
+<span class="fc" id="L85">    }</span>
+
+    protected DistCol(final TeamedPlaceGroup placeGroup, final GlobalID id,
+            BiFunction&lt;TeamedPlaceGroup, GlobalID, ? extends DistChunkedList&lt;T&gt;&gt; lazyCreator) {
+<span class="fc" id="L89">        super(placeGroup, id, lazyCreator);</span>
+<span class="fc" id="L90">        ldist = new ElementLocationManager&lt;&gt;();</span>
+<span class="fc" id="L91">    }</span>
+
+    @Override
+    public void add(final RangedList&lt;T&gt; c) throws ElementOverlapException {
+<span class="fc" id="L95">        ldist.add(c.getRange());</span>
+<span class="fc" id="L96">        super.add(c);</span>
+<span class="fc" id="L97">    }</span>
+
+    @Override
+    public void add_unchecked(RangedList&lt;T&gt; c) {
+<span class="fc" id="L101">        ldist.add(c.getRange());</span>
+<span class="fc" id="L102">        super.add_unchecked(c);</span>
+<span class="fc" id="L103">    }</span>
+
+    @Override
+    public void clear() {
+        // TODO
+        // the current implementation assumes TEAMED operation of clear() and
+        // does not support the situation where clear() is only called on some places.
+<span class="nc" id="L110">        super.clear();</span>
+<span class="nc" id="L111">        ldist.clear();</span>
+<span class="nc" id="L112">    }</span>
+
+    /**
+     * Return the value corresponding to the specified index.
+     *
+     * If the specified index is not located on this place, a
+     * {@link IndexOutOfBoundsException} will be raised, except if a proxy generator
+     * was set for this instance, in which case the value generated by the proxy is
+     * returned.
+     *
+     * @param index index whose value needs to be retrieved
+     * @throws IndexOutOfBoundsException if the specified index is not contained in
+     *                                   this local collection and no proxy was
+     *                                   defined
+     * @return the value corresponding to the provided index, or the value generated
+     *         by the proxy if it was defined and the specified index is outside the
+     *         range of indices of this local instance
+     * @see #setProxyGenerator(Function)
+     */
+    @Override
+    public T get(long index) {
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (proxyGenerator == null) {</span>
+<span class="nc" id="L134">            return super.get(index);</span>
+        } else {
+            try {
+<span class="nc" id="L137">                return super.get(index);</span>
+<span class="nc" id="L138">            } catch (final IndexOutOfBoundsException e) {</span>
+<span class="nc" id="L139">                return proxyGenerator.apply(index);</span>
+            }
+        }
+    }
+
+    /*
+     * Map&lt;LongRange, Integer&gt; getDiff() { return ldist.diff; }
+     */
+
+    public ConcurrentHashMap&lt;LongRange, Place&gt; getDist() {
+<span class="nc" id="L149">        return ldist.dist;</span>
+    }
+
+    public LongDistribution getDistributionLong() {
+<span class="nc" id="L153">        return LongDistribution.convert(getDist());</span>
+    }
+
+    public LongRangeDistribution getRangedDistributionLong() {
+<span class="nc" id="L157">        return new LongRangeDistribution(getDist());</span>
+    }
+
+    @Override
+    public void getSizeDistribution(long[] result) {
+<span class="fc bfc" id="L162" title="All 2 branches covered.">        for (final Map.Entry&lt;LongRange, Place&gt; entry : ldist.dist.entrySet()) {</span>
+<span class="fc" id="L163">            final LongRange k = entry.getKey();</span>
+<span class="fc" id="L164">            final Place p = entry.getValue();</span>
+<span class="fc" id="L165">            result[manager.placeGroup.rank(p)] += k.size();</span>
+<span class="fc" id="L166">        }</span>
+<span class="fc" id="L167">    }</span>
+
+    @Override
+    protected void moveAtSync(final List&lt;RangedList&lt;T&gt;&gt; cs, final Place dest, final MoveManager mm) {
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">        if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L172">            System.out.print(&quot;[&quot; + here().id + &quot;] moveAtSync List[RangedList[T]]: &quot;);</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">            for (final RangedList&lt;T&gt; rl : cs) {</span>
+<span class="nc" id="L174">                System.out.print(&quot;&quot; + rl.getRange() + &quot;, &quot;);</span>
+<span class="nc" id="L175">            }</span>
+<span class="nc" id="L176">            System.out.println(&quot; dest: &quot; + dest.id);</span>
+        }
+
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        if (dest.equals(here())) {</span>
+<span class="fc" id="L180">            return;</span>
+        }
+
+<span class="fc" id="L183">        final DistCol&lt;T&gt; toBranch = this; // using plh@AbstractCol</span>
+<span class="fc" id="L184">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="fc" id="L185">            final ArrayList&lt;Byte&gt; keyTypeList = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L186" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; c : cs) {</span>
+<span class="fc" id="L187">                keyTypeList.add(ldist.moveOut(c.getRange(), dest));</span>
+<span class="fc" id="L188">                this.removeForMove(c.getRange());</span>
+<span class="fc" id="L189">            }</span>
+<span class="fc" id="L190">            s.writeObject(keyTypeList);</span>
+<span class="fc" id="L191">            s.writeObject(cs);</span>
+<span class="fc" id="L192">        };</span>
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L194">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="fc" id="L195">            final List&lt;Byte&gt; keyTypeList = (List&lt;Byte&gt;) ds.readObject();</span>
+<span class="fc" id="L196">            final Iterator&lt;Byte&gt; keyTypeListIt = keyTypeList.iterator();</span>
+<span class="fc" id="L197">            final List&lt;RangedList&lt;T&gt;&gt; chunks = (List&lt;RangedList&lt;T&gt;&gt;) ds.readObject();</span>
+<span class="fc bfc" id="L198" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; c : chunks) {</span>
+<span class="fc" id="L199">                final byte keyType = keyTypeListIt.next();</span>
+<span class="fc" id="L200">                final LongRange key = c.getRange();</span>
+<span class="pc bpc" id="L201" title="1 of 2 branches missed.">                if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L202">                    System.out.println(&quot;[&quot; + here() + &quot;] putForMove key: &quot; + key + &quot; keyType: &quot; + keyType);</span>
+                }
+<span class="fc" id="L204">                toBranch.putForMove(c, keyType);</span>
+<span class="fc" id="L205">            }</span>
+<span class="fc" id="L206">        };</span>
+<span class="fc" id="L207">        mm.request(dest, serialize, deserialize);</span>
+<span class="fc" id="L208">    }</span>
+
+    private void putForMove(final RangedList&lt;T&gt; c, final byte mType) throws Exception {
+<span class="fc" id="L211">        final LongRange key = c.getRange();</span>
+<span class="pc bpc" id="L212" title="1 of 3 branches missed.">        switch (mType) {</span>
+        case ElementLocationManager.MOVE_NEW:
+<span class="fc" id="L214">            ldist.moveInNew(key);</span>
+<span class="fc" id="L215">            break;</span>
+        case ElementLocationManager.MOVE_OLD:
+<span class="fc" id="L217">            ldist.moveInOld(key);</span>
+<span class="fc" id="L218">            break;</span>
+        default:
+<span class="nc" id="L220">            throw new Exception(&quot;SystemError when calling putForMove &quot; + key);</span>
+        }
+<span class="fc" id="L222">        super.add(c);</span>
+<span class="fc" id="L223">    }</span>
+
+    @Override
+    public RangedList&lt;T&gt; remove(final LongRange r) {
+<span class="fc" id="L227">        ldist.remove(r);</span>
+<span class="fc" id="L228">        return super.remove(r);</span>
+    }
+
+    @Deprecated
+    @Override
+    public RangedList&lt;T&gt; remove(final RangedList&lt;T&gt; c) {
+<span class="nc" id="L234">        return this.remove(c.getRange());</span>
+    }
+
+    private void removeForMove(final LongRange r) {
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">        if (super.remove(r) == null) {</span>
+<span class="nc" id="L239">            throw new RuntimeException(&quot;DistCol#removeForMove&quot;);</span>
+        }
+<span class="fc" id="L241">    }</span>
+
+    /**
+     * Sets this instance's proxy generator.
+     *
+     * The proxy feature is used to prepare an element when access to an index that
+     * is not contained in the local range. Instead of throwing an
+     * {@link IndexOutOfBoundsException}, the value generated by the proxy will be
+     * used. It resembles `getOrDefault(key, defaultValue)`.
+     *
+     * @param proxyGenerator function that takes a {@link Long} index as parameter
+     *                       and returns a T
+     */
+    public void setProxyGenerator(Function&lt;Long, T&gt; proxyGenerator) {
+<span class="nc" id="L255">        this.proxyGenerator = proxyGenerator;</span>
+<span class="nc" id="L256">    }</span>
+
+    @Override
+    public void updateDist() {
+<span class="fc" id="L260">        ldist.updateDist(manager.placeGroup);</span>
+<span class="fc" id="L261">    }</span>
+
+    @Override
+    public Object writeReplace() throws ObjectStreamException {
+<span class="fc" id="L265">        final TeamedPlaceGroup pg1 = manager.placeGroup;</span>
+<span class="fc" id="L266">        final GlobalID id1 = id();</span>
+<span class="fc" id="L267">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L268">            return new DistCol&lt;&gt;(pg1, id1);</span>
+        });
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>
