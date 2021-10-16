@@ -13,16 +13,22 @@ package handist.collections.dist;
 import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Random;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.mpijunit.MpiConfig;
@@ -30,7 +36,8 @@ import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
 
 /**
- * Second class used to test the distributed features of class {@link DistCol}
+ * Second class used to test the distributed features of class
+ * {@link DistChunkedList}
  *
  * @author Patrick Finnerty
  *
@@ -68,25 +75,38 @@ public class IT_DistCol2 implements Serializable {
         random = new Random(12345l);
     }
 
-    /** First chunk contained by the DistCol */
-    Chunk<Element> chunk1;
-    /** Second chunk contained by the DistCol */
-    Chunk<Element> chunk2;
-    /** Third chunk contained by the DistCol */
-    Chunk<Element> chunk3;
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
 
+    /** First chunk contained by the DistCol */
+    Chunk<Element> chunk0To100;
+
+    /** Second chunk contained by the DistCol */
+    Chunk<Element> chunk100To200;
+    /** Third chunk contained by the DistCol */
+    Chunk<Element> chunk200To250;
     /** Instance used under test */
     DistCol<Element> distCol;
 
     /** First range on which DistCol is defined */
-    LongRange range1;
-    /** Second range on which DistCol is defined */
-    LongRange range2;
-    /** Third range on which DistCol is defined */
-    LongRange range3;
+    LongRange range0To100;
 
+    /** Second range on which DistCol is defined */
+    LongRange range100To200;
+    /** Third range on which DistCol is defined */
+    LongRange range200To250;
     /** TeamedPlaceGroup representing the whole world */
     TeamedPlaceGroup world;
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     /**
      * Prepares the various objects used for the tests
@@ -97,17 +117,17 @@ public class IT_DistCol2 implements Serializable {
     public void setUp() throws Exception {
         world = TeamedPlaceGroup.getWorld();
 
-        range1 = new LongRange(0l, 100l);
-        range2 = new LongRange(100l, 200l);
-        range3 = new LongRange(200l, 250l);
+        range0To100 = new LongRange(0l, 100l);
+        range100To200 = new LongRange(100l, 200l);
+        range200To250 = new LongRange(200l, 250l);
 
-        chunk1 = new Chunk<>(range1);
-        chunk2 = new Chunk<>(range2);
-        chunk3 = new Chunk<>(range3);
+        chunk0To100 = new Chunk<>(range0To100);
+        chunk100To200 = new Chunk<>(range100To200);
+        chunk200To250 = new Chunk<>(range200To250);
 
-        fillWithValues(chunk1, "a");
-        fillWithValues(chunk2, "b");
-        fillWithValues(chunk3, "c");
+        fillWithValues(chunk0To100, "a");
+        fillWithValues(chunk100To200, "b");
+        fillWithValues(chunk200To250, "c");
 
         distCol = new DistCol<>(world);
     }
@@ -130,12 +150,12 @@ public class IT_DistCol2 implements Serializable {
      */
     @Test(timeout = 10000)
     public void testAddUpdatesDistributedInformation() throws Throwable {
-        distCol.add(chunk1); // Add a chunk to local handle of place 0
+        distCol.add(chunk0To100); // Add a chunk to local handle of place 0
         distCol.placeGroup().broadcastFlat(() -> {
             final long[] size = new long[world.size()];
 
             distCol.TEAM.updateDist(); // Here is the important call
-            distCol.TEAM.size(size); // We check the result of TEAM.size
+            distCol.TEAM.getSizeDistribution(size); // We check the result of TEAM.size
 
             assertEquals(world.size(), size.length);
             for (int i = 0; i < size.length; i++) {
@@ -157,13 +177,13 @@ public class IT_DistCol2 implements Serializable {
             distCol.placeGroup().broadcastFlat(() -> {
                 switch (here().id) {
                 case 0:
-                    distCol.add(chunk1);
+                    distCol.add(chunk0To100);
                     break;
                 case 1:
-                    distCol.add(chunk2);
+                    distCol.add(chunk100To200);
                     break;
                 case 2:
-                    distCol.add(chunk3);
+                    distCol.add(chunk200To250);
                     break;
                 }
             });
@@ -204,13 +224,13 @@ public class IT_DistCol2 implements Serializable {
             distCol.placeGroup().broadcastFlat(() -> {
                 switch (here().id) {
                 case 0:
-                    distCol.add(chunk1);
+                    distCol.add(chunk0To100);
                     break;
                 case 1:
-                    distCol.add(chunk2);
+                    distCol.add(chunk100To200);
                     break;
                 case 2:
-                    distCol.add(chunk3);
+                    distCol.add(chunk200To250);
                     break;
                 }
             });
@@ -245,13 +265,13 @@ public class IT_DistCol2 implements Serializable {
             distCol.placeGroup().broadcastFlat(() -> {
                 switch (here().id) {
                 case 0:
-                    distCol.add(chunk1);
+                    distCol.add(chunk0To100);
                     break;
                 case 1:
-                    distCol.add(chunk2);
+                    distCol.add(chunk100To200);
                     break;
                 case 2:
-                    distCol.add(chunk3);
+                    distCol.add(chunk200To250);
                     break;
                 }
             });
@@ -272,6 +292,94 @@ public class IT_DistCol2 implements Serializable {
             me.printStackTrace();
             throw me.getSuppressed()[0];
         }
+    }
+
+    /**
+     * Tests the case where the range which is transmitted is the "left side" of an
+     * existing chunk
+     *
+     * @throws IOException if thrown during the test
+     */
+    @Test
+    public void testMoveRangeAtSyncLong_leftRange() throws IOException {
+        distCol.add(chunk0To100);
+        distCol.add(chunk100To200);
+        distCol.add(chunk200To250);
+
+        final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
+        final LongRange toTransfer = new LongRange(0l, 50l);
+
+        distCol.moveRangeAtSync(toTransfer, place(1), m);
+        m.send();
+
+        assertFalse(distCol.contains(toTransfer));
+        at(place(1), () -> assertTrue(distCol.containsRange(toTransfer)));
+    }
+
+    /**
+     * Tests the
+     * {@link DistChunkedList#moveRangeAtSync(LongRange, apgas.Place, MoveManager)}
+     * method in a situation where the range to move matches that of an existing
+     * chunk
+     *
+     * @throws IOException if thrown during the test
+     */
+    @Test
+    public void testMoveRangeAtSyncLong_matchingRange() throws IOException {
+        distCol.add(chunk0To100);
+        distCol.add(chunk100To200);
+        distCol.add(chunk200To250);
+
+        final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
+        distCol.moveRangeAtSync(range0To100, place(1), m); // Should not throw anything
+        m.send();
+
+        assertFalse(distCol.contains(chunk0To100));
+        at(place(1), () -> assertTrue(distCol.containsRange(range0To100)));
+    }
+
+    /**
+     * Tests the case where the range which is transmitted is the "left side" of an
+     * existing chunk
+     *
+     * @throws IOException if thrown during the test
+     */
+    @Test
+    public void testMoveRangeAtSyncLong_middleRange() throws IOException {
+        distCol.add(chunk0To100);
+        distCol.add(chunk100To200);
+        distCol.add(chunk200To250);
+
+        final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
+        final LongRange toTransfer = new LongRange(25l, 75l);
+
+        distCol.moveRangeAtSync(toTransfer, place(1), m);
+        m.send();
+
+        assertFalse(distCol.contains(toTransfer));
+        at(place(1), () -> assertTrue(distCol.containsRange(toTransfer)));
+    }
+
+    /**
+     * Tests the case where the range which is transmitted is the "left side" of an
+     * existing chunk
+     *
+     * @throws IOException if thrown during the test
+     */
+    @Test
+    public void testMoveRangeAtSyncLong_rightRange() throws IOException {
+        distCol.add(chunk0To100);
+        distCol.add(chunk100To200);
+        distCol.add(chunk200To250);
+
+        final OneSidedMoveManager m = new OneSidedMoveManager(place(1));
+        final LongRange toTransfer = new LongRange(50l, 100l);
+
+        distCol.moveRangeAtSync(toTransfer, place(1), m);
+        m.send();
+
+        assertFalse(distCol.contains(toTransfer));
+        at(place(1), () -> assertTrue(distCol.containsRange(toTransfer)));
     }
 
     /**

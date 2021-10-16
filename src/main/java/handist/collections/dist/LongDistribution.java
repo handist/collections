@@ -18,6 +18,11 @@ import handist.collections.LongRange;
 
 public class LongDistribution implements Distribution<Long> {
 
+    /**
+     *
+     */
+    private static final long serialVersionUID = 7043702534459848203L;
+
     public static LongDistribution convert(Map<LongRange, Place> rangedHashMap) {
         final HashMap<Long, Place> newHashMap = new HashMap<>();
         for (final Map.Entry<LongRange, Place> entry : rangedHashMap.entrySet()) {

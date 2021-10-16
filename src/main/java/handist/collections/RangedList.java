@@ -10,10 +10,12 @@
  ******************************************************************************/
 package handist.collections;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -27,6 +29,14 @@ import handist.collections.function.LongTBiConsumer;
  * @param <T> type handled by the collection
  */
 public abstract class RangedList<T> implements Iterable<T> {
+
+    static class Box<U> {
+        U val;
+
+        Box(U val) {
+            this.val = val;
+        }
+    }
 
     public static boolean equals(RangedList<?> rlist1, Object o) {
         if (o == null) {
@@ -115,7 +125,7 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param action   action to perform on each element, potentially
      * @param receiver collector of information extracted
      */
-    public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
+    public final <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
         forEach(getRange(), action, receiver);
     }
 
@@ -149,10 +159,16 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param receiver collector of information extracted
      * @see #forEach(LongRange, BiConsumer, Consumer)
      */
-    public <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+    public final <U> void forEach(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
             Consumer<? super U> receiver) {
-        for (long i = range.from; i < range.to; i++) {
-            action.accept(get(i), receiver);
+        forEachImpl(range, action, receiver);
+    }
+    protected <U> void forEachImpl(LongRange range, BiConsumer<? super T, Consumer<? super U>> action,
+                            Consumer<? super U> receiver) {
+        rangeCheck(range);
+        Iterator<T> iter0 = subIterator(range);
+        while (iter0.hasNext()) {
+            action.accept(iter0.next(), receiver);
         }
     }
 
@@ -165,9 +181,15 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param range  range of application of the action
      * @param action action to perform on individual elements
      */
-    public void forEach(LongRange range, Consumer<? super T> action) {
-        for (long i = range.from; i < range.to; i++) {
-            action.accept(get(i));
+    public final void forEach(LongRange range, Consumer<? super T> action) {
+            forEachImpl(range, action);
+    }
+    protected void forEachImpl(LongRange range, Consumer<? super T> action) {
+        rangeCheck(range);
+        if(range.size()==0) return;
+        Iterator<T> iter0 = subIterator(range);
+        while (iter0.hasNext()) {
+            action.accept(iter0.next());
         }
     }
 
@@ -181,9 +203,15 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param range  range of indices on which to apply the action
      * @param action action to perform taking a long and a T as parameter
      */
-    public void forEach(LongRange range, LongTBiConsumer<? super T> action) {
-        for (long i = range.from; i < range.to; i++) {
-            action.accept(i, get(i));
+    public final void forEach(LongRange range, LongTBiConsumer<? super T> action) {
+        forEachImpl(range, action);
+    }
+    protected void forEachImpl(LongRange range, LongTBiConsumer<? super T> action) {
+        rangeCheck(range);
+        long index = range.from;
+        Iterator<T> iter0 = subIterator(range);
+        while (iter0.hasNext()) {
+            action.accept(index++, iter0.next());
         }
     }
 
@@ -193,7 +221,7 @@ public abstract class RangedList<T> implements Iterable<T> {
      *
      * @param action action to perform taking a long and a T as parameter
      */
-    public void forEach(LongTBiConsumer<? super T> action) {
+    public final void forEach(LongTBiConsumer<? super T> action) {
         forEach(getRange(), action);
     }
 
@@ -223,6 +251,15 @@ public abstract class RangedList<T> implements Iterable<T> {
         return getRange().size() == 0;
     }
 
+    public abstract Iterator<T> iterator();
+    public abstract RangedListIterator<T> listIterator();
+    public abstract RangedListIterator<T> listIterator(long from);
+
+    protected abstract Iterator<T> subIterator(LongRange range);
+    protected abstract RangedListIterator<T> subListIterator(LongRange range);
+    protected abstract RangedListIterator<T> subListIterator(LongRange range, long from);
+
+
     /**
      * Creates a new collection from the elements contained in this instance by
      * transforming them into a new type
@@ -251,6 +288,39 @@ public abstract class RangedList<T> implements Iterable<T> {
      */
     public <U> RangedList<U> map(LongRange range, Function<? super T, ? extends U> func) {
         return this.subList(range.from, range.to).map(func);
+    }
+
+    /**
+     * Iterates on the elements of this instance and the {@code target}
+     * {@link RangedList} and applies the given function to each pair of this and
+     * {@code target} element of matching indices on the specified range
+     *
+     * @param range  the range on which to apply the method
+     * @param target other {@link RangedList} supplying the second parameter of
+     *               fuction {@code func}
+     * @param func   function that receives two object (type T and U) extracted from
+     *               two ranged list and does not return result.
+     * @param <U>    the type handled by the {@link RangedList} given as parameter,
+     *               second input for the function
+     */
+    public final <U> void map(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
+        mapImpl(range, target, func);
+    }
+    protected <U> void mapImpl(LongRange range, RangedList<U> target, BiConsumer<T,U> func) {
+        rangeCheck(range);
+        target.rangeCheck(range);
+        Iterator<T> iter0 = subIterator(range);
+        Iterator<U> iter = target.subList(range).iterator();
+        while(iter0.hasNext()) {
+            func.accept(iter0.next(), iter.next());
+        }
+    }
+    public final <S, U> RangedList<U> map(LongRange range, RangedList<S> target, BiFunction<T, S, U> func) {
+        final Chunk<U> result = new Chunk<>(range);
+        rangeCheck(range);
+        target.rangeCheck(range);
+        result.setupFrom(range, this, target, func);
+        return result;
     }
 
     /**
@@ -284,6 +354,37 @@ public abstract class RangedList<T> implements Iterable<T> {
         }
     }
 
+    public T reduce(BiFunction<T, T, T> reduce) {
+        final Box<T> box = new Box<>(null);
+        forEach((T t) -> {
+            if (box.val == null) {
+                box.val = t;
+            } else {
+                box.val = reduce.apply(box.val, t);
+            }
+        });
+        return box.val;
+    }
+
+    public <U> U reduce(BiFunction<U, T, U> reduce, U zero) {
+        final Box<U> box = new Box<>(zero);
+        box.val = zero;
+        forEach((T t) -> {
+            box.val = reduce.apply(box.val, t);
+        });
+        return box.val;
+    }
+
+    public <U, S> U reduce(RangedList<S> source2, BiFunction<T, S, U> map, U zero, BiFunction<U, U, U> reduce) {
+
+        final Box<U> box = new Box<>(zero);
+        box.val = zero;
+        map(getRange(), source2, (T t, S s) -> {
+            box.val = reduce.apply(box.val, map.apply(t, s));
+        });
+        return box.val;
+    }
+
     /**
      * Sets the provided value at the specified index
      *
@@ -305,7 +406,69 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param func   function that takes an object of type S as parameter and
      *               returns a type T
      */
-    public abstract <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func);
+    public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
+        setupFrom(source.getRange(), source, func);
+    }
+    /**
+     * Initializes the values in the {code range} of this instance by applying the provided function on
+     * the elements contained in {@code source}
+     *
+     * @param <S>    the type handled by the {@link RangedList} given as parameter,
+     *               input for the function
+     * @param range  the range where initialization are applied
+     * @param source {@link RangedList} instance from which entries for this
+     *               instance will be extracted
+     * @param func   function that takes an object of type S as parameter and
+     *               returns a type T
+     */
+    public final <S> void setupFrom(LongRange range, RangedList<S> source, Function<? super S, ? extends T> func) {
+        setupFromImpl(range, source, func);
+    }
+    protected <S> void setupFromImpl(LongRange range, RangedList<S> source, Function<? super S, ? extends T> func) {
+        rangeCheck(range);
+        source.rangeCheck(range);
+        RangedListIterator<T> iter0 = subListIterator(range);
+        Iterator<S> iter = source.subIterator(range);
+        while(iter0.hasNext()) {
+            iter0.next();
+            iter0.set(func.apply(iter.next()));
+        };
+    }
+
+
+    /**
+     * Initializes the values in the {code range} of this instance by applying the
+     * provided function on the elements contained in {@code source1} and
+     * {@code source2}
+     *
+     * @param <S>     the first type handled by the {@link RangedList} given as
+     *                parameter, input for the function
+     * @param <U>     the second type handled by the {@link RangedList} given as
+     *                parameter, input for the function
+     * @param range   the range where initialization are applied
+     * @param source1 the first {@link RangedList} instance from which entries for
+     *                this instance will be extracted
+     * @param source2 the second {@link RangedList} instance from which entries for
+     *                this instance will be extracted
+     * @param func    function that takes two objects of type S and U as parameter
+     *                and returns a type T
+     */
+
+    public final <S,U> void setupFrom(LongRange range, RangedList<S> source1, RangedList<U> source2, BiFunction<S,U,T> func) {
+        setupFromImpl(range, source1, source2, func);
+    }
+    protected <S,U> void setupFromImpl(LongRange range, RangedList<S> source1, RangedList<U> source2, BiFunction<S,U,T> func) {
+        rangeCheck(range);
+        source1.rangeCheck(range);
+        source2.rangeCheck(range);
+        RangedListIterator<T> iter0 = subListIterator(range);
+        final Iterator<S> iter1 = source1.subIterator(range);
+        final Iterator<U> iter2 = source2.subIterator(range);
+        while(iter0.hasNext()) {
+            iter0.next();
+            iter0.set(func.apply(iter1.next(), iter2.next()));
+        }
+    }
 
     /**
      * Returns the number of entries in this collection as a {@code long}
@@ -332,8 +495,8 @@ public abstract class RangedList<T> implements Iterable<T> {
      * @param splitPoints the points at which this instance needs to be cut
      * @return this instance entries split into several {@link RangedList}
      */
-    public List<RangedList<T>> splitRange(long... splitPoints) {
-        final ArrayList<RangedList<T>> toReturn = new ArrayList<>(splitPoints.length + 1);
+    public LinkedList<RangedList<T>> splitRange(long... splitPoints) {
+        final LinkedList<RangedList<T>> toReturn = new LinkedList<>();
         final LongRange range = getRange();
         long start = range.from;
         for (final long split : splitPoints) {
@@ -342,7 +505,7 @@ public abstract class RangedList<T> implements Iterable<T> {
         }
         toReturn.add(new RangedListView<>(this, new LongRange(start, range.to)));
         return toReturn;
-    };
+    }
 
     /**
      * Provides a RangedList of the elements contained in this instance from index

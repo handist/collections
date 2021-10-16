@@ -11,28 +11,38 @@
 package handist.collections.dist;
 
 import java.io.ObjectStreamException;
+import java.util.function.BiFunction;
 
 import apgas.Constructs;
 import apgas.Place;
+import apgas.util.GlobalID;
 import apgas.util.SerializableWithReplace;
 import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 
 /**
- * Interface that defines the "Global Operations" that distributed collections
+ * Class that defines the "Global Operations" that distributed collections
  * propose.
  *
  * @param <T> the type of objects manipulated by the distributed collection
  * @param <C> implementing type, should be a class that implements
  *            {@link DistributedCollection}
  */
-public abstract class GlobalOperations<T, C extends DistributedCollection<T, C>> implements SerializableWithReplace {
+public class GlobalOperations<T, C extends DistributedCollection<T, C>> implements SerializableWithReplace {
 
     protected final C localHandle;
+    protected final BiFunction<TeamedPlaceGroup, GlobalID, ? extends C> lazyCreator;
 
-    GlobalOperations(C handle) {
+    /**
+     *
+     * @param handle      the target Distributed Collection
+     * @param lazyCreator the way to create a branch of a distributed collection to
+     *                    a new place.
+     */
+    GlobalOperations(C handle, BiFunction<TeamedPlaceGroup, GlobalID, ? extends C> lazyCreator) {
         localHandle = handle;
+        this.lazyCreator = lazyCreator;
     }
 
     public void balance() {
@@ -48,7 +58,7 @@ public abstract class GlobalOperations<T, C extends DistributedCollection<T, C>>
         pg.broadcastFlat(() -> {
             localHandle.team().teamedBalance(balance);
         });
-    };
+    }
 
     /**
      * Performs the specified action on every instance contained on every host of
@@ -63,6 +73,30 @@ public abstract class GlobalOperations<T, C extends DistributedCollection<T, C>>
         localHandle.placeGroup().broadcastFlat(() -> {
             localHandle.forEach(action);
         });
+    };
+
+    public void gather(final Place destination) {
+        final TeamedPlaceGroup pg = localHandle.placeGroup();
+        pg.broadcastFlat(() -> {
+            localHandle.team().gather(destination);
+        });
+    }
+
+    /**
+     * Gathers the size of every local collection and returns it in the provided
+     * array
+     *
+     * @param result the array in which the result will be stored
+     */
+    @SuppressWarnings("rawtypes")
+    public void getSizeDistribution(final long[] result) {
+        if (localHandle instanceof ElementLocationManagable) {
+            ((ElementLocationManagable) localHandle).getSizeDistribution(result);
+        } else {
+            localHandle.placeGroup().broadcastFlat(() -> {
+                localHandle.team().getSizeDistribution(result);
+            });
+        }
     }
 
     /**
@@ -95,18 +129,6 @@ public abstract class GlobalOperations<T, C extends DistributedCollection<T, C>>
     }
 
     /**
-     * Gathers the size of every local collection and returns it in the provided
-     * array
-     *
-     * @param result the array in which the result will be stored
-     */
-    public void size(final long[] result) {
-        localHandle.placeGroup().broadcastFlat(() -> {
-            localHandle.team().size(result);
-        });
-    }
-
-    /**
      * Method used to create an object which will be transferred to a remote place.
      * <p>
      * This method is defined as <em>abstract</em> in class {@link GlobalOperations}
@@ -120,5 +142,13 @@ public abstract class GlobalOperations<T, C extends DistributedCollection<T, C>>
      * @throws ObjectStreamException if such an exception is thrown during the
      *                               process
      */
-    public abstract Object writeReplace() throws ObjectStreamException;
+    public Object writeReplace() throws ObjectStreamException {
+        final TeamedPlaceGroup pg1 = localHandle.placeGroup();
+        final GlobalID id1 = localHandle.id();
+        return new MemberOfLazyObjectReference<>(pg1, id1, () -> {
+            return lazyCreator.apply(pg1, id1);
+        }, (handle) -> {
+            return handle.global();
+        });
+    }
 }

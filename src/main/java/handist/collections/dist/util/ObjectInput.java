@@ -10,7 +10,8 @@
  ******************************************************************************/
 package handist.collections.dist.util;
 
-import java.io.InputStream;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
@@ -20,61 +21,55 @@ import apgas.impl.KryoSerializer;
 public class ObjectInput {
 
     final Input input;
-    boolean isClosed = false;
     final Kryo kryo;
 
-    final InputStream stream;
+    final ByteArrayInputStream stream;
 
-    public ObjectInput(InputStream in) {
+    public ObjectInput(ByteArrayInputStream in) {
+        this(in, true);
+    }
+
+    public ObjectInput(ByteArrayInputStream in, boolean references) {
         if (in == null) {
             throw new NullPointerException();
         }
         stream = in;
         input = new Input(stream);
-        kryo = KryoSerializer.kryoThreadLocal.get();
-        kryo.reset();
+        kryo = KryoSerializer.getKryoInstance();
         kryo.setAutoReset(false);
+        kryo.setReferences(references);
+    }
+
+    public int avairable() throws IOException {
+        return input.available();
     }
 
     public void close() {
         input.close();
         kryo.reset();
-        kryo.setAutoReset(true); // Need for using at remote place.
-        isClosed = true;
     }
 
     public byte readByte() {
-        if (isClosed) {
-            throw new RuntimeException(this + " has closed.");
-        }
         return input.readByte();
     }
 
     public int readInt() {
-        if (isClosed) {
-            throw new RuntimeException(this + " has closed.");
-        }
         return input.readInt();
     }
 
     public long readLong() {
-        if (isClosed) {
-            throw new RuntimeException(this + " has closed.");
-        }
         return input.readLong();
     }
 
     public Object readObject() {
-        if (isClosed) {
-            throw new RuntimeException(this + " has closed.");
-        }
         return kryo.readClassAndObject(input);
     }
 
+    public void reset() {
+        kryo.reset();
+    }
+
     public void setAutoReset(boolean autoReset) {
-        if (isClosed) {
-            return;
-        }
         kryo.setAutoReset(autoReset);
     }
 }

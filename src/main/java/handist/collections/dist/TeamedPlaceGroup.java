@@ -36,6 +36,7 @@ import mpi.Datatype;
 import mpi.Intracomm;
 import mpi.MPI;
 import mpi.MPIException;
+import mpi.Op;
 
 /**
  * Represents a group of hosts and provides communication facilities between
@@ -258,6 +259,141 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
         id.putHere(this);
     }
 
+    /**
+     * Gathers one double variable from all places, wrapping MPI#Allgather.
+     *
+     * @param val the value to gather.
+     * @return an array storing gathered values to.
+     */
+    public double[] allGather1(double val) {
+        final double[] send = new double[] { val };
+        final double[] recv = new double[size];
+        comm.Allgather(send, 0, 1, MPI.DOUBLE, recv, 0, 1, MPI.DOUBLE);
+        return recv;
+    }
+
+    /**
+     * Gathers one float variable from all places, wrapping MPI#Allgather.
+     *
+     * @param val the value to gather.
+     * @return an array storing gathered values to.
+     */
+    public float[] allGather1(float val) {
+        final float[] send = new float[] { val };
+        final float[] recv = new float[size];
+        comm.Allgather(send, 0, 1, MPI.FLOAT, recv, 0, 1, MPI.FLOAT);
+        return recv;
+    }
+
+    /**
+     * Gathers one int variable from all places, wrapping MPI#Allgather.
+     *
+     * @param val the value to gather.
+     * @return an array storing gathered values to.
+     */
+    public int[] allGather1(int val) {
+        final int[] send = new int[] { val };
+        final int[] recv = new int[size];
+        comm.Allgather(send, 0, 1, MPI.INT, recv, 0, 1, MPI.INT);
+        return recv;
+    }
+
+    /**
+     * Gathers one long variable from all places, wrapping MPI#Allgather.
+     *
+     * @param val the value to gather.
+     * @return an array storing gathered values to.
+     */
+    public long[] allGather1(long val) {
+        final long[] send = new long[] { val };
+        final long[] recv = new long[size];
+        comm.Allgather(send, 0, 1, MPI.LONG, recv, 0, 1, MPI.LONG);
+        return recv;
+    }
+
+    /**
+     * Gathers one short variable from all places, wrapping MPI#Allgather.
+     *
+     * @param val tha value to gather.
+     * @return an array storing gathered values to.
+     */
+    public short[] allGather1(short val) {
+        final short[] send = new short[] { val };
+        final short[] recv = new short[size];
+        comm.Allgather(send, 0, 1, MPI.SHORT, recv, 0, 1, MPI.SHORT);
+        return recv;
+    }
+
+    /**
+     * Combine one double value of each process using the reduce operation, and
+     * return the combined value of the all process.
+     *
+     * @param val send value.
+     * @param op  reduce operation.
+     * @return the combined value.
+     */
+    public double allReduce1(double val, Op op) {
+        final double[] v = new double[] { val };
+        comm.Allreduce(v, 0, v, 0, 1, MPI.DOUBLE, op);
+        return v[0];
+    }
+
+    /**
+     * Combine one float value of each process using the reduce operation, and
+     * return the combined value of the all process.
+     *
+     * @param val send value.
+     * @param op  reduce operation.
+     * @return the combined value.
+     */
+    public float allReduce1(float val, Op op) {
+        final float[] v = new float[] { val };
+        comm.Allreduce(v, 0, v, 0, 1, MPI.FLOAT, op);
+        return v[0];
+    }
+
+    /**
+     * Combine one int value of each process using the reduce operation, and return
+     * the combined value of the all process.
+     *
+     * @param val send value.
+     * @param op  reduce operation.
+     * @return the combined value.
+     */
+    public int allReduce1(int val, Op op) {
+        final int[] v = new int[] { val };
+        comm.Allreduce(v, 0, v, 0, 1, MPI.INT, op);
+        return v[0];
+    }
+
+    /**
+     * Combine one long value of each process using the reduce operation, and return
+     * the combined value of the all process.
+     *
+     * @param val send value.
+     * @param op  reduce operation.
+     * @return the combined value.
+     */
+    public long allReduce1(long val, Op op) {
+        final long[] v = new long[] { val };
+        comm.Allreduce(v, 0, v, 0, 1, MPI.LONG, op);
+        return v[0];
+    }
+
+    /**
+     * Combine one short value of each process using the reduce operation, and
+     * return the combined value of the all process.
+     *
+     * @param val send value.
+     * @param op  reduce operation.
+     * @return the combined value.
+     */
+    public short allReduce1(short val, Op op) {
+        final short[] v = new short[] { val };
+        comm.Allreduce(v, 0, v, 0, 1, MPI.SHORT, op);
+        return v[0];
+    }
+
     @SuppressWarnings("unused")
     public void Alltoallv(Object byteArray, int soffset, int[] sendSize, int[] sendOffset, Datatype stype,
             Object recvbuf, int roffset, int[] rcvSize, int[] rcvOffset, Datatype rtype) throws MPIException {
@@ -282,6 +418,81 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
     }
 
     /**
+     * Broadcast one double value from the root place to all processes of the group.
+     *
+     * @param val  sent value from the root place. In other places, the value will
+     *             be ignored.
+     * @param root broadcast a value from the place.
+     * @return If the root place, return val and if other places, return recieved
+     *         value.
+     */
+    public double bCast1(double val, Place root) {
+        final double[] v = new double[] { val };
+        comm.Bcast(v, 0, 1, MPI.DOUBLE, rank(root));
+        return v[0];
+    }
+
+    /**
+     * Broadcast one float value from the root place to all processes of the group.
+     *
+     * @param val  sent value from the root place. In other places, the value will
+     *             be ignored.
+     * @param root broadcast a value from the place.
+     * @return If the root place, return val and if other places, return recieved
+     *         value.
+     */
+    public float bCast1(float val, Place root) {
+        final float[] v = new float[] { val };
+        comm.Bcast(v, 0, 1, MPI.FLOAT, rank(root));
+        return v[0];
+    }
+
+    /**
+     * Broadcast one int value from the root place to all processes of the group.
+     *
+     * @param val  sent value from the root place. In other places, the value will
+     *             be ignored.
+     * @param root broadcast a value from the place.
+     * @return If the root place, return val and if other places, return recieved
+     *         value.
+     */
+    public int bCast1(int val, Place root) {
+        final int[] v = new int[] { val };
+        comm.Bcast(v, 0, 1, MPI.INT, rank(root));
+        return v[0];
+    }
+
+    /**
+     * Broadcast one long value from the root place to all processes of the group.
+     *
+     * @param val  sent value from the root place. In other places, the value will
+     *             be ignored.
+     * @param root broadcast a value from the place.
+     * @return If the root place, return val and if other places, return recieved
+     *         value.
+     */
+    public long bCast1(long val, Place root) {
+        final long[] v = new long[] { val };
+        comm.Bcast(v, 0, 1, MPI.LONG, rank(root));
+        return v[0];
+    }
+
+    /**
+     * Broadcast one short value from the root place to all processes of the group.
+     *
+     * @param val  sent value from the root place. In other places, the value will
+     *             be ignored.
+     * @param root broadcast a value from the place.
+     * @return If the root place, return val and if other places, return recieved
+     *         value.
+     */
+    public short bCast1(short val, Place root) {
+        final short[] v = new short[] { val };
+        comm.Bcast(v, 0, 1, MPI.SHORT, rank(root));
+        return v[0];
+    }
+
+    /**
      * Makes the specified job run on all the hosts of this {@link TeamedPlaceGroup}
      * and returns when this it has terminated on all the hosts.
      *
@@ -297,6 +508,81 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
             }
             job.run();
         });
+    }
+
+    /**
+     * Gathers one double variable from all places, wrapping MPI#gather.
+     *
+     * @param val  the value to gather.
+     * @param root gather values from all places to the root.
+     * @return If at the root place, return an array storing gathered values to. At
+     *         other places, return null.
+     */
+    public double[] gather1(double val, Place root) {
+        final double[] v = new double[] { val };
+        final double[] recv = new double[size];
+        comm.Gather(v, 0, 1, MPI.DOUBLE, recv, 0, 1, MPI.DOUBLE, rank(root));
+        return (root.equals(here())) ? recv : null;
+    }
+
+    /**
+     * Gathers one float variable from all places, wrapping MPI#gather.
+     *
+     * @param val  the value to gather.
+     * @param root gather values from all places to the root.
+     * @return If at the root place, return an array storing gathered values to. At
+     *         other places, return null.
+     */
+    public float[] gather1(float val, Place root) {
+        final float[] v = new float[] { val };
+        final float[] recv = new float[size];
+        comm.Gather(v, 0, 1, MPI.FLOAT, recv, 0, 1, MPI.FLOAT, rank(root));
+        return (root.equals(here())) ? recv : null;
+    }
+
+    /**
+     * Gathers one int variable from all places, wrapping MPI#gather.
+     *
+     * @param val  the value to gather.
+     * @param root gather values from all places to the root.
+     * @return If at the root place, return an array storing gathered values to. At
+     *         other places, return null.
+     */
+    public int[] gather1(int val, Place root) {
+        final int[] v = new int[] { val };
+        final int[] recv = new int[size];
+        comm.Gather(v, 0, 1, MPI.INT, recv, 0, 1, MPI.INT, rank(root));
+        return (root.equals(here())) ? recv : null;
+    }
+
+    /**
+     * Gathers one long variable from all places, wrapping MPI#gather.
+     *
+     * @param val  the value to gather.
+     * @param root gather values from all places to the root.
+     * @return If at the root place, return an array storing gathered values to. At
+     *         other places, return null.
+     */
+    public long[] gather1(long val, Place root) {
+        final long[] v = new long[] { val };
+        final long[] recv = new long[size];
+        comm.Gather(v, 0, 1, MPI.LONG, recv, 0, 1, MPI.LONG, rank(root));
+        return (root.equals(here())) ? recv : null;
+    }
+
+    /**
+     * Gathers one short variable from all places, wrapping MPI#gather.
+     *
+     * @param val  the value to gather.
+     * @param root gather values from all places to the root.
+     * @return If at the root place, return an array storing gathered values to. At
+     *         other places, return null.
+     */
+    public short[] gather1(short val, Place root) {
+        final short[] v = new short[] { val };
+        final short[] recv = new short[size];
+        comm.Gather(v, 0, 1, MPI.SHORT, recv, 0, 1, MPI.SHORT, rank(root));
+        return (root.equals(here())) ? recv : null;
     }
 
     public Place get(int rank) {
@@ -361,6 +647,91 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
             throw new RuntimeException("[TeamedPlaceGroup] " + place + " is not a member of " + this);
         }
         return result;
+    }
+
+    /**
+     *
+     * Combine one int value of each process using the reduce operation, and return
+     * the combined value of the root process.
+     *
+     * @param val  send value.
+     * @param op   reduce operation.
+     * @param root combined value is returned only the root place.
+     * @return at root place, the combined value. at other places, return val as it
+     *         is.
+     */
+    public double reduce1(double val, Op op, Place root) {
+        final double[] v = new double[] { val };
+        comm.Reduce(v, 0, v, 0, 1, MPI.DOUBLE, op, rank(root));
+        return v[0];
+    }
+
+    /**
+     *
+     * Combine one float value of each process using the reduce operation, and
+     * return the combined value of the root process.
+     *
+     * @param val  send value.
+     * @param op   reduce operation.
+     * @param root combined value is returned only the root place.
+     * @return at root place, the combined value. at other places, return val as it
+     *         is.
+     */
+    public float reduce1(float val, Op op, Place root) {
+        final float[] v = new float[] { val };
+        comm.Reduce(v, 0, v, 0, 1, MPI.FLOAT, op, rank(root));
+        return v[0];
+    }
+
+    /**
+     *
+     * Combine one int value of each process using the reduce operation, and return
+     * the combined value of the root process.
+     *
+     * @param val  send value.
+     * @param op   reduce operation.
+     * @param root combined value is returned only the root place.
+     * @return at root place, the combined value. at other places, return val as it
+     *         is.
+     */
+    public int reduce1(int val, Op op, Place root) {
+        final int[] v = new int[] { val };
+        comm.Reduce(v, 0, v, 0, 1, MPI.INT, op, rank(root));
+        return v[0];
+    }
+
+    /**
+     *
+     * Combine one long value of each process using the reduce operation, and return
+     * the combined value of the root process.
+     *
+     * @param val  send value.
+     * @param op   reduce operation.
+     * @param root combined value is returned only the root place.
+     * @return at root place, the combined value. at other places, return val as it
+     *         is.
+     */
+    public long reduce1(long val, Op op, Place root) {
+        final long[] v = new long[] { val };
+        comm.Reduce(v, 0, v, 0, 1, MPI.LONG, op, rank(root));
+        return v[0];
+    }
+
+    /**
+     *
+     * Combine one short value of each process using the reduce operation, and
+     * return the combined value of the root process.
+     *
+     * @param val  send value.
+     * @param op   reduce operation.
+     * @param root combined value is returned only the root place.
+     * @return at root place, the combined value. at other places, return val as it
+     *         is.
+     */
+    public short reduce1(short val, Op op, Place root) {
+        final short[] v = new short[] { val };
+        comm.Reduce(v, 0, v, 0, 1, MPI.SHORT, op, rank(root));
+        return v[0];
     }
 
     // TODO

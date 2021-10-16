@@ -24,7 +24,6 @@ import apgas.util.SerializableWithReplace;
 import handist.collections.Bag;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
-import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
@@ -32,8 +31,6 @@ import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
-import mpi.MPI;
-import mpi.MPIException;
 
 /**
  * A class for handling objects at multiple places. It is allowed to add new
@@ -49,35 +46,6 @@ import mpi.MPIException;
  */
 public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistBag<T>>, SerializableWithReplace {
     /* implements Container[T], ReceiverHolder[T] */
-
-    /**
-     * Implementation of the GLOBAL handle for class {@link DistBag}
-     *
-     * @author Patrick Finnerty
-     *
-     */
-    public class DistBagGlobal extends GlobalOperations<T, DistBag<T>> {
-        /**
-         * Constructor
-         *
-         * @param handle handle to the local {@link DistBag} this GLOBAL handle acts on
-         */
-        DistBagGlobal(DistBag<T> handle) {
-            super(handle);
-        }
-
-        @Override
-        public Object writeReplace() throws ObjectStreamException {
-            final TeamedPlaceGroup pg1 = placeGroup;
-            final GlobalID gId = id;
-            return new MemberOfLazyObjectReference<>(pg1, gId, () -> {
-                return new DistBag<>(pg1, gId);
-            }, (distBag) -> {
-                return distBag.GLOBAL;
-            });
-        }
-
-    }
 
     /**
      * Implementation of the TEAM handle for class {@link DistBag}
@@ -96,23 +64,32 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
             super(handle);
         }
 
-        @SuppressWarnings("deprecation")
-        @Override
-        public void size(long[] result) {
-            final TeamedPlaceGroup pg = handle.placeGroup();
-            result[pg.myrank] = handle.size();
-            try {
-                // THIS WORKS FOR MPJ-NATIVE implementation
-                pg.comm.Allgather(result, pg.myrank, 1, MPI.LONG, result, 0, 1, MPI.LONG);
-            } catch (final MPIException e) {
-                e.printStackTrace();
-                throw new Error("[DistMap] network error in team().size()");
-            }
+        public void gather(CollectiveRelocator.Gather manager) {
+            final Place destination = manager.root;
+            final Serializer serProcess = (ObjectOutput s) -> {
+                s.writeObject(new Bag<>(handle));
+                if (!here().equals(destination)) {
+                    clear();
+                }
+            };
+            final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
+                @SuppressWarnings("unchecked")
+                final Bag<T> imported = (Bag<T>) ds.readObject();
+                addBag(imported);
+            };
+            manager.request(serProcess, desProcess);
         }
 
+        /**
+         * Sends all local elements to the place specified as parameter.
+         *
+         * @param destination the place to which instances should be relocated to
+         */
         @Override
-        public void updateDist() {
-            // TODO Auto-generated method stub
+        public void gather(Place destination) {
+            final CollectiveRelocator.Gather manager = new CollectiveRelocator.Gather(placeGroup, destination);
+            gather(manager);
+            manager.execute();
         }
 
     }
@@ -120,7 +97,7 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     private static int _debug_level = 5;
 
     /** Handle to Global operations on the DistBag instance */
-    public DistBag<T>.DistBagGlobal GLOBAL;
+    public GlobalOperations<T, DistBag<T>> GLOBAL;
     /**
      * Global Id which identifies this DistBag object as part of a number of handles
      * to the distributed collection implemented by this instance
@@ -143,6 +120,9 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
      * Handle to TEAM operations on this DistBag instance
      */
     public DistBag<T>.DistBagTeam TEAM;
+
+    @SuppressWarnings("rawtypes")
+    private DistCollectionSatellite satellite;
 
     /**
      * Create a new DistBag. Place.places() is used as the PlaceGroup.
@@ -175,7 +155,7 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
         locality = new float[pg.size];
         Arrays.fill(locality, 1.0f);
         id.putHere(this);
-        GLOBAL = new DistBagGlobal(this);
+        GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistBag<>(pg0, gid));
         TEAM = new DistBagTeam(this);
     }
 
@@ -184,24 +164,15 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
         super.forEach(action);
     }
 
-    /**
-     * gather all place-local elements to the root Place.
-     *
-     * @param root the place where the result of reduction is stored.
+    /*
+     * public def integrate(src : List[T]) { // addAll(src); throw new
+     * UnsupportedOperationException(); }
      */
+
     @SuppressWarnings("unchecked")
-    public void gather(Place root) {
-        final Serializer serProcess = (ObjectOutput s) -> {
-            s.writeObject(new Bag<>(this));
-        };
-        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -> {
-            final Bag<T> imported = (Bag<T>) ds.readObject();
-            addBag(imported);
-        };
-        CollectiveRelocator.gatherSer(placeGroup, root, serProcess, desProcess);
-        if (!here().equals(root)) {
-            clear();
-        }
+    @Override
+    public final <S extends DistCollectionSatellite<DistBag<T>, S>> S getSatellite() {
+        return (S) satellite;
     }
 
     /**
@@ -218,11 +189,6 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
         return GLOBAL;
     }
 
-    /*
-     * public def integrate(src : List[T]) { // addAll(src); throw new
-     * UnsupportedOperationException(); }
-     */
-
     @Override
     public GlobalID id() {
         return id;
@@ -231,6 +197,12 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     @Override
     public float[] locality() {
         return locality;
+    }
+
+    @Override
+    public long longSize() {
+        // TODO why bag returns size in int?
+        return super.size();
     }
 
     @Override
@@ -284,6 +256,11 @@ public class DistBag<T> extends Bag<T> implements DistributedCollection<T, DistB
     @Override
     public TeamedPlaceGroup placeGroup() {
         return placeGroup;
+    }
+
+    @Override
+    public <S extends DistCollectionSatellite<DistBag<T>, S>> void setSatellite(S s) {
+        satellite = s;
     }
 
     @SuppressWarnings("unused")

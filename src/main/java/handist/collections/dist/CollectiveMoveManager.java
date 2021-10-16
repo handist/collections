@@ -51,6 +51,8 @@ public final class CollectiveMoveManager implements MoveManager {
      */
     private final Map<Place, List<Serializer>> serializeListMap;
 
+    private boolean references = true;
+
     /**
      * Construct a MoveManagerLocal with the given arguments.
      *
@@ -112,7 +114,7 @@ public final class CollectiveMoveManager implements MoveManager {
             }
 
             final ByteArrayInputStream in = new ByteArrayInputStream(buf, offset, size);
-            final ObjectInput ds = new ObjectInput(in);
+            final ObjectInput ds = new ObjectInput(in, references);
             final List<DeSerializer> deserializerList = (List<DeSerializer>) ds.readObject();
             for (final DeSerializer deserialize : deserializerList) {
                 deserialize.accept(ds);
@@ -151,8 +153,7 @@ public final class CollectiveMoveManager implements MoveManager {
             if (DEBUG) {
                 System.err.println("execSeri: " + here() + "->" + place + ":start:" + out.size());
             }
-            final ObjectOutput s = new ObjectOutput(out);
-
+            final ObjectOutput s = new ObjectOutput(out, references);
             // First, write all the deserializers which will have to operate on the other
             // end
             s.writeObject(builders.get(place));
@@ -172,6 +173,24 @@ public final class CollectiveMoveManager implements MoveManager {
     public void request(Place pl, Serializer serializer, DeSerializer deserializer) {
         serializeListMap.get(pl).add(serializer);
         builders.get(pl).add(deserializer);
+    }
+
+    /**
+     * Request to reset the Serializer at the specified place.
+     *
+     * @param pl the target place.
+     */
+    public void reset(Place pl) {
+        serializeListMap.get(pl).add((ObjectOutput s) -> {
+            s.reset();
+        });
+    }
+
+    /**
+     *
+     * */
+    public void setReferences(boolean references) {
+        this.references = references;
     }
 
     /**

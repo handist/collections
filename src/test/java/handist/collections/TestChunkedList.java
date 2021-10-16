@@ -10,6 +10,7 @@
  ******************************************************************************/
 package handist.collections;
 
+import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.ByteArrayInputStream;
@@ -28,11 +29,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import org.junit.Before;
 import org.junit.Test;
 
+import handist.collections.dist.Reducer;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 
@@ -57,6 +60,60 @@ public class TestChunkedList {
         public String toString() {
             return String.valueOf(n);
         }
+    }
+
+    /**
+     * Dummy reducer which counts the elements in a {@link ChunkedList}
+     */
+    public static class ElementCounter<T> extends Reducer<ElementCounter<T>, T> {
+
+        /** Serial Version UID */
+        private static final long serialVersionUID = 4389792260775069565L;
+
+        public long counter = 0l;
+
+        @Override
+        public void merge(ElementCounter<T> reducer) {
+            counter += reducer.counter;
+        }
+
+        @Override
+        public ElementCounter<T> newReducer() {
+            return new ElementCounter<>();
+        }
+
+        @Override
+        public void reduce(T input) {
+            counter++;
+        }
+    }
+
+    /**
+     * Dummy class which counts the number of chunks contained in a
+     * {@link ChunkedList}.
+     */
+    public class ElementRangeCounter extends Reducer<ElementRangeCounter, RangedList<Element>> {
+
+        /** Serial Version UID */
+        private static final long serialVersionUID = -2233353303829178904L;
+
+        long chunkCounter = 0l;
+
+        @Override
+        public void merge(ElementRangeCounter reducer) {
+            chunkCounter += reducer.chunkCounter;
+        }
+
+        @Override
+        public ElementRangeCounter newReducer() {
+            return new ElementRangeCounter();
+        }
+
+        @Override
+        public void reduce(RangedList<Element> input) {
+            chunkCounter++;
+        }
+
     }
 
     public class MultiIntegerReceiver implements ParallelReceiver<Integer> {
@@ -221,7 +278,57 @@ public class TestChunkedList {
     }
 
     @Test
-    public void testAsyncForEachBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
+    public void testAsyncForEachBiConsumerMultiReceiver() {
+        chunkedList.set(4l, elems[4]);
+
+        final MultiIntegerReceiver accumulator = new MultiIntegerReceiver(2);
+
+        chunkedList.asyncForEach((t, consumer) -> consumer.accept(-t.n), accumulator);
+
+        assertEquals(2, accumulator.parallelAcceptors.length);
+    }
+
+    @Test
+    public void testAsyncForEachConsumer() {
+        finish(() -> {
+            chunkedList.asyncForEach((e) -> {
+                if (e != null) {
+                    e.increase(10);
+                }
+            });
+        });
+
+        assertEquals(6l, chunkedList.size());
+        assertEquals(3, chunkedList.numChunks());
+        assertEquals(10, chunkedList.get(0).n);
+        assertEquals(11, chunkedList.get(1).n);
+        assertEquals(12, chunkedList.get(2).n);
+        assertEquals(13, chunkedList.get(3).n);
+        assertEquals(null, chunkedList.get(4));
+        assertEquals(15, chunkedList.get(5).n);
+    }
+
+    @Test
+    public void testAsyncForEachLongTBiConsumer() {
+        chunkedList.set(4l, elems[4]);
+        final int[] originalValues = new int[elems.length];
+        for (int i = 0; i < elems.length; i++) {
+            originalValues[i] = elems[i].n;
+        }
+
+        finish(() -> {
+            chunkedList.asyncForEach((l, e) -> {
+                e.increase((int) l);
+            });
+        });
+
+        for (long i = 0; i < elems.length; i++) {
+            assertEquals(originalValues[(int) i] + i, chunkedList.get(i).n);
+        }
+    }
+
+    @Test
+    public void testAsyncForEachNthreadsBiConsumerMultiReceiver() throws InterruptedException, ExecutionException {
         final ExecutorService pool = Executors.newFixedThreadPool(2);
         chunkedList.set(4l, elems[4]);
 
@@ -245,7 +352,7 @@ public class TestChunkedList {
     }
 
     @Test
-    public void testAsyncForEachConsumer() {
+    public void testAsyncForEachNthreadsConsumer() {
         final ExecutorService pool = Executors.newFixedThreadPool(2);
         final Future<ChunkedList<Element>> future = chunkedList.asyncForEach(pool, 2, (e) -> {
             if (e != null) {
@@ -274,7 +381,7 @@ public class TestChunkedList {
     }
 
     @Test
-    public void testAsyncForEachLongTBiConsumer() {
+    public void testAsyncForEachNThreadsLongTBiConsumer() {
         chunkedList.set(4l, elems[4]);
         final int[] originalValues = new int[elems.length];
         for (int i = 0; i < elems.length; i++) {
@@ -343,14 +450,28 @@ public class TestChunkedList {
     }
 
     @Test
+    public void testClone() {
+        @SuppressWarnings("unchecked")
+        final ChunkedList<Element> clone = (ChunkedList<Element>) chunkedList.clone();
+        for (long i = 0; i < chunkedList.size(); i++) {
+            assertEquals(clone.get(i), chunkedList.get(i));
+        }
+    }
+
+    @Test
     public void testConstructor() {
         final ConcurrentSkipListMap<LongRange, RangedList<Element>> cMap = new ConcurrentSkipListMap<>();
         cMap.put(chunks[0].getRange(), chunks[0]);
         cMap.put(chunks[1].getRange(), chunks[1]);
         cMap.put(chunks[2].getRange(), chunks[2]);
-        final ChunkedList<Element> cList = new ChunkedList<>(cMap);
+        assertThrows(IllegalArgumentException.class, () -> new ChunkedList<>(cMap));
 
-        assertEquals(6l, cList.size());
+        final ConcurrentSkipListMap<LongRange, RangedList<Element>> correctOrderingMap = new ConcurrentSkipListMap<>(
+                new ChunkedList.LongRangeOrdering());
+        correctOrderingMap.put(chunks[0].getRange(), chunks[0]);
+        correctOrderingMap.put(chunks[1].getRange(), chunks[1]);
+        correctOrderingMap.put(chunks[2].getRange(), chunks[2]);
+        new ChunkedList<>(correctOrderingMap); // Should not throw anything as it is a correct call
     }
 
     @Test
@@ -386,6 +507,32 @@ public class TestChunkedList {
         assertTrue(chunkedList.containsIndex(5));
         assertFalse(chunkedList.containsIndex(100));
         assertFalse(chunkedList.containsIndex(-1));
+    }
+
+    @Test
+    public void testContainsRange() {
+        assertTrue(chunkedList.containsRange(new LongRange(1, 3)));
+        assertFalse(chunkedList.containsRange(new LongRange(-10, 2)));
+        assertFalse(chunkedList.containsRange(new LongRange(3, 10)));
+    }
+
+    @Test
+    public void testEquals() {
+        final ChunkedList<Element> target = new ChunkedList<>();
+        target.add(chunks[0].clone());
+        assertFalse(chunkedList.equals(target));
+        target.add(chunks[1].clone());
+        target.add(chunks[2].clone());
+
+        assertTrue(chunkedList.equals(target));
+
+        chunkedList.set(1, null);
+        assertFalse(chunkedList.equals(target));
+
+        chunkedList.set(1, new Element(-1));
+        assertFalse(chunkedList.equals(target));
+
+        assertFalse(chunkedList.equals(null));
     }
 
     @Test
@@ -494,6 +641,50 @@ public class TestChunkedList {
     }
 
     @Test
+    public void testForEachChunk() {
+        // Remove the null value
+        chunkedList.set(4l, elems[4]);
+
+        final int[] originalValues = new int[elems.length];
+        for (int i = 0; i < elems.length; i++) {
+            originalValues[i] = elems[i].n;
+        }
+
+        chunkedList.forEachChunk((chunk) -> {
+            chunk.forEach((e) -> {
+                e.increase(2);
+            });
+        });
+
+        // Check that each element has its value increased by 2
+        for (int i = 0; i < elems.length; i++) {
+            assertEquals(originalValues[i] + 2, chunkedList.get(i).n);
+        }
+    }
+
+    @Test
+    public void testForEachChunkWithRange() {
+        // Remove the null value
+        chunkedList.set(4l, elems[4]);
+
+        final int[] originalValues = new int[elems.length];
+        for (int i = 0; i < elems.length; i++) {
+            originalValues[i] = elems[i].n;
+        }
+
+        chunkedList.forEachChunk(new LongRange(0, chunkedList.size() + 1), (chunk) -> {
+            chunk.forEach((e) -> {
+                e.increase(2);
+            });
+        });
+
+        // Check that each element has its value increased by 2
+        for (int i = 0; i < elems.length; i++) {
+            assertEquals(originalValues[i] + 2, chunkedList.get(i).n);
+        }
+    }
+
+    @Test
     public void testForEachConsumer() {
         final ExecutorService pool = Executors.newFixedThreadPool(2);
         chunkedList.forEach(pool, 2, (e) -> {
@@ -549,6 +740,54 @@ public class TestChunkedList {
         }
     }
 
+    @Test
+    public void testForEachRagneLongTBiConsumer() {
+        chunkedList.set(4l, elems[4]);
+        final LongRange range = new LongRange(1, 4);
+
+        final int[] originalValues = new int[elems.length];
+        for (int i = 0; i < elems.length; i++) {
+            originalValues[i] = elems[i].n;
+        }
+
+        chunkedList.forEach(range, (l, e) -> {
+            e.increase((int) l);
+        });
+
+        for (long i = range.from; i < range.to; i++) {
+            assertEquals(originalValues[(int) i] + i, chunkedList.get(i).n);
+        }
+    }
+
+    @Test
+    public void testForEachRange() {
+        // Remove the null value
+        chunkedList.set(4l, elems[4]);
+
+        // Keep the original values of the elements on the side
+        final int[] originalValues = new int[elems.length];
+        for (int i = 0; i < elems.length; i++) {
+            originalValues[i] = elems[i].n;
+        }
+
+        // Increase each element by 2
+        chunkedList.forEach(new LongRange(-1, 4), (e) -> e.increase(2));
+
+        // Check that each element has its value increased by 2
+        for (int i = 0; i < 4; i++) {
+            assertEquals(originalValues[i] + 2, chunkedList.get(i).n);
+        }
+        for (int i = 4; i < elems.length; i++) {
+            assertEquals(originalValues[i], chunkedList.get(i).n);
+        }
+
+        chunkedList.forEach(new LongRange(10, 15), (e) -> e.increase(2));
+
+        for (int i = 0; i < 4; i++) {
+            assertEquals(originalValues[i] + 2, chunkedList.get(i).n);
+        }
+    }
+
     @Test(expected = NullPointerException.class)
     public void testForEachWithNull() {
         chunkedList.forEach((e) -> e.increase(2));
@@ -565,6 +804,13 @@ public class TestChunkedList {
     @Test(expected = IndexOutOfBoundsException.class)
     public void testGetError() {
         chunkedList.get(6);
+    }
+
+    @Test
+    public void testHashCode() {
+        @SuppressWarnings("unchecked")
+        final ChunkedList<Element> clone = (ChunkedList<Element>) chunkedList.clone();
+        assertEquals(clone.hashCode(), chunkedList.hashCode());
     }
 
     @Test
@@ -721,6 +967,15 @@ public class TestChunkedList {
         }
     }
 
+    @Test(timeout = 10000)
+    public void testParallelReduce() {
+        final ElementCounter<Element> ec = chunkedList.parallelReduce(new ElementCounter<>());
+        assertEquals(chunkedList.size(), ec.counter);
+
+        final ElementCounter<Element> noElements = newlyCreatedChunkedList.parallelReduce(new ElementCounter<>());
+        assertEquals(0l, noElements.counter);
+    }
+
     @Test
     public void testRanges() {
         int i = 0;
@@ -731,7 +986,40 @@ public class TestChunkedList {
     }
 
     @Test
+    public void testReduce() {
+        final ElementCounter<Element> ec = chunkedList.reduce(new ElementCounter<>());
+        assertEquals(chunkedList.size(), ec.counter);
+
+        final ElementCounter<Element> noElements = newlyCreatedChunkedList.reduce(new ElementCounter<>());
+        assertEquals(0l, noElements.counter);
+    }
+
+    @Test
+    public void testReduceRangedList() {
+        final ElementRangeCounter rc = chunkedList.reduceChunk(new ElementRangeCounter());
+        assertEquals(chunks.length, rc.chunkCounter);
+
+        final ElementRangeCounter emptyRangeCounter = newlyCreatedChunkedList.reduceChunk(new ElementRangeCounter());
+        assertEquals(0l, emptyRangeCounter.chunkCounter);
+    }
+
+    @Test
     public void testRemoveChunk() {
+        RangedList<Element> chunkToRemove = chunks[1];// Chunk on [3,5)
+        RangedList<Element> removed = chunkedList.remove(chunkToRemove);
+        for (final Element e : removed) {
+            assertTrue(removed.contains(e));
+            assertFalse(chunkedList.contains(e));
+        }
+
+        chunkToRemove = new Chunk<>(new LongRange(0, 3));
+        removed = chunkedList.remove(chunkToRemove);
+        assertEquals(chunks[0], removed); // Since the range on which the chunk is defined is considered in method
+                                          // remove, we obtain to first chunk
+    }
+
+    @Test
+    public void testRemoveRange() {
         // Chunk<Element> chunkToRemove = new Chunk<>(new LongRange(-1l, 0l));
         LongRange rangeToRemove = new LongRange(-1l, 0l);
         // Removes nothing, the indices do not intersect.
@@ -851,8 +1139,41 @@ public class TestChunkedList {
     }
 
     @Test
+    public void testSubListTK0() { /* found bugs */
+        final AtomicInteger x = new AtomicInteger(0);
+        // System.out.println(x.get());
+        ChunkedList<String> chunkedList;
+        final LongRange range = new LongRange(11, 311);
+        chunkedList = new ChunkedList<>();
+        chunkedList.add(new Chunk<>(new LongRange(100, 104), "val"));
+        chunkedList.forEach(range, (long index, String s) -> {
+            x.incrementAndGet();
+            assertTrue(range.contains(index));
+            assertTrue(s.equals("val"));
+        });
+        assertTrue(x.get() == 4);
+    }
+
+    @Test
+    public void testSubListTK1() { /* found bugs */
+        final AtomicInteger x = new AtomicInteger(0);
+        ChunkedList<String> chunkedList;
+        final LongRange range = new LongRange(11, 311);
+        chunkedList = new ChunkedList<>();
+        chunkedList.add(new Chunk<>(new LongRange(100, 104), "val0"));
+        chunkedList.add(new Chunk<>(new LongRange(200, 204), "val1"));
+        chunkedList.forEach(range, (long index, String s) -> {
+            x.incrementAndGet();
+            assertTrue(range.contains(index));
+            assertTrue(s.equals(index < 200 ? "val0" : "val1"));
+        });
+        assertTrue(x.get() == 8);
+    }
+
+    @Test
     public void testToString() {
         assertEquals("[ChunkedList(3),[[0,3)]:0,1,2,[[3,5)]:3,null,[[5,6)]:5]", chunkedList.toString());
         assertEquals("[ChunkedList(0)]", newlyCreatedChunkedList.toString());
     }
+
 }
