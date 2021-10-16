@@ -33,4 +33,27 @@ public class Pair<F, S> {
         this.first = first;
         this.second = second;
     }
+
+    @Override
+    public boolean equals(Object target) {
+        if (!(target instanceof Pair)) {
+            return false;
+        }
+        @SuppressWarnings("rawtypes")
+        final Pair target0 = (Pair) target;
+        return first.equals(target0.first) && second.equals(target0.second);
+    }
+
+    public F getFirst() {
+        return first;
+    }
+
+    public S getSecond() {
+        return second;
+    }
+
+    @Override
+    public int hashCode() {
+        return first.hashCode() << 2 + second.hashCode();
+    }
 }

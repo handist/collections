@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.dist;
 
 import static apgas.Constructs.*;
@@ -132,7 +142,7 @@ public class OneSidedMoveManager implements MoveManager {
 
     @Override
     public void request(Place dest, Serializer s, DeSerializer d) {
-        if (dest != destination) {
+        if (dest.id != destination.id) {
             throw new RuntimeException("OneSidedMoveManager received a request for " + dest
                     + " but is only accepting submissions for" + destination);
         }

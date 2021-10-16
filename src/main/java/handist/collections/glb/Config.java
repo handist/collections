@@ -1,4 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
+
+import java.io.PrintStream;
 
 import handist.collections.glb.lifeline.Loop;
 
@@ -20,7 +32,7 @@ public class Config {
      * Handy enumarator used by the GLB routines to determine which mode should be
      * used to make lifeline answers
      */
-    enum LifelineAnswerMode {
+    public enum LifelineAnswerMode {
         KRYO, MPI
     }
 
@@ -80,7 +92,7 @@ public class Config {
      *
      * @return the granularity to be used by the GLB as an integer
      */
-    static int getGranularity() {
+    public static int getGranularity() {
         if (System.getProperties().containsKey(GRANULARITY)) {
             return Integer.parseInt(System.getProperty(GRANULARITY));
         } else {
@@ -89,11 +101,20 @@ public class Config {
     }
 
     /**
+     * Returns the lifeline class as defined in the JVM settings
+     *
+     * @return the fully qualified name of the lifeline class to be used
+     */
+    public static String getLifelineClassName() {
+        return System.getProperty(LIFELINE_STRATEGY, LIFELINE_STRATEGY_DEFAULT);
+    }
+
+    /**
      * Indicates which type of lifeline answer should be made
      *
      * @return a value indicating which type of lifeline answer should be made
      */
-    static LifelineAnswerMode getLifelineSerializationMode() {
+    public static LifelineAnswerMode getLifelineSerializationMode() {
         final String setting = System.getProperty(SERIALIZATION, SERIALIZATION_KRYO);
         if (SERIALIZATION_MPI.equals(setting)) {
             return LifelineAnswerMode.MPI;
@@ -110,11 +131,24 @@ public class Config {
      *
      * @return the number of concurrent workers with which the GLB can run
      */
-    static int getMaximumConcurrentWorkers() {
+    public static int getMaximumConcurrentWorkers() {
         if (System.getProperties().containsKey(MAXIMUM_WORKER_COUNT)) {
             return Integer.parseInt(System.getProperty(MAXIMUM_WORKER_COUNT));
         } else {
             return Runtime.getRuntime().availableProcessors();
         }
+    }
+
+    /**
+     * Prints the configuration settings set for the GLB which this class handles on
+     * the specified output stream
+     *
+     * @param out the output on which the configuration should be printed to.
+     */
+    public static void printConfiguration(PrintStream out) {
+        out.println("Concurrent workers; " + getMaximumConcurrentWorkers());
+        out.println("Granulatiry; " + getGranularity());
+        out.println("Lifeline class; " + getLifelineClassName());
+        out.println("Serialization; " + getLifelineSerializationMode());
     }
 }

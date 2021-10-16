@@ -1,14 +1,14 @@
-A Java distributed collections library.
+# A Java distributed collections library.
 
-# Documentation / Information
+## Documentation / Information
 
 | Version | |
 |-|-|
 | master branch | [Javadoc](https://handist.github.io/handistCollections/master-latest/apidocs/index.html)<br>[Test Coverage Report](https://handist.github.io/handistCollections/master-latest/jacoco/index.html) |
 
-# Build instructions (MAVEN)
+## Build instructions (MAVEN)
 
-## Dependencies
+### Dependencies
 
 This Java libraries relies on a number of libraries:
 
@@ -23,11 +23,11 @@ To ease the compilation process, we placed these two libraries which are usually
 
 Whichever library/profile you choose does not change the JAR produced by running `mvn package` or `mvn package -Pmpijava`. You can very well compile the library with the default profile (using the MPJ-Express library) and execute your programs using the mpiJava library. The implementation of the Java bindings used is determined by the classpath you provide when launching your program.
 
-## Creating the JAR
+### Creating the JAR
 
-You can compile the library from source by checking out the library and running `mvn package` of `mvn package -Pmpijava`. The JAR will be created under the `target` directory.
+You can compile the library from source by checking out the library and running `mvn package`. The JAR will be created under the `target` directory.
 
-## Running the tests
+### Running the tests
 
 The test code is located under the `src/test/java` directory. There are two kinds of tests for this project:
 
@@ -56,7 +56,7 @@ user@computer:~/handistCollections$ mvn verify -Pmpijava
 
 **Configuration for `mpjnative` profile**
 
-In the case of the MPJ-Express library, you will need to set the `MPJ_HOME` environment variable at the location of the library on your system. We expect that the `libnativempjdev.so` compiled for your specific system is located in the `$MPJ_HOME/lib` directory. 
+In the case of the MPJ-Express library, you will need to set the `MPJ_HOME` environment variable at the location of the library on your system. We expect that the `libnativempjdev.so` compiled for your specific system is located in the `$MPJ_HOME/lib` directory. To launch the compilation and run the tests with MPJ "native" implementation, use command `mvn verify -Pmpjnative` 
 
 **Specifying a hostfile**
 
@@ -69,6 +69,6 @@ mvn -Pmpjnative -Dhostfile=hosts clean verify site
 In addition, if you place a file named *HOSTFILE* in the root directory of the project, it will be used automatically without needing to specify any particular option.
 
 
-# Related repository
+## Related repository
 
 This work was inspired by the distributed collections library of X10. You can check this project named "Cassia" there: [cassiaX10lib](https://github.com/handist/cassiaX10lib)@github

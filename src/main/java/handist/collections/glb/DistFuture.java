@@ -76,6 +76,21 @@ public class DistFuture<R> implements Serializable {
     }
 
     /**
+     * Returns the current priority of the underlying GLB operation. The smaller the
+     * integer, the higher the priority.
+     * <p>
+     * By default, GLB operations are assigned a priority based on the order in
+     * which they were created. Operations created earlier are assigned a higher
+     * priority. This order can be changed by manually overriding the priority of an
+     * operation with method {@link #setPriority(int)}.
+     *
+     * @return the current priority level of this operation as an integer
+     */
+    public int getPriority() {
+        return operation.priority;
+    }
+
+    /**
      * Yields back the result of the operation submitted to the GLB which this
      * instance represents.
      *
@@ -86,6 +101,45 @@ public class DistFuture<R> implements Serializable {
             waitGlobalTermination();
         }
         return result;
+    }
+
+    /**
+     * Set the priority level for this operation. The priority is determined through
+     * the natural ordering of integers, with a smaller value indicating a higher
+     * priority.
+     * <p>
+     * By default, GLB operations are assigned a priority based on the order in
+     * which they were created. Operations created earlier are assigned a higher
+     * priority. You can override this default value by calling this method with the
+     * desired priority value as parameter.
+     * <p>
+     * Note that only the relative difference in priority between operations are
+     * used. Setting priority values with larger differences between them does not
+     * change the behavior of the schedule, i.e. having three operations (A, B, C)
+     * of respective priority (0, 1, 2) or (-10, 0, 42) will result in the same
+     * behavior. Also note that it is possible to set multiple operations with the
+     * same priority level without any adverse effect. The priority between these
+     * operations with identical priority will be decided arbitrarily.
+     * <p>
+     * Be mindful of the fact that the priority of a GLB operation cannot be changed
+     * once that operation has started. Calling this method on an operation which is
+     * running or which has already completed will throw an
+     * {@link IllegalStateException}.
+     *
+     * @param priority the desired priority level (low integer value correspond to
+     *                 higher priority)
+     * @return this object, allowing for chained calls to methods of this object
+     * @throws IllegalStateException if the underlying operation has already started
+     *                               or has completed
+     */
+    @SuppressWarnings("unchecked")
+    public DistFuture<R> setPriority(int priority) {
+        if (operation.state != GlbOperation.State.STAGED) {
+            throw new IllegalStateException("Cannot change the priority of an operation which is already running");
+        }
+        operation.priority = priority;
+
+        return this;
     }
 
     /**

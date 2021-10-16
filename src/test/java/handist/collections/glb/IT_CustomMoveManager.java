@@ -1,17 +1,33 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
 
 import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.ExtendedConstructs;
-import handist.collections.dist.DistCol;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.IT_OneSidedMoveManager;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -33,9 +49,23 @@ public class IT_CustomMoveManager extends IT_OneSidedMoveManager implements Seri
     /** Serial Version UID */
     private static final long serialVersionUID = -5294814955826374667L;
 
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @Override
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
+
     @Before
     public void setUp() throws Exception {
-        col = new DistCol<>();
+        col = new DistChunkedList<>();
         y_populateDistCol(col);
         destination = place(1);
         manager = new CustomOneSidedMoveManager(destination);

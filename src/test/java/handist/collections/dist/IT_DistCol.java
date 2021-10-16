@@ -14,16 +14,21 @@ import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
 import apgas.Place;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
@@ -33,7 +38,7 @@ import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
 
 /**
- * Tests for the distributed features of {@link DistCol}
+ * Tests for the distributed features of {@link DistChunkedList}
  *
  * @author Patrick Finnerty
  *
@@ -60,6 +65,19 @@ public class IT_DistCol implements Serializable {
     int NPLACES;
     /** PlaceGroup representing the whole world */
     TeamedPlaceGroup placeGroup = TeamedPlaceGroup.getWorld();
+
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     /**
      * Prepares new instance of DistCol for the test
@@ -297,7 +315,7 @@ public class IT_DistCol implements Serializable {
     /**
      * Subroutine which checks that every place holds half of the total instances
      *
-     * @param INITIAL_SIZE total size of the distributed collection
+     * @param size
      * @throws Throwable if thrown during the check
      */
     private void x_checkSize(final SerializableFunction<Place, Long> size) throws Throwable {

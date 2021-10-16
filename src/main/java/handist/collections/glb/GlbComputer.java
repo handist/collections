@@ -12,6 +12,7 @@ package handist.collections.glb;
 
 import static apgas.Constructs.*;
 import static apgas.ExtendedConstructs.*;
+import static handist.collections.glb.GlobalLoadBalancer.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
@@ -32,6 +34,7 @@ import apgas.Place;
 import apgas.impl.Finish;
 import apgas.util.PlaceLocalObject;
 import handist.collections.Bag;
+import handist.collections.dist.DistLog;
 import handist.collections.dist.DistributedCollection;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.glb.lifeline.Lifeline;
@@ -112,9 +115,6 @@ class GlbComputer extends PlaceLocalObject {
         /** Unique integer identifier */
         final int id;
 
-        /** Time stamp of the last change in this worker's state */
-        private long lastStamp;
-
         /**
          * Number of times the worker made an answer to a remote thief.
          */
@@ -147,7 +147,7 @@ class GlbComputer extends PlaceLocalObject {
          * used throughout the processing of the operation. In such a case, this objects
          * is kept in this collection.
          */
-        private final Map<Object, Object> workerBoundObjects;
+        final Map<Object, Object> workerBoundObjects;
 
         /**
          * Counts the number of times this worker was spawned
@@ -185,43 +185,6 @@ class GlbComputer extends PlaceLocalObject {
             synchronized (errors) {
                 errors.computeIfAbsent(currentOperation, k -> new ArrayList<>()).add(t);
             }
-        }
-
-        /**
-         * Signals that this worker which was yielding has now resumed working.
-         */
-        void workerResumed() {
-            final long stamp = System.nanoTime();
-
-            timeYielding += stamp - lastStamp;
-            lastStamp = stamp;
-        }
-
-        /**
-         * Signals that this worker started working
-         */
-        void workerStarted() {
-            workerSpawned++;
-            lastStamp = System.nanoTime();
-        }
-
-        /**
-         * Signals that this worker which was working has stopped.
-         */
-        void workerStopped() {
-            final long stamp = System.nanoTime();
-            timeWorking += stamp - lastStamp;
-        }
-
-        /**
-         * Signals that this worker which was working has now started yielding to other
-         * activities of the APGAS runtime.
-         */
-        void workerYielding() {
-            final long stamp = System.nanoTime();
-
-            timeWorking += stamp - lastStamp;
-            lastStamp = stamp;
         }
     }
 
@@ -263,7 +226,7 @@ class GlbComputer extends PlaceLocalObject {
          * {@link #getAssignment()}.
          */
         @SuppressWarnings("rawtypes")
-        ConcurrentHashMap<GlbOperation, GlbTask> tasksWithWork;
+        ConcurrentSkipListMap<GlbOperation, GlbTask> tasksWithWork;
 
         /**
          * Constructor
@@ -273,7 +236,7 @@ class GlbComputer extends PlaceLocalObject {
         WorkReserve() {
             lock = new ReentrantReadWriteLock();
             allTasks = new HashMap<>();
-            tasksWithWork = new ConcurrentHashMap<>();
+            tasksWithWork = new ConcurrentSkipListMap<>();
         }
 
         /**
@@ -281,6 +244,10 @@ class GlbComputer extends PlaceLocalObject {
          * <p>
          * If at the time this method is called no work could be selected, returns null
          * instead.
+         * <p>
+         * This implementation uses the natural ordering of class {@link GlbOperation}
+         * in a {@link ConcurrentSkipListMap} to favor the higher priority
+         * {@link GlbOperation}s.
          *
          * @param wInfo the worker info instance which will be placed back into the
          *              #idleWorkers collection if calling this method did not result in
@@ -298,7 +265,6 @@ class GlbComputer extends PlaceLocalObject {
                 }
             }
             // Unable to get an assignment for the worker
-            wInfo.workerStopped();
             idleWorkers.add(wInfo);
             lock.readLock().unlock();
 
@@ -363,30 +329,64 @@ class GlbComputer extends PlaceLocalObject {
      */
     static boolean TRACE = Boolean.parseBoolean(System.getProperty(Config.ACTIVATE_TRACE, "false"));
 
+    /**
+     * Destroys the GlbComputer singleton on all places. This method should be
+     * called before calling method {@link #initializeComputer(DistLog)} or
+     * {@link #getComputer()}
+     */
     static void destroyGlbComputer() {
-        computer = null;
+        TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
+            computer = null;
+        });
     }
 
     /**
-     * Method returning the local singleton for GlbComputer
+     * Method returning the local singleton for GlbComputer. May return null if
+     * method {@link #initializeComputer(DistLog)} was not called beforehand.
      *
      * @return GlbComputer local handle
      */
     static GlbComputer getComputer() {
-        if (computer == null) {
-            computer = PlaceLocalObject.make(TeamedPlaceGroup.getWorld().places(), () -> {
-                final GlbComputer c = new GlbComputer();
-                // Assign the static member of class GlbComputer here
-                // Doing so here avoids the need for a second finish/asyncAt block
+//        if (computer == null) {
+//            final DistLog log = new DistLog();
+//            computer = PlaceLocalObject.make(TeamedPlaceGroup.getWorld().places(), () -> {
+//                final GlbComputer c = new GlbComputer(log);
+//                // Assign the static member of class GlbComputer here
+//                // Doing so here avoids the need for a second finish/asyncAt block
+//                GlbComputer.computer = c;
+//                if (TRACE) {
+//                    System.err.println("GlbComputer on " + here() + " is " + c);
+//                }
+//                return c;
+//            });
+//        }
+        assertNotNull(computer);
+        return computer;
+    }
+
+    /**
+     * Performs the global initialization of a GlbComputer instance on all hosts.
+     * Any previous instance must be destroyed before calling this method.
+     *
+     * @param log the logger instance into which all the event that occur as part of
+     *            the GLB program eecution will be recorded
+     * @return the GlbComputer instance created locally
+     */
+    static GlbComputer initializeComputer(DistLog log) {
+        return PlaceLocalObject.make(TeamedPlaceGroup.getWorld().places(), () -> {
+            final GlbComputer c = new GlbComputer(log);
+            // Assign the static member of class GlbComputer here
+            // Doing so here avoids the need for a second dedicated finish/asyncAt block
+            if (computer == null) {
                 GlbComputer.computer = c;
                 if (TRACE) {
                     System.err.println("GlbComputer on " + here() + " is " + c);
                 }
-                return c;
-            });
-        }
-        assertNotNull(computer);
-        return computer;
+            } else {
+                throw new IllegalStateException("Previous GlbComputer was not destroyed on " + here());
+            }
+            return c;
+        });
     }
 
     /**
@@ -460,6 +460,11 @@ class GlbComputer extends PlaceLocalObject {
     ConcurrentLinkedQueue<LifelineToken> lifelineThieves;
 
     /**
+     * Logger for the events occurring on this host
+     */
+    DistLog logger;
+
+    /**
      * Maximum number of workers that can concurrently run on the local host
      */
     final int MAX_WORKERS;
@@ -493,7 +498,7 @@ class GlbComputer extends PlaceLocalObject {
      * to attach an object to each worker which is needed when this operation is
      * processed by a the workers.
      */
-    private final WorkerInfo[] workers;
+    final WorkerInfo[] workers;
 
     /**
      * Lock used to force workers to yield execution to allow other activities to
@@ -506,8 +511,11 @@ class GlbComputer extends PlaceLocalObject {
      * <p>
      * GlbComputer is a global object that follows a singleton design pattern. This
      * constructor is made private to protect this property.
+     *
+     * @param log the logger instance into which the events that occur on this host
+     *            will be recorded throughout the execution
      */
-    private GlbComputer() {
+    private GlbComputer(DistLog log) {
         // Set the constants related to runtime environment
         MAX_WORKERS = Config.getMaximumConcurrentWorkers();
         POOL = (ForkJoinPool) GlobalRuntime.getRuntime().getExecutorService();
@@ -547,6 +555,11 @@ class GlbComputer extends PlaceLocalObject {
         // Initialize the data structures used to keep track of the lifelines
         lifelineThieves = new ConcurrentLinkedQueue<>();
         lifelineEstablished = new ConcurrentHashMap<>();
+
+        // Setup the logger instance for this local host
+        logger = log;
+        logger.put(LOGKEY_GLB, LOG_INITIALIZED_WORKERS, Integer.toString(MAX_WORKERS));
+        logger.put(LOGKEY_GLB, LOG_INITIALIZED_AT_NANOTIME, Long.toString(System.nanoTime()));
     }
 
     /**
@@ -720,7 +733,11 @@ class GlbComputer extends PlaceLocalObject {
             final ConcurrentHashMap<Place, AtomicInteger> map = new ConcurrentHashMap<>();
             Lifeline l;
             try {
-                l = LifelineFactory.newLifeline(col.placeGroup());
+                if (op.lifelineClass == null) {
+                    l = LifelineFactory.newLifeline(col.placeGroup());
+                } else {
+                    l = LifelineFactory.newLifeline(col.placeGroup(), op.lifelineClass);
+                }
             } catch (final Exception e) {
                 e.printStackTrace();
                 System.err.println("Faced a " + e + " when attempting to initialize a new lifeline strategy. Using "
@@ -921,7 +938,8 @@ class GlbComputer extends PlaceLocalObject {
      * @param a  initial assignment to be processed by this worker
      */
     private void worker(WorkerInfo worker, Assignment a) {
-        worker.workerStarted();
+        logger.put(LOGKEY_WORKER, LOG_WORKER_STARTED, Long.toString(System.nanoTime()));
+
         try {
             for (;;) {
                 worker.currentOperation = a.chooseOperationToProgress();
@@ -945,9 +963,9 @@ class GlbComputer extends PlaceLocalObject {
                     TimeoutBlocker l;
                     if (POOL.hasQueuedSubmissions() && (l = workerAvailableLocks.poll()) != null) {
                         l.reset();
-                        // System.err.println("WORKER HELPING");
+                        logger.put(LOGKEY_WORKER, LOG_WORKER_YIELDING, Long.toString(System.nanoTime()));
                         ForkJoinPool.managedBlock(l);
-                        // System.err.println("WORKER RESUMING");
+                        logger.put(LOGKEY_WORKER, LOG_WORKER_RESUMED, Long.toString(System.nanoTime()));
                         workerAvailableLocks.add(l);
                     }
 
@@ -955,10 +973,6 @@ class GlbComputer extends PlaceLocalObject {
                     // doing so
                     final LifelineToken steal = lifelineThieves.poll();
                     if (steal != null) {
-                        if (TRACE) {
-                            // System.err.println("Worker on " + here() + " took up lifeline " + steal);
-                        }
-
                         // Check if the target collection has some assignments left for the target
                         // collection
 
@@ -971,15 +985,9 @@ class GlbComputer extends PlaceLocalObject {
                         // the information to this place that a new operation is available for
                         // computation.
                         if ((g = reserve.allTasks.get(steal.collection)) != null && g.answerLifeline(steal)) {
-                            if (TRACE) {
-                                // System.err.println("Processed lifeline request " + steal);
-                            }
-                            worker.lifelineAnswer++;
+                            logger.put(LOGKEY_WORKER, LOG_LIFELINE_ANSWERED, Long.toString(System.nanoTime()));
                         } else {
-                            if (TRACE) {
-                                // System.err.println("Could not answer thief at this time");
-                            }
-                            worker.lifelineCannotAnswer++;
+                            logger.put(LOGKEY_WORKER, LOG_LIFELINE_NOT_ANSWERED, Long.toString(System.nanoTime()));
                             lifelineThieves.add(steal);
                         }
                     }
@@ -989,8 +997,7 @@ class GlbComputer extends PlaceLocalObject {
                 // Trying to obtain a new assignment determines if the worker continue or stop
                 if ((a = reserve.getAssignment(worker)) == null) {
                     // The reserve returned null, this worker will stop
-//                    worker.workerStopped();
-                    // idleWorkers.add(worker);
+
                     // FIXME potential problem here where the attempt at taking work from the
                     // reserve and placing the worker info back into the idleWorker collection
                     // should be done atomically to protect against concurrent #lifleineAnswer made.
@@ -999,10 +1006,11 @@ class GlbComputer extends PlaceLocalObject {
                     // to spawn a worker to make this attempt BEFORE worker's info was placed back
                     // into the collection.
                     workerYieldLock.unblock(); // As this worker quits, any waiting worker can resume
-                    if (TRACE) {
-                        System.err.println(here() + " worker(" + worker.id + ") stopped --- " + idleWorkers.size()
-                                + " stopped workers");
-                    }
+//                    if (TRACE) {
+//                        System.err.println(here() + " worker(" + worker.id + ") stopped --- " + idleWorkers.size()
+//                                + " stopped workers");
+//                    }
+                    logger.put(LOGKEY_WORKER, LOG_WORKER_STOPPED, Long.toString(System.nanoTime()));
                     return;
                 } else {
                     // This worker was able to take an assignment from the reserve. It is not

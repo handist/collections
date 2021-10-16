@@ -16,15 +16,17 @@ import java.util.Arrays;
 import apgas.Place;
 import handist.collections.dist.util.IntFloatPair;
 import handist.collections.dist.util.IntLongPair;
+import mpi.MPI;
+import mpi.MPIException;
 
 /**
- * Interface which defines the "team" operations that distributed collections
+ * Class which defines the "team" operations that distributed collections
  * provide.
  *
  * @param <T> type of the objects contained in the distributed collection
  * @param <C> type of the local handle on which the TeamOperations operate
  */
-public abstract class TeamOperations<T, C extends DistributedCollection<T, C>> {
+public class TeamOperations<T, C extends DistributedCollection<T, C>> {
 
     static int _debug_level = 5;
 
@@ -40,6 +42,10 @@ public abstract class TeamOperations<T, C extends DistributedCollection<T, C>> {
         handle = localObject;
     }
 
+    public void gather(Place destination) {
+        // TODO not implemented yet
+    }
+
     /**
      * Computes and gathers the size of each local collection into the provided
      * array. This operation usually requires that all the hosts that are
@@ -50,26 +56,30 @@ public abstract class TeamOperations<T, C extends DistributedCollection<T, C>> {
      *
      * @param result long array in which the result will be gathered
      */
-    public abstract void size(long[] result);
+    @SuppressWarnings({ "rawtypes", "deprecation" })
+    public void getSizeDistribution(final long[] result) {
+        if (handle instanceof ElementLocationManagable) {
+            ((ElementLocationManagable) handle).getSizeDistribution(result);
+            return;
+        }
+        final TeamedPlaceGroup pg = handle.placeGroup();
+        result[pg.myrank] = handle.longSize();
+        try {
+            // THIS WORKS FOR MPJ-NATIVE implementation
+            // There appears to be a bug in the mpiJava implementation
+            pg.comm.Allgather(result, pg.myrank, 1, MPI.LONG, result, 0, 1, MPI.LONG);
+        } catch (final MPIException e) {
+            e.printStackTrace();
+            throw new Error("[DistMap] network error in team().size()");
+        }
+    }
 
     public void teamedBalance() {
         teamedBalance(new CollectiveMoveManager(handle.placeGroup()));
     }
 
-    public void teamedBalance(final float[] balance) {
-        teamedBalance(balance, new CollectiveMoveManager(handle.placeGroup()));
-    }
-
-    public void teamedBalance(final float[] newLocality, final CollectiveMoveManager mm) {
-        if (newLocality.length != handle.placeGroup().size()) {
-            throw new RuntimeException("[DistCol] the size of newLocality must be the same with placeGroup.size()");
-        }
-        System.arraycopy(newLocality, 0, handle.locality(), 0, handle.locality().length);
-        teamedBalance(mm);
-    }
-
     /**
-     * Redisitributes all the entries of the underlying distributed collection
+     * Redistributes all the entries of the underlying distributed collection
      * between the places.
      *
      * @param mm move manager in charge of the transfer
@@ -88,7 +98,7 @@ public abstract class TeamOperations<T, C extends DistributedCollection<T, C>> {
         for (int i = 0; i < pgSize; i++) {
             localitySum += handle.locality()[i];
         }
-        size(localDataSize);
+        getSizeDistribution(localDataSize);
 
         for (int i = 0; i < pgSize; i++) {
             globalDataSize += localDataSize[i];
@@ -211,8 +221,27 @@ public abstract class TeamOperations<T, C extends DistributedCollection<T, C>> {
         }
     }
 
+    public void teamedBalance(final float[] balance) {
+        teamedBalance(balance, new CollectiveMoveManager(handle.placeGroup()));
+    }
+
+    public void teamedBalance(final float[] newLocality, final CollectiveMoveManager mm) {
+        if (newLocality.length != handle.placeGroup().size()) {
+            throw new RuntimeException("[DistCol] the size of newLocality must be the same with placeGroup.size()");
+        }
+        System.arraycopy(newLocality, 0, handle.locality(), 0, handle.locality().length);
+        teamedBalance(mm);
+    }
+
     /**
-     * Updates the distribution information of all local handles.
+     * Conduct element location management process if the target is
+     * ElementLocationManagable
      */
-    public abstract void updateDist();
+    @SuppressWarnings("rawtypes")
+    public void updateDist() {
+        if (handle instanceof ElementLocationManagable) {
+            ((ElementLocationManagable) handle).updateDist();
+        }
+    }
+
 }

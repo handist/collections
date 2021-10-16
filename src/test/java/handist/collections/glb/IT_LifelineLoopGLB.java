@@ -1,9 +1,20 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb;
 
 import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -13,13 +24,16 @@ import java.util.Random;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.Place;
+import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.glb.lifeline.Loop;
 import handist.mpijunit.MpiConfig;
@@ -79,13 +93,13 @@ public class IT_LifelineLoopGLB implements Serializable {
 
     /**
      * Checks that the distCol contains exactly the specified number of entries. The
-     * {@link DistCol#size()} needs to match the specified parameter.
+     * {@link DistChunkedList#size()} needs to match the specified parameter.
      *
      * @param col           DistCol whose global size is to be checked
      * @param expectedCount expected total number of entries in the DistCol instance
      * @throws Throwable if thrown during the check
      */
-    private static void z_checkDistColTotalElements(DistCol<Integer> col, long expectedCount) throws Throwable {
+    private static void z_checkDistColTotalElements(DistChunkedList<Integer> col, long expectedCount) throws Throwable {
         long count = 0;
         for (final Place p : col.placeGroup().places()) {
             count += at(p, () -> {
@@ -95,11 +109,24 @@ public class IT_LifelineLoopGLB implements Serializable {
         assertEquals(expectedCount, count);
     }
 
-    DistCol<Integer> col;
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    DistChunkedList<Integer> col;
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(apgas.impl.Config.APGAS_FINISH))) {
+            System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
 
     @Before
     public void setUp() throws Exception {
-        col = new DistCol<>(WORLD);
+        col = new DistChunkedList<>(WORLD);
         z_populateCollection(col);
     }
 
@@ -143,7 +170,7 @@ public class IT_LifelineLoopGLB implements Serializable {
      *
      * @param collection collection to populate
      */
-    private void z_populateCollection(DistCol<Integer> collection) {
+    private void z_populateCollection(DistChunkedList<Integer> collection) {
         long rangeBegin = 0; // inclusive
         long rangeEnd; // exclusive
         for (long i = 0; i < CHUNK_COUNT; i++) {

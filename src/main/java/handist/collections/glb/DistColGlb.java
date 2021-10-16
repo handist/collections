@@ -13,20 +13,25 @@ package handist.collections.glb;
 import java.io.Serializable;
 import java.util.function.Consumer;
 
+import apgas.util.GlobalID;
 import handist.collections.Chunk;
+import handist.collections.ChunkedList;
 import handist.collections.LongRange;
 import handist.collections.dist.DistBag;
-import handist.collections.dist.DistCol;
+import handist.collections.dist.DistChunkedList;
+import handist.collections.dist.Reducer;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.SerializableFunction;
 import handist.collections.function.SerializableLongTBiConsumer;
 import handist.collections.function.SerializableSupplier;
+import handist.collections.glb.DistColGlbTask.DistColLambda;
+import handist.collections.glb.GlbComputer.WorkerInfo;
 
 /**
  * This class proposes various operations that operate on all the elements of a
- * {@link DistCol} as part of a GLB program. Any call to methods of this class
- * should be made from within a
+ * {@link DistChunkedList} as part of a GLB program. Any call to methods of this
+ * class should be made from within a
  * {@link GlobalLoadBalancer#underGLB(apgas.SerializableJob)} method.
  *
  * @author Patrick Finnerty
@@ -47,7 +52,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         /** Serial Version UID */
         private static final long serialVersionUID = -6284960496356484016L;
 
-        /** Index in the {@link DistCol} on which a problem was encountered */
+        /** Index in the {@link DistChunkedList} on which a problem was encountered */
         public final long index;
 
         /**
@@ -77,31 +82,31 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
     private static final long serialVersionUID = 612021438330155918L;
 
     /** Underlying collection on which the operations of this class operate */
-    DistCol<T> col;
+    DistChunkedList<T> col;
 
     /**
      * Constructor
      *
      * @param c collection on which this handle will operate
      */
-    public DistColGlb(DistCol<T> c) {
+    public DistColGlb(DistChunkedList<T> c) {
         col = c;
     }
 
     /**
      * Applies the specified action to all the elements contained in the
-     * {@link DistCol} and returns the underlying collection
+     * {@link DistChunkedList} and returns the underlying collection
      *
      * @param action action to perform on each element
      * @return future representing this "forEach" operation which will return the
-     *         underlying {@link DistCol} collection upon termination
+     *         underlying {@link DistChunkedList} collection upon termination
      */
-    public DistFuture<DistCol<T>> forEach(SerializableConsumer<T> action) {
+    public DistFuture<DistChunkedList<T>> forEach(SerializableConsumer<T> action) {
         final GlobalLoadBalancer glb = getGlb();
 
         // Initialize the future returned to the programmer in the underGLB method
         // In this operation, the collection involved is the handle itself
-        final DistFuture<DistCol<T>> future = new DistFuture<>(col);
+        final DistFuture<DistChunkedList<T>> future = new DistFuture<>(col);
 
         final SerializableSupplier<GlbTask> initGlbTask = () -> {
             return new DistColGlbTask(col);
@@ -111,19 +116,19 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         // the T at the each index, and apply the lambda given as parameter to these Ts
         // The second argument (WorkerService) provided by the GLB runtime is unused for
         // this operation
-        final SerializableBiConsumer<LongRange, WorkerService> realAction = (lr, ws) -> {
-            for (long l = lr.from; l < lr.to; l++) {
+        final DistColLambda<T> realAction = (chunk, startIndex, endIndex, ws) -> {
+            for (long l = startIndex; l < endIndex; l++) {
                 try {
-                    action.accept(col.get(l));
+                    action.accept(chunk.get(l));
                 } catch (final Throwable t) {
-                    ws.throwableInOperation(new DistColGlbError(lr, l, t));
+                    ws.throwableInOperation(new DistColGlbError(new LongRange(startIndex, endIndex), l, t));
                 }
             }
         };
 
         // Create the operation with all the types/arguments
-        final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistCol<T>> operation = new GlbOperation<>(col,
-                realAction, future, initGlbTask, null);
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, DistChunkedList<T>, DistColLambda<T>> operation = new GlbOperation<>(
+                col, realAction, future, initGlbTask, null, lifelineClass);
         // Submit the operation to the GLB
         glb.submit(operation);
 
@@ -133,41 +138,41 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
     /**
      * Applies the specified action to all the elements contained in the
-     * {@link DistCol} and returns the underlying collection
+     * {@link DistChunkedList} and returns the underlying collection
      *
      * @param action action to perform on each element, taking the index and the
      *               object as parameter
      * @return future representing this "forEach" operation which will return the
-     *         underlying {@link DistCol} collection upon termination
+     *         underlying {@link DistChunkedList} collection upon termination
      */
-    public DistFuture<DistCol<T>> forEach(SerializableLongTBiConsumer<T> action) {
+    public DistFuture<DistChunkedList<T>> forEach(SerializableLongTBiConsumer<T> action) {
         final GlobalLoadBalancer glb = getGlb();
 
         // Initialize the future returned to the programmer in the underGLB method
         // In this operation, the collection involved is the handle itself
-        final DistFuture<DistCol<T>> future = new DistFuture<>(col);
+        final DistFuture<DistChunkedList<T>> future = new DistFuture<>(col);
 
         final SerializableSupplier<GlbTask> initGlbTask = () -> {
             return new DistColGlbTask(col);
         };
 
-        // We transform the action to accept a LongRange as parameter, retrieve
-        // the T at the each index, and apply the lambda given as parameter to these Ts
-        // The second argument (WorkerService) provided by the GLB runtime is unused for
-        // this operation
-        final SerializableBiConsumer<LongRange, WorkerService> realAction = (lr, ws) -> {
-            for (long l = lr.from; l < lr.to; l++) {
+        // We retrieve the T at the each index, and apply the lambda given as parameter
+        // to these Ts.
+        // The WorkerService argument provided by the GLB runtime is unused for
+        // this operation.
+        final DistColLambda<T> realAction = (chunk, from, to, ws) -> {
+            for (long l = from; l < to; l++) {
                 try {
-                    action.accept(l, col.get(l));
+                    action.accept(l, chunk.get(l));
                 } catch (final Throwable t) {
-                    ws.throwableInOperation(new DistColGlbError(lr, l, t));
+                    ws.throwableInOperation(new DistColGlbError(new LongRange(from, to), l, t));
                 }
             }
         };
 
         // Create the operation with all the types/arguments
-        final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistCol<T>> operation = new GlbOperation<>(col,
-                realAction, future, initGlbTask, null);
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, DistChunkedList<T>, DistColLambda<T>> operation = new GlbOperation<>(
+                col, realAction, future, initGlbTask, null, lifelineClass);
         // Submit the operation to the GLB
         glb.submit(operation);
 
@@ -176,47 +181,39 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
     }
 
     /**
-     * GLB operation which creates a new {@link DistCol} using the mapping operation
-     * provided as parameter. The resulting {@link DistCol} will contain the same
-     * indices as this collection. The value stored at each index of the resulting
-     * collection will be the result of the provided mapping operation for this
-     * collection at the same index. As part of the GLB consists in moving entries
-     * from place to place, it is possible for the distribution of the resulting
-     * collection and this collection to differ.
+     * GLB operation which creates a new {@link DistChunkedList} using the mapping
+     * operation provided as parameter. The resulting {@link DistChunkedList} will
+     * contain the same indices as this collection. The value stored at each index
+     * of the resulting collection will be the result of the provided mapping
+     * operation for this collection at the same index. As part of the GLB consists
+     * in moving entries from place to place, it is possible for the distribution of
+     * the resulting collection and this collection to differ.
      *
      * @param <U> type of the result of the map function provided as parameter
      * @param map function which takes an object T as input and returns a instance
      *            of type U
      * @return a {@link DistFuture}
      */
-    public <U> DistFuture<DistCol<U>> map(SerializableFunction<T, U> map) {
+    public <U> DistFuture<DistChunkedList<U>> map(SerializableFunction<T, U> map) {
         final GlobalLoadBalancer glb = getGlb();
 
         // Create new collection to contain the result
-        final DistCol<U> resultCollection = new DistCol<>(col.placeGroup());
+        final DistChunkedList<U> resultCollection = new DistChunkedList<>(col.placeGroup());
 
         // Adapt the provided map to represent what the glb workers will actually
         // perform.
         // The second argument (WorkerService) provided by the GLB runtime is unused for
         // this operation
-        final SerializableBiConsumer<LongRange, WorkerService> realAction = (lr, ws) -> {
+        final DistColLambda<T> realAction = (chunk, from, to, ws) -> {
             // First, initialize a Chunk to place the mappings
+            final LongRange lr = new LongRange(from, to);
             final Chunk<U> c = new Chunk<>(lr);
-
-            /*
-             * FIXME ChunkedList (parent of DistCol) does not support concurrent insertion
-             * of chunks As a result, inserting a chunk in the result collection must be
-             * done in mutual exclusion with any other worker inserting chunks in this
-             * collection on the local host
-             */
-            synchronized (resultCollection) {
-                resultCollection.add(c);
-            }
+            resultCollection.add(c);
 
             // Iterate on the elements
-            for (long l = lr.from; l < lr.to; l++) {
+            for (long l = from; l < to; l++) {
                 try {
-                    final T t = col.get(l);
+                    final T t = chunk.get(l);
                     final U u = map.apply(t);
                     c.set(l, u);
                 } catch (final Throwable t) {
@@ -227,15 +224,141 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
         // Initialize the future returned to the programmer in the underGLB method
         // In this operation, the collection involved is the handle itself
-        final DistFuture<DistCol<U>> future = new DistFuture<>(resultCollection);
+        final DistFuture<DistChunkedList<U>> future = new DistFuture<>(resultCollection);
 
         final SerializableSupplier<GlbTask> initGlbTask = () -> {
             return new DistColGlbTask(col);
         };
 
         // Create the operation with all the types/arguments
-        final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistCol<U>> operation = new GlbOperation<>(col,
-                realAction, future, initGlbTask, null);
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, DistChunkedList<U>, DistColLambda<T>> operation = new GlbOperation<>(
+                col, realAction, future, initGlbTask, null, lifelineClass);
+
+        // Submit the operation to the GLB
+        glb.submit(operation);
+
+        // return the future to the programmer
+        return future;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <R extends Reducer<R, T>> DistFuture<R> reduce(final R reducer) {
+        final GlobalLoadBalancer glb = getGlb();
+        final GlobalID gid = new GlobalID();
+        final R globalReducer = reducer;
+
+        final SerializableConsumer<WorkerService> workerInit = (w) -> w.attachOperationObject(gid,
+                globalReducer.newReducer());
+
+        final DistColLambda<T> realAction = (chunk, from, to, ws) -> {
+            final R workerLocalReducer = (R) ws.retrieveOperationObject(gid);
+
+            for (long l = from; l < to; l++) {
+                try {
+                    workerLocalReducer.reduce(chunk.get(l));
+                } catch (final Throwable t) {
+                    ws.throwableInOperation(new DistColGlbError(new LongRange(from, to), l, t));
+                }
+            }
+        };
+
+        final DistFuture<R> future = new DistFuture<>(globalReducer);
+
+        final SerializableSupplier<GlbTask> initGlbTask = () -> {
+            return new DistColGlbTask(col);
+        };
+
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, R, DistColLambda<T>> operation = new GlbOperation<>(
+                col, realAction, future, initGlbTask, workerInit, lifelineClass);
+
+        glb.submit(operation);
+
+        // This operation needs a specific hook after all the entries have been
+        // traversed. We need to reduce all the R instances that were created back into
+        // a single instance on each host, and perform the global reduction such that
+        // the given reducer contains the global result of the operation.
+        operation.addHook(() -> {
+            col.placeGroup().broadcastFlat(() -> {
+                final R localReducer = reducer; // (R) gid.getHere();
+                for (final WorkerInfo wi : GlbComputer.getComputer().workers) {
+                    localReducer.merge((R) wi.workerBoundObjects.remove(gid));
+                }
+                localReducer.teamReduction(col.placeGroup());
+            });
+        });
+
+        return future;
+    }
+
+    /**
+     * GLB variant of
+     * {@link ChunkedList#parallelForEach(java.util.function.BiConsumer, handist.collections.ParallelReceiver)}
+     *
+     * @param <U>              type of elements accepted by the parallel receiver
+     * @param action           user-specified action, generally consisting of
+     *                         extracting some "U" object from an element of the
+     *                         distributed collection and placing it in the Consumer
+     *                         given as second parameter. Unlike
+     *                         {@link #toBag(SerializableFunction)}, the present
+     *                         variant allows for some intermediary checks and
+     *                         choice between placing elements in the bag rather
+     *                         than directly applying a function to each element of
+     *                         the collection and placing the obtained object in the
+     *                         bag directly.
+     * @param resultCollection {@link DistBag} instance into which the various U
+     *                         elements are placed
+     * @return {@link DistFuture} waiting on the completion of this operation and
+     *         returning the {@link DistBag} provided as parameter as the result
+     */
+    public <U> DistFuture<DistBag<U>> toBag(SerializableBiConsumer<T, Consumer<U>> action,
+            DistBag<U> resultCollection) {
+        final GlobalLoadBalancer glb = getGlb();
+
+        // Check that the provided bag is defined on the same place group as the
+        // distributed collection
+        if (resultCollection.placeGroup != col.placeGroup()) {
+            throw new IllegalArgumentException(
+                    "The provided bag should be defined on the same place group as the underlying DistributedChunkedList");
+        }
+
+        // Initialization for workers to be made before the computation starts.
+        // This will bind a handle to place the U elements into the DistBag to each
+        // worker in the system.
+        final SerializableConsumer<WorkerService> workerInit = (w) -> w.attachOperationObject(resultCollection,
+                resultCollection.getReceiver());
+
+        // Adapt the provided function to represent what the glb workers will actually
+        // perform
+        final DistColLambda<T> realAction = (chunk, from, to, ws) -> {
+            // First, retrieve the consumer of U which is bound to the worker
+            // The object used as key to retrieve the object bound to workers is the result
+            // collection
+            @SuppressWarnings("unchecked")
+            final Consumer<U> destination = (Consumer<U>) ws.retrieveOperationObject(resultCollection);
+
+            // Iterate on the elements
+            for (long l = from; l < to; l++) {
+                try {
+                    final T t = chunk.get(l);
+                    action.accept(t, destination);
+                } catch (final Throwable t) {
+                    ws.throwableInOperation(new DistColGlbError(new LongRange(from, to), l, t));
+                }
+            }
+        };
+
+        // Initialize the future returned to the programmer in the underGLB method
+        // The result of this operation is the DistBag "resultCollection"
+        final DistFuture<DistBag<U>> future = new DistFuture<>(resultCollection);
+
+        // Initializer for GlbTask of this DistCol in case it is not yet initialized
+        final SerializableSupplier<GlbTask> initGlbTask = () -> {
+            return new DistColGlbTask(col);
+        };
+
+        // Create the operation with all the types/arguments
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, DistBag<U>, DistColLambda<T>> operation = new GlbOperation<>(
+                col, realAction, future, initGlbTask, workerInit, lifelineClass);
 
         // Submit the operation to the GLB
         glb.submit(operation);
@@ -267,7 +390,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
         // Adapt the provided function to represent what the glb workers will actually
         // perform
-        final SerializableBiConsumer<LongRange, WorkerService> realAction = (lr, ws) -> {
+        final DistColLambda<T> realAction = (chunk, from, to, ws) -> {
             // First, retrieve the consumer of U which is bound to the worker
             // The object used as key to retrieve the object bound to workers is the result
             // collection
@@ -275,13 +398,13 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
             final Consumer<U> destination = (Consumer<U>) ws.retrieveOperationObject(resultCollection);
 
             // Iterate on the elements
-            for (long l = lr.from; l < lr.to; l++) {
+            for (long l = from; l < to; l++) {
                 try {
-                    final T t = col.get(l);
+                    final T t = chunk.get(l);
                     final U u = function.apply(t);
                     destination.accept(u);
                 } catch (final Throwable t) {
-                    ws.throwableInOperation(new DistColGlbError(lr, l, t));
+                    ws.throwableInOperation(new DistColGlbError(new LongRange(from, to), l, t));
                 }
             }
         };
@@ -296,8 +419,8 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
         };
 
         // Create the operation with all the types/arguments
-        final GlbOperation<DistCol<T>, T, LongRange, LongRange, DistBag<U>> operation = new GlbOperation<>(col,
-                realAction, future, initGlbTask, workerInit);
+        final GlbOperation<DistChunkedList<T>, T, LongRange, LongRange, DistBag<U>, DistColLambda<T>> operation = new GlbOperation<>(
+                col, realAction, future, initGlbTask, workerInit, lifelineClass);
 
         // Submit the operation to the GLB
         glb.submit(operation);

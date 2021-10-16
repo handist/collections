@@ -18,10 +18,12 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import org.junit.After;
 import org.junit.Before;
@@ -29,6 +31,7 @@ import org.junit.Test;
 
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
+import handist.collections.function.LongTBiConsumer;
 
 /**
  * Junit test class for class {@link RangedListView}.
@@ -130,6 +133,16 @@ public class TestRangedListView implements Serializable {
                 return null;
             }
 
+            //@Override
+            protected Object[] getBody() {
+                return new Object[0];
+            }
+
+            //@Override
+            protected long getBodyOffset() {
+                return 0;
+            }
+
             @Override
             public LongRange getRange() {
                 // TODO Auto-generated method stub
@@ -138,7 +151,32 @@ public class TestRangedListView implements Serializable {
 
             @Override
             public Iterator<T> iterator() {
+                return null;
+            }
+
+            @Override
+            public RangedListIterator<T> listIterator() {
                 // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public RangedListIterator<T> listIterator(long from) {
+                return null;
+            }
+
+            @Override
+            protected Iterator<T> subIterator(LongRange range) {
+                return null;
+            }
+
+            @Override
+            public RangedListIterator<T> subListIterator(LongRange range) {
+                return null;
+            }
+
+            @Override
+            protected RangedListIterator<T> subListIterator(LongRange range, long from) {
                 return null;
             }
 
@@ -189,6 +227,14 @@ public class TestRangedListView implements Serializable {
         assertTrue(view.contains(elems[1]));
         assertFalse(view.contains(elems[9]));
         assertFalse(view.contains(new Element(100)));
+    }
+
+    @Test
+    public void testEquals() {
+        RangedListView<Element> v = new RangedListView<>(chunk, new LongRange(1, 5));
+        assertTrue(v.equals(view));
+        v = new RangedListView<>(chunk, new LongRange(0, 5));
+        assertFalse(v.equals(view));
     }
 
     @Test
@@ -266,6 +312,18 @@ public class TestRangedListView implements Serializable {
     }
 
     @Test
+    public void testHashCode() {
+        final int firstHash = view.hashCode();
+        // Do a little stuff
+        for (int i = 0; i < 43; i++) {
+            ;
+        }
+        final int secondHash = view.hashCode();
+        // Check that the hash is the same
+        assertEquals(firstHash, secondHash);
+    }
+
+    @Test
     public void testIsEmpty() {
         assertTrue(RangedListView.emptyView().isEmpty());
         assertFalse(view.isEmpty());
@@ -297,7 +355,7 @@ public class TestRangedListView implements Serializable {
 
     @Test
     public void testIteratorFrom() {
-        final Iterator<Element> it = view.iterator(3l);
+        final Iterator<Element> it = view.listIterator(3l);
 
         while (it.hasNext()) {
             it.next().n = 0;
@@ -321,7 +379,7 @@ public class TestRangedListView implements Serializable {
      */
     @Test(expected = IndexOutOfBoundsException.class)
     public void testIteratorFromOutOfChunkRange() {
-        view.iterator(-1l);
+        view.listIterator(-1l);
     }
 
     /**
@@ -330,7 +388,7 @@ public class TestRangedListView implements Serializable {
      */
     @Test(expected = IndexOutOfBoundsException.class)
     public void testIteratorFromOutOfViewRange() {
-        view.iterator(0l);
+        view.listIterator(0l);
     }
 
     /**
@@ -381,7 +439,20 @@ public class TestRangedListView implements Serializable {
 
     @Test
     public void testSetupFrom() {
-        // yet
+        final LongRange originRange = new LongRange(2, 4);
+        final Chunk<Integer> originChunk = new Chunk<>(originRange);
+        for (long i = originRange.from; i < originRange.to; i++) {
+            originChunk.set(i, (int) -i);
+        }
+
+        view.setupFrom(originChunk, (n) -> {
+            return new Element(n);
+        });
+
+        assertEquals(1, view.get(1).n);
+        assertEquals(-2, view.get(2).n);
+        assertEquals(-3, view.get(3).n);
+        assertEquals(4, view.get(4).n);
     }
 
     @Test
@@ -437,6 +508,15 @@ public class TestRangedListView implements Serializable {
         assertEquals(4, chunk5to9.size());
         for (int i = 5; i < 9; i++) {
             assertEquals(elems[i], chunk5to9.get(i));
+        }
+    }
+
+    @Test
+    public void testToList() {
+        final ArrayList<Element> list = (ArrayList<Element>) view.toList();
+        assertEquals(view.size(), list.size());
+        for (int i = 0; i < list.size(); i++) {
+            assertEquals(view.get(i + viewRange.from).n, list.get(i).n);
         }
     }
 

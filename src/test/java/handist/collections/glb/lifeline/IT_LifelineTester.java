@@ -1,13 +1,28 @@
+/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
 package handist.collections.glb.lifeline;
 
 import static handist.collections.glb.lifeline.LifelineTestHelper.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 
+import org.junit.After;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
+import apgas.impl.DebugFinish;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
@@ -42,6 +57,19 @@ public class IT_LifelineTester implements Serializable {
 
         allPG = new TeamedPlaceGroup[1];
         allPG[0] = WORLD;
+    }
+
+    @Rule
+    public TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(apgas.impl.Config.APGAS_FINISH))) {
+            System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
     }
 
     @Test

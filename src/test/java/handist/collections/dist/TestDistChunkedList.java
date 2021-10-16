@@ -13,16 +13,22 @@ package handist.collections.dist;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
+import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 
-public class TestDistCol implements Serializable {
+public class TestDistChunkedList implements Serializable {
 
     /**
      * Generator function used to populate the values of the collections during
@@ -40,22 +46,35 @@ public class TestDistCol implements Serializable {
      * <li>[10,100)
      * </ul>
      */
-    DistCol<String> distCol;
+    DistChunkedList<String> distChunkedList;
+
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
 
     /** Distributed collection of Strings initialized empty for the test */
-    DistCol<String> emptyDistCol;
+    DistChunkedList<String> emptyDistChunkedList;
 
     /** World on which the DistCol under test is created (single-host world) */
     SinglePlaceGroup world;
 
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+            System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
+
     @Before
     public void setup() {
         world = SinglePlaceGroup.getWorld();
-        emptyDistCol = new DistCol<>(world);
+        emptyDistChunkedList = new DistChunkedList<>(world);
 
-        distCol = new DistCol<>(world);
-        distCol.add(new Chunk<>(new LongRange(10, 100), gen));
-        distCol.add(new Chunk<>(new LongRange(-10, -7), gen));
+        distChunkedList = new DistChunkedList<>(world);
+        distChunkedList.add(new Chunk<>(new LongRange(10, 100), gen));
+        distChunkedList.add(new Chunk<>(new LongRange(-10, -7), gen));
     }
 
     /**
@@ -66,35 +85,12 @@ public class TestDistCol implements Serializable {
     public void testConstructorWithGenerator() {
         final AtomicLong a = new AtomicLong(0);
         // Check that every mapped String has the expected value
-        distCol.forEach((long index, String e) -> {
+        distChunkedList.forEach((long index, String e) -> {
             assertEquals(e, gen.apply(index));
             a.incrementAndGet();
         });
         // Check that the expected number of mappings is present
         assertEquals(a.get(), 93l);
-        assertEquals(a.get(), distCol.size());
-    }
-
-    @Test
-    public void testProxyGenerator() {
-        // Check that accessing index non present throws an error in the
-        // absence of a proxy
-        assertThrows(IndexOutOfBoundsException.class, () -> {
-            distCol.get(0l);
-        });
-
-        final Function<Long, String> generatorForTest = (l) -> "oo" + l.toString();
-
-        distCol.setProxyGenerator(generatorForTest);
-
-        // Check on a range that intersects and overlaps distCol, that the proxy
-        // set on DistCol generates values and that no exception is thrown
-        new LongRange(-100l, 110l).forEach((long index) -> {
-            if (distCol.containsIndex(index)) {
-                assertEquals("Problem at index " + index, distCol.get(index), gen.apply(index));
-            } else {
-                assertEquals("Problem at index " + index, distCol.get(index), generatorForTest.apply(index));
-            }
-        });
+        assertEquals(a.get(), distChunkedList.size());
     }
 }

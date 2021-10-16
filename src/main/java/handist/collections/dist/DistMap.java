@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -34,15 +35,14 @@ import apgas.util.GlobalID;
 import apgas.util.SerializableWithReplace;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
-import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
+import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
 import handist.collections.glb.DistMapGlb;
-import mpi.MPI;
-import mpi.MPIException;
+import mpjbuf.IllegalArgumentException;
 
 /**
  * A Map data structure spread over the multiple places.
@@ -52,50 +52,6 @@ import mpi.MPIException;
  */
 public class DistMap<K, V>
         implements Map<K, V>, DistributedCollection<V, DistMap<K, V>>, KeyRelocatable<K>, SerializableWithReplace {
-
-    public class DistMapGlobal extends GlobalOperations<V, DistMap<K, V>> {
-        DistMapGlobal(DistMap<K, V> handle) {
-            super(handle);
-        }
-
-        @Override
-        public Object writeReplace() throws ObjectStreamException {
-            final TeamedPlaceGroup pg1 = localHandle.placeGroup();
-            final GlobalID id1 = localHandle.id();
-            return new MemberOfLazyObjectReference<>(pg1, id1, () -> {
-                return new DistMap<>(pg1, id1);
-            }, (handle) -> {
-                return handle.GLOBAL;
-            });
-        }
-    }
-
-    public class DistMapTeam extends TeamOperations<V, DistMap<K, V>> {
-        public DistMapTeam(DistMap<K, V> handle) {
-            super(handle);
-        }
-
-        @SuppressWarnings("deprecation")
-        @Override
-        public void size(long[] result) {
-            final TeamedPlaceGroup pg = handle.placeGroup;
-            final long localSize = data.size(); // int->long
-            final long[] sendbuf = new long[] { localSize };
-            // team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
-            try {
-                pg.comm.Allgather(sendbuf, 0, 1, MPI.LONG, result, 0, 1, MPI.LONG);
-            } catch (final MPIException e) {
-                e.printStackTrace();
-                throw new Error("[DistMap] network error in balance()");
-            }
-        }
-
-        @Override
-        public void updateDist() {
-            // TODO Auto-generated method stub
-
-        }
-    }
 
     // TODO
     /*
@@ -114,7 +70,7 @@ public class DistMap<K, V>
     protected Map<K, V> data;
     /** Handle for GLB operations */
     public final DistMapGlb<K, V> GLB;
-    public final DistMap<K, V>.DistMapGlobal GLOBAL;
+    public GlobalOperations<V, DistMap<K, V>> GLOBAL;
 
     final GlobalID id;
 
@@ -124,7 +80,12 @@ public class DistMap<K, V>
 
     private Function<K, V> proxyGenerator;
 
-    public final DistMap<K, V>.DistMapTeam TEAM;
+    protected final TeamOperations<V, DistMap<K, V>> TEAM;
+
+    @SuppressWarnings("rawtypes")
+    private DistCollectionSatellite satellite;
+
+    private final MapEntryDispatcher<K, V> dispatcher;
 
     /**
      * Construct an empty DistMap which can have local handles on all the hosts in
@@ -145,31 +106,8 @@ public class DistMap<K, V>
         this(pg, new GlobalID());
     }
 
-    /**
-     * Package private DistMap constructor. This constructor is used to register a
-     * new DistMap handle with the specified GlobalId. Programmers that use this
-     * library should never have to call this constructor.
-     * <p>
-     * Specifying a GLobalId which already has object handles registered in other
-     * places (potentially objects different from a {@link DistMap} instance) could
-     * prove disastrous. Instead, programmers should only call {@link #DistMap()} to
-     * create a distributed map with handles on all hosts, or
-     * {@link #DistMap(TeamedPlaceGroup)} to restrict their DistMap to a subset of
-     * hosts.
-     *
-     * @param pg       the palceGroup on which this DistMap is defined
-     * @param globalId the global id associated to this distributed map
-     */
-    DistMap(TeamedPlaceGroup pg, GlobalID globalId) {
-        placeGroup = pg;
-        id = globalId;
-        locality = new float[pg.size];
-        Arrays.fill(locality, 1.0f);
-        this.data = new HashMap<>();
-        GLOBAL = new DistMapGlobal(this);
-        GLB = new DistMapGlb<>(this);
-        TEAM = new DistMapTeam(this);
-        id.putHere(this);
+    DistMap(TeamedPlaceGroup pg, GlobalID globalID) {
+        this(pg, globalID, new HashMap<>());
     }
 
 //	Method moved to TEAM and GLOBAL operations
@@ -186,6 +124,35 @@ public class DistMap<K, V>
 //			throw new Error("[DistMap] network error in balance()");
 //		}
 //	}
+
+    /**
+     * Package private DistMap constructor. This constructor is used to register a
+     * new DistMap handle with the specified GlobalId. Programmers that use this
+     * library should never have to call this constructor.
+     * <p>
+     * Specifying a GLobalId which already has object handles registered in other
+     * places (potentially objects different from a {@link DistMap} instance) could
+     * prove disastrous. Instead, programmers should only call {@link #DistMap()} to
+     * create a distributed map with handles on all hosts, or
+     * {@link #DistMap(TeamedPlaceGroup)} to restrict their DistMap to a subset of
+     * hosts.
+     *
+     * @param pg       the palceGroup on which this DistMap is defined
+     * @param globalId the global id associated to this distributed map
+     * @param data     the data container to be used
+     */
+    DistMap(TeamedPlaceGroup pg, GlobalID globalId, Map<K, V> data) {
+        placeGroup = pg;
+        id = globalId;
+        locality = new float[pg.size];
+        Arrays.fill(locality, 1.0f);
+        this.data = data;
+        this.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistMap<>(pg0, gid));
+        GLB = new DistMapGlb<>(this);
+        TEAM = new TeamOperations<>(this);
+        dispatcher = new MapEntryDispatcher<>(this, null);
+        id.putHere(this);
+    }
 
     /**
      * Remove the all local entries.
@@ -270,6 +237,43 @@ public class DistMap<K, V>
     }
 
     /**
+     * Helper method which separates the keys contained in the local map into even
+     * batches for the number of threads available on the system and applies the
+     * provided action on each key/value pair contained in the collection in
+     * parallel
+     *
+     * @param action action to perform on the key/value pair contained in the map
+     */
+    private void forEachParallelKey(SerializableBiConsumer<? super K, ? super V> action) {
+        final int batches = Runtime.getRuntime().availableProcessors();
+
+        // Dispatch the existing keys into batches
+        final List<Collection<K>> keys = new ArrayList<>(batches);
+        for (int i = 0; i < batches; i++) {
+            keys.add(new HashSet<>());
+        }
+        // Round-robin of keys into batches
+        int i = 0;
+        for (final K k : data.keySet()) {
+            keys.get(i++).add(k);
+            if (i >= batches) {
+                i = 0;
+            }
+        }
+
+        // Spawn asynchronous activity for each batch
+        for (final Collection<K> keysToProcess : keys) {
+            async(() -> {
+                // Apply the supplied action on each key in the batch
+                for (final K key : keysToProcess) {
+                    final V value = data.get(key);
+                    action.accept(key, value);
+                }
+            });
+        }
+    }
+
+    /**
      * Return the element for the provided key. If there is no element at the index,
      * return null.
      *
@@ -323,6 +327,42 @@ public class DistMap<K, V>
         return data.keySet();
     }
 
+    /**
+     * Return {@link MapEntryDispatcher} instance that enable fast relocation
+     * between places than normal. One {@link DistMap} has one dispatcher.
+     *
+     * @param rule Determines the dispatch destination.
+     * @return :
+     */
+    public MapEntryDispatcher<K, V> getObjectDispatcher(Distribution<K> rule) {
+        dispatcher.setDistribution(rule);
+        return dispatcher;
+    }
+
+    /**
+     * Return {@link MapEntryDispatcher} instance that enable fast relocation
+     * between places than normal. One {@link DistMap} has one dispatcher.
+     *
+     * @param rule Determines the dispatch destination.
+     * @param pg   Relocate in this placegroup.
+     * @return :
+     * @throws IllegalArgumentException :
+     */
+    public MapEntryDispatcher<K, V> getObjectDispatcher(Distribution<K> rule, TeamedPlaceGroup pg)
+            throws IllegalArgumentException {
+        if (placeGroup.places.containsAll(pg.places)) {
+            throw new IllegalArgumentException("The TeamedlaceGroup passed to DistMapDispatcher must be part of or "
+                    + "the same as TeamedPlaceGroup in origin DistMap.");
+        }
+        return new MapEntryDispatcher<>(this, pg, rule);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <S extends DistCollectionSatellite<DistMap<K, V>, S>> S getSatellite() {
+        return (S) satellite;
+    }
+
     @Override
     public GlobalOperations<V, DistMap<K, V>> global() {
         return GLOBAL;
@@ -363,6 +403,11 @@ public class DistMap<K, V>
     @Override
     public float[] locality() {
         return locality;
+    }
+
+    @Override
+    public long longSize() {
+        return data.size();
     }
 
     /**
@@ -462,42 +507,6 @@ public class DistMap<K, V>
         mm.request(pl, serialize, deserialize);
     }
 
-    @Override
-    public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManager mm) throws Exception {
-        for (final IntLongPair pair : moveList) {
-            if (_debug_level > 5) {
-                System.out.println("MOVE src: " + here() + " dest: " + pair.first + " size: " + pair.second);
-            }
-            if (pair.second > Integer.MAX_VALUE) {
-                throw new Error("One place cannot receive so much elements: " + pair.second);
-            }
-            moveAtSyncCount((int) pair.second, placeGroup.get(pair.first), mm);
-        }
-    }
-
-    public void moveAtSyncCount(int count, Place dest, MoveManager mm) {
-        if (count == 0) {
-            return;
-        }
-        moveAtSync(getNKeys(count), dest, mm);
-    }
-
-    @Override
-    public void parallelForEach(SerializableConsumer<V> action) {
-        parallelForEachLocal(action);
-    }
-
-    private void parallelForEachLocal(SerializableConsumer<V> action) {
-        finish(() -> {
-            forEachParallelBodyLocal(action);
-        });
-    }
-
-    @Override
-    public TeamedPlaceGroup placeGroup() {
-        return placeGroup;
-    }
-
     /*
      * void teamedBalance() { LoadBalancer.MapBalancer<T, U> balance = new
      * LoadBalancer.MapBalancer<>(this.data, placeGroup); balance.execute();
@@ -514,11 +523,71 @@ public class DistMap<K, V>
      * }
      */
 
-    void printLocalData() {
-        System.out.println(this);
+    @Override
+    public void moveAtSyncCount(final ArrayList<IntLongPair> moveList, final MoveManager mm) throws Exception {
+        for (final IntLongPair pair : moveList) {
+            if (_debug_level > 5) {
+                System.out.println("MOVE src: " + here() + " dest: " + pair.first + " size: " + pair.second);
+            }
+            if (pair.second > Integer.MAX_VALUE) {
+                throw new Error("One place cannot receive so much elements: " + pair.second);
+            }
+            moveAtSyncCount((int) pair.second, placeGroup.get(pair.first), mm);
+        }
     }
 
     // TODO different naming convention of balance methods with DistMap
+
+    public void moveAtSyncCount(int count, Place dest, MoveManager mm) {
+        if (count == 0) {
+            return;
+        }
+        moveAtSync(getNKeys(count), dest, mm);
+    }
+
+    /**
+     * Parallel version of {@link #forEach(BiConsumer)}
+     *
+     * @param action the action to perform on every key/value pair contained in this
+     *               local map
+     */
+    public void parallelForEach(SerializableBiConsumer<? super K, ? super V> action) {
+        finish(() -> {
+            forEachParallelKey(action);
+        });
+    }
+
+    @Override
+    public void parallelForEach(SerializableConsumer<V> action) {
+        parallelForEachLocal(action);
+    }
+
+    /*
+     * Abstractovdef create(placeGroup: PlaceGroup, team: TeamOperations, init:
+     * ()=>Map[T, U]){ // return new DistMap[T,U](placeGroup, init) as
+     * AbstractDistCollection[Map[T,U]]; return null as
+     * AbstractDistCollection[Map[T,U]]; }
+     */
+    /*
+     * public def versioningMap(srcName : String){ // return new
+     * BranchingManager[DistMap[T,U], Map[T,U]](srcName, this); return null as
+     * BranchingManager[DistMap[T,U], Map[T,U]]; }
+     */
+
+    private void parallelForEachLocal(SerializableConsumer<V> action) {
+        finish(() -> {
+            forEachParallelBodyLocal(action);
+        });
+    }
+
+    @Override
+    public TeamedPlaceGroup placeGroup() {
+        return placeGroup;
+    }
+
+    void printLocalData() {
+        System.out.println(this);
+    }
 
     /**
      * Put a new entry.
@@ -534,18 +603,6 @@ public class DistMap<K, V>
     public V put(K key, V value) {
         return data.put(key, value);
     }
-
-    /*
-     * Abstractovdef create(placeGroup: PlaceGroup, team: TeamOperations, init:
-     * ()=>Map[T, U]){ // return new DistMap[T,U](placeGroup, init) as
-     * AbstractDistCollection[Map[T,U]]; return null as
-     * AbstractDistCollection[Map[T,U]]; }
-     */
-    /*
-     * public def versioningMap(srcName : String){ // return new
-     * BranchingManager[DistMap[T,U], Map[T,U]](srcName, this); return null as
-     * BranchingManager[DistMap[T,U], Map[T,U]]; }
-     */
 
     /**
      * Adds all the mappings contained in the specified map into this local map.
@@ -691,8 +748,13 @@ public class DistMap<K, V>
         proxyGenerator = proxy;
     }
 
+    @Override
+    public <S extends DistCollectionSatellite<DistMap<K, V>, S>> void setSatellite(S s) {
+        satellite = s;
+    }
+
     /**
-     * Return the number of the local entries.
+     * Return the number of local entries.
      *
      * @return the number of the local entries.
      */
@@ -734,4 +796,5 @@ public class DistMap<K, V>
             return new DistMap<>(pg1, id1);
         });
     }
+
 }
