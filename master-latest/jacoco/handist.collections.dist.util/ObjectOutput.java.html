@@ -10,7 +10,7 @@
  ******************************************************************************/
 package handist.collections.dist.util;
 
-import java.io.OutputStream;
+import java.io.ByteArrayOutputStream;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Output;
@@ -19,71 +19,72 @@ import apgas.impl.KryoSerializer;
 
 public class ObjectOutput {
 
-<span class="fc" id="L22">    private boolean isClosed = false;</span>
+    private int count;
     final Kryo kryo;
     final Output output;
+    final ByteArrayOutputStream stream;
 
-    final OutputStream stream;
+    public ObjectOutput(ByteArrayOutputStream out) {
+<span class="fc" id="L28">        this(out, true);</span>
+<span class="fc" id="L29">    }</span>
 
-<span class="fc" id="L28">    public ObjectOutput(OutputStream out) {</span>
-<span class="pc bpc" id="L29" title="1 of 2 branches missed.">        if (out == null) {</span>
-<span class="nc" id="L30">            throw new NullPointerException();</span>
+<span class="fc" id="L31">    public ObjectOutput(ByteArrayOutputStream out, boolean references) {</span>
+<span class="pc bpc" id="L32" title="1 of 2 branches missed.">        if (out == null) {</span>
+<span class="nc" id="L33">            throw new NullPointerException();</span>
         }
-<span class="fc" id="L32">        stream = out;</span>
-<span class="fc" id="L33">        output = new Output(stream);</span>
-<span class="fc" id="L34">        kryo = KryoSerializer.kryoThreadLocal.get();</span>
-<span class="fc" id="L35">        kryo.reset();</span>
-<span class="fc" id="L36">        kryo.setAutoReset(false);</span>
-<span class="fc" id="L37">    }</span>
+<span class="fc" id="L35">        stream = out;</span>
+<span class="fc" id="L36">        output = new Output(stream);</span>
+<span class="fc" id="L37">        kryo = KryoSerializer.getKryoInstance();</span>
+<span class="fc" id="L38">        kryo.setAutoReset(false);</span>
+<span class="fc" id="L39">        kryo.setReferences(references);</span>
+<span class="fc" id="L40">        count = 0;</span>
+<span class="fc" id="L41">    }</span>
+
+    public void clear() {
+<span class="fc" id="L44">        kryo.reset();</span>
+<span class="fc" id="L45">        stream.reset();</span>
+<span class="fc" id="L46">        count = 0;</span>
+<span class="fc" id="L47">    }</span>
 
     public void close() {
-<span class="fc" id="L40">        output.close();</span>
-<span class="fc" id="L41">        kryo.reset();</span>
-<span class="fc" id="L42">        kryo.setAutoReset(true); // Need for using at remote place.</span>
-<span class="fc" id="L43">        isClosed = true;</span>
-<span class="fc" id="L44">    }</span>
+<span class="fc" id="L50">        output.close();</span>
+<span class="fc" id="L51">        kryo.reset();</span>
+<span class="fc" id="L52">    }</span>
 
     public void flush() {
-<span class="nc" id="L47">        output.flush();</span>
-<span class="nc" id="L48">    }</span>
+<span class="fc" id="L55">        output.flush();</span>
+<span class="fc" id="L56">    }</span>
+
+    public int getCount() {
+<span class="fc" id="L59">        return count;</span>
+    }
 
     public void reset() {
-<span class="nc" id="L51">        kryo.reset();</span>
-<span class="nc" id="L52">    }</span>
+<span class="nc" id="L63">        kryo.reset();</span>
+<span class="nc" id="L64">    }</span>
 
-    public void setAutoReset(boolean autoReset) {
-<span class="nc bnc" id="L55" title="All 2 branches missed.">        if (isClosed) {</span>
-<span class="nc" id="L56">            return;</span>
-        }
-<span class="nc" id="L58">        kryo.setAutoReset(autoReset);</span>
-<span class="nc" id="L59">    }</span>
+    public byte[] toByteArray() {
+<span class="fc" id="L67">        return stream.toByteArray();</span>
+    }
 
     public void writeByte(byte val) {
-<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        if (isClosed) {</span>
-<span class="nc" id="L63">            throw new RuntimeException(this + &quot; has closed.&quot;);</span>
-        }
-<span class="fc" id="L65">        output.writeByte(val);</span>
-<span class="fc" id="L66">    }</span>
+<span class="fc" id="L71">        output.writeByte(val);</span>
+<span class="fc" id="L72">        count++;</span>
+<span class="fc" id="L73">    }</span>
 
     public void writeInt(int val) {
-<span class="nc bnc" id="L69" title="All 2 branches missed.">        if (isClosed) {</span>
-<span class="nc" id="L70">            throw new RuntimeException(this + &quot; has closed.&quot;);</span>
-        }
-<span class="nc" id="L72">        output.writeInt(val);</span>
-<span class="nc" id="L73">    }</span>
+<span class="fc" id="L76">        output.writeInt(val);</span>
+<span class="fc" id="L77">        count++;</span>
+<span class="fc" id="L78">    }</span>
 
     public void writeLong(long val) {
-<span class="pc bpc" id="L76" title="1 of 2 branches missed.">        if (isClosed) {</span>
-<span class="nc" id="L77">            throw new RuntimeException(this + &quot; has closed.&quot;);</span>
-        }
-<span class="fc" id="L79">        output.writeLong(val);</span>
-<span class="fc" id="L80">    }</span>
+<span class="fc" id="L81">        output.writeLong(val);</span>
+<span class="fc" id="L82">        count++;</span>
+<span class="fc" id="L83">    }</span>
 
     public void writeObject(Object obj) {
-<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        if (isClosed) {</span>
-<span class="nc" id="L84">            throw new RuntimeException(this + &quot; has closed.&quot;);</span>
-        }
 <span class="fc" id="L86">        kryo.writeClassAndObject(output, obj);</span>
-<span class="fc" id="L87">    }</span>
+<span class="fc" id="L87">        count++;</span>
+<span class="fc" id="L88">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

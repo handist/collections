@@ -18,53 +18,58 @@ import handist.collections.LongRange;
 
 public class LongDistribution implements Distribution&lt;Long&gt; {
 
+    /**
+     *
+     */
+    private static final long serialVersionUID = 7043702534459848203L;
+
     public static LongDistribution convert(Map&lt;LongRange, Place&gt; rangedHashMap) {
-<span class="nc" id="L22">        final HashMap&lt;Long, Place&gt; newHashMap = new HashMap&lt;&gt;();</span>
-<span class="nc bnc" id="L23" title="All 2 branches missed.">        for (final Map.Entry&lt;LongRange, Place&gt; entry : rangedHashMap.entrySet()) {</span>
-<span class="nc" id="L24">            final LongRange range = entry.getKey();</span>
-<span class="nc" id="L25">            final Place place = entry.getValue();</span>
-<span class="nc bnc" id="L26" title="All 2 branches missed.">            for (Long i = range.from; i &lt; range.to; i++) {</span>
-<span class="nc" id="L27">                newHashMap.put(i, place);</span>
+<span class="nc" id="L27">        final HashMap&lt;Long, Place&gt; newHashMap = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L28" title="All 2 branches missed.">        for (final Map.Entry&lt;LongRange, Place&gt; entry : rangedHashMap.entrySet()) {</span>
+<span class="nc" id="L29">            final LongRange range = entry.getKey();</span>
+<span class="nc" id="L30">            final Place place = entry.getValue();</span>
+<span class="nc bnc" id="L31" title="All 2 branches missed.">            for (Long i = range.from; i &lt; range.to; i++) {</span>
+<span class="nc" id="L32">                newHashMap.put(i, place);</span>
             }
-<span class="nc" id="L29">        }</span>
-<span class="nc" id="L30">        return new LongDistribution(newHashMap);</span>
+<span class="nc" id="L34">        }</span>
+<span class="nc" id="L35">        return new LongDistribution(newHashMap);</span>
     }
 
     private final HashMap&lt;Long, Place&gt; dist;
 
-<span class="nc" id="L35">    public LongDistribution(LongDistribution distribution) {</span>
-<span class="nc" id="L36">        dist = cloneHashMap(distribution.getHashMap());</span>
-<span class="nc" id="L37">    }</span>
+<span class="nc" id="L40">    public LongDistribution(LongDistribution distribution) {</span>
+<span class="nc" id="L41">        dist = cloneHashMap(distribution.getHashMap());</span>
+<span class="nc" id="L42">    }</span>
 
-<span class="nc" id="L39">    public LongDistribution(Map&lt;Long, Place&gt; originalHashMap) {</span>
-<span class="nc" id="L40">        dist = cloneHashMap(originalHashMap);</span>
-<span class="nc" id="L41">    }</span>
+<span class="nc" id="L44">    public LongDistribution(Map&lt;Long, Place&gt; originalHashMap) {</span>
+<span class="nc" id="L45">        dist = cloneHashMap(originalHashMap);</span>
+<span class="nc" id="L46">    }</span>
 
     @Override
     public LongDistribution clone() {
-<span class="nc" id="L45">        return new LongDistribution(this);</span>
+<span class="nc" id="L50">        return new LongDistribution(this);</span>
     }
 
     private HashMap&lt;Long, Place&gt; cloneHashMap(Map&lt;Long, Place&gt; originalHashMap) {
-<span class="nc" id="L49">        final HashMap&lt;Long, Place&gt; newHashMap = new HashMap&lt;&gt;();</span>
-<span class="nc bnc" id="L50" title="All 2 branches missed.">        for (final Map.Entry&lt;Long, Place&gt; entry : originalHashMap.entrySet()) {</span>
-<span class="nc" id="L51">            newHashMap.put(entry.getKey(), entry.getValue());</span>
-<span class="nc" id="L52">        }</span>
-<span class="nc" id="L53">        return newHashMap;</span>
+<span class="nc" id="L54">        final HashMap&lt;Long, Place&gt; newHashMap = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        for (final Map.Entry&lt;Long, Place&gt; entry : originalHashMap.entrySet()) {</span>
+<span class="nc" id="L56">            newHashMap.put(entry.getKey(), entry.getValue());</span>
+<span class="nc" id="L57">        }</span>
+<span class="nc" id="L58">        return newHashMap;</span>
     }
 
     public HashMap&lt;Long, Place&gt; getHashMap() {
-<span class="nc" id="L57">        return dist;</span>
+<span class="nc" id="L62">        return dist;</span>
     }
 
     @Override
     public Place place(Long key) {
-<span class="nc" id="L62">        return dist.get(key);</span>
+<span class="nc" id="L67">        return dist.get(key);</span>
     }
 
     @Override
     public String toString() {
-<span class="nc" id="L67">        return &quot;[LongDistribution]&quot; + dist;</span>
+<span class="nc" id="L72">        return &quot;[LongDistribution]&quot; + dist;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

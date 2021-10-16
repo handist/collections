@@ -18,14 +18,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
-
-import handist.collections.function.LongTBiConsumer;
 
 /**
  * {@link RangedListView} provides an access to a {@link Chunk} restricted to a
@@ -35,42 +32,6 @@ import handist.collections.function.LongTBiConsumer;
  *            access to
  */
 public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable, KryoSerializable {
-
-    /**
-     * Iterator on the elements of {@link #base} this {@link RangedListView}
-     * provides access to
-     *
-     * @param &lt;T&gt; the type handled by the {@link RangedList} {@link #base}
-     */
-    private static class It&lt;T&gt; implements Iterator&lt;T&gt; {
-        private long i;
-        private final LongRange range;
-        private final RangedListView&lt;T&gt; rangedListView;
-
-<span class="fc" id="L50">        public It(RangedListView&lt;T&gt; view) {</span>
-<span class="fc" id="L51">            rangedListView = view;</span>
-<span class="fc" id="L52">            range = rangedListView.getRange();</span>
-<span class="fc" id="L53">            this.i = range.from - 1;</span>
-<span class="fc" id="L54">        }</span>
-
-<span class="fc" id="L56">        public It(RangedListView&lt;T&gt; view, long i0) {</span>
-<span class="fc" id="L57">            view.rangeCheck(i0);</span>
-<span class="fc" id="L58">            rangedListView = view;</span>
-<span class="fc" id="L59">            this.range = rangedListView.getRange();</span>
-<span class="fc" id="L60">            this.i = i0 - 1;</span>
-<span class="fc" id="L61">        }</span>
-
-        @Override
-        public boolean hasNext() {
-<span class="fc bfc" id="L65" title="All 2 branches covered.">            return i + 1 &lt; range.to;</span>
-        }
-
-        @Override
-        public T next() {
-<span class="fc" id="L70">            return rangedListView.get(++i);</span>
-        }
-
-    }
 
     /** Serial Version UID */
     private static final long serialVersionUID = 8258165981421352660L;
@@ -84,7 +45,7 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      *         access
      */
     public static &lt;T&gt; RangedListView&lt;T&gt; emptyView() {
-<span class="fc" id="L87">        return new RangedListView&lt;&gt;((Chunk&lt;T&gt;) null, new LongRange(0, 0));</span>
+<span class="fc" id="L48">        return new RangedListView&lt;&gt;((Chunk&lt;T&gt;) null, new LongRange(0, 0));</span>
     }
 
     /** Chunk instance whose access is controlled by this instance */
@@ -106,23 +67,23 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      * @param base  {@link RangedList} this instance will control access to
      * @param range the range of indices that the created instance allows access to
      */
-<span class="fc" id="L109">    public RangedListView(RangedList&lt;T&gt; base, LongRange range) {</span>
-<span class="fc" id="L110">        this.range = range;</span>
-<span class="fc bfc" id="L111" title="All 2 branches covered.">        if (base == null) {</span>
-<span class="fc" id="L112">            this.base = null;</span>
-<span class="fc" id="L113">            return;</span>
+<span class="fc" id="L70">    public RangedListView(RangedList&lt;T&gt; base, LongRange range) {</span>
+<span class="fc" id="L71">        this.range = range;</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (base == null) {</span>
+<span class="fc" id="L73">            this.base = null;</span>
+<span class="fc" id="L74">            return;</span>
         }
-<span class="fc bfc" id="L115" title="All 2 branches covered.">        if (base instanceof Chunk) {</span>
-<span class="fc" id="L116">            this.base = (Chunk&lt;T&gt;) base;</span>
-<span class="fc bfc" id="L117" title="All 2 branches covered.">        } else if (base instanceof RangedListView) {</span>
-<span class="fc" id="L118">            this.base = ((RangedListView&lt;T&gt;) base).base; // base;</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        if (base instanceof Chunk) {</span>
+<span class="fc" id="L77">            this.base = (Chunk&lt;T&gt;) base;</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        } else if (base instanceof RangedListView) {</span>
+<span class="fc" id="L79">            this.base = ((RangedListView&lt;T&gt;) base).base; // base;</span>
         } else {
-<span class="fc" id="L120">            throw new UnsupportedOperationException(&quot;not supported class: &quot; + base.getClass());</span>
+<span class="fc" id="L81">            throw new UnsupportedOperationException(&quot;not supported class: &quot; + base.getClass());</span>
         }
-<span class="fc bfc" id="L122" title="All 2 branches covered.">        if (!base.getRange().contains(range)) {</span>
-<span class="fc" id="L123">            throw new IndexOutOfBoundsException(&quot;[RangeListView] &quot; + range + &quot; is not contained in &quot; + base.getRange());</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        if (!base.getRange().contains(range)) {</span>
+<span class="fc" id="L84">            throw new IndexOutOfBoundsException(&quot;[RangeListView] &quot; + range + &quot; is not contained in &quot; + base.getRange());</span>
         }
-<span class="fc" id="L125">    }</span>
+<span class="fc" id="L86">    }</span>
 //
 //	@Override
 //	public void clear() {
@@ -135,7 +96,7 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      */
     @Override
     public RangedList&lt;T&gt; clone() {
-<span class="fc" id="L138">        return cloneRange(range);</span>
+<span class="fc" id="L99">        return cloneRange(range);</span>
     }
 
     /**
@@ -145,11 +106,11 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      */
     @Override
     public RangedList&lt;T&gt; cloneRange(LongRange range) {
-<span class="fc" id="L148">        rangeCheck(range);</span>
-<span class="pc bpc" id="L149" title="1 of 2 branches missed.">        if (range.equals(base.getRange())) {</span>
-<span class="nc" id="L150">            return base.clone();</span>
+<span class="fc" id="L109">        rangeCheck(range);</span>
+<span class="pc bpc" id="L110" title="1 of 2 branches missed.">        if (range.equals(base.getRange())) {</span>
+<span class="nc" id="L111">            return base.clone();</span>
         }
-<span class="fc" id="L152">        return base.cloneRange(range);</span>
+<span class="fc" id="L113">        return base.cloneRange(range);</span>
     }
 
     /**
@@ -161,38 +122,19 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      */
     @Override
     public boolean contains(Object o) {
-<span class="fc bfc" id="L164" title="All 2 branches covered.">        for (long i = range.from; i &lt; range.to; i++) {</span>
-<span class="fc" id="L165">            final T elem = base.get(i);</span>
-<span class="pc bpc" id="L166" title="3 of 6 branches missed.">            if (o == null ? elem == null : o.equals(elem)) {</span>
-<span class="fc" id="L167">                return true;</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">        for (long i = range.from; i &lt; range.to; i++) {</span>
+<span class="fc" id="L126">            final T elem = base.get(i);</span>
+<span class="pc bpc" id="L127" title="3 of 6 branches missed.">            if (o == null ? elem == null : o.equals(elem)) {</span>
+<span class="fc" id="L128">                return true;</span>
             }
         }
-<span class="fc" id="L170">        return false;</span>
+<span class="fc" id="L131">        return false;</span>
     }
 
     @Override
     public boolean equals(Object o) {
-<span class="nc" id="L175">        return RangedList.equals(this, o);</span>
+<span class="fc" id="L136">        return RangedList.equals(this, o);</span>
     }
-
-    @Override
-    public &lt;U&gt; void forEach(LongRange range, BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
-            Consumer&lt;? super U&gt; receiver) {
-<span class="fc" id="L181">        rangeCheck(range);</span>
-<span class="fc" id="L182">        base.forEach(range, action, receiver);</span>
-<span class="fc" id="L183">    }</span>
-
-    @Override
-    public void forEach(LongRange range, Consumer&lt;? super T&gt; action) {
-<span class="fc" id="L187">        rangeCheck(range);</span>
-<span class="fc" id="L188">        base.forEach(range, action);</span>
-<span class="fc" id="L189">    }</span>
-
-    @Override
-    public void forEach(LongRange range, LongTBiConsumer&lt;? super T&gt; action) {
-<span class="fc" id="L193">        rangeCheck(range);</span>
-<span class="fc" id="L194">        base.forEach(range, action);</span>
-<span class="fc" id="L195">    }</span>
 
     /**
      * Get the element at the provided {@code index}.
@@ -202,8 +144,8 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      */
     @Override
     public T get(long index) {
-<span class="fc" id="L205">        rangeCheck(index);</span>
-<span class="fc" id="L206">        return base.get(index);</span>
+<span class="fc" id="L147">        rangeCheck(index);</span>
+<span class="fc" id="L148">        return base.get(index);</span>
     }
 
     /**
@@ -211,12 +153,17 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      */
     @Override
     public LongRange getRange() {
-<span class="fc" id="L214">        return range;</span>
+<span class="fc" id="L156">        return range;</span>
     }
 
     @Override
     public int hashCode() {
-<span class="nc" id="L219">        return RangedList.hashCode(this);</span>
+<span class="fc" id="L161">        return RangedList.hashCode(this);</span>
+    }
+    @Override
+    public Iterator&lt;T&gt; iterator() {
+<span class="pc bpc" id="L165" title="1 of 4 branches missed.">        if(base==null || this.getRange().size()==0) return new ChunkIterator&lt;&gt;();</span>
+<span class="fc" id="L166">        return base.subIterator(this.getRange());</span>
     }
 
     /**
@@ -224,8 +171,9 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      * provides access to.
      */
     @Override
-    public Iterator&lt;T&gt; iterator() {
-<span class="fc" id="L228">        return new It&lt;&gt;(this);</span>
+    public RangedListIterator&lt;T&gt; listIterator() {
+<span class="nc bnc" id="L175" title="All 4 branches missed.">        if(base==null||this.getRange().size()==0) return new ChunkListIterator&lt;&gt;();</span>
+<span class="nc" id="L176">        return base.subListIterator(this.getRange());</span>
     }
 
     /**
@@ -235,24 +183,24 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      * @return iterator on the elements this {@link RangedListView} grants access to
      *         starting at the specified index
      */
-    public Iterator&lt;T&gt; iterator(long l) {
-<span class="fc" id="L239">        return new It&lt;&gt;(this, l);</span>
+    public RangedListIterator&lt;T&gt; listIterator(long l) {
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">        if(base==null) return new ChunkListIterator&lt;&gt;();</span>
+<span class="fc" id="L188">        return base.subListIterator(getRange(), l);</span>
     }
-
     @Override
     public void read(Kryo kryo, Input input) {
         @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L245">        final Chunk&lt;T&gt; chunk = (Chunk&lt;T&gt;) kryo.readClassAndObject(input);</span>
-<span class="fc" id="L246">        this.base = chunk;</span>
-<span class="fc" id="L247">        this.range = chunk.getRange();</span>
-<span class="fc" id="L248">    }</span>
+<span class="fc" id="L193">        final Chunk&lt;T&gt; chunk = (Chunk&lt;T&gt;) kryo.readClassAndObject(input);</span>
+<span class="fc" id="L194">        this.base = chunk;</span>
+<span class="fc" id="L195">        this.range = chunk.getRange();</span>
+<span class="fc" id="L196">    }</span>
 
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L252">        final Chunk&lt;T&gt; chunk = (Chunk&lt;T&gt;) in.readObject();</span>
-<span class="fc" id="L253">        this.base = chunk;</span>
-<span class="fc" id="L254">        this.range = chunk.getRange();</span>
-<span class="fc" id="L255">    }</span>
+<span class="fc" id="L200">        final Chunk&lt;T&gt; chunk = (Chunk&lt;T&gt;) in.readObject();</span>
+<span class="fc" id="L201">        this.base = chunk;</span>
+<span class="fc" id="L202">        this.range = chunk.getRange();</span>
+<span class="fc" id="L203">    }</span>
 
     /**
      * Set the given value at the specified index.
@@ -266,33 +214,45 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      */
     @Override
     public T set(long index, T v) {
-<span class="fc" id="L269">        rangeCheck(index);</span>
-<span class="fc" id="L270">        return base.set(index, v);</span>
+<span class="fc" id="L217">        rangeCheck(index);</span>
+<span class="fc" id="L218">        return base.set(index, v);</span>
     }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public &lt;S&gt; void setupFrom(RangedList&lt;S&gt; from, Function&lt;? super S, ? extends T&gt; func) {
-<span class="nc" id="L278">        rangeCheck(from.getRange());</span>
-<span class="nc" id="L279">        base.setupFrom(from, func);</span>
-<span class="nc" id="L280">    }</span>
 
     /**
      * Returns the number of indices this {@link RangedListView} provides access to
      */
     @Override
     public long size() {
-<span class="fc" id="L287">        return super.size();</span>
+<span class="fc" id="L226">        return super.size();</span>
     }
 
+    @Override
+    protected Iterator&lt;T&gt; subIterator(LongRange range) {
+<span class="pc bpc" id="L231" title="2 of 4 branches missed.">        if(base==null || (range.size()==0)) return new ChunkIterator&lt;&gt;();</span>
+<span class="fc" id="L232">        LongRange subrange = getRange().intersection(range);</span>
+<span class="pc bpc" id="L233" title="1 of 2 branches missed.">        if(subrange==null) throw new IndexOutOfBoundsException();</span>
+<span class="fc" id="L234">        return base.subIterator(subrange);</span>
+    }
+    @Override
+    protected RangedListIterator&lt;T&gt; subListIterator(LongRange range) {
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">        if(base==null) return new ChunkListIterator&lt;&gt;();</span>
+<span class="fc" id="L239">        LongRange subrange = getRange().intersection(range);</span>
+<span class="pc bpc" id="L240" title="1 of 2 branches missed.">        if(subrange==null) throw new IndexOutOfBoundsException();</span>
+<span class="fc" id="L241">        return base.subListIterator(subrange);</span>
+    }
+    @Override
+    protected RangedListIterator&lt;T&gt; subListIterator(LongRange range, long l) {
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        if(base==null) return new ChunkListIterator&lt;&gt;();</span>
+<span class="nc" id="L246">        LongRange subrange = getRange().intersection(range);</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        if(subrange==null) throw new IndexOutOfBoundsException();</span>
+<span class="nc" id="L248">        return base.subListIterator(subrange, l);</span>
+    }
     /**
      * {@inheritDoc}
      */
     @Override
     public Object[] toArray() {
-<span class="fc" id="L295">        return toArray(range);</span>
+<span class="fc" id="L255">        return toArray(range);</span>
     }
 
     /**
@@ -300,8 +260,8 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      */
     @Override
     public Object[] toArray(LongRange range) {
-<span class="fc" id="L303">        rangeCheck(range);</span>
-<span class="fc" id="L304">        return base.toArray(range);</span>
+<span class="fc" id="L263">        rangeCheck(range);</span>
+<span class="fc" id="L264">        return base.toArray(range);</span>
     }
 
     /**
@@ -309,66 +269,54 @@ public class RangedListView&lt;T&gt; extends RangedList&lt;T&gt; implements Seri
      */
     @Override
     public Chunk&lt;T&gt; toChunk(LongRange range) {
-<span class="fc" id="L312">        rangeCheck(range);</span>
-<span class="fc" id="L313">        return base.toChunk(range);</span>
+<span class="fc" id="L272">        rangeCheck(range);</span>
+<span class="fc" id="L273">        return base.toChunk(range);</span>
     }
 
     @Override
     public List&lt;T&gt; toList(LongRange r) {
-<span class="nc" id="L318">        rangeCheck(r);</span>
-<span class="nc" id="L319">        return base.toList(r);</span>
+<span class="fc" id="L278">        rangeCheck(r);</span>
+<span class="fc" id="L279">        return base.toList(r);</span>
     }
 
     @Override
     public String toString() {
-<span class="fc" id="L324">        final StringBuilder sb = new StringBuilder();</span>
-<span class="pc bpc" id="L325" title="1 of 2 branches missed.">        if (range == null) {</span>
-<span class="nc" id="L326">            return &quot;RangedListView under construction&quot;;</span>
+<span class="fc" id="L284">        final StringBuilder sb = new StringBuilder();</span>
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">        if (range == null) {</span>
+<span class="nc" id="L286">            return &quot;RangedListView under construction&quot;;</span>
         }
-<span class="fc" id="L328">        sb.append(&quot;[&quot; + range + &quot;]&quot;);</span>
-<span class="fc" id="L329">        final long sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();</span>
-<span class="fc" id="L330">        long c = 0;</span>
-<span class="pc bpc" id="L331" title="1 of 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
-<span class="nc bnc" id="L332" title="All 2 branches missed.">            if (c++ &gt; 0) {</span>
-<span class="nc" id="L333">                sb.append(&quot;,&quot;);</span>
+<span class="fc" id="L288">        sb.append(&quot;[&quot; + range + &quot;]&quot;);</span>
+<span class="fc" id="L289">        final long sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();</span>
+<span class="fc" id="L290">        long c = 0;</span>
+<span class="pc bpc" id="L291" title="1 of 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
+<span class="nc bnc" id="L292" title="All 2 branches missed.">            if (c++ &gt; 0) {</span>
+<span class="nc" id="L293">                sb.append(&quot;,&quot;);</span>
             }
-<span class="nc" id="L335">            sb.append(&quot;&quot; + base.get(i));</span>
-<span class="nc bnc" id="L336" title="All 2 branches missed.">            if (c == sz) {</span>
-<span class="nc" id="L337">                break;</span>
+<span class="nc" id="L295">            sb.append(&quot;&quot; + base.get(i));</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">            if (c == sz) {</span>
+<span class="nc" id="L297">                break;</span>
             }
         }
-<span class="pc bpc" id="L340" title="1 of 2 branches missed.">        if (sz &lt; size()) {</span>
-<span class="nc" id="L341">            sb.append(&quot;...(omitted &quot; + (size() - sz) + &quot; elements)&quot;);</span>
+<span class="pc bpc" id="L300" title="1 of 2 branches missed.">        if (sz &lt; size()) {</span>
+<span class="nc" id="L301">            sb.append(&quot;...(omitted &quot; + (size() - sz) + &quot; elements)&quot;);</span>
         }
         // sb.append(&quot;@&quot; + range.begin + &quot;..&quot; + last() + &quot;]&quot;);
-<span class="fc" id="L344">        return sb.toString();</span>
+<span class="fc" id="L304">        return sb.toString();</span>
     }
 
     @Override
     public void write(Kryo kryo, Output output) {
-<span class="fc" id="L349">        final Chunk&lt;T&gt; chunk = this.toChunk(range);</span>
-<span class="fc" id="L350">        kryo.writeClassAndObject(output, chunk);</span>
-<span class="fc" id="L351">    }</span>
+<span class="fc" id="L309">        final Chunk&lt;T&gt; chunk = this.toChunk(range);</span>
+<span class="fc" id="L310">        kryo.writeClassAndObject(output, chunk);</span>
+<span class="fc" id="L311">    }</span>
 
     // TODO this implement generates redundant RangedListView at receiver node.
     private void writeObject(ObjectOutputStream out) throws IOException {
-<span class="fc" id="L355">        final Chunk&lt;T&gt; chunk = this.toChunk(range);</span>
-<span class="fc" id="L356">        out.writeObject(chunk);</span>
-<span class="fc" id="L357">    }</span>
+<span class="fc" id="L315">        final Chunk&lt;T&gt; chunk = this.toChunk(range);</span>
+<span class="fc" id="L316">        out.writeObject(chunk);</span>
+<span class="fc" id="L317">    }</span>
 
-    /*
-     * public static void main(String[] args) { long i = 10; Chunk&lt;Integer&gt; c = new
-     * Chunk&lt;&gt;(new LongRange(10 * i, 11 * i)); System.out.println(&quot;prepare:&quot; + c);
-     * for (long j = 0; j &lt; i; j++) { int v = (int) (10 * i + j);
-     * System.out.println(&quot;set@&quot; + v); c.set(10 * i + j, v); }
-     * System.out.println(&quot;Chunk :&quot; + c); RangedList&lt;Integer&gt; r1 = c.subList(10 * i
-     * + 0, 10 * i + 2); RangedList&lt;Integer&gt; r2 = c.subList(10 * i + 2, 10 * i + 8);
-     * RangedList&lt;Integer&gt; r3 = c.subList(10 * i + 8, 10 * i + 9);
-     * RangedList&lt;Integer&gt; r4 = c.subList(10 * i + 0, 10 * i + 9);
-     * System.out.println(&quot;RangedListView: &quot; + r1);
-     * System.out.println(&quot;RangedListView: &quot; + r2);
-     * System.out.println(&quot;RangedListView: &quot; + r3);
-     * System.out.println(&quot;RangedListView: &quot; + r4); }
-     */
+
+
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

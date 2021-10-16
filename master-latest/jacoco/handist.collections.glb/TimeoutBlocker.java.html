@@ -1,4 +1,14 @@
-<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TimeoutBlocker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb</a> &gt; <span class="el_source">TimeoutBlocker.java</span></div><h1>TimeoutBlocker.java</h1><pre class="source lang-java linenums">/**
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TimeoutBlocker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb</a> &gt; <span class="el_source">TimeoutBlocker.java</span></div><h1>TimeoutBlocker.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+/**
  *
  */
 package handist.collections.glb;
@@ -19,7 +29,7 @@ import java.util.concurrent.ForkJoinPool.ManagedBlocker;
  * @author Patrick Finnerty
  *
  */
-<span class="fc" id="L22">public class TimeoutBlocker implements Serializable, ManagedBlocker {</span>
+<span class="fc" id="L32">public class TimeoutBlocker implements Serializable, ManagedBlocker {</span>
 
     /** Serial Version UID */
     private static final long serialVersionUID = -3062223968154585707L;
@@ -39,7 +49,7 @@ import java.util.concurrent.ForkJoinPool.ManagedBlocker;
      * Member used to circumvent the timeout and make the thread available for
      * computation immediately.
      */
-<span class="fc" id="L42">    private boolean unblock = false;</span>
+<span class="fc" id="L52">    private boolean unblock = false;</span>
 
     /*
      * (non-Javadoc)
@@ -48,17 +58,17 @@ import java.util.concurrent.ForkJoinPool.ManagedBlocker;
      */
     @Override
     public boolean block() throws InterruptedException {
-<span class="fc" id="L51">        final long now = System.nanoTime();</span>
-<span class="fc" id="L52">        final long toElapse = nextWakeUpTime - now;</span>
-<span class="pc bpc" id="L53" title="2 of 4 branches missed.">        if (toElapse &lt; 0 || unblock) {</span>
-<span class="nc" id="L54">            return true;</span>
+<span class="fc" id="L61">        final long now = System.nanoTime();</span>
+<span class="fc" id="L62">        final long toElapse = nextWakeUpTime - now;</span>
+<span class="pc bpc" id="L63" title="1 of 4 branches missed.">        if (toElapse &lt; 0 || unblock) {</span>
+<span class="fc" id="L64">            return true;</span>
         } else {
-<span class="fc" id="L56">            Thread.sleep(toElapse / 1000000, (int) toElapse % 1000000);</span>
-<span class="pc bpc" id="L57" title="1 of 2 branches missed.">            if (Thread.interrupted()) {</span>
-<span class="nc" id="L58">                throw new InterruptedException();</span>
+<span class="fc" id="L66">            Thread.sleep(toElapse / 1000000, (int) toElapse % 1000000);</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">            if (Thread.interrupted()) {</span>
+<span class="nc" id="L68">                throw new InterruptedException();</span>
             }
         }
-<span class="fc" id="L61">        return isReleasable();</span>
+<span class="fc" id="L71">        return isReleasable();</span>
     }
 
     /*
@@ -68,16 +78,16 @@ import java.util.concurrent.ForkJoinPool.ManagedBlocker;
      */
     @Override
     public boolean isReleasable() {
-<span class="fc bfc" id="L71" title="All 4 branches covered.">        return (0 &gt; nextWakeUpTime - System.nanoTime()) || unblock;</span>
+<span class="fc bfc" id="L81" title="All 4 branches covered.">        return (0 &gt; nextWakeUpTime - System.nanoTime()) || unblock;</span>
     }
 
     /**
      * Re-enables the blocking mechanism after a call to method {@link #unblock()}
      */
     public void reset() {
-<span class="fc" id="L78">        unblock = false;</span>
-<span class="fc" id="L79">        nextWakeUpTime = System.nanoTime() + WAKEUP_TIMEOUT;</span>
-<span class="fc" id="L80">    }</span>
+<span class="fc" id="L88">        unblock = false;</span>
+<span class="fc" id="L89">        nextWakeUpTime = System.nanoTime() + WAKEUP_TIMEOUT;</span>
+<span class="fc" id="L90">    }</span>
 
     /**
      * Sets the next wake-up stamp until which the thread that may use this blocker
@@ -87,15 +97,15 @@ import java.util.concurrent.ForkJoinPool.ManagedBlocker;
      * @param stamp timestamp until which {@link System#nanoTime()}
      */
     public void setNextWakeup(long stamp) {
-<span class="nc" id="L90">        nextWakeUpTime = stamp;</span>
-<span class="nc" id="L91">    }</span>
+<span class="nc" id="L100">        nextWakeUpTime = stamp;</span>
+<span class="nc" id="L101">    }</span>
 
     /**
      * Unblocks the thread immediately
      */
     public void unblock() {
-<span class="fc" id="L97">        unblock = true;</span>
-<span class="fc" id="L98">    }</span>
+<span class="fc" id="L107">        unblock = true;</span>
+<span class="fc" id="L108">    }</span>
 
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,760 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SquareChunk.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">SquareChunk.java</span></div><h1>SquareChunk.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections;
+
+import handist.collections.function.LongTBiConsumer;
+import handist.collections.function.SquareIndexTConsumer;
+import handist.collections.function.SquareIndexTFunction;
+
+import java.io.PrintWriter;
+import java.io.Serializable;
+import java.io.StringWriter;
+import java.util.Iterator;
+import java.util.List;
+import java.util.function.*;
+
+
+public class SquareChunk&lt;T&gt; /* extends SquareRangedList&lt;T&gt;*/ implements Serializable, SquareRangedList&lt;T&gt; /*, KryoSerializable*/ {
+
+    private static final long serialVersionUID = -8282656629771334491L;
+    /** Array containing the T objects */
+    private final Object[] a;
+
+    /** Range on which this instance is defined */
+    private final SquareRange range;
+    private final long innerSize;
+
+//    /**
+//     * Builds a Chunk with the given range and no mapping.
+//     * &lt;p&gt;
+//     * The given LongRange should have a strictly positive size. Giving a
+//     * {@link LongRange} instance with identical lower and upper bounds will result
+//     * in a {@link IllegalArgumentException} being thrown.
+//     * &lt;p&gt;
+//     * If the {@link LongRange} provided has a range that exceeds
+//     * {@value Config#maxChunkSize}, an
+//     * {@link IllegalArgumentException} will be be thrown.
+//     *
+//     * @param range the range of the chunk to build
+//     * @throws IllegalArgumentException if a {@link SquareChunk} cannot be built with the
+//     *                                  provided range.
+//     */
+<span class="fc" id="L50">    public SquareChunk(SquareRange range) {</span>
+<span class="fc" id="L51">        long outerSize = range.outer.size();</span>
+<span class="fc" id="L52">        this.innerSize = range.inner.size();</span>
+<span class="fc" id="L53">        long size = outerSize * innerSize;</span>
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">        if(range.isUpperTriangle) throw new IllegalArgumentException(&quot;Rectangle ranges are not supported by SquareChunk yet.&quot;);</span>
+        // FIXME
+<span class="pc bpc" id="L56" title="1 of 2 branches missed.">        if(size &gt; Integer.MAX_VALUE) throw new RuntimeException(&quot;array size overflow&quot;);</span>
+<span class="fc" id="L57">        a = new Object[(int) size];</span>
+<span class="fc" id="L58">        this.range = range;</span>
+<span class="fc" id="L59">    }</span>
+
+//    /**
+//     * Builds a {@link SquareChunk} with the provided {@link LongRange}. The provided
+//     * initializer generates the initial value of the element for each index. The
+//     * given LongRange should have a strictly positive size. Giving a
+//     * {@link LongRange} instance with identical lower and upper bounds will result
+//     * in a {@link IllegalArgumentException} being thrown.
+//     * &lt;p&gt;
+//     * If the {@link LongRange} provided has a range that exceeds
+//     * {@value Config#maxChunkSize}, an
+//     * {@link IllegalArgumentException} will be be thrown.
+//     *
+//     * @param range       the range of the chunk to build
+//     * @param initializer generates the initial value of the element for each index.
+//     * @throws IllegalArgumentException if a {@link SquareChunk} cannot be built with the
+//     *                                  provided range.
+//     */
+    public SquareChunk(SquareRange range, SquareIndexTFunction&lt;T&gt; initializer) {
+<span class="fc" id="L78">        this(range);</span>
+<span class="fc" id="L79">        range.forEach((long index, long index2) -&gt; {</span>
+<span class="fc" id="L80">            set(index, index2, initializer.apply(index, index2));</span>
+<span class="fc" id="L81">        });</span>
+<span class="fc" id="L82">    }</span>
+
+//    /**
+//     * Builds a {@link SquareChunk} with the provided {@link LongRange} and an initial
+//     * mapping for each long in the object array. The provided {@link LongRange} and
+//     * Object array should have the same size. An {@link IllegalArgumentException}
+//     * will be thrown otherwise.
+//     * &lt;p&gt;
+//     * The given {@link LongRange} should have a strictly positive size. Giving a
+//     * {@link LongRange} instance with identical lower and upper bounds will result
+//     * in a {@link IllegalArgumentException} being thrown.
+//     * &lt;p&gt;
+//     * If the {@link LongRange} provided has a range that exceeds
+//     * {@value Config#maxChunkSize}, an
+//     * {@link IllegalArgumentException} will be be thrown.
+//     *
+//     * @param range the range of the chunk to build
+//     * @param a     array with the initial mapping for every long in the provided
+//     *              range
+//     * @throws IllegalArgumentException if a {@link SquareChunk} cannot be built with the
+//     *                                  provided range and object array.
+//     */
+//    public SquareChunk(LongRange range, Object[] a) {
+//        this(range);
+//        if (a.length != range.size()) {
+//            throw new IllegalArgumentException(&quot;The length of the provided &quot; + &quot;array &lt;&quot; + a.length
+//                    + &quot;&gt; does not match the size of the &quot; + &quot;LongRange &lt;&quot; + range.size() + &quot;&gt;&quot;);
+//        }
+//        // TODO Do we check for objects in array a that are not of type T?
+//        // We can leave as is and let the code fail later in methods get and
+//        // others where a ClassCastException should be thrown.
+//        this.a = a;
+//    }
+
+//    /**
+//     * Builds a {@link SquareChunk} with the provided {@link LongRange} with each long in
+//     * the provided range mapped to object t. The given LongRange should have a
+//     * strictly positive size. Giving a {@link LongRange} instance with identical
+//     * lower and upper bounds will result in a {@link IllegalArgumentException}
+//     * being thrown.
+//     * &lt;p&gt;
+//     * If the {@link LongRange} provided has a range that exceeds
+//     * {@value Config#maxChunkSize}, an
+//     * {@link IllegalArgumentException} will be be thrown.
+//     *
+//     * @param range the range of the chunk to build
+//     * @param t     initial mapping for every long in the provided range
+//     * @throws IllegalArgumentException if a {@link SquareChunk} cannot be built with the
+//     *                                  provided range.
+//     */
+//    public SquareChunk(LongRange range, T t) {
+//        this(range);
+//        // TODO Is this what we really want to do?
+//        // The mapping will be on the SAME OBJECT for every long in LongRange.
+//        // Don't we need a Generator&lt;T&gt; generator as argument and create an
+//        // instance for each key with Arrays.setAll(a, generator) ?
+//        Arrays.fill(a, t);
+//    }
+
+//    /**
+//     * Returns a new Chunk defined on the same {@link LongRange} and with the same
+//     * contents as this instance.
+//     *
+//     * @return a copy of this instance
+//     */
+//    @Override
+//    public SquareChunk&lt;T&gt; clone() {
+//        // Object[] aClone = a.clone();
+//        final Object[] aClone = new Object[a.length];
+//
+//        //// FIXME: 2018/09/19 Need deep copy?
+//        // for (int i = 0; i &lt; a.length; i++) {
+//        // try {
+//        // aClone[i] = ((Cloneable) a[i]).clone();
+//        // } catch (CloneNotSupportedException e) {
+//        // e.printStackTrace();
+//        // }
+//        // }
+//
+//        Arrays.fill(aClone, a[0]);
+//        System.arraycopy(a, 0, aClone, 0, a.length);
+//
+//        return new SquareChunk&lt;&gt;(this.range, aClone);
+//    }
+
+//    @Override
+//    public SquareChunk&lt;T&gt; cloneRange(LongRange newRange) {
+//        return range == newRange ? clone() : toChunk(newRange);
+//    }
+//
+//    @Override
+//    public boolean contains(Object v) {
+//        for (final Object e : a) {
+//            if (v == null ? e == null : v.equals(e)) {
+//                return true;
+//            }
+//        }
+//        return false;
+//    }
+
+//    @Override
+//    public boolean equals(Object o) {
+//        return RangedList.equals(this, o);
+//    }
+
+    // TODO
+//    @Override
+//    public &lt;U&gt; void forEach(LongRange range, BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
+//            Consumer&lt;? super U&gt; receiver) {
+//        rangeCheck(range);
+//        // IntStream.range(begin, end).forEach();
+//        for (long i = range.from; i &lt; range.to; i++) {
+//            action.accept(get(i), receiver);
+//        }
+//    }
+
+<span class="pc bpc" id="L198" title="1 of 2 branches missed.">    static class MySquareSiblingAccessor&lt;T&gt; implements SquareSiblingAccessor&lt;T&gt; {</span>
+        int offset;
+        int innerSize;
+        Object[] a;
+
+<span class="fc" id="L203">        public MySquareSiblingAccessor(int offset, int innerSize, Object[] a) {</span>
+<span class="fc" id="L204">            this.offset = offset;</span>
+<span class="fc" id="L205">            this.innerSize = innerSize;</span>
+<span class="fc" id="L206">            this.a = a;</span>
+<span class="fc" id="L207">        }</span>
+
+        @Override
+        public T get(int x, int y) {
+<span class="pc bpc" id="L211" title="3 of 6 branches missed.">            assert(x&lt;=1 &amp;&amp; x&gt;=-1);</span>
+<span class="pc bpc" id="L212" title="3 of 6 branches missed.">            assert(y&lt;=1 &amp;&amp; y&gt;=-1);</span>
+<span class="fc" id="L213">            return (T)a[offset + x*innerSize + y];</span>
+        }
+        @Override
+        public void put(T v) {
+<span class="nc" id="L217">            a[offset] = v;</span>
+<span class="nc" id="L218">        }</span>
+    }
+
+<span class="fc" id="L221">    static abstract class MyView&lt;T&gt; extends RangedList&lt;T&gt; {</span>
+        @Override
+        public RangedList&lt;T&gt; cloneRange(LongRange range) {
+<span class="nc" id="L224">            throw new UnsupportedOperationException(&quot;not implemented yet. may be shared abst class will be needed&quot;);</span>
+        }
+
+        @Override
+        public boolean contains(Object o) {
+<span class="nc" id="L229">            throw new UnsupportedOperationException(&quot;not implemented yet. may be shared abst class will be needed&quot;);</span>
+        }
+
+        @Override
+        public T get(long index) {
+<span class="nc" id="L234">            throw new UnsupportedOperationException(&quot;not implemented yet. may be shared abst class will be needed&quot;);</span>
+        }
+
+        @Override
+        public T set(long index, T value) {
+<span class="nc" id="L239">            throw new UnsupportedOperationException(&quot;not implemented yet. may be shared abst class will be needed&quot;);</span>
+        }
+
+        @Override
+        public Object[] toArray() {
+<span class="nc" id="L244">            throw new UnsupportedOperationException(&quot;not implemented yet. may be shared abst class will be needed&quot;);</span>
+        }
+
+        @Override
+        public Object[] toArray(LongRange r) {
+<span class="nc" id="L249">            throw new UnsupportedOperationException(&quot;not implemented yet. may be shared abst class will be needed&quot;);</span>
+        }
+
+        @Override
+        public Chunk&lt;T&gt; toChunk(LongRange r) {
+<span class="nc" id="L254">            throw new UnsupportedOperationException(&quot;not implemented yet. may be shared abst class will be needed&quot;);</span>
+        }
+
+        @Override
+        public List&lt;T&gt; toList(LongRange r) {
+<span class="nc" id="L259">            throw new UnsupportedOperationException(&quot;not implemented yet. may be shared abst class will be needed&quot;);</span>
+        }
+    }
+
+    static class RowView&lt;T&gt; extends MyView&lt;T&gt; {
+        int offset;
+        LongRange baseRange;
+        Object[] a;
+        // TODO sublist based impl of iterators.
+
+<span class="fc" id="L269">        public RowView(int offset, LongRange baseRange, Object[] a) {</span>
+<span class="fc" id="L270">            this.offset = offset;</span>
+<span class="fc" id="L271">            this.baseRange = baseRange;</span>
+<span class="fc" id="L272">            this.a = a;</span>
+<span class="fc" id="L273">        }</span>
+<span class="fc" id="L274">        public LongRange getRange() { return baseRange; }</span>
+
+        @Override
+        public &lt;U&gt; void forEachImpl(LongRange range, BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
+                                Consumer&lt;? super U&gt; receiver) {
+            // TODO rangeCheck(range);
+<span class="nc" id="L280">            long current = range.from;</span>
+<span class="nc" id="L281">            int index = offset + (int)(range.from - baseRange.from);</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">            while(current++ &lt; range.to) {</span>
+<span class="nc" id="L283">                action.accept((T)a[index++], receiver);</span>
+            }
+<span class="nc" id="L285">        }</span>
+
+        @Override
+        public void forEachImpl(LongRange range, Consumer&lt;? super T&gt; action) {
+            // TODO rangeCheck(range);
+<span class="nc" id="L290">            long current = range.from;</span>
+<span class="nc" id="L291">            int index = offset + (int)(range.from - baseRange.from);</span>
+<span class="nc bnc" id="L292" title="All 2 branches missed.">            while(current++ &lt; range.to) {</span>
+<span class="nc" id="L293">                action.accept((T)a[index++]);</span>
+            }
+<span class="nc" id="L295">        }</span>
+
+        @Override
+        public void forEachImpl(LongRange range, LongTBiConsumer&lt;? super T&gt; action) {
+            // TODO rangeCheck(range);
+<span class="fc" id="L300">            long current = range.from;</span>
+<span class="fc" id="L301">            int index = offset + (int)(range.from - baseRange.from);</span>
+<span class="fc bfc" id="L302" title="All 2 branches covered.">            while(current &lt; range.to) {</span>
+<span class="fc" id="L303">                action.accept(current++, (T)a[index++]);</span>
+            }
+<span class="fc" id="L305">        }</span>
+
+        @Override
+        public Iterator&lt;T&gt; iterator() {
+<span class="nc" id="L309">            return new ChunkIterator&lt;&gt;(offset, baseRange, a);</span>
+        }
+
+        @Override
+        public RangedListIterator&lt;T&gt; listIterator() {
+<span class="nc" id="L314">            return new ChunkListIterator&lt;&gt;(offset, baseRange, a);</span>
+        }
+
+        @Override
+        public RangedListIterator&lt;T&gt; listIterator(long from) {
+<span class="nc" id="L319">            return new ChunkListIterator&lt;&gt;(offset, baseRange, from, a);</span>
+        }
+
+        @Override
+        protected Iterator&lt;T&gt; subIterator(LongRange range) {
+            //TODO rangecheck
+<span class="fc" id="L325">            int newOffset = offset+(int)(range.from-baseRange.from);</span>
+<span class="fc" id="L326">            return new ChunkIterator&lt;&gt;(newOffset, range, a);</span>
+        }
+
+        @Override
+        protected RangedListIterator&lt;T&gt; subListIterator(LongRange range) {
+            //TODO range check
+<span class="fc" id="L332">            int newOffset = offset+(int)(range.from-baseRange.from);</span>
+<span class="fc" id="L333">            return new ChunkListIterator&lt;&gt;(newOffset, range, a);</span>
+        }
+
+        @Override
+        protected RangedListIterator&lt;T&gt; subListIterator(LongRange range, long from) {
+            //TODO range check
+<span class="nc" id="L339">            int newOffset = offset+(int)(range.from-baseRange.from);</span>
+<span class="nc" id="L340">            return new ChunkListIterator&lt;&gt;(newOffset, range, from, a);</span>
+        }
+    }
+
+    static class ColumnView&lt;T&gt; extends MyView&lt;T&gt; {
+        int offset;
+        LongRange baseRange;
+        int stride;
+        Object[] a;
+        // TODO sublist based impl of iterators.
+
+<span class="fc" id="L351">        public ColumnView(int offset, int stride, LongRange baseRange, Object[] a) {</span>
+<span class="fc" id="L352">            this.offset = offset;</span>
+<span class="fc" id="L353">            this.baseRange = baseRange;</span>
+<span class="fc" id="L354">            this.stride = stride;</span>
+<span class="fc" id="L355">            this.a = a;</span>
+<span class="fc" id="L356">        }</span>
+<span class="fc" id="L357">        public LongRange getRange() { return baseRange; }</span>
+        @Override
+        public &lt;U&gt; void forEachImpl(LongRange range, BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
+                                Consumer&lt;? super U&gt; receiver) {
+            // TODO rangeCheck(range);
+<span class="nc" id="L362">            long current = range.from;</span>
+<span class="nc" id="L363">            int index = offset + (int)(range.from - baseRange.from);</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">            while(current++ &lt; range.to) {</span>
+<span class="nc" id="L365">                action.accept((T)a[index], receiver);</span>
+<span class="nc" id="L366">                index += stride;</span>
+            }
+<span class="nc" id="L368">        }</span>
+
+        @Override
+        public void forEachImpl(LongRange range, Consumer&lt;? super T&gt; action) {
+            // TODO rangeCheck(range);
+<span class="nc" id="L373">            long current = range.from;</span>
+<span class="nc" id="L374">            int index = offset + (int)(range.from - baseRange.from);</span>
+<span class="nc bnc" id="L375" title="All 2 branches missed.">            while(current++ &lt; range.to) {</span>
+<span class="nc" id="L376">                action.accept((T)a[index]);</span>
+<span class="nc" id="L377">                index+= stride;</span>
+            }
+<span class="nc" id="L379">        }</span>
+
+        @Override
+        public void forEachImpl(LongRange range, LongTBiConsumer&lt;? super T&gt; action) {
+            // TODO rangeCheck(range);
+<span class="fc" id="L384">            long current = range.from;</span>
+<span class="fc" id="L385">            int index = offset + (int)(range.from - baseRange.from)*stride;</span>
+<span class="fc bfc" id="L386" title="All 2 branches covered.">            while(current &lt; range.to) {</span>
+<span class="fc" id="L387">                action.accept(current++, (T)a[index]);</span>
+<span class="fc" id="L388">                index += stride;</span>
+            }
+<span class="fc" id="L390">        }</span>
+        @Override
+        public Iterator&lt;T&gt; iterator() {
+<span class="fc" id="L393">            return new ColumnIterator&lt;&gt;(offset, baseRange, a, stride);</span>
+        }
+
+        @Override
+        public RangedListIterator&lt;T&gt; listIterator() {
+<span class="nc" id="L398">            return new ColumnListIterator&lt;&gt;(offset, baseRange, a, stride);</span>
+        }
+
+        @Override
+        public RangedListIterator&lt;T&gt; listIterator(long from) {
+<span class="nc" id="L403">            return new ColumnListIterator&lt;&gt;(offset, baseRange, from, a, stride);</span>
+        }
+
+        @Override
+        protected Iterator&lt;T&gt; subIterator(LongRange range) {
+            // TODO check
+<span class="fc" id="L409">            int newOffset = offset + (int)(range.from-baseRange.from)* stride;</span>
+<span class="fc" id="L410">            return new ColumnIterator&lt;&gt;(newOffset, range, a, stride);</span>
+        }
+
+        @Override
+        protected RangedListIterator&lt;T&gt; subListIterator(LongRange range) {
+<span class="fc" id="L415">            int newOffset = offset + (int)(range.from-baseRange.from)* stride;</span>
+<span class="fc" id="L416">            return new ColumnListIterator&lt;&gt;(newOffset, range, a, stride);</span>
+        }
+
+        @Override
+        protected RangedListIterator&lt;T&gt; subListIterator(LongRange range, long from) {
+<span class="nc" id="L421">            int newOffset = offset + (int)(range.from-baseRange.from)* stride;</span>
+<span class="nc" id="L422">            return new ColumnListIterator&lt;&gt;(newOffset, range, from, a, stride);</span>
+        }
+    }
+    @Override
+    public RangedList&lt;T&gt; getRowView(long row) {
+        // TODO range check
+<span class="fc" id="L428">        int offset = (int)(innerSize * (row - getRange().outer.from));</span>
+<span class="fc" id="L429">        return new RowView&lt;&gt;(offset, getRange().inner, a); // TODO filter dependent</span>
+    }
+
+    @Override
+    public RangedList&lt;T&gt; getColumnView(long column) {
+        // TODO range check
+<span class="fc" id="L435">        int offset = (int)(column - getRange().inner.from);</span>
+<span class="fc" id="L436">        return new ColumnView&lt;&gt;(offset, (int)innerSize, getRange().outer, a); // TODO filter dependent</span>
+    }
+    @Override
+    public void forEachColumn(LongTBiConsumer&lt;RangedList&lt;T&gt;&gt; columnAction) {
+<span class="fc bfc" id="L440" title="All 2 branches covered.">        for(long index = getRange().inner.from; index &lt; getRange().inner.to; index++) {</span>
+<span class="fc" id="L441">            RangedList&lt;T&gt; cView = getColumnView(index);</span>
+<span class="fc" id="L442">            columnAction.accept(index, cView);</span>
+        }
+<span class="fc" id="L444">    }</span>
+    @Override
+    public void forEachColumn(LongRange range, LongTBiConsumer&lt;RangedList&lt;T&gt;&gt; columnAction) {
+        //TODO filter support
+<span class="nc" id="L448">        range = getRange().inner.intersection(range);</span>
+<span class="nc bnc" id="L449" title="All 2 branches missed.">        for(long index = range.from; index &lt; range.to; index++) {</span>
+<span class="nc" id="L450">            RangedList&lt;T&gt; cView = getColumnView(index);</span>
+<span class="nc" id="L451">            columnAction.accept(index, cView);</span>
+        }
+<span class="nc" id="L453">    }</span>
+
+    @Override
+    public void forEachRow(LongTBiConsumer&lt;RangedList&lt;T&gt;&gt; rowAction) {
+<span class="fc bfc" id="L457" title="All 2 branches covered.">        for(long index = getRange().outer.from; index &lt; getRange().outer.to; index++) {</span>
+<span class="fc" id="L458">            RangedList&lt;T&gt; rView = getRowView(index);</span>
+<span class="fc" id="L459">            rowAction.accept(index, rView);</span>
+        }
+<span class="fc" id="L461">    }</span>
+    @Override
+    public void forEachRow(LongRange rRange, LongTBiConsumer&lt;RangedList&lt;T&gt;&gt; rowAction) {
+<span class="nc" id="L464">        rRange = getRange().outer.intersection(rRange);</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">        for(long index = rRange.from; index &lt; rRange.to; index++) {</span>
+<span class="nc" id="L466">            RangedList&lt;T&gt; rView = getRowView(index);</span>
+<span class="nc" id="L467">            rowAction.accept(index, rView);</span>
+        }
+<span class="nc" id="L469">    }</span>
+
+
+    @Override
+    public RangedList&lt;RangedList&lt;T&gt;&gt; asRowList() {
+        // TODO view style implementation
+<span class="fc" id="L475">        return new Chunk&lt;&gt;(range.outer, (Long rowIndex)-&gt;{</span>
+<span class="fc" id="L476">            return getRowView(rowIndex); // OK filter dependet</span>
+        });
+    }
+    @Override
+    public RangedList&lt;RangedList&lt;T&gt;&gt; asColumnList() {
+        // TODO view style implementation
+<span class="fc" id="L482">        return new Chunk&lt;&gt;(range.inner, (Long columnIndex)-&gt;{</span>
+<span class="fc" id="L483">            return getColumnView(columnIndex);</span>
+        });
+    }
+
+
+    @Override
+    public void forEachWithSiblings(SquareRange range, final Consumer&lt;SquareSiblingAccessor&lt;T&gt;&gt; action) {
+        // TODO
+        // rangeCheck(range);
+        // TODO
+        // IntStream.range(begin, end).forEach();
+<span class="fc" id="L494">        long index1 = range.outer.from;</span>
+<span class="fc" id="L495">        long index2 = range.inner.from;</span>
+<span class="fc" id="L496">        long offset1 = index1 - getRange().outer.from;</span>
+<span class="fc" id="L497">        long offset2 = index2 - getRange().inner.from;</span>
+        //TODO overflow assert
+<span class="fc" id="L499">        int offset = (int) (offset1 * innerSize + offset2);</span>
+        while (true) {
+            // TODO overflow assert
+<span class="fc" id="L502">            System.out.println(&quot;index:&quot;+ index1 +&quot;,&quot;+index2 + &quot;, offset&quot; + offset1 + &quot;,&quot;+offset2 + &quot;,&quot;+offset);</span>
+<span class="fc" id="L503">            SquareSiblingAccessor&lt;T&gt; acc = new MySquareSiblingAccessor&lt;&gt;(offset, (int) innerSize, a);</span>
+<span class="fc" id="L504">            action.accept(acc);</span>
+<span class="fc" id="L505">            index2++;</span>
+<span class="fc" id="L506">            offset++;</span>
+<span class="fc bfc" id="L507" title="All 2 branches covered.">            if(index2==range.inner.to) { // TODO filter dependent</span>
+<span class="fc" id="L508">                index2 = range.inner.from;</span>
+<span class="fc" id="L509">                index1++;</span>
+<span class="fc bfc" id="L510" title="All 2 branches covered.">                if(index1==range.outer.to) return;</span>
+<span class="fc" id="L511">                offset1++;</span>
+                //TODO overflow assert
+<span class="fc" id="L513">                offset = (int)(offset1 * innerSize + offset2);</span>
+            }
+<span class="fc" id="L515">        }</span>
+    }
+
+    @Override
+    public void forEach(final SquareIndexTConsumer&lt;? super T&gt; action) {
+        // TODO
+        // rangeCheck(range);
+        // TODO
+        // IntStream.range(begin, end).forEach();
+<span class="fc" id="L524">        long index = range.outer.from;</span>
+<span class="fc" id="L525">        long index2 = range.inner.from;</span>
+<span class="fc" id="L526">        int offset = 0;</span>
+        while (true) {
+<span class="fc" id="L528">            T v = (T)a[offset];</span>
+<span class="fc" id="L529">            action.accept(index, index2, v);</span>
+<span class="fc" id="L530">            index2++;</span>
+<span class="fc" id="L531">            offset++;</span>
+<span class="fc bfc" id="L532" title="All 2 branches covered.">            if(index2==range.inner.to) {</span>
+<span class="fc" id="L533">                index2 = range.inner.from;</span>
+<span class="fc" id="L534">                index++;</span>
+<span class="fc bfc" id="L535" title="All 2 branches covered.">                if(index==range.outer.to) return;</span>
+            }
+<span class="fc" id="L537">        }</span>
+    }
+
+    @Override
+    public void forEach(SquareRange range, final SquareIndexTConsumer&lt;? super T&gt; action) {
+        // TODO
+        // rangeCheck(range);
+        // TODO
+        // IntStream.range(begin, end).forEach();
+<span class="nc" id="L546">        long index1 = range.outer.from;</span>
+<span class="nc" id="L547">        long index2 = range.inner.from;</span>
+<span class="nc" id="L548">        long offset1 = index1 - getRange().outer.from;</span>
+<span class="nc" id="L549">        long offset2 = index2 - getRange().inner.from;</span>
+        //TODO overflow assert
+<span class="nc" id="L551">        int offset = (int) (offset1 * innerSize + offset2);</span>
+        while (true) {
+            // TODO overflow assert
+<span class="nc" id="L554">            System.out.println(&quot;index:&quot;+ index1 +&quot;,&quot;+index2 + &quot;, offset&quot; + offset1 + &quot;,&quot;+offset2 + &quot;,&quot;+offset);</span>
+<span class="nc" id="L555">            action.accept(index1, index2, (T)a[offset]);</span>
+<span class="nc" id="L556">            index2++;</span>
+<span class="nc" id="L557">            offset++;</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">            if(index2==range.inner.to) { // TODO filter dependent</span>
+<span class="nc" id="L559">                index2 = range.inner.from;</span>
+<span class="nc" id="L560">                index1++;</span>
+<span class="nc bnc" id="L561" title="All 2 branches missed.">                if(index1==range.outer.to) return;</span>
+<span class="nc" id="L562">                offset1++;</span>
+<span class="nc" id="L563">                offset = (int)(offset1 * innerSize + offset2);</span>
+            }
+        }
+    }
+
+    @Override
+    public void forEach(final Consumer&lt;? super T&gt; action) {
+        // TODO
+        // rangeCheck(range);
+        // TODO
+        // IntStream.range(begin, end).forEach();
+<span class="fc bfc" id="L574" title="All 2 branches covered.">        for (Object o: a) {</span>
+<span class="fc" id="L575">            action.accept((T)o); // TODO filter dependent</span>
+        }
+<span class="fc" id="L577">    }</span>
+
+    @Override
+    public void forEach(SquareRange range, final Consumer&lt;? super T&gt; action) {
+        // TODO
+        // rangeCheck(range);
+        // TODO
+        // IntStream.range(begin, end).forEach();
+<span class="nc" id="L585">        long index1 = range.outer.from;</span>
+<span class="nc" id="L586">        long index2 = range.inner.from;</span>
+<span class="nc" id="L587">        long offset1 = index1 - getRange().outer.from;</span>
+<span class="nc" id="L588">        long offset2 = index2 - getRange().inner.from;</span>
+        //TODO overflow assert
+<span class="nc" id="L590">        int offset = (int) (offset1 * innerSize + offset2);</span>
+        while (true) {
+            // TODO overflow assert
+<span class="nc" id="L593">            action.accept((T)a[offset]);</span>
+<span class="nc" id="L594">            index2++;</span>
+<span class="nc" id="L595">            offset++;</span>
+<span class="nc bnc" id="L596" title="All 2 branches missed.">            if(index2==range.inner.to) {</span>
+<span class="nc" id="L597">                index2 = range.inner.from; // TODO filter dependent</span>
+<span class="nc" id="L598">                index1++;</span>
+<span class="nc bnc" id="L599" title="All 2 branches missed.">                if(index1==range.outer.to) return;</span>
+<span class="nc" id="L600">                offset1++;</span>
+<span class="nc" id="L601">                offset = (int)(offset1 * innerSize + offset2);</span>
+            }
+        }
+    }
+
+    public &lt;S&gt; void setupFrom(SquareChunk&lt;S&gt; source, Function&lt;? super S, ? extends T&gt; func) {
+        // TODO 'source' should be SquareRangedList
+        //    and this method also should be declared in SquareRangedList
+        // TODO rangeCheck // TODO filter dependent
+<span class="fc" id="L610">        final SquareIndexTConsumer&lt;S&gt; consumer = (long index1, long index2, S s) -&gt; {</span>
+<span class="fc" id="L611">            final T r = func.apply(s);</span>
+<span class="fc" id="L612">            long offset1 = index1 - getRange().outer.from;</span>
+<span class="fc" id="L613">            long offset2 = index2 - getRange().inner.from;</span>
+<span class="fc" id="L614">            long offset = offset1 * innerSize + offset2;</span>
+<span class="fc" id="L615">            a[(int) offset ] = r;</span>
+<span class="fc" id="L616">        };</span>
+<span class="fc" id="L617">        source.forEach(consumer);</span>
+<span class="fc" id="L618">    }</span>
+
+
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public T get(long index, long index2) { // TODO filter dependent
+<span class="pc bpc" id="L627" title="1 of 2 branches missed.">        if (!getRange().outer.contains(index)) {</span>
+<span class="nc" id="L628">            throw new IndexOutOfBoundsException(/*rangeMsg(index)*/ index + &quot; is outof &quot;+getRange().outer);</span>
+        }
+<span class="pc bpc" id="L630" title="1 of 2 branches missed.">        if (!getRange().inner.contains(index2)) {</span>
+<span class="nc" id="L631">            throw new IndexOutOfBoundsException(/*rangeMsg(index2)*/ index2  + &quot; is outof &quot; + getRange().inner);</span>
+        }
+<span class="fc" id="L633">        return getUnsafe(index, index2);</span>
+    }
+
+    @Override
+    public SquareRange getRange() {
+<span class="fc" id="L638">        return range;</span>
+    }
+
+
+
+
+    /**
+     * Returns the element located at the provided index. The provided index is
+     * presumed valid and as such, no bound checking is done.
+     *
+     * @param index index whose value should be returned
+     * @return the object stored at the provided index, possibly {@code null}
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    final T getUnsafe(long index, long index2) { // when range check was done
+<span class="fc" id="L653">        final long offset1 = index - range.outer.from;</span>
+<span class="fc" id="L654">        final long offset2 = index2 - range.inner.from;</span>
+<span class="fc" id="L655">        return (T) a[(int) (offset1 * innerSize + offset2)];</span>
+    }
+
+//    /**
+//     * {@inheritDoc}
+//     */
+//    @Override
+//    public int hashCode() {
+//        return RangedList.hashCode(this);
+//    }
+
+
+//    @Override
+//    public void read(Kryo kryo, Input input) {
+//
+//    }
+//
+//    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+//
+//    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public T set(long index, long index2, T value) {
+<span class="pc bpc" id="L681" title="1 of 2 branches missed.">        if (!getRange().outer.contains(index)) {</span>
+<span class="nc" id="L682">            throw new IndexOutOfBoundsException(/*rangeMsg(index)*/ index + &quot; is outof &quot;+getRange().outer);</span>
+        }
+<span class="pc bpc" id="L684" title="1 of 2 branches missed.">        if (!getRange().inner.contains(index2)) {</span>
+<span class="nc" id="L685">            throw new IndexOutOfBoundsException(/*rangeMsg(index2)*/ index2  + &quot; is outof &quot; + getRange().inner);</span>
+        }
+<span class="fc" id="L687">        return setUnsafe(index, index2, value);</span>
+    }
+
+    @Override
+    public SquareRangedList&lt;T&gt; subView(SquareRange range) {
+<span class="nc" id="L692">        return new SquareRangedListView&lt;&gt;(this, range);</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private T setUnsafe(long index, long index2, T v) { // when range check was done
+<span class="fc" id="L697">        final long offset1 = index - range.outer.from;</span>
+<span class="fc" id="L698">        final long offset2 = index2 - range.inner.from;</span>
+<span class="fc" id="L699">        final long offset = offset1 * innerSize + offset2;</span>
+<span class="fc" id="L700">        final T prev = (T) a[(int) offset];</span>
+<span class="fc" id="L701">        a[(int) offset] = v;</span>
+<span class="fc" id="L702">        return prev;</span>
+    }
+
+//    /**
+//     * {@inheritDoc}
+//     */
+//    public Object[] toArray() {
+//        return a;
+//    }
+
+//    @Override
+//    public Object[] toArray(LongRange newRange) {
+//    }
+
+//    @Override
+//    public SquareChunk&lt;T&gt; toChunk(LongRange newRange) {
+//    }
+
+//    @Override
+//    public List&lt;T&gt; toList(LongRange r) {
+//    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString() {
+<span class="nc" id="L729">        final StringWriter out = new StringWriter();</span>
+<span class="nc" id="L730">        debugPrint(&quot;  &quot;, new PrintWriter(out));</span>
+<span class="nc" id="L731">        return out.toString();</span>
+    }
+    void debugPrint(String tag, PrintWriter out) {
+<span class="fc" id="L734">        forEachRow((long index, RangedList&lt;T&gt; row)-&gt;{</span>
+<span class="fc" id="L735">            out.print(&quot;(&quot;+tag+ &quot;), row:&quot; + index +&quot;-&gt;&quot;);</span>
+<span class="fc" id="L736">            row.forEach((long i, T e)-&gt;{</span>
+<span class="fc" id="L737">                out.print(&quot;[&quot;+i+&quot;:&quot;+e+&quot;]&quot;);</span>
+<span class="fc" id="L738">            });</span>
+<span class="fc" id="L739">            out.println();</span>
+<span class="fc" id="L740">        });</span>
+<span class="fc" id="L741">    }</span>
+    void debugPrint(String tag) {
+<span class="fc" id="L743">        debugPrint(tag, new PrintWriter(System.out));</span>
+<span class="fc" id="L744">    }</span>
+
+//    @Override
+//    public void write(Kryo kryo, Output output) {
+//        kryo.writeClassAndObject(output, range);
+//        kryo.writeClassAndObject(output, a);
+//    }
+//
+//    private void writeObject(ObjectOutputStream out) throws IOException {
+//        // System.out.println(&quot;writeChunk:&quot;+this);
+//        out.writeObject(range);
+//        out.writeObject(a);
+//    }
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

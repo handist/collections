@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
 
 import apgas.MultipleException;
@@ -25,7 +27,6 @@ import apgas.Place;
 import apgas.SerializableJob;
 import apgas.util.GlobalID;
 import handist.collections.dist.DistributedCollection;
-import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.SerializableSupplier;
 
@@ -48,8 +49,12 @@ import handist.collections.function.SerializableSupplier;
  *            K
  * @param &lt;R&gt; type of the distributed collection representing the result of the
  *            operation
+ * @param &lt;L&gt; interface containing the method that workers need to call as part
+ *            of their main routine
  */
-class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt; implements Serializable {
+@SuppressWarnings(&quot;rawtypes&quot;)
+class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R, L extends Serializable&gt;
+        implements Serializable, Comparable&lt;GlbOperation&gt; {
 
     /**
      * Managed Blocker implementation used when waiting for the completion of an
@@ -67,57 +72,59 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
          *
          * Builds a new managed blocker ready for use
          */
-<span class="fc" id="L70">        public OperationCompletionManagedBlocker() {</span>
-<span class="fc" id="L71">            releasable = false;</span>
-<span class="fc" id="L72">        }</span>
+<span class="fc" id="L75">        public OperationCompletionManagedBlocker() {</span>
+<span class="fc" id="L76">            releasable = false;</span>
+<span class="fc" id="L77">        }</span>
 
         @Override
         public synchronized boolean block() throws InterruptedException {
-<span class="pc bpc" id="L76" title="1 of 2 branches missed.">            if (!releasable) {</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">            if (!releasable) {</span>
                 try {
-<span class="fc" id="L78">                    this.wait();</span>
-<span class="nc" id="L79">                } catch (final InterruptedException e) {</span>
+<span class="fc" id="L83">                    this.wait();</span>
+<span class="nc" id="L84">                } catch (final InterruptedException e) {</span>
                     // Ignore the exception
-<span class="fc" id="L81">                }</span>
+<span class="fc" id="L86">                }</span>
             }
-<span class="fc" id="L83">            return releasable;</span>
+<span class="fc" id="L88">            return releasable;</span>
         }
 
         @Override
         public boolean isReleasable() {
-<span class="fc" id="L88">            return releasable;</span>
+<span class="fc" id="L93">            return releasable;</span>
         }
 
         public synchronized void unblock() {
-<span class="fc" id="L92">            releasable = true;</span>
-<span class="fc" id="L93">            notify();</span>
-<span class="fc" id="L94">        }</span>
+<span class="fc" id="L97">            releasable = true;</span>
+<span class="fc" id="L98">            notify();</span>
+<span class="fc" id="L99">        }</span>
     }
 
     /**
      * Enumerator used to describe the state of the current operation.
      *
      */
-<span class="fc" id="L101">    enum State {</span>
+<span class="fc" id="L106">    enum State {</span>
         /**
          * Value used to describe an operation as &quot;staged&quot;, i.e. the operation has been
          * submitted to the GLB but the next blocking operation inside the GLB program
          * has not been reached yet
          */
-<span class="fc" id="L107">        STAGED,</span>
+<span class="fc" id="L112">        STAGED,</span>
         /**
          * Value used to describe this operation as running, i.e. either being processed
          * by workers in the GLB or waiting on some dependencies to complete to start
          * computation
          */
-<span class="fc" id="L113">        RUNNING,</span>
+<span class="fc" id="L118">        RUNNING,</span>
 
         /**
          * Value used to describe an operation as &quot;completed&quot;, i.e. all of the
          * assignments have been processed globally.
          */
-<span class="fc" id="L119">        TERMINATED</span>
+<span class="fc" id="L124">        TERMINATED</span>
     }
+
+<span class="fc" id="L127">    static int nextPriority = 0;</span>
 
     /** Serial Version UID */
     private static final long serialVersionUID = -7074061733010237021L;
@@ -138,23 +145,48 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      * @throws IllegalStateException if the call attempted to add a dependency on an
      *                               operation which may have already started.
      */
-    static void makeDependency(GlbOperation&lt;?, ?, ?, ?, ?&gt; before, GlbOperation&lt;?, ?, ?, ?, ?&gt; after) {
-<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        if (after.state != State.STAGED) {</span>
-<span class="nc" id="L143">            throw new IllegalStateException(</span>
+    static void makeDependency(GlbOperation&lt;?, ?, ?, ?, ?, ?&gt; before, GlbOperation&lt;?, ?, ?, ?, ?, ?&gt; after) {
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">        if (after.state != State.STAGED) {</span>
+<span class="nc" id="L150">            throw new IllegalStateException(</span>
                     &quot;Attempted to add a completion dependency on an operation which may have already started&quot;);
         }
 
-<span class="fc" id="L147">        synchronized (before) {</span>
-<span class="fc bfc" id="L148" title="All 2 branches covered.">            if (before.state == State.TERMINATED) {</span>
-<span class="fc" id="L149">                return; // Nothing to install as the dependency is already satisfied</span>
+<span class="fc" id="L154">        synchronized (before) {</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">            if (before.state == State.TERMINATED) {</span>
+<span class="fc" id="L156">                return; // Nothing to install as the dependency is already satisfied</span>
             } else {
-<span class="fc" id="L151">                synchronized (after) {</span>
-<span class="fc" id="L152">                    after.dependencies.add(before); // protected against concurrent after#dependencySatisfied</span>
-<span class="fc" id="L153">                }</span>
-<span class="fc" id="L154">                before.addHook(() -&gt; after.dependencySatisfied(before));</span>
+<span class="fc" id="L158">                synchronized (after) {</span>
+<span class="fc" id="L159">                    after.dependencies.add(before); // protected against concurrent after#dependencySatisfied</span>
+<span class="fc" id="L160">                }</span>
+<span class="fc" id="L161">                before.addHook(() -&gt; after.dependencySatisfied(before));</span>
             }
-<span class="fc" id="L156">        }</span>
-<span class="fc" id="L157">    }</span>
+<span class="fc" id="L163">        }</span>
+<span class="fc" id="L164">    }</span>
+
+    /**
+     * Static method used to assign a priority to newly created GlbOperations.
+     *
+     * @return a unique priority level
+     */
+    /*
+     * Implementation note:
+     *
+     * Even if there are more than the maximum value contained by integers
+     * GlbOperations created over the course of an execution, the fact that this
+     * counter loops back into negative values is not an issue.
+     *
+     * What would be an issue is if there were more that the maximum int value of
+     * GlbOperation instances submitted to the GLB at the same time. But that would
+     * probably be the result of a programming error rather than a real application.
+     */
+    private static int priority() {
+<span class="fc" id="L183">        return nextPriority++;</span>
+    }
+
+    /**
+     * Priority of this operation compared to other operations
+     */
+    int priority;
 
     /**
      * Variable used to keep track of the state of this operation. It will take the
@@ -185,13 +217,13 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      * this member is made empty as a result, that hook will start this instance's
      * computation.
      */
-    private final transient Queue&lt;GlbOperation&lt;?, ?, ?, ?, ?&gt;&gt; dependencies;
+    private final transient Queue&lt;GlbOperation&lt;?, ?, ?, ?, ?, ?&gt;&gt; dependencies;
 
     /**
      * List of all the errors that were thrown during this operation's execution.
      * This member will remain null until method {@link #getErrors()} is called.
      */
-<span class="fc" id="L194">    transient List&lt;Throwable&gt; errors = null;</span>
+<span class="fc" id="L226">    transient List&lt;Throwable&gt; errors = null;</span>
 
     /** Indicates if this operation is terminated */
     // private boolean finished = false;
@@ -216,13 +248,18 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      * type K to perform the operation. The second argument (WorkerService) is here
      * to provide special services to the operation in case it requires them.
      */
-    SerializableBiConsumer&lt;K, WorkerService&gt; operation;
+    L operation;
 
     /**
      * Method to be called on every worker before this operation can start on a
      * host. May be null, in which case no particular action is needed.
      */
     SerializableConsumer&lt;WorkerService&gt; workerInit;
+
+    /**
+     * Class that should be used as the lifeline for a collection
+     */
+    final Class lifelineClass;
 
     /**
      * Constructor for GLB operation. The distributed collection under consideration
@@ -242,11 +279,19 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      * @param workerInitialization initialization to be performed on every worker in
      *                             the system before this operation starts. May be
      *                             null is not needed.
+     * @param lifeline             the lifeline class to use with this collection.
+     *                             If null, the default lifeline implementation will
+     *                             be used. Note that changing the lifeline used by
+     *                             a collection within the same GLB programm will
+     *                             not work. The lifeline configuration used the
+     *                             first time an operation on a collection is
+     *                             submitted to the GLB is kept throughout a GLB
+     *                             program
      */
-    GlbOperation(C c, SerializableBiConsumer&lt;K, WorkerService&gt; op, DistFuture&lt;R&gt; f,
-            SerializableSupplier&lt;GlbTask&gt; glbTaskInit, SerializableConsumer&lt;WorkerService&gt; workerInitialization) {
-<span class="fc" id="L248">        this(c, op, f, glbTaskInit, workerInitialization, State.STAGED, new GlobalID());</span>
-<span class="fc" id="L249">    }</span>
+    GlbOperation(C c, L op, DistFuture&lt;R&gt; f, SerializableSupplier&lt;GlbTask&gt; glbTaskInit,
+            SerializableConsumer&lt;WorkerService&gt; workerInitialization, Class lifeline) {
+<span class="fc" id="L293">        this(c, op, f, glbTaskInit, workerInitialization, State.STAGED, new GlobalID(), priority(), lifeline);</span>
+<span class="fc" id="L294">    }</span>
 
     /**
      * Private constructor used when the GlobalID is known.
@@ -263,22 +308,23 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      *                             terminated)
      * @param gid                  global id
      */
-    private GlbOperation(C c, SerializableBiConsumer&lt;K, WorkerService&gt; op, DistFuture&lt;R&gt; f,
-            SerializableSupplier&lt;GlbTask&gt; glbTaskInit, SerializableConsumer&lt;WorkerService&gt; workerInitialization,
-<span class="fc" id="L268">            State s, GlobalID gid) {</span>
-<span class="fc" id="L269">        collection = c;</span>
-<span class="fc" id="L270">        operation = op;</span>
-<span class="fc" id="L271">        future = f; // We need a 2-way link between the GlbOperation and the</span>
-<span class="fc" id="L272">        future.operation = this; // DistFuture</span>
-<span class="fc" id="L273">        hooks = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L274">        dependencies = new LinkedList&lt;&gt;();</span>
-<span class="fc" id="L275">        initializerOfGlbTask = glbTaskInit;</span>
-<span class="fc" id="L276">        workerInit = workerInitialization;</span>
-<span class="fc" id="L277">        state = s;</span>
-<span class="fc" id="L278">        id = gid;</span>
-
-<span class="fc" id="L280">        id.putHere(this);</span>
-<span class="fc" id="L281">    }</span>
+    private GlbOperation(C c, L op, DistFuture&lt;R&gt; f, SerializableSupplier&lt;GlbTask&gt; glbTaskInit,
+            SerializableConsumer&lt;WorkerService&gt; workerInitialization, State s, GlobalID gid, int priorityLevel,
+<span class="fc" id="L313">            Class lifeline) {</span>
+<span class="fc" id="L314">        collection = c;</span>
+<span class="fc" id="L315">        operation = op;</span>
+<span class="fc" id="L316">        future = f; // We need a 2-way link between the GlbOperation and the</span>
+<span class="fc" id="L317">        future.operation = this; // DistFuture</span>
+<span class="fc" id="L318">        hooks = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L319">        dependencies = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L320">        initializerOfGlbTask = glbTaskInit;</span>
+<span class="fc" id="L321">        workerInit = workerInitialization;</span>
+<span class="fc" id="L322">        state = s;</span>
+<span class="fc" id="L323">        id = gid;</span>
+<span class="fc" id="L324">        priority = priorityLevel;</span>
+<span class="fc" id="L325">        lifelineClass = lifeline; // may be null</span>
+<span class="fc" id="L326">        id.putHere(this);</span>
+<span class="fc" id="L327">    }</span>
 
     /**
      * Adds a hook that will be performed upon global termination of this operation.
@@ -286,8 +332,19 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      * @param j the job to do after this operation has completed
      */
     void addHook(SerializableJob j) {
-<span class="fc" id="L289">        hooks.add(j);</span>
-<span class="fc" id="L290">    }</span>
+<span class="fc" id="L335">        hooks.add(j);</span>
+<span class="fc" id="L336">    }</span>
+
+    /**
+     * The comparable interface is used so that the GlbOperations can be compared by
+     * their priority. This helps us sort the GlbOperations in the various
+     * {@link TreeMap} and {@link ConcurrentSkipListMap} used by the GLB runtime
+     * which influence the order in which operations are processed.
+     */
+    @Override
+    public int compareTo(GlbOperation o) {
+<span class="fc" id="L346">        return priority - o.priority;</span>
+    }
 
     /**
      * Starts this computation and executes the various hooks once it had completed.
@@ -301,38 +358,38 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      */
     void compute() {
         // The state &quot;running&quot; needs to be set before calling this method
-<span class="fc" id="L304">        assertEquals(State.RUNNING, state);</span>
-<span class="fc" id="L305">        MultipleException me = null;</span>
+<span class="fc" id="L361">        assertEquals(State.RUNNING, state);</span>
+<span class="fc" id="L362">        MultipleException me = null;</span>
         try {
-<span class="fc" id="L307">            collection.placeGroup().broadcastFlat(() -&gt; {</span>
+<span class="fc" id="L364">            collection.placeGroup().broadcastFlat(() -&gt; {</span>
                 // The GLB routine for this operation is called from here
-<span class="fc" id="L309">                final GlbComputer glb = GlbComputer.getComputer();</span>
-<span class="fc" id="L310">                glb.newOperation(this);</span>
-<span class="fc" id="L311">            });</span>
-<span class="nc" id="L312">        } catch (final MultipleException e) {</span>
-<span class="nc" id="L313">            me = e;</span>
-<span class="fc" id="L314">        }</span>
+<span class="fc" id="L366">                final GlbComputer glb = GlbComputer.getComputer();</span>
+<span class="fc" id="L367">                glb.newOperation(this);</span>
+<span class="fc" id="L368">            });</span>
+<span class="nc" id="L369">        } catch (final MultipleException e) {</span>
+<span class="nc" id="L370">            me = e;</span>
+<span class="fc" id="L371">        }</span>
 
-<span class="fc" id="L316">        synchronized (this) {</span>
-<span class="fc" id="L317">            state = State.TERMINATED;</span>
-<span class="fc" id="L318">        }</span>
+<span class="fc" id="L373">        synchronized (this) {</span>
+<span class="fc" id="L374">            state = State.TERMINATED;</span>
+<span class="fc" id="L375">        }</span>
         // The operation has completed, we execute the various hooks it may have
-<span class="fc bfc" id="L320" title="All 2 branches covered.">        for (final SerializableJob h : hooks) {</span>
+<span class="fc bfc" id="L377" title="All 2 branches covered.">        for (final SerializableJob h : hooks) {</span>
             try {
-<span class="fc" id="L322">                h.run();</span>
-<span class="nc" id="L323">            } catch (final Exception e) {</span>
-<span class="nc" id="L324">                System.err.println(&quot;Exception was thrown as part of operation&quot; + this);</span>
-<span class="nc" id="L325">                e.printStackTrace();</span>
-<span class="fc" id="L326">            }</span>
-<span class="fc" id="L327">        }</span>
+<span class="fc" id="L379">                h.run();</span>
+<span class="nc" id="L380">            } catch (final Exception e) {</span>
+<span class="nc" id="L381">                System.err.println(&quot;Exception was thrown as part of operation&quot; + this);</span>
+<span class="nc" id="L382">                e.printStackTrace();</span>
+<span class="fc" id="L383">            }</span>
+<span class="fc" id="L384">        }</span>
 
         // finished = true;
 
         // If a MultipleException was caught, throw it
-<span class="pc bpc" id="L332" title="1 of 2 branches missed.">        if (me != null) {</span>
-<span class="nc" id="L333">            throw me;</span>
+<span class="pc bpc" id="L389" title="1 of 2 branches missed.">        if (me != null) {</span>
+<span class="nc" id="L390">            throw me;</span>
         }
-<span class="fc" id="L335">    }</span>
+<span class="fc" id="L392">    }</span>
 
     /**
      * Method called by a GlbOperation when it has completed and needs to notify
@@ -355,14 +412,14 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      * (enable assertions) that such a case would throw an assertion exception in
      * this method
      */
-    private synchronized void dependencySatisfied(GlbOperation&lt;?, ?, ?, ?, ?&gt; dep) {
-<span class="fc" id="L359">        final boolean removed = dependencies.remove(dep);</span>
-<span class="fc" id="L360">        assertTrue(dep + &quot; was not a dependency of &quot; + this + &quot; attempted to unblock &quot; + this + &quot; anyway.&quot;, removed);</span>
+    private synchronized void dependencySatisfied(GlbOperation&lt;?, ?, ?, ?, ?, ?&gt; dep) {
+<span class="fc" id="L416">        final boolean removed = dependencies.remove(dep);</span>
+<span class="fc" id="L417">        assertTrue(dep + &quot; was not a dependency of &quot; + this + &quot; attempted to unblock &quot; + this + &quot; anyway.&quot;, removed);</span>
 
-<span class="pc bpc" id="L362" title="1 of 4 branches missed.">        if (state == State.RUNNING &amp;&amp; dependencies.isEmpty()) {</span>
-<span class="fc" id="L363">            async(() -&gt; this.compute());</span>
+<span class="pc bpc" id="L419" title="1 of 4 branches missed.">        if (state == State.RUNNING &amp;&amp; dependencies.isEmpty()) {</span>
+<span class="fc" id="L420">            async(() -&gt; this.compute());</span>
         }
-<span class="fc" id="L365">    }</span>
+<span class="fc" id="L422">    }</span>
 
     /**
      * GlbOperation are considered the same if they share the same global id. Other
@@ -371,13 +428,12 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      * constructor does not allow for an arbitrary id to be given at initialization,
      * this is unlikely to become a problem.
      */
-    @SuppressWarnings(&quot;rawtypes&quot;)
     @Override
     public boolean equals(Object o) {
-<span class="pc bpc" id="L377" title="1 of 2 branches missed.">        if (o instanceof GlbOperation) {</span>
-<span class="fc" id="L378">            return id.equals(((GlbOperation) o).id);</span>
+<span class="pc bpc" id="L433" title="1 of 2 branches missed.">        if (o instanceof GlbOperation) {</span>
+<span class="fc" id="L434">            return id.equals(((GlbOperation) o).id);</span>
         } else {
-<span class="nc" id="L380">            return false;</span>
+<span class="nc" id="L436">            return false;</span>
         }
     }
 
@@ -387,7 +443,7 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      * @return true if this operation has completed, false otherwise
      */
     public boolean finished() {
-<span class="fc bfc" id="L390" title="All 2 branches covered.">        return state == State.TERMINATED;</span>
+<span class="fc bfc" id="L446" title="All 2 branches covered.">        return state == State.TERMINATED;</span>
     }
 
     /**
@@ -401,21 +457,21 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      * @return a list of all the throwables that were thrown during the operation
      */
     List&lt;Throwable&gt; getErrors() {
-<span class="fc" id="L404">        assertEquals(State.TERMINATED, state);</span>
-<span class="pc bpc" id="L405" title="1 of 2 branches missed.">        if (errors == null) { // If this method was not previously called</span>
-<span class="fc" id="L406">            errors = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L407" title="All 2 branches covered.">            for (final Place p : collection.placeGroup().places()) {</span>
-<span class="fc" id="L408">                final ArrayList&lt;Throwable&gt; remoteErrors = at(p, () -&gt; { // Synchronous call. Maybe we can do better?</span>
-<span class="fc" id="L409">                    return GlbComputer.getComputer().operationErrors.get(this);</span>
+<span class="fc" id="L460">        assertEquals(State.TERMINATED, state);</span>
+<span class="pc bpc" id="L461" title="1 of 2 branches missed.">        if (errors == null) { // If this method was not previously called</span>
+<span class="fc" id="L462">            errors = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L463" title="All 2 branches covered.">            for (final Place p : collection.placeGroup().places()) {</span>
+<span class="fc" id="L464">                final ArrayList&lt;Throwable&gt; remoteErrors = at(p, () -&gt; { // Synchronous call. Maybe we can do better?</span>
+<span class="fc" id="L465">                    return GlbComputer.getComputer().operationErrors.get(this);</span>
                 });
-<span class="fc bfc" id="L411" title="All 2 branches covered.">                if (remoteErrors != null) {</span>
-<span class="fc" id="L412">                    errors.addAll(remoteErrors);</span>
+<span class="fc bfc" id="L467" title="All 2 branches covered.">                if (remoteErrors != null) {</span>
+<span class="fc" id="L468">                    errors.addAll(remoteErrors);</span>
                 }
 
-<span class="fc" id="L415">            }</span>
+<span class="fc" id="L471">            }</span>
         }
 
-<span class="fc" id="L418">        return errors;</span>
+<span class="fc" id="L474">        return errors;</span>
     }
 
     /**
@@ -425,12 +481,12 @@ class GlbOperation&lt;C extends DistributedCollection&lt;T, C&gt;, T, K, D, R&gt
      *         start, false otherwise
      */
     public boolean hasDependencies() {
-<span class="fc bfc" id="L428" title="All 2 branches covered.">        return !dependencies.isEmpty();</span>
+<span class="fc bfc" id="L484" title="All 2 branches covered.">        return !dependencies.isEmpty();</span>
     }
 
     @Override
     public int hashCode() {
-<span class="fc" id="L433">        return (int) id.gid();</span>
+<span class="fc" id="L489">        return (int) id.gid();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

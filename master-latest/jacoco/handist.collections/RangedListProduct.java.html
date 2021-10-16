@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RangedListProduct.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">RangedListProduct.java</span></div><h1>RangedListProduct.java</h1><pre class="source lang-java linenums">package handist.collections;
+
+import handist.collections.dist.util.Pair;
+import handist.collections.function.LongTBiConsumer;
+import handist.collections.function.SquareIndexTConsumer;
+
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
+public class RangedListProduct&lt;S, T&gt; implements SquareRangedListAbstract&lt;Pair&lt;S, T&gt;,RangedListProduct&lt;S,T&gt;&gt; {
+    private final RangedList&lt;S&gt; first;
+    private final RangedList&lt;T&gt; second;
+    private final SquareRange range;
+    private final boolean simpleRect;
+
+<span class="fc" id="L16">    public RangedListProduct(RangedList&lt;S&gt; first, RangedList&lt;T&gt; second) {</span>
+<span class="fc" id="L17">        this.first = first;</span>
+<span class="fc" id="L18">        this.second = second;</span>
+<span class="fc" id="L19">        this.range = new SquareRange(first.getRange(), second.getRange());</span>
+<span class="fc" id="L20">        this.simpleRect = true;</span>
+<span class="fc" id="L21">    }</span>
+    public RangedListProduct(RangedList&lt;S&gt; first, RangedList&lt;T&gt; second, boolean isUpperRect) {
+<span class="fc" id="L23">        this(first, second, new SquareRange(first.getRange(), second.getRange(), isUpperRect));</span>
+<span class="fc" id="L24">    }</span>
+<span class="fc" id="L25">    public RangedListProduct(RangedList&lt;S&gt; first, RangedList&lt;T&gt; second, SquareRange range) {</span>
+<span class="fc" id="L26">        this.first = first;</span>
+<span class="fc" id="L27">        this.second = second;</span>
+<span class="fc" id="L28">        this.range = range;</span>
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        this.simpleRect = !range.isUpperTriangle;</span>
+<span class="fc" id="L30">    }</span>
+
+    private RangedList&lt;S&gt; getFirstView(long column) {
+<span class="nc bnc" id="L33" title="All 2 branches missed.">        return simpleRect ? first : first.subList(range.columnRange(column));</span>
+    }
+    private RangedList&lt;T&gt; getSecondView(long row) {
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        return simpleRect ? second : second.subList(range.columnRange(row));</span>
+    }
+
+    public void forEachRow(BiConsumer&lt;S, RangedList&lt;T&gt;&gt; consumer) {
+<span class="nc" id="L40">        first.forEach((long row, S s)-&gt;{</span>
+<span class="nc" id="L41">            consumer.accept(s, getSecondView(row));</span>
+<span class="nc" id="L42">        });</span>
+<span class="nc" id="L43">    }</span>
+
+    @Override
+    public RangedList&lt;Pair&lt;S, T&gt;&gt; getRowView(long row) {
+<span class="nc" id="L47">        final S s0 = first.get(row);</span>
+<span class="nc" id="L48">        return new LazyRangedList&lt;&gt;(getSecondView(row), (long column,T t0) -&gt; new Pair&lt;&gt;(s0, t0));</span>
+    }
+
+    @Override
+    public RangedList&lt;Pair&lt;S, T&gt;&gt; getColumnView(long column) {
+<span class="nc" id="L53">        final T t0 = second.get(column);</span>
+<span class="nc" id="L54">        return new LazyRangedList&lt;&gt;(getFirstView(column), (long row, S s0) -&gt; new Pair&lt;&gt;(s0, t0));</span>
+    }
+
+    @Override
+    public void forEachColumn(LongTBiConsumer&lt;RangedList&lt;Pair&lt;S, T&gt;&gt;&gt; columnAction) {
+<span class="nc" id="L59">        second.forEach((long column, T t0) -&gt; {</span>
+<span class="nc" id="L60">            columnAction.accept(column, new LazyRangedList&lt;&gt;(getFirstView(column), (long row,S s0) -&gt; new Pair&lt;&gt;(s0, t0)));</span>
+<span class="nc" id="L61">        });</span>
+<span class="nc" id="L62">    }</span>
+    @Override
+    public void forEachColumn(LongRange cRange, LongTBiConsumer&lt;RangedList&lt;Pair&lt;S, T&gt;&gt;&gt; columnAction) {
+<span class="nc" id="L65">        second.forEach(cRange, (long column, T t0) -&gt; {</span>
+<span class="nc" id="L66">            columnAction.accept(column, new LazyRangedList&lt;&gt;(getFirstView(column), (long row,S s0) -&gt; new Pair&lt;&gt;(s0, t0)));</span>
+<span class="nc" id="L67">        });</span>
+<span class="nc" id="L68">    }</span>
+
+    @Override
+    public void forEachRow(LongTBiConsumer&lt;RangedList&lt;Pair&lt;S, T&gt;&gt;&gt; rowAction) {
+<span class="nc" id="L72">        first.forEach((long row, S s0) -&gt; {</span>
+<span class="nc" id="L73">            rowAction.accept(row, new LazyRangedList&lt;&gt;(getSecondView(row), (long column,T t0) -&gt; new Pair&lt;&gt;(s0, t0)));</span>
+<span class="nc" id="L74">        });</span>
+<span class="nc" id="L75">    }</span>
+    @Override
+    public void forEachRow(LongRange rRange, LongTBiConsumer&lt;RangedList&lt;Pair&lt;S, T&gt;&gt;&gt; rowAction) {
+<span class="nc" id="L78">        first.forEach(rRange, (long row, S s0) -&gt; {</span>
+<span class="nc" id="L79">            rowAction.accept(row, new LazyRangedList&lt;&gt;(getSecondView(row), (long column,T t0) -&gt; new Pair&lt;&gt;(s0, t0)));</span>
+<span class="nc" id="L80">        });</span>
+<span class="nc" id="L81">    }</span>
+
+
+    @Override
+    public RangedList&lt;RangedList&lt;Pair&lt;S, T&gt;&gt;&gt; asRowList() {
+<span class="nc" id="L86">        return new LazyRangedList&lt;&gt;(first, (long row, S s0) -&gt; {</span>
+<span class="nc" id="L87">            return new LazyRangedList&lt;&gt;(getSecondView(row), (long column, T t0) -&gt; {</span>
+<span class="nc" id="L88">                return new Pair&lt;&gt;(s0, t0);</span>
+            });
+        });
+    }
+
+    @Override
+    public RangedList&lt;RangedList&lt;Pair&lt;S, T&gt;&gt;&gt; asColumnList() {
+<span class="nc" id="L95">        return new LazyRangedList&lt;&gt;(second, (long column, T t0) -&gt; {</span>
+<span class="nc" id="L96">            return new LazyRangedList&lt;&gt;(getFirstView(column), (long row, S s0) -&gt; {</span>
+<span class="nc" id="L97">                return new Pair&lt;&gt;(s0, t0);</span>
+            });
+        });
+    }
+
+    @Override
+    public void forEachWithSiblings(SquareRange range, Consumer&lt;SquareSiblingAccessor&lt;Pair&lt;S, T&gt;&gt;&gt; action) {
+<span class="nc" id="L104">        throw new UnsupportedOperationException(&quot;not implemented yet&quot;);</span>
+    }
+
+    @Override
+    public void forEach(SquareIndexTConsumer&lt;? super Pair&lt;S, T&gt;&gt; action) {
+<span class="fc" id="L109">        first.forEach((long row, S s) -&gt; {</span>
+<span class="fc" id="L110">            getSecondView(row).forEach((long column, T t) -&gt; {  // TK row dependent filter</span>
+<span class="fc" id="L111">                action.accept(row, column, new Pair&lt;&gt;(s, t));</span>
+<span class="fc" id="L112">            });</span>
+<span class="fc" id="L113">        });</span>
+<span class="fc" id="L114">    }</span>
+    @Override
+    public void forEach(SquareRange range, SquareIndexTConsumer&lt;? super Pair&lt;S, T&gt;&gt; action) {
+<span class="nc" id="L117">        subView(range).forEach(action);</span>
+<span class="nc" id="L118">    }</span>
+
+    @Override
+    public void forEach(Consumer&lt;? super Pair&lt;S, T&gt;&gt; action) {
+<span class="fc" id="L122">        first.forEach((long row, S s)-&gt;{</span>
+<span class="fc" id="L123">            getSecondView(row).forEach((T t)-&gt;{</span>
+<span class="fc" id="L124">                action.accept(new Pair&lt;&gt;(s, t));</span>
+<span class="fc" id="L125">            });</span>
+<span class="fc" id="L126">        });</span>
+<span class="fc" id="L127">    }</span>
+    @Override
+    public void forEach(SquareRange range, Consumer&lt;? super Pair&lt;S, T&gt;&gt; action) {
+<span class="nc" id="L130">        subView(range).forEach(action);</span>
+<span class="nc" id="L131">    }</span>
+
+    @Override
+    public Pair&lt;S, T&gt; get(long index, long index2) {
+        // range check dependent
+<span class="nc" id="L136">        return new Pair&lt;&gt;(first.get(index), second.get(index));</span>
+    }
+
+    @Override
+    public SquareRange getRange() {
+<span class="fc" id="L141">        return range;</span>
+    }
+
+    @Override
+    public Pair&lt;S, T&gt; set(long index, long index2, Pair&lt;S, T&gt; value) {
+<span class="nc" id="L146">        throw new UnsupportedOperationException(&quot;set is not supported by RangedListProduct.&quot;);</span>
+    }
+
+    @Override
+    public RangedListProduct&lt;S, T&gt; subView(SquareRange range) {
+<span class="fc" id="L151">        range = getRange().intersection(range);</span>
+<span class="fc" id="L152">        return new RangedListProduct&lt;S, T&gt;(first.subList(range.outer), second.subList(range.inner), range);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

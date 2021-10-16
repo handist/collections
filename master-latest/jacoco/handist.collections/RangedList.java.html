@@ -10,10 +10,12 @@
  ******************************************************************************/
 package handist.collections;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -26,36 +28,44 @@ import handist.collections.function.LongTBiConsumer;
  *
  * @param &lt;T&gt; type handled by the collection
  */
-<span class="fc" id="L29">public abstract class RangedList&lt;T&gt; implements Iterable&lt;T&gt; {</span>
+<span class="fc" id="L31">public abstract class RangedList&lt;T&gt; implements Iterable&lt;T&gt; {</span>
+
+    static class Box&lt;U&gt; {
+        U val;
+
+<span class="fc" id="L36">        Box(U val) {</span>
+<span class="fc" id="L37">            this.val = val;</span>
+<span class="fc" id="L38">        }</span>
+    }
 
     public static boolean equals(RangedList&lt;?&gt; rlist1, Object o) {
-<span class="pc bpc" id="L32" title="1 of 2 branches missed.">        if (o == null) {</span>
-<span class="nc bnc" id="L33" title="All 2 branches missed.">            return (rlist1 == null);</span>
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">        if (o == null) {</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">            return (rlist1 == null);</span>
         }
-<span class="pc bpc" id="L35" title="1 of 2 branches missed.">        if (!(o instanceof RangedList)) {</span>
-<span class="nc" id="L36">            return false;</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        if (!(o instanceof RangedList)) {</span>
+<span class="fc" id="L46">            return false;</span>
         }
-<span class="fc" id="L38">        final RangedList&lt;?&gt; rlist2 = (RangedList&lt;?&gt;) o;</span>
+<span class="fc" id="L48">        final RangedList&lt;?&gt; rlist2 = (RangedList&lt;?&gt;) o;</span>
         // TODO this version is too slow,
         // setupFrom will be the good candidate for fast simul scanner.
-<span class="fc bfc" id="L41" title="All 2 branches covered.">        if (!rlist1.getRange().equals(rlist2.getRange())) {</span>
-<span class="fc" id="L42">            return false;</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">        if (!rlist1.getRange().equals(rlist2.getRange())) {</span>
+<span class="fc" id="L52">            return false;</span>
         }
-<span class="fc bfc" id="L44" title="All 2 branches covered.">        for (final long index : rlist1.getRange()) {</span>
-<span class="pc bpc" id="L45" title="1 of 2 branches missed.">            if (!rlist1.get(index).equals(rlist2.get(index))) {</span>
-<span class="nc" id="L46">                return false;</span>
+<span class="fc bfc" id="L54" title="All 2 branches covered.">        for (final long index : rlist1.getRange()) {</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">            if (!rlist1.get(index).equals(rlist2.get(index))) {</span>
+<span class="nc" id="L56">                return false;</span>
             }
-<span class="fc" id="L48">        }</span>
-<span class="fc" id="L49">        return true;</span>
+<span class="fc" id="L58">        }</span>
+<span class="fc" id="L59">        return true;</span>
     }
 
     public static int hashCode(RangedList&lt;?&gt; rlist) {
-<span class="nc" id="L53">        int hashCode = 1;</span>
+<span class="fc" id="L63">        int hashCode = 1;</span>
         // code from JavaAPI doc of List
-<span class="nc bnc" id="L55" title="All 2 branches missed.">        for (final Object o : rlist) {</span>
-<span class="nc bnc" id="L56" title="All 2 branches missed.">            hashCode = 31 * hashCode + (o == null ? 0 : o.hashCode());</span>
-<span class="nc" id="L57">        }</span>
-<span class="nc" id="L58">        return hashCode;</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        for (final Object o : rlist) {</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">            hashCode = 31 * hashCode + (o == null ? 0 : o.hashCode());</span>
+<span class="fc" id="L67">        }</span>
+<span class="fc" id="L68">        return hashCode;</span>
     }
 
     /**
@@ -89,12 +99,12 @@ import handist.collections.function.LongTBiConsumer;
      *         found in this instance, {@code false} otherwise
      */
     public boolean containsAll(Collection&lt;? extends T&gt; c) {
-<span class="nc bnc" id="L92" title="All 2 branches missed.">        for (final T t : c) {</span>
-<span class="nc bnc" id="L93" title="All 2 branches missed.">            if (!contains(t)) {</span>
-<span class="nc" id="L94">                return false;</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        for (final T t : c) {</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">            if (!contains(t)) {</span>
+<span class="fc" id="L104">                return false;</span>
             }
-<span class="nc" id="L96">        }</span>
-<span class="nc" id="L97">        return true;</span>
+<span class="fc" id="L106">        }</span>
+<span class="fc" id="L107">        return true;</span>
     }
 
     /**
@@ -115,17 +125,17 @@ import handist.collections.function.LongTBiConsumer;
      * @param action   action to perform on each element, potentially
      * @param receiver collector of information extracted
      */
-    public &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action, Consumer&lt;? super U&gt; receiver) {
-<span class="nc" id="L119">        forEach(getRange(), action, receiver);</span>
-<span class="nc" id="L120">    }</span>
+    public final &lt;U&gt; void forEach(BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action, Consumer&lt;? super U&gt; receiver) {
+<span class="nc" id="L129">        forEach(getRange(), action, receiver);</span>
+<span class="nc" id="L130">    }</span>
 
     /**
      * Performs the provided action on every element in the collection
      */
     @Override
     public void forEach(Consumer&lt;? super T&gt; action) {
-<span class="fc" id="L127">        forEach(getRange(), action);</span>
-<span class="fc" id="L128">    }</span>
+<span class="fc" id="L137">        forEach(getRange(), action);</span>
+<span class="fc" id="L138">    }</span>
 
     /**
      * Performs the provided action on elements contained by this instance, and
@@ -149,12 +159,18 @@ import handist.collections.function.LongTBiConsumer;
      * @param receiver collector of information extracted
      * @see #forEach(LongRange, BiConsumer, Consumer)
      */
-    public &lt;U&gt; void forEach(LongRange range, BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
+    public final &lt;U&gt; void forEach(LongRange range, BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
             Consumer&lt;? super U&gt; receiver) {
-<span class="nc bnc" id="L154" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
-<span class="nc" id="L155">            action.accept(get(i), receiver);</span>
+<span class="fc" id="L164">        forEachImpl(range, action, receiver);</span>
+<span class="fc" id="L165">    }</span>
+    protected &lt;U&gt; void forEachImpl(LongRange range, BiConsumer&lt;? super T, Consumer&lt;? super U&gt;&gt; action,
+                            Consumer&lt;? super U&gt; receiver) {
+<span class="fc" id="L168">        rangeCheck(range);</span>
+<span class="fc" id="L169">        Iterator&lt;T&gt; iter0 = subIterator(range);</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">        while (iter0.hasNext()) {</span>
+<span class="fc" id="L171">            action.accept(iter0.next(), receiver);</span>
         }
-<span class="nc" id="L157">    }</span>
+<span class="fc" id="L173">    }</span>
 
     /**
      * Applies the specified action on the elements of this collection that are
@@ -165,11 +181,17 @@ import handist.collections.function.LongTBiConsumer;
      * @param range  range of application of the action
      * @param action action to perform on individual elements
      */
-    public void forEach(LongRange range, Consumer&lt;? super T&gt; action) {
-<span class="nc bnc" id="L169" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
-<span class="nc" id="L170">            action.accept(get(i));</span>
+    public final void forEach(LongRange range, Consumer&lt;? super T&gt; action) {
+<span class="fc" id="L185">            forEachImpl(range, action);</span>
+<span class="fc" id="L186">    }</span>
+    protected void forEachImpl(LongRange range, Consumer&lt;? super T&gt; action) {
+<span class="fc" id="L188">        rangeCheck(range);</span>
+<span class="fc bfc" id="L189" title="All 2 branches covered.">        if(range.size()==0) return;</span>
+<span class="fc" id="L190">        Iterator&lt;T&gt; iter0 = subIterator(range);</span>
+<span class="fc bfc" id="L191" title="All 2 branches covered.">        while (iter0.hasNext()) {</span>
+<span class="fc" id="L192">            action.accept(iter0.next());</span>
         }
-<span class="nc" id="L172">    }</span>
+<span class="fc" id="L194">    }</span>
 
     /**
      * Applies the given action on the index/value pairs present in the specified
@@ -181,11 +203,17 @@ import handist.collections.function.LongTBiConsumer;
      * @param range  range of indices on which to apply the action
      * @param action action to perform taking a long and a T as parameter
      */
-    public void forEach(LongRange range, LongTBiConsumer&lt;? super T&gt; action) {
-<span class="nc bnc" id="L185" title="All 2 branches missed.">        for (long i = range.from; i &lt; range.to; i++) {</span>
-<span class="nc" id="L186">            action.accept(i, get(i));</span>
+    public final void forEach(LongRange range, LongTBiConsumer&lt;? super T&gt; action) {
+<span class="fc" id="L207">        forEachImpl(range, action);</span>
+<span class="fc" id="L208">    }</span>
+    protected void forEachImpl(LongRange range, LongTBiConsumer&lt;? super T&gt; action) {
+<span class="fc" id="L210">        rangeCheck(range);</span>
+<span class="fc" id="L211">        long index = range.from;</span>
+<span class="fc" id="L212">        Iterator&lt;T&gt; iter0 = subIterator(range);</span>
+<span class="fc bfc" id="L213" title="All 2 branches covered.">        while (iter0.hasNext()) {</span>
+<span class="fc" id="L214">            action.accept(index++, iter0.next());</span>
         }
-<span class="nc" id="L188">    }</span>
+<span class="fc" id="L216">    }</span>
 
     /**
      * Performs the specified action on every index/value pair contained in this
@@ -193,9 +221,9 @@ import handist.collections.function.LongTBiConsumer;
      *
      * @param action action to perform taking a long and a T as parameter
      */
-    public void forEach(LongTBiConsumer&lt;? super T&gt; action) {
-<span class="fc" id="L197">        forEach(getRange(), action);</span>
-<span class="fc" id="L198">    }</span>
+    public final void forEach(LongTBiConsumer&lt;? super T&gt; action) {
+<span class="fc" id="L225">        forEach(getRange(), action);</span>
+<span class="fc" id="L226">    }</span>
 
     /**
      * Returns the value associated with the provided {@code long} index.
@@ -220,8 +248,17 @@ import handist.collections.function.LongTBiConsumer;
      *         {@link LongRange}, {@code false} otherwise.
      */
     public boolean isEmpty() {
-<span class="fc bfc" id="L223" title="All 2 branches covered.">        return getRange().size() == 0;</span>
+<span class="fc bfc" id="L251" title="All 2 branches covered.">        return getRange().size() == 0;</span>
     }
+
+    public abstract Iterator&lt;T&gt; iterator();
+    public abstract RangedListIterator&lt;T&gt; listIterator();
+    public abstract RangedListIterator&lt;T&gt; listIterator(long from);
+
+    protected abstract Iterator&lt;T&gt; subIterator(LongRange range);
+    protected abstract RangedListIterator&lt;T&gt; subListIterator(LongRange range);
+    protected abstract RangedListIterator&lt;T&gt; subListIterator(LongRange range, long from);
+
 
     /**
      * Creates a new collection from the elements contained in this instance by
@@ -233,9 +270,9 @@ import handist.collections.function.LongTBiConsumer;
      *         contained by this instance to type U
      */
     public &lt;U&gt; RangedList&lt;U&gt; map(Function&lt;? super T, ? extends U&gt; func) {
-<span class="fc" id="L236">        final Chunk&lt;U&gt; result = new Chunk&lt;&gt;(this.getRange());</span>
-<span class="fc" id="L237">        result.setupFrom(this, func);</span>
-<span class="fc" id="L238">        return result;</span>
+<span class="fc" id="L273">        final Chunk&lt;U&gt; result = new Chunk&lt;&gt;(this.getRange());</span>
+<span class="fc" id="L274">        result.setupFrom(this, func);</span>
+<span class="fc" id="L275">        return result;</span>
     }
 
     /**
@@ -250,7 +287,40 @@ import handist.collections.function.LongTBiConsumer;
      *         type U
      */
     public &lt;U&gt; RangedList&lt;U&gt; map(LongRange range, Function&lt;? super T, ? extends U&gt; func) {
-<span class="nc" id="L253">        return this.subList(range.from, range.to).map(func);</span>
+<span class="nc" id="L290">        return this.subList(range.from, range.to).map(func);</span>
+    }
+
+    /**
+     * Iterates on the elements of this instance and the {@code target}
+     * {@link RangedList} and applies the given function to each pair of this and
+     * {@code target} element of matching indices on the specified range
+     *
+     * @param range  the range on which to apply the method
+     * @param target other {@link RangedList} supplying the second parameter of
+     *               fuction {@code func}
+     * @param func   function that receives two object (type T and U) extracted from
+     *               two ranged list and does not return result.
+     * @param &lt;U&gt;    the type handled by the {@link RangedList} given as parameter,
+     *               second input for the function
+     */
+    public final &lt;U&gt; void map(LongRange range, RangedList&lt;U&gt; target, BiConsumer&lt;T,U&gt; func) {
+<span class="fc" id="L307">        mapImpl(range, target, func);</span>
+<span class="fc" id="L308">    }</span>
+    protected &lt;U&gt; void mapImpl(LongRange range, RangedList&lt;U&gt; target, BiConsumer&lt;T,U&gt; func) {
+<span class="fc" id="L310">        rangeCheck(range);</span>
+<span class="fc" id="L311">        target.rangeCheck(range);</span>
+<span class="fc" id="L312">        Iterator&lt;T&gt; iter0 = subIterator(range);</span>
+<span class="fc" id="L313">        Iterator&lt;U&gt; iter = target.subList(range).iterator();</span>
+<span class="fc bfc" id="L314" title="All 2 branches covered.">        while(iter0.hasNext()) {</span>
+<span class="fc" id="L315">            func.accept(iter0.next(), iter.next());</span>
+        }
+<span class="fc" id="L317">    }</span>
+    public final &lt;S, U&gt; RangedList&lt;U&gt; map(LongRange range, RangedList&lt;S&gt; target, BiFunction&lt;T, S, U&gt; func) {
+<span class="fc" id="L319">        final Chunk&lt;U&gt; result = new Chunk&lt;&gt;(range);</span>
+<span class="fc" id="L320">        rangeCheck(range);</span>
+<span class="fc" id="L321">        target.rangeCheck(range);</span>
+<span class="fc" id="L322">        result.setupFrom(range, this, target, func);</span>
+<span class="fc" id="L323">        return result;</span>
     }
 
     /**
@@ -263,11 +333,11 @@ import handist.collections.function.LongTBiConsumer;
      *                                   this instance is defined on
      */
     public void rangeCheck(long target) {
-<span class="fc bfc" id="L266" title="All 2 branches covered.">        if (!this.getRange().contains(target)) {</span>
-<span class="fc" id="L267">            throw new IndexOutOfBoundsException(</span>
-<span class="fc" id="L268">                    &quot;[RangedList] range mismatch: &quot; + this.getRange() + &quot; does not include &quot; + target);</span>
+<span class="fc bfc" id="L336" title="All 2 branches covered.">        if (!this.getRange().contains(target)) {</span>
+<span class="fc" id="L337">            throw new IndexOutOfBoundsException(</span>
+<span class="fc" id="L338">                    &quot;[RangedList] range mismatch: &quot; + this.getRange() + &quot; does not include &quot; + target);</span>
         }
-<span class="fc" id="L270">    }</span>
+<span class="fc" id="L340">    }</span>
 
     /**
      * Checks if the provided {@link LongRange} is included in the range of this
@@ -278,11 +348,42 @@ import handist.collections.function.LongTBiConsumer;
      *                                        not included in this instance
      */
     public void rangeCheck(LongRange target) {
-<span class="fc bfc" id="L281" title="All 2 branches covered.">        if (!this.getRange().contains(target)) {</span>
-<span class="fc" id="L282">            throw new ArrayIndexOutOfBoundsException(</span>
-<span class="fc" id="L283">                    &quot;[RangedList] range mismatch:&quot; + this.getRange() + &quot; must include &quot; + target);</span>
+<span class="fc bfc" id="L351" title="All 2 branches covered.">        if (!this.getRange().contains(target)) {</span>
+<span class="fc" id="L352">            throw new ArrayIndexOutOfBoundsException(</span>
+<span class="fc" id="L353">                    &quot;[RangedList] range mismatch:&quot; + this.getRange() + &quot; must include &quot; + target);</span>
         }
-<span class="fc" id="L285">    }</span>
+<span class="fc" id="L355">    }</span>
+
+    public T reduce(BiFunction&lt;T, T, T&gt; reduce) {
+<span class="fc" id="L358">        final Box&lt;T&gt; box = new Box&lt;&gt;(null);</span>
+<span class="fc" id="L359">        forEach((T t) -&gt; {</span>
+<span class="fc bfc" id="L360" title="All 2 branches covered.">            if (box.val == null) {</span>
+<span class="fc" id="L361">                box.val = t;</span>
+            } else {
+<span class="fc" id="L363">                box.val = reduce.apply(box.val, t);</span>
+            }
+<span class="fc" id="L365">        });</span>
+<span class="fc" id="L366">        return box.val;</span>
+    }
+
+    public &lt;U&gt; U reduce(BiFunction&lt;U, T, U&gt; reduce, U zero) {
+<span class="fc" id="L370">        final Box&lt;U&gt; box = new Box&lt;&gt;(zero);</span>
+<span class="fc" id="L371">        box.val = zero;</span>
+<span class="fc" id="L372">        forEach((T t) -&gt; {</span>
+<span class="fc" id="L373">            box.val = reduce.apply(box.val, t);</span>
+<span class="fc" id="L374">        });</span>
+<span class="fc" id="L375">        return box.val;</span>
+    }
+
+    public &lt;U, S&gt; U reduce(RangedList&lt;S&gt; source2, BiFunction&lt;T, S, U&gt; map, U zero, BiFunction&lt;U, U, U&gt; reduce) {
+
+<span class="fc" id="L380">        final Box&lt;U&gt; box = new Box&lt;&gt;(zero);</span>
+<span class="fc" id="L381">        box.val = zero;</span>
+<span class="fc" id="L382">        map(getRange(), source2, (T t, S s) -&gt; {</span>
+<span class="fc" id="L383">            box.val = reduce.apply(box.val, map.apply(t, s));</span>
+<span class="fc" id="L384">        });</span>
+<span class="fc" id="L385">        return box.val;</span>
+    }
 
     /**
      * Sets the provided value at the specified index
@@ -305,7 +406,69 @@ import handist.collections.function.LongTBiConsumer;
      * @param func   function that takes an object of type S as parameter and
      *               returns a type T
      */
-    public abstract &lt;S&gt; void setupFrom(RangedList&lt;S&gt; source, Function&lt;? super S, ? extends T&gt; func);
+    public &lt;S&gt; void setupFrom(RangedList&lt;S&gt; source, Function&lt;? super S, ? extends T&gt; func) {
+<span class="fc" id="L410">        setupFrom(source.getRange(), source, func);</span>
+<span class="fc" id="L411">    }</span>
+    /**
+     * Initializes the values in the {code range} of this instance by applying the provided function on
+     * the elements contained in {@code source}
+     *
+     * @param &lt;S&gt;    the type handled by the {@link RangedList} given as parameter,
+     *               input for the function
+     * @param range  the range where initialization are applied
+     * @param source {@link RangedList} instance from which entries for this
+     *               instance will be extracted
+     * @param func   function that takes an object of type S as parameter and
+     *               returns a type T
+     */
+    public final &lt;S&gt; void setupFrom(LongRange range, RangedList&lt;S&gt; source, Function&lt;? super S, ? extends T&gt; func) {
+<span class="fc" id="L425">        setupFromImpl(range, source, func);</span>
+<span class="fc" id="L426">    }</span>
+    protected &lt;S&gt; void setupFromImpl(LongRange range, RangedList&lt;S&gt; source, Function&lt;? super S, ? extends T&gt; func) {
+<span class="fc" id="L428">        rangeCheck(range);</span>
+<span class="fc" id="L429">        source.rangeCheck(range);</span>
+<span class="fc" id="L430">        RangedListIterator&lt;T&gt; iter0 = subListIterator(range);</span>
+<span class="fc" id="L431">        Iterator&lt;S&gt; iter = source.subIterator(range);</span>
+<span class="fc bfc" id="L432" title="All 2 branches covered.">        while(iter0.hasNext()) {</span>
+<span class="fc" id="L433">            iter0.next();</span>
+<span class="fc" id="L434">            iter0.set(func.apply(iter.next()));</span>
+        };
+<span class="fc" id="L436">    }</span>
+
+
+    /**
+     * Initializes the values in the {code range} of this instance by applying the
+     * provided function on the elements contained in {@code source1} and
+     * {@code source2}
+     *
+     * @param &lt;S&gt;     the first type handled by the {@link RangedList} given as
+     *                parameter, input for the function
+     * @param &lt;U&gt;     the second type handled by the {@link RangedList} given as
+     *                parameter, input for the function
+     * @param range   the range where initialization are applied
+     * @param source1 the first {@link RangedList} instance from which entries for
+     *                this instance will be extracted
+     * @param source2 the second {@link RangedList} instance from which entries for
+     *                this instance will be extracted
+     * @param func    function that takes two objects of type S and U as parameter
+     *                and returns a type T
+     */
+
+    public final &lt;S,U&gt; void setupFrom(LongRange range, RangedList&lt;S&gt; source1, RangedList&lt;U&gt; source2, BiFunction&lt;S,U,T&gt; func) {
+<span class="fc" id="L458">        setupFromImpl(range, source1, source2, func);</span>
+<span class="fc" id="L459">    }</span>
+    protected &lt;S,U&gt; void setupFromImpl(LongRange range, RangedList&lt;S&gt; source1, RangedList&lt;U&gt; source2, BiFunction&lt;S,U,T&gt; func) {
+<span class="fc" id="L461">        rangeCheck(range);</span>
+<span class="fc" id="L462">        source1.rangeCheck(range);</span>
+<span class="fc" id="L463">        source2.rangeCheck(range);</span>
+<span class="fc" id="L464">        RangedListIterator&lt;T&gt; iter0 = subListIterator(range);</span>
+<span class="fc" id="L465">        final Iterator&lt;S&gt; iter1 = source1.subIterator(range);</span>
+<span class="fc" id="L466">        final Iterator&lt;U&gt; iter2 = source2.subIterator(range);</span>
+<span class="fc bfc" id="L467" title="All 2 branches covered.">        while(iter0.hasNext()) {</span>
+<span class="fc" id="L468">            iter0.next();</span>
+<span class="fc" id="L469">            iter0.set(func.apply(iter1.next(), iter2.next()));</span>
+        }
+<span class="fc" id="L471">    }</span>
 
     /**
      * Returns the number of entries in this collection as a {@code long}
@@ -313,8 +476,8 @@ import handist.collections.function.LongTBiConsumer;
      * @return size of the collection
      */
     public long size() {
-<span class="fc" id="L316">        final LongRange r = getRange();</span>
-<span class="fc" id="L317">        return r.to - r.from;</span>
+<span class="fc" id="L479">        final LongRange r = getRange();</span>
+<span class="fc" id="L480">        return r.to - r.from;</span>
     }
 
     /**
@@ -332,17 +495,17 @@ import handist.collections.function.LongTBiConsumer;
      * @param splitPoints the points at which this instance needs to be cut
      * @return this instance entries split into several {@link RangedList}
      */
-    public List&lt;RangedList&lt;T&gt;&gt; splitRange(long... splitPoints) {
-<span class="fc" id="L336">        final ArrayList&lt;RangedList&lt;T&gt;&gt; toReturn = new ArrayList&lt;&gt;(splitPoints.length + 1);</span>
-<span class="fc" id="L337">        final LongRange range = getRange();</span>
-<span class="fc" id="L338">        long start = range.from;</span>
-<span class="fc bfc" id="L339" title="All 2 branches covered.">        for (final long split : splitPoints) {</span>
-<span class="fc" id="L340">            toReturn.add(new RangedListView&lt;&gt;(this, new LongRange(start, split)));</span>
-<span class="fc" id="L341">            start = split;</span>
+    public LinkedList&lt;RangedList&lt;T&gt;&gt; splitRange(long... splitPoints) {
+<span class="fc" id="L499">        final LinkedList&lt;RangedList&lt;T&gt;&gt; toReturn = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L500">        final LongRange range = getRange();</span>
+<span class="fc" id="L501">        long start = range.from;</span>
+<span class="fc bfc" id="L502" title="All 2 branches covered.">        for (final long split : splitPoints) {</span>
+<span class="fc" id="L503">            toReturn.add(new RangedListView&lt;&gt;(this, new LongRange(start, split)));</span>
+<span class="fc" id="L504">            start = split;</span>
         }
-<span class="fc" id="L343">        toReturn.add(new RangedListView&lt;&gt;(this, new LongRange(start, range.to)));</span>
-<span class="fc" id="L344">        return toReturn;</span>
-    };
+<span class="fc" id="L506">        toReturn.add(new RangedListView&lt;&gt;(this, new LongRange(start, range.to)));</span>
+<span class="fc" id="L507">        return toReturn;</span>
+    }
 
     /**
      * Provides a RangedList of the elements contained in this instance from index
@@ -364,19 +527,19 @@ import handist.collections.function.LongTBiConsumer;
      *                                   with the range of this instance.
      */
     public RangedList&lt;T&gt; subList(long begin, long end) {
-<span class="fc bfc" id="L367" title="All 2 branches covered.">        if (begin &gt; end) {</span>
-<span class="fc" id="L368">            throw new IllegalArgumentException(&quot;Cannot obtain a sublist from &quot; + begin + &quot; to &quot; + end);</span>
+<span class="fc bfc" id="L530" title="All 2 branches covered.">        if (begin &gt; end) {</span>
+<span class="fc" id="L531">            throw new IllegalArgumentException(&quot;Cannot obtain a sublist from &quot; + begin + &quot; to &quot; + end);</span>
         }
-<span class="fc" id="L370">        final long from = Math.max(begin, getRange().from);</span>
-<span class="fc" id="L371">        final long to = Math.min(end, getRange().to);</span>
-<span class="fc bfc" id="L372" title="All 2 branches covered.">        if (from &gt; to) {</span>
-<span class="fc" id="L373">            throw new IndexOutOfBoundsException(&quot;[RangedList] no intersection with [&quot; + begin + &quot;,&quot; + end + &quot;)&quot;);</span>
+<span class="fc" id="L533">        final long from = Math.max(begin, getRange().from);</span>
+<span class="fc" id="L534">        final long to = Math.min(end, getRange().to);</span>
+<span class="fc bfc" id="L535" title="All 2 branches covered.">        if (from &gt; to) {</span>
+<span class="fc" id="L536">            throw new IndexOutOfBoundsException(&quot;[RangedList] no intersection with [&quot; + begin + &quot;,&quot; + end + &quot;)&quot;);</span>
         }
-<span class="fc" id="L375">        final LongRange newRange = new LongRange(from, to);</span>
-<span class="fc bfc" id="L376" title="All 2 branches covered.">        if (newRange.equals(getRange())) {</span>
-<span class="fc" id="L377">            return this;</span>
+<span class="fc" id="L538">        final LongRange newRange = new LongRange(from, to);</span>
+<span class="fc bfc" id="L539" title="All 2 branches covered.">        if (newRange.equals(getRange())) {</span>
+<span class="fc" id="L540">            return this;</span>
         }
-<span class="fc" id="L379">        return new RangedListView&lt;&gt;(this, newRange);</span>
+<span class="fc" id="L542">        return new RangedListView&lt;&gt;(this, newRange);</span>
     }
 
     /**
@@ -396,7 +559,7 @@ import handist.collections.function.LongTBiConsumer;
      *                                  &lt;em&gt;end&lt;/em&gt;.
      */
     public RangedList&lt;T&gt; subList(LongRange range) {
-<span class="fc" id="L399">        return subList(range.from, range.to);</span>
+<span class="fc" id="L562">        return subList(range.from, range.to);</span>
     }
 
     /**
@@ -422,7 +585,7 @@ import handist.collections.function.LongTBiConsumer;
      *         all the elements of this instance
      */
     public Chunk&lt;T&gt; toChunk() {
-<span class="nc" id="L425">        return toChunk(getRange());</span>
+<span class="fc" id="L588">        return toChunk(getRange());</span>
     }
 
     /**
@@ -444,7 +607,7 @@ import handist.collections.function.LongTBiConsumer;
      *         range
      */
     public List&lt;T&gt; toList() {
-<span class="nc" id="L447">        return toList(getRange());</span>
+<span class="fc" id="L610">        return toList(getRange());</span>
     }
 
     /**

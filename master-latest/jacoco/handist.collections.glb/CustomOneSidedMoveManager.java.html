@@ -1,4 +1,14 @@
-<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CustomOneSidedMoveManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb</a> &gt; <span class="el_source">CustomOneSidedMoveManager.java</span></div><h1>CustomOneSidedMoveManager.java</h1><pre class="source lang-java linenums">package handist.collections.glb;
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CustomOneSidedMoveManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.glb</a> &gt; <span class="el_source">CustomOneSidedMoveManager.java</span></div><h1>CustomOneSidedMoveManager.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections.glb;
 
 import static apgas.ExtendedConstructs.*;
 
@@ -37,8 +47,8 @@ class CustomOneSidedMoveManager extends OneSidedMoveManager {
      * @param d place to which instances will be transferred
      */
     public CustomOneSidedMoveManager(Place d) {
-<span class="fc" id="L40">        super(d);</span>
-<span class="fc" id="L41">    }</span>
+<span class="fc" id="L50">        super(d);</span>
+<span class="fc" id="L51">    }</span>
 
     /**
      * Performs the transfer of instances using an asynchronous task. The
@@ -55,25 +65,25 @@ class CustomOneSidedMoveManager extends OneSidedMoveManager {
      * @throws IOException if thrown during the serialization of instances
      */
     public void asyncSendAndDoNoMPI(SerializableJob j, Finish... finishs) throws IOException {
-<span class="fc" id="L58">        final byte[] bytesToSend = serializeObjectsOnly();</span>
+<span class="fc" id="L68">        final byte[] bytesToSend = serializeObjectsOnly();</span>
 
-<span class="fc" id="L60">        final List&lt;DeSerializer&gt; ds = deserializers;</span>
+<span class="fc" id="L70">        final List&lt;DeSerializer&gt; ds = deserializers;</span>
 
-<span class="fc" id="L62">        asyncArbitraryFinish(destination, () -&gt; {</span>
+<span class="fc" id="L72">        asyncArbitraryFinish(destination, () -&gt; {</span>
             // Convert the array of bytes implicitly serialized into a byte stream
-<span class="fc" id="L64">            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);</span>
-<span class="fc" id="L65">            final ObjectInput oInput = new ObjectInput(inStream);</span>
+<span class="fc" id="L74">            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);</span>
+<span class="fc" id="L75">            final ObjectInput oInput = new ObjectInput(inStream);</span>
 
             // Apply the deserializers
-<span class="fc bfc" id="L68" title="All 2 branches covered.">            for (final DeSerializer d : ds) {</span>
-<span class="fc" id="L69">                d.accept(oInput);</span>
-<span class="fc" id="L70">            }</span>
-<span class="fc" id="L71">            oInput.close();</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">            for (final DeSerializer d : ds) {</span>
+<span class="fc" id="L79">                d.accept(oInput);</span>
+<span class="fc" id="L80">            }</span>
+<span class="fc" id="L81">            oInput.close();</span>
 
             // Call the job that was passed as parameter
-<span class="fc" id="L74">            j.run();</span>
-<span class="fc" id="L75">        }, finishs);</span>
-<span class="fc" id="L76">    }</span>
+<span class="fc" id="L84">            j.run();</span>
+<span class="fc" id="L85">        }, finishs);</span>
+<span class="fc" id="L86">    }</span>
 
     /**
      * Proceed to the serialization and send the bytes over to the destination. Also
@@ -88,35 +98,35 @@ class CustomOneSidedMoveManager extends OneSidedMoveManager {
      */
     @SuppressWarnings(&quot;deprecation&quot;)
     public void asyncSendAndDoWithMPI(SerializableJob j, Finish... finishs) throws IOException {
-<span class="fc" id="L91">        final byte[] bytesToSend = prepareByteArray();</span>
+<span class="fc" id="L101">        final byte[] bytesToSend = prepareByteArray();</span>
 
-<span class="fc" id="L93">        final int nbOfBytes = bytesToSend.length;</span>
-<span class="fc" id="L94">        final int destinationRank = TeamedPlaceGroup.getWorld().rank(destination);</span>
-<span class="fc" id="L95">        final int myRank = TeamedPlaceGroup.getWorld().rank();</span>
-<span class="fc" id="L96">        final int tag = nextTag();</span>
+<span class="fc" id="L103">        final int nbOfBytes = bytesToSend.length;</span>
+<span class="fc" id="L104">        final int destinationRank = TeamedPlaceGroup.getWorld().rank(destination);</span>
+<span class="fc" id="L105">        final int myRank = TeamedPlaceGroup.getWorld().rank();</span>
+<span class="fc" id="L106">        final int tag = nextTag();</span>
 
-<span class="fc" id="L98">        TeamedPlaceGroup.getWorld().comm.Isend(bytesToSend, 0, nbOfBytes, MPI.BYTE, destinationRank, tag);</span>
+<span class="fc" id="L108">        TeamedPlaceGroup.getWorld().comm.Isend(bytesToSend, 0, nbOfBytes, MPI.BYTE, destinationRank, tag);</span>
 
-<span class="fc" id="L100">        asyncArbitraryFinish(destination, () -&gt; {</span>
+<span class="fc" id="L110">        asyncArbitraryFinish(destination, () -&gt; {</span>
             // Receive the array of bytes
-<span class="fc" id="L102">            TeamedPlaceGroup.getWorld().comm.Recv(new byte[nbOfBytes], 0, nbOfBytes, MPI.BYTE, myRank, tag);</span>
-<span class="fc" id="L103">            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);</span>
-<span class="fc" id="L104">            final ObjectInput oInput = new ObjectInput(inStream);</span>
+<span class="fc" id="L112">            TeamedPlaceGroup.getWorld().comm.Recv(new byte[nbOfBytes], 0, nbOfBytes, MPI.BYTE, myRank, tag);</span>
+<span class="fc" id="L113">            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);</span>
+<span class="fc" id="L114">            final ObjectInput oInput = new ObjectInput(inStream);</span>
 
             // The first object to come out of the byte array is a list of deserializers
             @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L108">            final List&lt;DeSerializer&gt; ds = (List&lt;DeSerializer&gt;) oInput.readObject();</span>
+<span class="fc" id="L118">            final List&lt;DeSerializer&gt; ds = (List&lt;DeSerializer&gt;) oInput.readObject();</span>
 
             // We know apply each deserializer one after the other
-<span class="fc bfc" id="L111" title="All 2 branches covered.">            for (final DeSerializer deserializer : ds) {</span>
-<span class="fc" id="L112">                deserializer.accept(oInput);</span>
-<span class="fc" id="L113">            }</span>
-<span class="fc" id="L114">            oInput.close();</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">            for (final DeSerializer deserializer : ds) {</span>
+<span class="fc" id="L122">                deserializer.accept(oInput);</span>
+<span class="fc" id="L123">            }</span>
+<span class="fc" id="L124">            oInput.close();</span>
 
             // Reception is over, launch the job that was given as parameter
-<span class="fc" id="L117">            j.run();</span>
-<span class="fc" id="L118">        }, finishs);</span>
-<span class="fc" id="L119">    }</span>
+<span class="fc" id="L127">            j.run();</span>
+<span class="fc" id="L128">        }, finishs);</span>
+<span class="fc" id="L129">    }</span>
 
     /**
      * Returns the list of the deserializers that have been registered into this
@@ -125,7 +135,7 @@ class CustomOneSidedMoveManager extends OneSidedMoveManager {
      * @return the list of deserializers registered into this {@link MoveManager}
      */
     public List&lt;DeSerializer&gt; getDeSerializer() {
-<span class="nc" id="L128">        return deserializers;</span>
+<span class="nc" id="L138">        return deserializers;</span>
     }
 
     /**
@@ -138,16 +148,16 @@ class CustomOneSidedMoveManager extends OneSidedMoveManager {
      * @throws IOException if thrown during the serialization process
      */
     public byte[] serializeObjectsOnly() throws IOException {
-<span class="fc" id="L141">        final ByteArrayOutputStream stream = new ByteArrayOutputStream();</span>
-<span class="fc" id="L142">        final ObjectOutput oo = new ObjectOutput(stream);</span>
+<span class="fc" id="L151">        final ByteArrayOutputStream stream = new ByteArrayOutputStream();</span>
+<span class="fc" id="L152">        final ObjectOutput oo = new ObjectOutput(stream);</span>
 
-<span class="fc bfc" id="L144" title="All 2 branches covered.">        for (final Serializer s : serializers) {</span>
-<span class="fc" id="L145">            s.accept(oo); // Convert the objects targeted by the serializers into bytes.</span>
-<span class="fc" id="L146">        }</span>
-<span class="fc" id="L147">        oo.close();</span>
+<span class="fc bfc" id="L154" title="All 2 branches covered.">        for (final Serializer s : serializers) {</span>
+<span class="fc" id="L155">            s.accept(oo); // Convert the objects targeted by the serializers into bytes.</span>
+<span class="fc" id="L156">        }</span>
+<span class="fc" id="L157">        oo.close();</span>
 
-<span class="fc" id="L149">        final byte[] bytesToSend = stream.toByteArray();</span>
-<span class="fc" id="L150">        return bytesToSend;</span>
+<span class="fc" id="L159">        final byte[] bytesToSend = stream.toByteArray();</span>
+<span class="fc" id="L160">        return bytesToSend;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

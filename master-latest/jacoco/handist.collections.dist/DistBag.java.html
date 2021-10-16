@@ -24,7 +24,6 @@ import apgas.util.SerializableWithReplace;
 import handist.collections.Bag;
 import handist.collections.dist.util.IntLongPair;
 import handist.collections.dist.util.LazyObjectReference;
-import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
@@ -32,8 +31,6 @@ import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
-import mpi.MPI;
-import mpi.MPIException;
 
 /**
  * A class for handling objects at multiple places. It is allowed to add new
@@ -51,35 +48,6 @@ public class DistBag&lt;T&gt; extends Bag&lt;T&gt; implements DistributedCollect
     /* implements Container[T], ReceiverHolder[T] */
 
     /**
-     * Implementation of the GLOBAL handle for class {@link DistBag}
-     *
-     * @author Patrick Finnerty
-     *
-     */
-    public class DistBagGlobal extends GlobalOperations&lt;T, DistBag&lt;T&gt;&gt; {
-        /**
-         * Constructor
-         *
-         * @param handle handle to the local {@link DistBag} this GLOBAL handle acts on
-         */
-<span class="fc" id="L65">        DistBagGlobal(DistBag&lt;T&gt; handle) {</span>
-<span class="fc" id="L66">            super(handle);</span>
-<span class="fc" id="L67">        }</span>
-
-        @Override
-        public Object writeReplace() throws ObjectStreamException {
-<span class="fc" id="L71">            final TeamedPlaceGroup pg1 = placeGroup;</span>
-<span class="fc" id="L72">            final GlobalID gId = id;</span>
-<span class="fc" id="L73">            return new MemberOfLazyObjectReference&lt;&gt;(pg1, gId, () -&gt; {</span>
-<span class="nc" id="L74">                return new DistBag&lt;&gt;(pg1, gId);</span>
-            }, (distBag) -&gt; {
-<span class="fc" id="L76">                return distBag.GLOBAL;</span>
-            });
-        }
-
-    }
-
-    /**
      * Implementation of the TEAM handle for class {@link DistBag}
      *
      * @author Patrick Finnerty
@@ -92,35 +60,44 @@ public class DistBag&lt;T&gt; extends Bag&lt;T&gt; implements DistributedCollect
          *
          * @param handle handle to the local {@link DistBag} this TEAM handle acts on
          */
-<span class="fc" id="L95">        DistBagTeam(DistBag&lt;T&gt; handle) {</span>
-<span class="fc" id="L96">            super(handle);</span>
-<span class="fc" id="L97">        }</span>
+<span class="fc" id="L63">        DistBagTeam(DistBag&lt;T&gt; handle) {</span>
+<span class="fc" id="L64">            super(handle);</span>
+<span class="fc" id="L65">        }</span>
 
-        @SuppressWarnings(&quot;deprecation&quot;)
-        @Override
-        public void size(long[] result) {
-<span class="fc" id="L102">            final TeamedPlaceGroup pg = handle.placeGroup();</span>
-<span class="fc" id="L103">            result[pg.myrank] = handle.size();</span>
-            try {
-                // THIS WORKS FOR MPJ-NATIVE implementation
-<span class="fc" id="L106">                pg.comm.Allgather(result, pg.myrank, 1, MPI.LONG, result, 0, 1, MPI.LONG);</span>
-<span class="nc" id="L107">            } catch (final MPIException e) {</span>
-<span class="nc" id="L108">                e.printStackTrace();</span>
-<span class="nc" id="L109">                throw new Error(&quot;[DistMap] network error in team().size()&quot;);</span>
-<span class="fc" id="L110">            }</span>
-<span class="fc" id="L111">        }</span>
+        public void gather(CollectiveRelocator.Gather manager) {
+<span class="fc" id="L68">            final Place destination = manager.root;</span>
+<span class="fc" id="L69">            final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
+<span class="fc" id="L70">                s.writeObject(new Bag&lt;&gt;(handle));</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">                if (!here().equals(destination)) {</span>
+<span class="fc" id="L72">                    clear();</span>
+                }
+<span class="fc" id="L74">            };</span>
+<span class="fc" id="L75">            final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -&gt; {</span>
+                @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L77">                final Bag&lt;T&gt; imported = (Bag&lt;T&gt;) ds.readObject();</span>
+<span class="fc" id="L78">                addBag(imported);</span>
+<span class="fc" id="L79">            };</span>
+<span class="fc" id="L80">            manager.request(serProcess, desProcess);</span>
+<span class="fc" id="L81">        }</span>
 
+        /**
+         * Sends all local elements to the place specified as parameter.
+         *
+         * @param destination the place to which instances should be relocated to
+         */
         @Override
-        public void updateDist() {
-            // TODO Auto-generated method stub
-<span class="nc" id="L116">        }</span>
+        public void gather(Place destination) {
+<span class="nc" id="L90">            final CollectiveRelocator.Gather manager = new CollectiveRelocator.Gather(placeGroup, destination);</span>
+<span class="nc" id="L91">            gather(manager);</span>
+<span class="nc" id="L92">            manager.execute();</span>
+<span class="nc" id="L93">        }</span>
 
     }
 
-<span class="fc" id="L120">    private static int _debug_level = 5;</span>
+<span class="fc" id="L97">    private static int _debug_level = 5;</span>
 
     /** Handle to Global operations on the DistBag instance */
-    public DistBag&lt;T&gt;.DistBagGlobal GLOBAL;
+    public GlobalOperations&lt;T, DistBag&lt;T&gt;&gt; GLOBAL;
     /**
      * Global Id which identifies this DistBag object as part of a number of handles
      * to the distributed collection implemented by this instance
@@ -144,12 +121,15 @@ public class DistBag&lt;T&gt; extends Bag&lt;T&gt; implements DistributedCollect
      */
     public DistBag&lt;T&gt;.DistBagTeam TEAM;
 
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    private DistCollectionSatellite satellite;
+
     /**
      * Create a new DistBag. Place.places() is used as the PlaceGroup.
      */
     public DistBag() {
-<span class="fc" id="L151">        this(TeamedPlaceGroup.getWorld());</span>
-<span class="fc" id="L152">    }</span>
+<span class="fc" id="L131">        this(TeamedPlaceGroup.getWorld());</span>
+<span class="fc" id="L132">    }</span>
 
     /**
      * Create a new DistBag using the given arguments.
@@ -157,8 +137,8 @@ public class DistBag&lt;T&gt; extends Bag&lt;T&gt; implements DistributedCollect
      * @param pg the places susceptible to interact with this instance.
      */
     public DistBag(TeamedPlaceGroup pg) {
-<span class="fc" id="L160">        this(pg, new GlobalID());</span>
-<span class="fc" id="L161">    }</span>
+<span class="fc" id="L140">        this(pg, new GlobalID());</span>
+<span class="fc" id="L141">    }</span>
 
     /**
      * Constructor for DistBag.
@@ -169,40 +149,31 @@ public class DistBag&lt;T&gt; extends Bag&lt;T&gt; implements DistributedCollect
      *                 instance which participates in this distributed collection
      */
     protected DistBag(TeamedPlaceGroup pg, GlobalID globalId) {
-<span class="fc" id="L172">        super();</span>
-<span class="fc" id="L173">        id = globalId;</span>
-<span class="fc" id="L174">        placeGroup = pg;</span>
-<span class="fc" id="L175">        locality = new float[pg.size];</span>
-<span class="fc" id="L176">        Arrays.fill(locality, 1.0f);</span>
-<span class="fc" id="L177">        id.putHere(this);</span>
-<span class="fc" id="L178">        GLOBAL = new DistBagGlobal(this);</span>
-<span class="fc" id="L179">        TEAM = new DistBagTeam(this);</span>
-<span class="fc" id="L180">    }</span>
+<span class="fc" id="L152">        super();</span>
+<span class="fc" id="L153">        id = globalId;</span>
+<span class="fc" id="L154">        placeGroup = pg;</span>
+<span class="fc" id="L155">        locality = new float[pg.size];</span>
+<span class="fc" id="L156">        Arrays.fill(locality, 1.0f);</span>
+<span class="fc" id="L157">        id.putHere(this);</span>
+<span class="pc" id="L158">        GLOBAL = new GlobalOperations&lt;&gt;(this, (TeamedPlaceGroup pg0, GlobalID gid) -&gt; new DistBag&lt;&gt;(pg0, gid));</span>
+<span class="fc" id="L159">        TEAM = new DistBagTeam(this);</span>
+<span class="fc" id="L160">    }</span>
 
     @Override
     public void forEach(SerializableConsumer&lt;T&gt; action) {
-<span class="fc" id="L184">        super.forEach(action);</span>
-<span class="fc" id="L185">    }</span>
+<span class="fc" id="L164">        super.forEach(action);</span>
+<span class="fc" id="L165">    }</span>
 
-    /**
-     * gather all place-local elements to the root Place.
-     *
-     * @param root the place where the result of reduction is stored.
+    /*
+     * public def integrate(src : List[T]) { // addAll(src); throw new
+     * UnsupportedOperationException(); }
      */
+
     @SuppressWarnings(&quot;unchecked&quot;)
-    public void gather(Place root) {
-<span class="nc" id="L194">        final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
-<span class="nc" id="L195">            s.writeObject(new Bag&lt;&gt;(this));</span>
-<span class="nc" id="L196">        };</span>
-<span class="nc" id="L197">        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -&gt; {</span>
-<span class="nc" id="L198">            final Bag&lt;T&gt; imported = (Bag&lt;T&gt;) ds.readObject();</span>
-<span class="nc" id="L199">            addBag(imported);</span>
-<span class="nc" id="L200">        };</span>
-<span class="nc" id="L201">        CollectiveRelocator.gatherSer(placeGroup, root, serProcess, desProcess);</span>
-<span class="nc bnc" id="L202" title="All 2 branches missed.">        if (!here().equals(root)) {</span>
-<span class="nc" id="L203">            clear();</span>
-        }
-<span class="nc" id="L205">    }</span>
+    @Override
+    public final &lt;S extends DistCollectionSatellite&lt;DistBag&lt;T&gt;, S&gt;&gt; S getSatellite() {
+<span class="nc" id="L175">        return (S) satellite;</span>
+    }
 
     /**
      * Return a Container that has the same values of DistBag's local storage.
@@ -215,36 +186,37 @@ public class DistBag&lt;T&gt; extends Bag&lt;T&gt; implements DistributedCollect
 
     @Override
     public GlobalOperations&lt;T, DistBag&lt;T&gt;&gt; global() {
-<span class="nc" id="L218">        return GLOBAL;</span>
+<span class="fc" id="L189">        return GLOBAL;</span>
     }
-
-    /*
-     * public def integrate(src : List[T]) { // addAll(src); throw new
-     * UnsupportedOperationException(); }
-     */
 
     @Override
     public GlobalID id() {
-<span class="fc" id="L228">        return id;</span>
+<span class="fc" id="L194">        return id;</span>
     }
 
     @Override
     public float[] locality() {
-<span class="nc" id="L233">        return locality;</span>
+<span class="nc" id="L199">        return locality;</span>
+    }
+
+    @Override
+    public long longSize() {
+        // TODO why bag returns size in int?
+<span class="fc" id="L205">        return super.size();</span>
     }
 
     @Override
     public void moveAtSyncCount(final ArrayList&lt;IntLongPair&gt; moveList, final MoveManager mm) throws Exception {
-<span class="nc bnc" id="L238" title="All 2 branches missed.">        for (final IntLongPair pair : moveList) {</span>
-<span class="nc bnc" id="L239" title="All 2 branches missed.">            if (_debug_level &gt; 5) {</span>
-<span class="nc" id="L240">                System.out.println(&quot;MOVE src: &quot; + here() + &quot; dest: &quot; + pair.first + &quot; size: &quot; + pair.second);</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">        for (final IntLongPair pair : moveList) {</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">            if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L212">                System.out.println(&quot;MOVE src: &quot; + here() + &quot; dest: &quot; + pair.first + &quot; size: &quot; + pair.second);</span>
             }
-<span class="nc bnc" id="L242" title="All 2 branches missed.">            if (pair.second &gt; Integer.MAX_VALUE) {</span>
-<span class="nc" id="L243">                throw new Error(&quot;One place cannot receive so much elements: &quot; + pair.second);</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">            if (pair.second &gt; Integer.MAX_VALUE) {</span>
+<span class="nc" id="L215">                throw new Error(&quot;One place cannot receive so much elements: &quot; + pair.second);</span>
             }
-<span class="nc" id="L245">            moveAtSyncCount((int) pair.second, placeGroup.get(pair.first), mm);</span>
-<span class="nc" id="L246">        }</span>
-<span class="nc" id="L247">    }</span>
+<span class="nc" id="L217">            moveAtSyncCount((int) pair.second, placeGroup.get(pair.first), mm);</span>
+<span class="nc" id="L218">        }</span>
+<span class="nc" id="L219">    }</span>
 
     /**
      * Removes the specified number of entries from the local Bag and prepares them
@@ -262,52 +234,57 @@ public class DistBag&lt;T&gt; extends Bag&lt;T&gt; implements DistributedCollect
      */
     @SuppressWarnings(&quot;unchecked&quot;)
     public void moveAtSyncCount(final int count, Place destination, MoveManager mm) {
-<span class="nc bnc" id="L265" title="All 2 branches missed.">        if (destination.equals(Constructs.here())) {</span>
-<span class="nc" id="L266">            return;</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        if (destination.equals(Constructs.here())) {</span>
+<span class="nc" id="L238">            return;</span>
         }
-<span class="nc" id="L268">        final DistBag&lt;T&gt; collection = this;</span>
-<span class="nc" id="L269">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
-<span class="nc" id="L270">            s.writeObject(this.remove(count));</span>
-<span class="nc" id="L271">        };</span>
-<span class="nc" id="L272">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
-<span class="nc" id="L273">            final List&lt;T&gt; imported = (List&lt;T&gt;) ds.readObject();</span>
-<span class="nc" id="L274">            collection.addBag(imported);</span>
-<span class="nc" id="L275">        };</span>
-<span class="nc" id="L276">        mm.request(destination, serialize, deserialize);</span>
-<span class="nc" id="L277">    }</span>
+<span class="nc" id="L240">        final DistBag&lt;T&gt; collection = this;</span>
+<span class="nc" id="L241">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="nc" id="L242">            s.writeObject(this.remove(count));</span>
+<span class="nc" id="L243">        };</span>
+<span class="nc" id="L244">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="nc" id="L245">            final List&lt;T&gt; imported = (List&lt;T&gt;) ds.readObject();</span>
+<span class="nc" id="L246">            collection.addBag(imported);</span>
+<span class="nc" id="L247">        };</span>
+<span class="nc" id="L248">        mm.request(destination, serialize, deserialize);</span>
+<span class="nc" id="L249">    }</span>
 
     @Override
     public void parallelForEach(SerializableConsumer&lt;T&gt; action) {
-<span class="fc" id="L281">        super.parallelForEach(action);</span>
-<span class="fc" id="L282">    }</span>
+<span class="fc" id="L253">        super.parallelForEach(action);</span>
+<span class="fc" id="L254">    }</span>
 
     @Override
     public TeamedPlaceGroup placeGroup() {
-<span class="fc" id="L286">        return placeGroup;</span>
+<span class="fc" id="L258">        return placeGroup;</span>
     }
+
+    @Override
+    public &lt;S extends DistCollectionSatellite&lt;DistBag&lt;T&gt;, S&gt;&gt; void setSatellite(S s) {
+<span class="nc" id="L263">        satellite = s;</span>
+<span class="nc" id="L264">    }</span>
 
     @SuppressWarnings(&quot;unused&quot;)
     @Deprecated
     private void setupBranches(SerializableBiConsumer&lt;Place, DistBag&lt;T&gt;&gt; gen) {
-<span class="nc" id="L292">        final DistBag&lt;T&gt; handle = this;</span>
-<span class="nc" id="L293">        finish(() -&gt; {</span>
-<span class="nc" id="L294">            placeGroup.broadcastFlat(() -&gt; {</span>
-<span class="nc" id="L295">                gen.accept(here(), handle);</span>
-<span class="nc" id="L296">            });</span>
-<span class="nc" id="L297">        });</span>
-<span class="nc" id="L298">    }</span>
+<span class="nc" id="L269">        final DistBag&lt;T&gt; handle = this;</span>
+<span class="nc" id="L270">        finish(() -&gt; {</span>
+<span class="nc" id="L271">            placeGroup.broadcastFlat(() -&gt; {</span>
+<span class="nc" id="L272">                gen.accept(here(), handle);</span>
+<span class="nc" id="L273">            });</span>
+<span class="nc" id="L274">        });</span>
+<span class="nc" id="L275">    }</span>
 
     @Override
     public TeamOperations&lt;T, DistBag&lt;T&gt;&gt; team() {
-<span class="fc" id="L302">        return TEAM;</span>
+<span class="fc" id="L279">        return TEAM;</span>
     }
 
     @Override
     public Object writeReplace() throws ObjectStreamException {
-<span class="fc" id="L307">        final TeamedPlaceGroup pg1 = placeGroup;</span>
-<span class="fc" id="L308">        final GlobalID id1 = id;</span>
-<span class="fc" id="L309">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
-<span class="fc" id="L310">            return new DistBag&lt;&gt;(pg1, id1);</span>
+<span class="fc" id="L284">        final TeamedPlaceGroup pg1 = placeGroup;</span>
+<span class="fc" id="L285">        final GlobalID id1 = id;</span>
+<span class="fc" id="L286">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L287">            return new DistBag&lt;&gt;(pg1, id1);</span>
         });
     }
 

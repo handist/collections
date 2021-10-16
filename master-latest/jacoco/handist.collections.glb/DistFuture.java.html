@@ -76,16 +76,70 @@ public class DistFuture&lt;R&gt; implements Serializable {
     }
 
     /**
+     * Returns the current priority of the underlying GLB operation. The smaller the
+     * integer, the higher the priority.
+     * &lt;p&gt;
+     * By default, GLB operations are assigned a priority based on the order in
+     * which they were created. Operations created earlier are assigned a higher
+     * priority. This order can be changed by manually overriding the priority of an
+     * operation with method {@link #setPriority(int)}.
+     *
+     * @return the current priority level of this operation as an integer
+     */
+    public int getPriority() {
+<span class="fc" id="L90">        return operation.priority;</span>
+    }
+
+    /**
      * Yields back the result of the operation submitted to the GLB which this
      * instance represents.
      *
      * @return distributed collection handle
      */
     public R result() {
-<span class="fc bfc" id="L85" title="All 2 branches covered.">        if (!operation.finished()) {</span>
-<span class="fc" id="L86">            waitGlobalTermination();</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        if (!operation.finished()) {</span>
+<span class="fc" id="L101">            waitGlobalTermination();</span>
         }
-<span class="fc" id="L88">        return result;</span>
+<span class="fc" id="L103">        return result;</span>
+    }
+
+    /**
+     * Set the priority level for this operation. The priority is determined through
+     * the natural ordering of integers, with a smaller value indicating a higher
+     * priority.
+     * &lt;p&gt;
+     * By default, GLB operations are assigned a priority based on the order in
+     * which they were created. Operations created earlier are assigned a higher
+     * priority. You can override this default value by calling this method with the
+     * desired priority value as parameter.
+     * &lt;p&gt;
+     * Note that only the relative difference in priority between operations are
+     * used. Setting priority values with larger differences between them does not
+     * change the behavior of the schedule, i.e. having three operations (A, B, C)
+     * of respective priority (0, 1, 2) or (-10, 0, 42) will result in the same
+     * behavior. Also note that it is possible to set multiple operations with the
+     * same priority level without any adverse effect. The priority between these
+     * operations with identical priority will be decided arbitrarily.
+     * &lt;p&gt;
+     * Be mindful of the fact that the priority of a GLB operation cannot be changed
+     * once that operation has started. Calling this method on an operation which is
+     * running or which has already completed will throw an
+     * {@link IllegalStateException}.
+     *
+     * @param priority the desired priority level (low integer value correspond to
+     *                 higher priority)
+     * @return this object, allowing for chained calls to methods of this object
+     * @throws IllegalStateException if the underlying operation has already started
+     *                               or has completed
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public DistFuture&lt;R&gt; setPriority(int priority) {
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        if (operation.state != GlbOperation.State.STAGED) {</span>
+<span class="fc" id="L138">            throw new IllegalStateException(&quot;Cannot change the priority of an operation which is already running&quot;);</span>
+        }
+<span class="fc" id="L140">        operation.priority = priority;</span>
+
+<span class="fc" id="L142">        return this;</span>
     }
 
     /**
@@ -96,7 +150,7 @@ public class DistFuture&lt;R&gt; implements Serializable {
      * operations to start.
      */
     public void waitGlobalTermination() {
-<span class="fc" id="L99">        GlobalLoadBalancer.startAndWait(operation);</span>
-<span class="fc" id="L100">    }</span>
+<span class="fc" id="L153">        GlobalLoadBalancer.startAndWait(operation);</span>
+<span class="fc" id="L154">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

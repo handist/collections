@@ -11,44 +11,54 @@
 package handist.collections.dist;
 
 import java.io.ObjectStreamException;
+import java.util.function.BiFunction;
 
 import apgas.Constructs;
 import apgas.Place;
+import apgas.util.GlobalID;
 import apgas.util.SerializableWithReplace;
 import handist.collections.dist.util.MemberOfLazyObjectReference;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 
 /**
- * Interface that defines the &quot;Global Operations&quot; that distributed collections
+ * Class that defines the &quot;Global Operations&quot; that distributed collections
  * propose.
  *
  * @param &lt;T&gt; the type of objects manipulated by the distributed collection
  * @param &lt;C&gt; implementing type, should be a class that implements
  *            {@link DistributedCollection}
  */
-public abstract class GlobalOperations&lt;T, C extends DistributedCollection&lt;T, C&gt;&gt; implements SerializableWithReplace {
+public class GlobalOperations&lt;T, C extends DistributedCollection&lt;T, C&gt;&gt; implements SerializableWithReplace {
 
     protected final C localHandle;
+    protected final BiFunction&lt;TeamedPlaceGroup, GlobalID, ? extends C&gt; lazyCreator;
 
-<span class="fc" id="L34">    GlobalOperations(C handle) {</span>
-<span class="fc" id="L35">        localHandle = handle;</span>
-<span class="fc" id="L36">    }</span>
+    /**
+     *
+     * @param handle      the target Distributed Collection
+     * @param lazyCreator the way to create a branch of a distributed collection to
+     *                    a new place.
+     */
+<span class="fc" id="L43">    GlobalOperations(C handle, BiFunction&lt;TeamedPlaceGroup, GlobalID, ? extends C&gt; lazyCreator) {</span>
+<span class="fc" id="L44">        localHandle = handle;</span>
+<span class="fc" id="L45">        this.lazyCreator = lazyCreator;</span>
+<span class="fc" id="L46">    }</span>
 
     public void balance() {
-<span class="nc" id="L39">        final TeamedPlaceGroup pg = localHandle.placeGroup();</span>
-<span class="nc" id="L40">        pg.broadcastFlat(() -&gt; {</span>
-<span class="nc" id="L41">            localHandle.team().teamedBalance();</span>
-<span class="nc" id="L42">        });</span>
-<span class="nc" id="L43">    }</span>
+<span class="nc" id="L49">        final TeamedPlaceGroup pg = localHandle.placeGroup();</span>
+<span class="nc" id="L50">        pg.broadcastFlat(() -&gt; {</span>
+<span class="nc" id="L51">            localHandle.team().teamedBalance();</span>
+<span class="nc" id="L52">        });</span>
+<span class="nc" id="L53">    }</span>
 
     public void balance(final float[] balance) {
-<span class="nc" id="L46">        localHandle.balanceSpecCheck(balance);</span>
-<span class="nc" id="L47">        final TeamedPlaceGroup pg = localHandle.placeGroup();</span>
-<span class="nc" id="L48">        pg.broadcastFlat(() -&gt; {</span>
-<span class="nc" id="L49">            localHandle.team().teamedBalance(balance);</span>
-<span class="nc" id="L50">        });</span>
-<span class="nc" id="L51">    };</span>
+<span class="nc" id="L56">        localHandle.balanceSpecCheck(balance);</span>
+<span class="nc" id="L57">        final TeamedPlaceGroup pg = localHandle.placeGroup();</span>
+<span class="nc" id="L58">        pg.broadcastFlat(() -&gt; {</span>
+<span class="nc" id="L59">            localHandle.team().teamedBalance(balance);</span>
+<span class="nc" id="L60">        });</span>
+<span class="nc" id="L61">    }</span>
 
     /**
      * Performs the specified action on every instance contained on every host of
@@ -60,10 +70,34 @@ public abstract class GlobalOperations&lt;T, C extends DistributedCollection&lt;
      * @param action action to perform
      */
     public void forEach(final SerializableConsumer&lt;T&gt; action) {
-<span class="fc" id="L63">        localHandle.placeGroup().broadcastFlat(() -&gt; {</span>
-<span class="fc" id="L64">            localHandle.forEach(action);</span>
-<span class="fc" id="L65">        });</span>
-<span class="fc" id="L66">    }</span>
+<span class="fc" id="L73">        localHandle.placeGroup().broadcastFlat(() -&gt; {</span>
+<span class="fc" id="L74">            localHandle.forEach(action);</span>
+<span class="fc" id="L75">        });</span>
+<span class="fc" id="L76">    };</span>
+
+    public void gather(final Place destination) {
+<span class="nc" id="L79">        final TeamedPlaceGroup pg = localHandle.placeGroup();</span>
+<span class="nc" id="L80">        pg.broadcastFlat(() -&gt; {</span>
+<span class="nc" id="L81">            localHandle.team().gather(destination);</span>
+<span class="nc" id="L82">        });</span>
+<span class="nc" id="L83">    }</span>
+
+    /**
+     * Gathers the size of every local collection and returns it in the provided
+     * array
+     *
+     * @param result the array in which the result will be stored
+     */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    public void getSizeDistribution(final long[] result) {
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">        if (localHandle instanceof ElementLocationManagable) {</span>
+<span class="nc" id="L94">            ((ElementLocationManagable) localHandle).getSizeDistribution(result);</span>
+        } else {
+<span class="fc" id="L96">            localHandle.placeGroup().broadcastFlat(() -&gt; {</span>
+<span class="fc" id="L97">                localHandle.team().getSizeDistribution(result);</span>
+<span class="fc" id="L98">            });</span>
+        }
+<span class="fc" id="L100">    }</span>
 
     /**
      * Calls the provided action on the local instance of the distributed collection
@@ -74,10 +108,10 @@ public abstract class GlobalOperations&lt;T, C extends DistributedCollection&lt;
      *               local collection object
      */
     public void onLocalHandleDo(SerializableBiConsumer&lt;Place, C&gt; action) {
-<span class="nc" id="L77">        localHandle.placeGroup().broadcastFlat(() -&gt; {</span>
-<span class="nc" id="L78">            action.accept(Constructs.here(), localHandle);</span>
-<span class="nc" id="L79">        });</span>
-<span class="nc" id="L80">    }</span>
+<span class="nc" id="L111">        localHandle.placeGroup().broadcastFlat(() -&gt; {</span>
+<span class="nc" id="L112">            action.accept(Constructs.here(), localHandle);</span>
+<span class="nc" id="L113">        });</span>
+<span class="nc" id="L114">    }</span>
 
     /**
      * Performs the specified action on every instance contained on every host of
@@ -89,22 +123,10 @@ public abstract class GlobalOperations&lt;T, C extends DistributedCollection&lt;
      * @param action action to perform
      */
     public void parallelForEach(final SerializableConsumer&lt;T&gt; action) {
-<span class="fc" id="L92">        localHandle.placeGroup().broadcastFlat(() -&gt; {</span>
-<span class="fc" id="L93">            localHandle.parallelForEach(action);</span>
-<span class="fc" id="L94">        });</span>
-<span class="fc" id="L95">    }</span>
-
-    /**
-     * Gathers the size of every local collection and returns it in the provided
-     * array
-     *
-     * @param result the array in which the result will be stored
-     */
-    public void size(final long[] result) {
-<span class="fc" id="L104">        localHandle.placeGroup().broadcastFlat(() -&gt; {</span>
-<span class="fc" id="L105">            localHandle.team().size(result);</span>
-<span class="fc" id="L106">        });</span>
-<span class="fc" id="L107">    }</span>
+<span class="fc" id="L126">        localHandle.placeGroup().broadcastFlat(() -&gt; {</span>
+<span class="fc" id="L127">            localHandle.parallelForEach(action);</span>
+<span class="fc" id="L128">        });</span>
+<span class="fc" id="L129">    }</span>
 
     /**
      * Method used to create an object which will be transferred to a remote place.
@@ -120,6 +142,14 @@ public abstract class GlobalOperations&lt;T, C extends DistributedCollection&lt;
      * @throws ObjectStreamException if such an exception is thrown during the
      *                               process
      */
-    public abstract Object writeReplace() throws ObjectStreamException;
+    public Object writeReplace() throws ObjectStreamException {
+<span class="fc" id="L146">        final TeamedPlaceGroup pg1 = localHandle.placeGroup();</span>
+<span class="fc" id="L147">        final GlobalID id1 = localHandle.id();</span>
+<span class="fc" id="L148">        return new MemberOfLazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="nc" id="L149">            return lazyCreator.apply(pg1, id1);</span>
+        }, (handle) -&gt; {
+<span class="fc" id="L151">            return handle.global();</span>
+        });
+    }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -29,9 +29,32 @@ public class Pair&lt;F, S&gt; {
      * @param first  first object of type F
      * @param second second object of type S
      */
-<span class="nc" id="L32">    public Pair(F first, S second) {</span>
-<span class="nc" id="L33">        this.first = first;</span>
-<span class="nc" id="L34">        this.second = second;</span>
-<span class="nc" id="L35">    }</span>
+<span class="fc" id="L32">    public Pair(F first, S second) {</span>
+<span class="fc" id="L33">        this.first = first;</span>
+<span class="fc" id="L34">        this.second = second;</span>
+<span class="fc" id="L35">    }</span>
+
+    @Override
+    public boolean equals(Object target) {
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        if (!(target instanceof Pair)) {</span>
+<span class="nc" id="L40">            return false;</span>
+        }
+        @SuppressWarnings(&quot;rawtypes&quot;)
+<span class="nc" id="L43">        final Pair target0 = (Pair) target;</span>
+<span class="nc bnc" id="L44" title="All 4 branches missed.">        return first.equals(target0.first) &amp;&amp; second.equals(target0.second);</span>
+    }
+
+    public F getFirst() {
+<span class="fc" id="L48">        return first;</span>
+    }
+
+    public S getSecond() {
+<span class="fc" id="L52">        return second;</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L57">        return first.hashCode() &lt;&lt; 2 + second.hashCode();</span>
+    }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

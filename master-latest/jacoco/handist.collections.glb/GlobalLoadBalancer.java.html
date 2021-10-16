@@ -17,6 +17,7 @@ import java.util.LinkedList;
 import java.util.concurrent.ForkJoinPool;
 
 import apgas.SerializableJob;
+import handist.collections.dist.DistLog;
 import handist.collections.glb.GlbOperation.OperationCompletionManagedBlocker;
 import handist.collections.glb.GlbOperation.State;
 
@@ -29,29 +30,117 @@ import handist.collections.glb.GlbOperation.State;
  *
  */
 public class GlobalLoadBalancer {
+
+    /**
+     * Key used to gather the events related to the GLB system
+     */
+    public static final String LOGKEY_GLB = &quot;glb_event&quot;;
+
+    /**
+     * Key used to gather the events related to the creation, interruption, and
+     * termination of asynchronous worker activities
+     */
+    public static final String LOGKEY_WORKER = &quot;glb_worker&quot;;
+
+    /**
+     * Message used to record the number of workers initalized on a host
+     */
+    public static final String LOG_INITIALIZED_WORKERS = &quot;WorkerInitialized&quot;;
+
+    /**
+     * Message used to record the moment at which the GlbComputer instance is
+     * initialized on a host
+     */
+    public static final String LOG_INITIALIZED_AT_NANOTIME = &quot;InitializedAtTime&quot;;
+
+    /**
+     * Message used to signal that a worker has stopped
+     */
+    public static final String LOG_WORKER_STOPPED = &quot;Worker Stopped&quot;;
+
+    /**
+     * Message used to record that a worker was unable to answer a lifeline
+     */
+    public static final String LOG_LIFELINE_NOT_ANSWERED = &quot;Lifeline not answered&quot;;
+
+    /**
+     * Message used to record that a worker answered a lifeline
+     */
+    public static final String LOG_LIFELINE_ANSWERED = &quot;Lifeline answered&quot;;
+
+    /**
+     * Message used to record that a worker resumed after yielding
+     */
+    public static final String LOG_WORKER_RESUMED = &quot;Worker resumed&quot;;
+
+    /**
+     * Message used to record that a started yielding so that other activites may
+     * run on the host
+     */
+    public static final String LOG_WORKER_YIELDING = &quot;Worker yielding&quot;;
+
+    /**
+     * Message used to record that a worker started running
+     */
+    public static final String LOG_WORKER_STARTED = &quot;Worker Started&quot;;
+
+    public static final String LOGKEY_UNDER_GLB = &quot;UnderGlb&quot;;
+
+    public static final String LOG_PROGRAM_STARTED = &quot;ProgramStarted&quot;;
+    public static final String LOG_PROGRAM_ENDED = &quot;ProgramEnded&quot;;
+
     /**
      * Singleton
      */
-<span class="fc" id="L35">    static GlobalLoadBalancer glb = null;</span>
+<span class="fc" id="L95">    static GlobalLoadBalancer glb = null;</span>
 
     /**
-     * Helper method used to launch the computations submitted to the global load
-     * balancer.
+     * Member keeping the logger instance of the previously executed GLB program. It
+     * can be retrieved after method {@link #underGLB(SerializableJob)} has
+     * completed through method #getPreviousLog();
      */
-    static void start() {
-<span class="fc bfc" id="L42" title="All 2 branches covered.">        while (!glb.operationsStaged.isEmpty()) {</span>
-<span class="fc" id="L43">            final GlbOperation&lt;?, ?, ?, ?, ?&gt; op = glb.operationsStaged.poll();</span>
-            boolean needsToBeLaunched;
-<span class="fc" id="L45">            synchronized (op) {</span>
-<span class="fc" id="L46">                op.state = GlbOperation.State.RUNNING;</span>
-<span class="fc bfc" id="L47" title="All 2 branches covered.">                needsToBeLaunched = !op.hasDependencies();</span>
-<span class="fc" id="L48">            }</span>
+<span class="fc" id="L102">    static DistLog previousLog = null;</span>
 
-<span class="fc bfc" id="L50" title="All 2 branches covered.">            if (needsToBeLaunched) {</span>
-<span class="fc" id="L51">                async(() -&gt; op.compute());</span>
+    /**
+     * Returns the {@link DistLog} containing the information logged during the
+     * previous {@link #underGLB(SerializableJob)} method call.
+     * &lt;p&gt;
+     * The logs are returned in their non-gathered state, meaning the entries are
+     * still distributed across all hosts. Call method
+     * {@link DistLog#globalGather()} on the returned {@link DistLog} instance to
+     * gather all the logs on the caller host.
+     */
+    public static DistLog getPreviousLog() {
+<span class="nc" id="L114">        return previousLog;</span>
+    }
+
+    /**
+     * Helper method used to launch the computations staged into the global load
+     * balancer. Is not blocking.
+     * &lt;p&gt;
+     * You would only need to call this method if you have some tasks other than the
+     * GLB computations that should be executed concurrently. In such a situation,
+     * stage the various GLB operations by calling their
+     * &lt;em&gt;collection.GLB.method()&lt;/em&gt; and setup the potential
+     * {@link DistFuture#after(DistFuture)} completion dependencies. Then, call this
+     * method. In the remainder of the ongoing block, you lay out the other
+     * activities that should run while the GLB computations previously staged are
+     * being computed.
+     */
+    public static void start() {
+<span class="fc bfc" id="L131" title="All 2 branches covered.">        while (!glb.operationsStaged.isEmpty()) {</span>
+<span class="fc" id="L132">            final GlbOperation&lt;?, ?, ?, ?, ?, ?&gt; op = glb.operationsStaged.poll();</span>
+            boolean needsToBeLaunched;
+<span class="fc" id="L134">            synchronized (op) {</span>
+<span class="fc" id="L135">                op.state = GlbOperation.State.RUNNING;</span>
+<span class="fc bfc" id="L136" title="All 2 branches covered.">                needsToBeLaunched = !op.hasDependencies();</span>
+<span class="fc" id="L137">            }</span>
+
+<span class="fc bfc" id="L139" title="All 2 branches covered.">            if (needsToBeLaunched) {</span>
+<span class="fc" id="L140">                async(() -&gt; op.compute());</span>
             }
-<span class="fc" id="L53">        }</span>
-<span class="fc" id="L54">    }</span>
+<span class="fc" id="L142">        }</span>
+<span class="fc" id="L143">    }</span>
 
     /**
      * Helper method used to launch the operations submitted to the global load
@@ -60,29 +149,79 @@ public class GlobalLoadBalancer {
      *
      * @param operation the operation whose global termination is be waited upon
      */
-    static void startAndWait(GlbOperation&lt;?, ?, ?, ?, ?&gt; operation) {
+    static void startAndWait(GlbOperation&lt;?, ?, ?, ?, ?, ?&gt; operation) {
         // Install a hook on the operation on which we are going to wait
-<span class="fc" id="L65">        OperationCompletionManagedBlocker b = null;</span>
-<span class="fc" id="L66">        synchronized (operation) {</span>
-<span class="fc bfc" id="L67" title="All 2 branches covered.">            if (operation.state != State.TERMINATED) {</span>
+<span class="fc" id="L154">        OperationCompletionManagedBlocker b = null;</span>
+<span class="fc" id="L155">        synchronized (operation) {</span>
+<span class="fc bfc" id="L156" title="All 2 branches covered.">            if (operation.state != State.TERMINATED) {</span>
                 // Install a hook to &quot;unblock the SempaphoreBlocker
-<span class="fc" id="L69">                b = new OperationCompletionManagedBlocker();</span>
-<span class="fc" id="L70">                final OperationCompletionManagedBlocker blocker = b; // final field for lambda expression</span>
-<span class="fc" id="L71">                operation.addHook(() -&gt; blocker.unblock());</span>
+<span class="fc" id="L158">                b = new OperationCompletionManagedBlocker();</span>
+<span class="fc" id="L159">                final OperationCompletionManagedBlocker blocker = b; // final field for lambda expression</span>
+<span class="fc" id="L160">                operation.addHook(() -&gt; blocker.unblock());</span>
             }
-<span class="fc" id="L73">        }</span>
+<span class="fc" id="L162">        }</span>
 
-<span class="fc" id="L75">        start(); // Start all other operations that were submitted to the GLB</span>
+<span class="fc" id="L164">        start(); // Start all other operations that were submitted to the GLB</span>
 
-<span class="fc bfc" id="L77" title="All 2 branches covered.">        if (b != null) { // b is different from null iff the operation has not yet terminated</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">        if (b != null) { // b is different from null iff the operation has not yet terminated</span>
             try {
                 // Block until woken up by the installed hook
-<span class="fc" id="L80">                ForkJoinPool.managedBlock(b);</span>
-<span class="nc" id="L81">            } catch (final InterruptedException e) {</span>
-<span class="nc" id="L82">                e.printStackTrace();</span>
-<span class="fc" id="L83">            }</span>
+<span class="fc" id="L169">                ForkJoinPool.managedBlock(b);</span>
+<span class="nc" id="L170">            } catch (final InterruptedException e) {</span>
+<span class="nc" id="L171">                e.printStackTrace();</span>
+<span class="fc" id="L172">            }</span>
         }
-<span class="fc" id="L85">    }</span>
+<span class="fc" id="L174">    }</span>
+
+    /**
+     * Method to call to launch a GLB program. A single call to this method can be
+     * made at the time. If a second call is made while a program is under way, this
+     * second call will be blocked.
+     *
+     * @param logger  existing {@link DistLog} into which the logged events of the
+     *                GLB will be kept
+     * @param program program to launch under GLB
+     * @return collection of all the Exceptions that occurred during the glb program
+     */
+    public static ArrayList&lt;Exception&gt; underGLB(DistLog logger, SerializableJob program) {
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">        if (GlobalLoadBalancer.glb == null) {</span>
+            // Logger instance for the entire GLB
+<span class="fc" id="L189">            previousLog = logger;</span>
+<span class="fc" id="L190">            logger.put(LOGKEY_UNDER_GLB, LOG_PROGRAM_STARTED, Long.toString(System.nanoTime()));</span>
+
+            // Create a new GlobalLoadBalancer instance that will handle the program
+<span class="fc" id="L193">            glb = new GlobalLoadBalancer();</span>
+
+            // Also initialize the GlbComputer on all hosts before trying to submit anything
+<span class="fc" id="L196">            GlbComputer.initializeComputer(logger);</span>
+
+<span class="fc" id="L198">            final ArrayList&lt;Exception&gt; exc = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L199">            finish(() -&gt; {</span>
+                try {
+<span class="fc" id="L201">                    program.run();</span>
+<span class="fc" id="L202">                    start(); // This launches any submitted operation that have not been explicitly launched</span>
+                    // inside the provided program
+<span class="fc" id="L204">                } catch (final Exception e) {</span>
+<span class="fc" id="L205">                    System.err.println(&quot;ERROR during GLB program execution&quot;);</span>
+<span class="fc" id="L206">                    e.printStackTrace();</span>
+<span class="fc" id="L207">                    exc.add(e);</span>
+<span class="fc" id="L208">                }</span>
+<span class="fc" id="L209">            });</span>
+<span class="fc" id="L210">            logger.put(LOGKEY_UNDER_GLB, LOG_PROGRAM_ENDED, Long.toString(System.nanoTime()));</span>
+
+            // Destroy the singletons for new ones to be created next time this method is
+            // called
+<span class="fc" id="L214">            glb = null;</span>
+
+<span class="fc" id="L216">            GlbComputer.destroyGlbComputer();</span>
+            // Also reset the priority for the future GlbOperations to be created
+<span class="fc" id="L218">            GlbOperation.nextPriority = 0;</span>
+
+<span class="fc" id="L220">            return exc;</span>
+        } else {
+<span class="nc" id="L222">            throw new IllegalStateException(&quot;Method was called even though another glb program is already running&quot;);</span>
+        }
+    }
 
     /**
      * Method to call to launch a GLB program. A single call to this method can be
@@ -93,32 +232,7 @@ public class GlobalLoadBalancer {
      * @return collection of all the Exceptions that occurred during the glb program
      */
     public static ArrayList&lt;Exception&gt; underGLB(SerializableJob program) {
-<span class="pc bpc" id="L96" title="1 of 2 branches missed.">        if (GlobalLoadBalancer.glb == null) {</span>
-            // Create a new GlobalLoadBalancer instance that will handle the program
-<span class="fc" id="L98">            glb = new GlobalLoadBalancer();</span>
-
-            // Also initialize the GlbComputer on all hosts before trying to submit anything
-<span class="fc" id="L101">            GlbComputer.getComputer();</span>
-
-<span class="fc" id="L103">            final ArrayList&lt;Exception&gt; exc = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L104">            finish(() -&gt; {</span>
-                try {
-<span class="fc" id="L106">                    program.run();</span>
-<span class="fc" id="L107">                    start(); // This launches any submitted operation that have not been explicitly launched</span>
-                    // inside the provided program
-<span class="fc" id="L109">                } catch (final Exception e) {</span>
-<span class="fc" id="L110">                    System.err.println(&quot;ERROR during GLB program execution&quot;);</span>
-<span class="fc" id="L111">                    e.printStackTrace();</span>
-<span class="fc" id="L112">                    exc.add(e);</span>
-                } finally {
-<span class="fc" id="L114">                    glb = null; // Destroy the singleton for a new one to be created next time this method is</span>
-                    // called
-                }
-<span class="fc" id="L117">            });</span>
-<span class="fc" id="L118">            return exc;</span>
-        } else {
-<span class="nc" id="L120">            throw new IllegalStateException(&quot;Method was called even though another glb program is already running&quot;);</span>
-        }
+<span class="fc" id="L235">        return underGLB(new DistLog(), program);</span>
     }
 
     /**
@@ -131,9 +245,9 @@ public class GlobalLoadBalancer {
     /**
      * Private constructor to preserve the singleton pattern
      */
-<span class="fc" id="L134">    private GlobalLoadBalancer() {</span>
-<span class="fc" id="L135">        operationsStaged = new LinkedList&lt;&gt;();</span>
-<span class="fc" id="L136">    }</span>
+<span class="fc" id="L248">    private GlobalLoadBalancer() {</span>
+<span class="fc" id="L249">        operationsStaged = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L250">    }</span>
 
     /**
      * Makes the global load balancer start the operation given as second argument
@@ -142,9 +256,9 @@ public class GlobalLoadBalancer {
      * @param before operation to terminate before the second argument can start
      * @param then   operation to start after the first argument has completed
      */
-    void scheduleOperationAfter(GlbOperation&lt;?, ?, ?, ?, ?&gt; before, GlbOperation&lt;?, ?, ?, ?, ?&gt; then) {
-<span class="fc" id="L146">        GlbOperation.makeDependency(before, then);</span>
-<span class="fc" id="L147">    }</span>
+    void scheduleOperationAfter(GlbOperation&lt;?, ?, ?, ?, ?, ?&gt; before, GlbOperation&lt;?, ?, ?, ?, ?, ?&gt; then) {
+<span class="fc" id="L260">        GlbOperation.makeDependency(before, then);</span>
+<span class="fc" id="L261">    }</span>
 
     /**
      * Helper method used by the various Glb handles of the distributed collections
@@ -153,7 +267,7 @@ public class GlobalLoadBalancer {
      * @param operation operation to perform on a distributed collection
      */
     void submit(@SuppressWarnings(&quot;rawtypes&quot;) GlbOperation operation) {
-<span class="fc" id="L156">        operationsStaged.add(operation);</span>
-<span class="fc" id="L157">    }</span>
+<span class="fc" id="L270">        operationsStaged.add(operation);</span>
+<span class="fc" id="L271">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

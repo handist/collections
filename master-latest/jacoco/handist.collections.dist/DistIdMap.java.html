@@ -35,12 +35,13 @@ import handist.collections.function.Serializer;
  *
  * @param &lt;V&gt; the type of the value mappings of this instance
  */
-public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
+public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt;
+        implements DistributedCollection&lt;V, DistMap&lt;Long, V&gt;&gt;, ElementLocationManagable&lt;Long&gt; {
 //TODO
     /* implements ManagedDistribution[Long] */
 
-<span class="fc" id="L42">    private static int _debug_level = 0;</span>
-    transient DistManager&lt;Long&gt; ldist;
+<span class="fc" id="L43">    private static int _debug_level = 0;</span>
+    transient ElementLocationManager&lt;Long&gt; ldist;
     transient float[] locality;
 
     /**
@@ -49,8 +50,8 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
      * for this new collection.
      */
     public DistIdMap() {
-<span class="fc" id="L52">        this(TeamedPlaceGroup.getWorld());</span>
-<span class="fc" id="L53">    }</span>
+<span class="fc" id="L53">        this(TeamedPlaceGroup.getWorld());</span>
+<span class="fc" id="L54">    }</span>
 
     /**
      * Construct a DistIdMap with the given argument. TeamOperations(placeGroup) is
@@ -59,32 +60,34 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
      * @param placeGroup the PlaceGroup.
      */
     public DistIdMap(TeamedPlaceGroup placeGroup) {
-<span class="fc" id="L62">        super(placeGroup);</span>
+<span class="fc" id="L63">        super(placeGroup);</span>
+<span class="pc" id="L64">        super.GLOBAL = new GlobalOperations&lt;&gt;(this, (TeamedPlaceGroup pg0, GlobalID gid) -&gt; new DistIdMap&lt;&gt;(pg0, gid));</span>
         // TODO
-<span class="fc" id="L64">        this.ldist = new DistManager&lt;&gt;();</span>
-<span class="fc" id="L65">        ldist.setup(data.keySet());</span>
-<span class="fc" id="L66">        locality = new float[placeGroup.size()];</span>
-<span class="fc" id="L67">        Arrays.fill(locality, 1.0f);</span>
-<span class="fc" id="L68">    }</span>
+<span class="fc" id="L66">        this.ldist = new ElementLocationManager&lt;&gt;();</span>
+<span class="fc" id="L67">        ldist.setup(data.keySet());</span>
+<span class="fc" id="L68">        locality = new float[placeGroup.size()];</span>
+<span class="fc" id="L69">        Arrays.fill(locality, 1.0f);</span>
+<span class="fc" id="L70">    }</span>
 
     protected DistIdMap(TeamedPlaceGroup placeGroup, GlobalID id) {
-<span class="fc" id="L71">        super(placeGroup, id);</span>
+<span class="fc" id="L73">        super(placeGroup, id);</span>
+<span class="pc" id="L74">        super.GLOBAL = new GlobalOperations&lt;&gt;(this, (TeamedPlaceGroup pg0, GlobalID gid) -&gt; new DistIdMap&lt;&gt;(pg0, gid));</span>
         // TODO
-<span class="fc" id="L73">        this.ldist = new DistManager&lt;&gt;();</span>
-<span class="fc" id="L74">        ldist.setup(data.keySet());</span>
-<span class="fc" id="L75">        locality = new float[placeGroup.size()];</span>
-<span class="fc" id="L76">        Arrays.fill(locality, 1.0f);</span>
-<span class="fc" id="L77">    }</span>
+<span class="fc" id="L76">        this.ldist = new ElementLocationManager&lt;&gt;();</span>
+<span class="fc" id="L77">        ldist.setup(data.keySet());</span>
+<span class="fc" id="L78">        locality = new float[placeGroup.size()];</span>
+<span class="fc" id="L79">        Arrays.fill(locality, 1.0f);</span>
+<span class="fc" id="L80">    }</span>
 
     /**
      * Remove the all local entries.
      */
     @Override
     public void clear() {
-<span class="nc" id="L84">        super.clear();</span>
-<span class="nc" id="L85">        this.ldist.clear();</span>
-<span class="nc" id="L86">        Arrays.fill(locality, 1.0f);</span>
-<span class="nc" id="L87">    }</span>
+<span class="nc" id="L87">        super.clear();</span>
+<span class="nc" id="L88">        this.ldist.clear();</span>
+<span class="nc" id="L89">        Arrays.fill(locality, 1.0f);</span>
+<span class="nc" id="L90">    }</span>
 
     /*
      * Return true if the entry corresponding to the specified id is local.
@@ -92,12 +95,12 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
      * @return true or false.
      */
     public boolean containsId(long id) {
-<span class="nc" id="L95">        return super.containsKey(id);</span>
+<span class="nc" id="L98">        return super.containsKey(id);</span>
     }
 
     public boolean delete(long id) {
-<span class="nc" id="L99">        ldist.remove(id);</span>
-<span class="nc" id="L100">        return super.delete(id);</span>
+<span class="nc" id="L102">        ldist.remove(id);</span>
+<span class="nc" id="L103">        return super.delete(id);</span>
     }
 
     /*
@@ -105,12 +108,12 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
      * all places
      */
     public void distSize(long[] result) {
-<span class="nc bnc" id="L108" title="All 2 branches missed.">        for (final Map.Entry&lt;Long, Place&gt; entry : ldist.dist.entrySet()) {</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        for (final Map.Entry&lt;Long, Place&gt; entry : ldist.dist.entrySet()) {</span>
             // val k = entry.getKey();
-<span class="nc" id="L110">            final Place v = entry.getValue();</span>
-<span class="nc" id="L111">            result[placeGroup.rank(v)] += 1;</span>
-<span class="nc" id="L112">        }</span>
-<span class="nc" id="L113">    }</span>
+<span class="nc" id="L113">            final Place v = entry.getValue();</span>
+<span class="nc" id="L114">            result[placeGroup.rank(v)] += 1;</span>
+<span class="nc" id="L115">        }</span>
+<span class="nc" id="L116">    }</span>
 
     /**
      * Execute the specified operation with the corresponding value of the specified
@@ -129,15 +132,15 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
      * @param op the operation.
      */
     public void execAt(long id, SerializableConsumer&lt;V&gt; op) {
-<span class="nc" id="L132">        final Place place = getPlace(id);</span>
-<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (place.equals(here())) {</span>
-<span class="nc" id="L134">            op.accept(data.get(id));</span>
-<span class="nc" id="L135">            return;</span>
+<span class="nc" id="L135">        final Place place = getPlace(id);</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        if (place.equals(here())) {</span>
+<span class="nc" id="L137">            op.accept(data.get(id));</span>
+<span class="nc" id="L138">            return;</span>
         }
-<span class="nc" id="L137">        asyncAt(place, () -&gt; {</span>
-<span class="nc" id="L138">            op.accept(data.get(id));</span>
-<span class="nc" id="L139">        });</span>
-<span class="nc" id="L140">    }</span>
+<span class="nc" id="L140">        asyncAt(place, () -&gt; {</span>
+<span class="nc" id="L141">            op.accept(data.get(id));</span>
+<span class="nc" id="L142">        });</span>
+<span class="nc" id="L143">    }</span>
 
     /**
      * Get the corresponding value of the specified id in the local collection.
@@ -148,19 +151,19 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
      *         the local collection
      */
     public V get(long id) {
-<span class="nc" id="L151">        return data.get(id);</span>
+<span class="nc" id="L154">        return data.get(id);</span>
     }
 
     Map&lt;Long, Integer&gt; getDiff() {
-<span class="nc" id="L155">        return ldist.diff;</span>
+<span class="nc" id="L158">        return ldist.diff;</span>
     }
 
     public Map&lt;Long, Place&gt; getDist() {
-<span class="nc" id="L159">        return ldist.dist;</span>
+<span class="nc" id="L162">        return ldist.dist;</span>
     }
 
     public LongDistribution getDistributionLong() {
-<span class="nc" id="L163">        return new LongDistribution(getDist());</span>
+<span class="nc" id="L166">        return new LongDistribution(getDist());</span>
     }
 
     /*
@@ -172,8 +175,16 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
      * @return the Place.
      */
     public Place getPlace(long id) {
-<span class="nc" id="L175">        return ldist.dist.get(id);</span>
+<span class="nc" id="L178">        return ldist.dist.get(id);</span>
     }
+
+    @Override
+    public void getSizeDistribution(long[] result) {
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        for (final Map.Entry&lt;Long, Place&gt; entry : ldist.dist.entrySet()) {</span>
+<span class="nc" id="L184">            final Place p = entry.getValue();</span>
+<span class="nc" id="L185">            result[placeGroup.rank(p)]++;</span>
+<span class="nc" id="L186">        }</span>
+<span class="nc" id="L187">    }</span>
 
     /*
      * Return the Set of local ids.
@@ -181,147 +192,147 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
      * @return the Set of local ids.
      */
     public Set&lt;Long&gt; idSet() {
-<span class="nc" id="L184">        return keySet();</span>
+<span class="nc" id="L195">        return keySet();</span>
     }
 
     @Override
     @SuppressWarnings(&quot;unchecked&quot;)
     public void moveAtSync(Collection&lt;Long&gt; keys, Place dest, MoveManager mm) {
-<span class="nc bnc" id="L190" title="All 2 branches missed.">        if (dest.equals(here())) {</span>
-<span class="nc" id="L191">            return;</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        if (dest.equals(here())) {</span>
+<span class="nc" id="L202">            return;</span>
         }
-<span class="nc" id="L193">        final DistIdMap&lt;V&gt; collection = this;</span>
-<span class="nc" id="L194">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
-<span class="nc" id="L195">            final int size = keys.size();</span>
-<span class="nc" id="L196">            s.writeInt(size);</span>
-<span class="nc bnc" id="L197" title="All 2 branches missed.">            for (final Long key : keys) {</span>
-<span class="nc" id="L198">                final V value = collection.removeForMove(key);</span>
-<span class="nc" id="L199">                final byte mType = ldist.moveOut(key, dest);</span>
-<span class="nc" id="L200">                s.writeLong(key);</span>
-<span class="nc" id="L201">                s.writeByte(mType);</span>
-<span class="nc" id="L202">                s.writeObject(value);</span>
-<span class="nc" id="L203">            }</span>
-<span class="nc" id="L204">        };</span>
-<span class="nc" id="L205">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
-<span class="nc" id="L206">            final int size = ds.readInt();</span>
-<span class="nc bnc" id="L207" title="All 2 branches missed.">            for (int i = 0; i &lt; size; i++) {</span>
-<span class="nc" id="L208">                final long key = ds.readLong();</span>
-<span class="nc" id="L209">                final byte mType = ds.readByte();</span>
-<span class="nc" id="L210">                final V value = (V) ds.readObject();</span>
-<span class="nc" id="L211">                collection.putForMove(key, mType, value);</span>
+<span class="nc" id="L204">        final DistIdMap&lt;V&gt; collection = this;</span>
+<span class="nc" id="L205">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="nc" id="L206">            final int size = keys.size();</span>
+<span class="nc" id="L207">            s.writeInt(size);</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            for (final Long key : keys) {</span>
+<span class="nc" id="L209">                final V value = collection.removeForMove(key);</span>
+<span class="nc" id="L210">                final byte mType = ldist.moveOut(key, dest);</span>
+<span class="nc" id="L211">                s.writeLong(key);</span>
+<span class="nc" id="L212">                s.writeByte(mType);</span>
+<span class="nc" id="L213">                s.writeObject(value);</span>
+<span class="nc" id="L214">            }</span>
+<span class="nc" id="L215">        };</span>
+<span class="nc" id="L216">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="nc" id="L217">            final int size = ds.readInt();</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">            for (int i = 0; i &lt; size; i++) {</span>
+<span class="nc" id="L219">                final long key = ds.readLong();</span>
+<span class="nc" id="L220">                final byte mType = ds.readByte();</span>
+<span class="nc" id="L221">                final V value = (V) ds.readObject();</span>
+<span class="nc" id="L222">                collection.putForMove(key, mType, value);</span>
             }
-<span class="nc" id="L213">        };</span>
-<span class="nc" id="L214">        mm.request(dest, serialize, deserialize);</span>
-<span class="nc" id="L215">    }</span>
+<span class="nc" id="L224">        };</span>
+<span class="nc" id="L225">        mm.request(dest, serialize, deserialize);</span>
+<span class="nc" id="L226">    }</span>
 
     @Override
     public void moveAtSync(Distribution&lt;Long&gt; dist, MoveManager mm) {
-<span class="nc" id="L219">        final Function&lt;Long, Place&gt; rule = (Long key) -&gt; {</span>
-<span class="nc" id="L220">            return dist.place(key);</span>
+<span class="nc" id="L230">        final Function&lt;Long, Place&gt; rule = (Long key) -&gt; {</span>
+<span class="nc" id="L231">            return dist.place(key);</span>
         };
-<span class="nc" id="L222">        moveAtSync(rule, mm);</span>
-<span class="nc" id="L223">    }</span>
+<span class="nc" id="L233">        moveAtSync(rule, mm);</span>
+<span class="nc" id="L234">    }</span>
 
     @Override
     public void moveAtSync(Function&lt;Long, Place&gt; rule, MoveManager mm) {
-<span class="nc" id="L227">        final DistIdMap&lt;V&gt; collection = this;</span>
-<span class="nc" id="L228">        final HashMap&lt;Place, ArrayList&lt;Long&gt;&gt; keysToMove = new HashMap&lt;&gt;();</span>
-<span class="nc" id="L229">        collection.forEach((Long key, V value) -&gt; {</span>
-<span class="nc" id="L230">            final Place destination = rule.apply(key);</span>
-<span class="nc bnc" id="L231" title="All 2 branches missed.">            if (!keysToMove.containsKey(destination)) {</span>
-<span class="nc" id="L232">                keysToMove.put(destination, new ArrayList&lt;Long&gt;());</span>
+<span class="nc" id="L238">        final DistIdMap&lt;V&gt; collection = this;</span>
+<span class="nc" id="L239">        final HashMap&lt;Place, ArrayList&lt;Long&gt;&gt; keysToMove = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L240">        collection.forEach((Long key, V value) -&gt; {</span>
+<span class="nc" id="L241">            final Place destination = rule.apply(key);</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">            if (!keysToMove.containsKey(destination)) {</span>
+<span class="nc" id="L243">                keysToMove.put(destination, new ArrayList&lt;Long&gt;());</span>
             }
-<span class="nc" id="L234">            keysToMove.get(destination).add(key);</span>
-<span class="nc" id="L235">        });</span>
-<span class="nc bnc" id="L236" title="All 2 branches missed.">        for (final Place p : keysToMove.keySet()) {</span>
-<span class="nc" id="L237">            moveAtSync(keysToMove.get(p), p, mm);</span>
-<span class="nc" id="L238">        }</span>
-<span class="nc" id="L239">    }</span>
+<span class="nc" id="L245">            keysToMove.get(destination).add(key);</span>
+<span class="nc" id="L246">        });</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        for (final Place p : keysToMove.keySet()) {</span>
+<span class="nc" id="L248">            moveAtSync(keysToMove.get(p), p, mm);</span>
+<span class="nc" id="L249">        }</span>
+<span class="nc" id="L250">    }</span>
 
     @SuppressWarnings(&quot;unchecked&quot;)
     public void moveAtSync(final long key, Place dest, MoveManager mm) {
-<span class="fc bfc" id="L243" title="All 2 branches covered.">        if (dest.equals(here())) {</span>
-<span class="fc" id="L244">            return;</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">        if (dest.equals(here())) {</span>
+<span class="fc" id="L255">            return;</span>
         }
 
-<span class="fc" id="L247">        final DistIdMap&lt;V&gt; toBranch = this;</span>
-<span class="fc" id="L248">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
-<span class="fc" id="L249">            final V value = this.removeForMove(key);</span>
-<span class="fc" id="L250">            final byte mType = ldist.moveOut(key, dest);</span>
-<span class="fc" id="L251">            s.writeLong(key);</span>
-<span class="fc" id="L252">            s.writeByte(mType);</span>
-<span class="fc" id="L253">            s.writeObject(value);</span>
-<span class="fc" id="L254">        };</span>
-<span class="fc" id="L255">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
-<span class="fc" id="L256">            final long k = ds.readLong();</span>
-<span class="fc" id="L257">            final byte mType = ds.readByte();</span>
-<span class="fc" id="L258">            final V v = (V) ds.readObject();</span>
-<span class="pc bpc" id="L259" title="1 of 2 branches missed.">            if (_debug_level &gt; 5) {</span>
-<span class="nc" id="L260">                System.err.println(&quot;[&quot; + here() + &quot;] putForMove key: &quot; + k + &quot; keyType: &quot; + mType + &quot; value: &quot; + v);</span>
+<span class="fc" id="L258">        final DistIdMap&lt;V&gt; toBranch = this;</span>
+<span class="fc" id="L259">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="fc" id="L260">            final V value = this.removeForMove(key);</span>
+<span class="fc" id="L261">            final byte mType = ldist.moveOut(key, dest);</span>
+<span class="fc" id="L262">            s.writeLong(key);</span>
+<span class="fc" id="L263">            s.writeByte(mType);</span>
+<span class="fc" id="L264">            s.writeObject(value);</span>
+<span class="fc" id="L265">        };</span>
+<span class="fc" id="L266">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="fc" id="L267">            final long k = ds.readLong();</span>
+<span class="fc" id="L268">            final byte mType = ds.readByte();</span>
+<span class="fc" id="L269">            final V v = (V) ds.readObject();</span>
+<span class="pc bpc" id="L270" title="1 of 2 branches missed.">            if (_debug_level &gt; 5) {</span>
+<span class="nc" id="L271">                System.err.println(&quot;[&quot; + here() + &quot;] putForMove key: &quot; + k + &quot; keyType: &quot; + mType + &quot; value: &quot; + v);</span>
             }
-<span class="fc" id="L262">            toBranch.putForMove(k, mType, v);</span>
-<span class="fc" id="L263">        };</span>
-<span class="fc" id="L264">        mm.request(dest, serialize, deserialize);</span>
-<span class="fc" id="L265">    }</span>
+<span class="fc" id="L273">            toBranch.putForMove(k, mType, v);</span>
+<span class="fc" id="L274">        };</span>
+<span class="fc" id="L275">        mm.request(dest, serialize, deserialize);</span>
+<span class="fc" id="L276">    }</span>
 
     @Override
     public void moveAtSync(Long key, Place dest, MoveManager mm) {
-<span class="fc" id="L269">        moveAtSync(key.longValue(), dest, mm);</span>
-<span class="fc" id="L270">    }</span>
+<span class="fc" id="L280">        moveAtSync(key.longValue(), dest, mm);</span>
+<span class="fc" id="L281">    }</span>
 
     @Override
     @SuppressWarnings(&quot;unchecked&quot;)
     public void moveAtSyncCount(int count, Place dest, MoveManager mm) {
-<span class="nc bnc" id="L275" title="All 2 branches missed.">        if (dest.equals(here())) {</span>
-<span class="nc" id="L276">            return;</span>
+<span class="nc bnc" id="L286" title="All 2 branches missed.">        if (dest.equals(here())) {</span>
+<span class="nc" id="L287">            return;</span>
         }
-<span class="nc" id="L278">        final DistIdMap&lt;V&gt; collection = this;</span>
-<span class="nc" id="L279">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
-<span class="nc" id="L280">            final int size = count;</span>
-<span class="nc" id="L281">            s.writeInt(size);</span>
-<span class="nc" id="L282">            final long[] keys = new long[size];</span>
-<span class="nc" id="L283">            final Object[] values = new Object[size];</span>
+<span class="nc" id="L289">        final DistIdMap&lt;V&gt; collection = this;</span>
+<span class="nc" id="L290">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="nc" id="L291">            final int size = count;</span>
+<span class="nc" id="L292">            s.writeInt(size);</span>
+<span class="nc" id="L293">            final long[] keys = new long[size];</span>
+<span class="nc" id="L294">            final Object[] values = new Object[size];</span>
 
-<span class="nc" id="L285">            int i = 0;</span>
-<span class="nc bnc" id="L286" title="All 2 branches missed.">            for (final Map.Entry&lt;Long, V&gt; entry : data.entrySet()) {</span>
-<span class="nc bnc" id="L287" title="All 2 branches missed.">                if (i == size) {</span>
-<span class="nc" id="L288">                    break;</span>
+<span class="nc" id="L296">            int i = 0;</span>
+<span class="nc bnc" id="L297" title="All 2 branches missed.">            for (final Map.Entry&lt;Long, V&gt; entry : data.entrySet()) {</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">                if (i == size) {</span>
+<span class="nc" id="L299">                    break;</span>
                 }
-<span class="nc" id="L290">                keys[i] = entry.getKey();</span>
-<span class="nc" id="L291">                values[i] = entry.getValue();</span>
-<span class="nc" id="L292">                i += 1;</span>
-<span class="nc" id="L293">            }</span>
-<span class="nc bnc" id="L294" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
-<span class="nc" id="L295">                s.writeLong(keys[j]);</span>
+<span class="nc" id="L301">                keys[i] = entry.getKey();</span>
+<span class="nc" id="L302">                values[i] = entry.getValue();</span>
+<span class="nc" id="L303">                i += 1;</span>
+<span class="nc" id="L304">            }</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L306">                s.writeLong(keys[j]);</span>
             }
-<span class="nc bnc" id="L297" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
-<span class="nc" id="L298">                s.writeObject(values[j]);</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L309">                s.writeObject(values[j]);</span>
             }
-<span class="nc bnc" id="L300" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
-<span class="nc" id="L301">                final long key = keys[j];</span>
-<span class="nc" id="L302">                collection.removeForMove(key);</span>
-<span class="nc" id="L303">                final byte mType = ldist.moveOut(key, dest);</span>
-<span class="nc" id="L304">                s.writeByte(mType);</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L312">                final long key = keys[j];</span>
+<span class="nc" id="L313">                collection.removeForMove(key);</span>
+<span class="nc" id="L314">                final byte mType = ldist.moveOut(key, dest);</span>
+<span class="nc" id="L315">                s.writeByte(mType);</span>
             }
-<span class="nc" id="L306">        };</span>
-<span class="nc" id="L307">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
-<span class="nc" id="L308">            final int size = ds.readInt();</span>
-<span class="nc" id="L309">            final long[] keys = new long[size];</span>
-<span class="nc" id="L310">            final Object[] values = new Object[size];</span>
+<span class="nc" id="L317">        };</span>
+<span class="nc" id="L318">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="nc" id="L319">            final int size = ds.readInt();</span>
+<span class="nc" id="L320">            final long[] keys = new long[size];</span>
+<span class="nc" id="L321">            final Object[] values = new Object[size];</span>
 
-<span class="nc bnc" id="L312" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
-<span class="nc" id="L313">                keys[j] = ds.readLong();</span>
+<span class="nc bnc" id="L323" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L324">                keys[j] = ds.readLong();</span>
             }
-<span class="nc bnc" id="L315" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
-<span class="nc" id="L316">                values[j] = ds.readObject();</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L327">                values[j] = ds.readObject();</span>
             }
-<span class="nc bnc" id="L318" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
-<span class="nc" id="L319">                final byte mType = ds.readByte();</span>
-<span class="nc" id="L320">                collection.putForMove(keys[j], mType, (V) values[j]);</span>
+<span class="nc bnc" id="L329" title="All 2 branches missed.">            for (int j = 0; j &lt; size; j++) {</span>
+<span class="nc" id="L330">                final byte mType = ds.readByte();</span>
+<span class="nc" id="L331">                collection.putForMove(keys[j], mType, (V) values[j]);</span>
             }
-<span class="nc" id="L322">        };</span>
-<span class="nc" id="L323">        mm.request(dest, serialize, deserialize);</span>
-<span class="nc" id="L324">    }</span>
+<span class="nc" id="L333">        };</span>
+<span class="nc" id="L334">        mm.request(dest, serialize, deserialize);</span>
+<span class="nc" id="L335">    }</span>
 
     /**
      * Put a new entry into the local map entry
@@ -330,25 +341,25 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
      * @param value a value.
      */
     public V put(long id, V value) throws Exception {
-<span class="pc bpc" id="L333" title="1 of 2 branches missed.">        if (data.containsKey(id)) {</span>
-<span class="nc" id="L334">            return data.put(id, value);</span>
+<span class="pc bpc" id="L344" title="1 of 2 branches missed.">        if (data.containsKey(id)) {</span>
+<span class="nc" id="L345">            return data.put(id, value);</span>
         }
-<span class="fc" id="L336">        ldist.add(id);</span>
-<span class="fc" id="L337">        return data.put(id, value);</span>
+<span class="fc" id="L347">        ldist.add(id);</span>
+<span class="fc" id="L348">        return data.put(id, value);</span>
     }
 
     private V putForMove(long key, byte mType, V value) throws Exception {
-<span class="pc bpc" id="L341" title="2 of 3 branches missed.">        switch (mType) {</span>
-        case DistManager.MOVE_NEW:
-<span class="fc" id="L343">            ldist.moveInNew(key);</span>
-<span class="fc" id="L344">            break;</span>
-        case DistManager.MOVE_OLD:
-<span class="nc" id="L346">            ldist.moveInOld(key);</span>
-<span class="nc" id="L347">            break;</span>
+<span class="pc bpc" id="L352" title="2 of 3 branches missed.">        switch (mType) {</span>
+        case ElementLocationManager.MOVE_NEW:
+<span class="fc" id="L354">            ldist.moveInNew(key);</span>
+<span class="fc" id="L355">            break;</span>
+        case ElementLocationManager.MOVE_OLD:
+<span class="nc" id="L357">            ldist.moveInOld(key);</span>
+<span class="nc" id="L358">            break;</span>
         default:
-<span class="nc" id="L349">            throw new Exception(&quot;SystemError when calling putForMove &quot; + key);</span>
+<span class="nc" id="L360">            throw new Exception(&quot;SystemError when calling putForMove &quot; + key);</span>
         }
-<span class="fc" id="L351">        return data.put(key, value);</span>
+<span class="fc" id="L362">        return data.put(key, value);</span>
     }
 
     /*
@@ -357,12 +368,8 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
      * @param id a Long type value.
      */
     public V remove(long id) {
-<span class="fc" id="L360">        ldist.remove(id);</span>
-<span class="fc" id="L361">        return super.remove(id);</span>
-    }
-
-    private V removeForMove(long id) {
-<span class="fc" id="L365">        return data.remove(id);</span>
+<span class="fc" id="L371">        ldist.remove(id);</span>
+<span class="fc" id="L372">        return super.remove(id);</span>
     }
 
     /*
@@ -376,12 +383,17 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
     // void {
     // no need for sparse array
 
+    private V removeForMove(long id) {
+<span class="fc" id="L387">        return data.remove(id);</span>
+    }
+
     /**
      * Update the distribution information of the entries.
      */
+    @Override
     public void updateDist() {
-<span class="nc" id="L383">        ldist.updateDist(placeGroup);</span>
-<span class="nc" id="L384">    }</span>
+<span class="nc" id="L395">        ldist.updateDist(placeGroup);</span>
+<span class="nc" id="L396">    }</span>
 
     /*
      * public def versioningIdMap(srcName : String){ // return new
@@ -391,10 +403,10 @@ public class DistIdMap&lt;V&gt; extends DistMap&lt;Long, V&gt; {
 
     @Override
     public Object writeReplace() throws ObjectStreamException {
-<span class="fc" id="L394">        final TeamedPlaceGroup pg1 = placeGroup;</span>
-<span class="fc" id="L395">        final GlobalID id1 = id;</span>
-<span class="fc" id="L396">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
-<span class="fc" id="L397">            return new DistIdMap&lt;&gt;(pg1, id1);</span>
+<span class="fc" id="L406">        final TeamedPlaceGroup pg1 = placeGroup;</span>
+<span class="fc" id="L407">        final GlobalID id1 = id;</span>
+<span class="fc" id="L408">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L409">            return new DistIdMap&lt;&gt;(pg1, id1);</span>
         });
     }
 

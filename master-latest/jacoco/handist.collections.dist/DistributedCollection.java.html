@@ -66,11 +66,12 @@ public interface DistributedCollection&lt;T, C extends DistributedCollection&lt;
     public void forEach(SerializableConsumer&lt;T&gt; action);
 
     /**
-     * Returns a handle to global operations of a distributed collection
+     * getter method of the satellite {@code DistCollectionSatellite} object.
      *
-     * @return handle to &quot;global&quot; operations
+     * @return the collection's satellite
      */
-    public GlobalOperations&lt;T, C&gt; global();
+
+    public abstract &lt;S extends DistCollectionSatellite&lt;C, S&gt;&gt; S getSatellite(/* Object key */);
 
     /**
      * Places the local size of each local handle of the distributed object in the
@@ -82,6 +83,13 @@ public interface DistributedCollection&lt;T, C extends DistributedCollection&lt;
      */
     // this method is now implemented in GlobalOperations and TeamOperations
     // abstract public void distSize(long[] result);
+
+    /**
+     * Returns a handle to global operations of a distributed collection
+     *
+     * @return handle to &quot;global&quot; operations
+     */
+    public GlobalOperations&lt;T, C&gt; global();
 
     /**
      * Retuns the global ID that identifies this distributed collection on all hosts
@@ -97,10 +105,17 @@ public interface DistributedCollection&lt;T, C extends DistributedCollection&lt;
      */
     public float[] locality();
 
-    public abstract void moveAtSyncCount(final ArrayList&lt;IntLongPair&gt; moveList, final MoveManager mm) throws Exception;
+    /**
+     * Returns the size of the number of elements in each place.
+     *
+     * @return the size in {@long}
+     */
+    public abstract long longSize();
 
     // TODO
     // public abstract void integrate(T src);
+
+    public abstract void moveAtSyncCount(final ArrayList&lt;IntLongPair&gt; moveList, final MoveManager mm) throws Exception;
 
     /**
      * Performs the specified action on every instance contained by the local handle
@@ -117,17 +132,24 @@ public interface DistributedCollection&lt;T, C extends DistributedCollection&lt;
      */
     public TeamedPlaceGroup placeGroup();
 
+    /*
+     * public final def printAllData(){ for(p in placeGroup){ at(p){
+     * printLocalData(); } } }
+     */
+
+    /**
+     * setter method of the satellite {@code DistCollectionSatellite} object.
+     *
+     * @param satellite the new satellite collection from here onwards
+     */
+    public abstract &lt;S extends DistCollectionSatellite&lt;C, S&gt;&gt; void setSatellite(S satellite);
+
     /**
      * Returns a handle to teamed operations of a distributed collection
      *
      * @return handle to &quot;teamed&quot; operations
      */
     public TeamOperations&lt;T, C&gt; team();
-
-    /*
-     * public final def printAllData(){ for(p in placeGroup){ at(p){
-     * printLocalData(); } } }
-     */
 
     /**
      * Method used to create an object which will be transferred to a remote place.

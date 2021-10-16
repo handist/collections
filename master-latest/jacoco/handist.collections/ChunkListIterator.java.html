@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChunkListIterator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">ChunkListIterator.java</span></div><h1>ChunkListIterator.java</h1><pre class="source lang-java linenums">package handist.collections;
+
+public class ChunkListIterator&lt;T&gt; implements RangedListIterator&lt;T&gt; {
+    private final LongRange range;
+    private final Object[] a;
+    private int i; // offset inside the chunk
+    private final int head;
+    private final int limit;
+<span class="pc" id="L9">    private int lastReturnedShift = -1;</span>
+
+<span class="nc" id="L11">    public ChunkListIterator() {</span>
+<span class="nc" id="L12">        this.a = null;</span>
+<span class="nc" id="L13">        this.range = new LongRange(0);</span>
+<span class="nc" id="L14">        this.head = 0;</span>
+<span class="nc" id="L15">        this.limit = 0;</span>
+<span class="nc" id="L16">        this.i = -1;</span>
+<span class="nc" id="L17">    }</span>
+
+    /**
+     *
+     * @param offset means the position from which the first element of range resides in the array a.
+     * @param range represents the index ranges where the list iterator can go forward/back.
+     * @param i0 represents the position where the iterator start scanning.
+     * @param a represents the array container
+     */
+<span class="fc" id="L26">    public ChunkListIterator(int offset, LongRange range, long i0, Object[] a) {</span>
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        if (!range.contains(i0)) {</span>
+<span class="fc" id="L28">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="fc" id="L30">        this.a = a;</span>
+<span class="fc" id="L31">        this.range = range;</span>
+<span class="fc" id="L32">        this.head = offset;</span>
+<span class="fc" id="L33">        this.limit = offset + (int)range.size();</span>
+<span class="fc" id="L34">        this.i = offset + (int)(i0-range.from) - 1;</span>
+<span class="fc" id="L35">    }</span>
+<span class="fc" id="L36">    public ChunkListIterator(int offset, LongRange range, Object[] a) {</span>
+<span class="fc" id="L37">        this.a = a;</span>
+<span class="fc" id="L38">        this.range = range;</span>
+<span class="fc" id="L39">        this.head = offset;</span>
+<span class="fc" id="L40">        this.limit = offset + (int)range.size();</span>
+<span class="fc" id="L41">        this.i = offset - 1;</span>
+<span class="fc" id="L42">    }</span>
+
+    public ChunkListIterator(LongRange range, Object[] a) {
+<span class="fc" id="L45">        this(0, range, a);</span>
+<span class="fc" id="L46">    }</span>
+    public ChunkListIterator(LongRange range, long i0, Object[] a) {
+<span class="fc" id="L48">        this(0, range, i0, a);</span>
+<span class="fc" id="L49">    }</span>
+
+    private LongRange iterRange() {
+<span class="nc" id="L52">        return range;</span>
+    }
+
+    @Override
+    public boolean hasNext() {
+<span class="fc bfc" id="L57" title="All 2 branches covered.">        return i + 1 &lt; limit;</span>
+    }
+
+    @Override
+    public boolean hasPrevious() {
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        return i &gt; head;</span>
+    }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public T next() {
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">        if(!hasNext())</span>
+<span class="nc" id="L69">            throw new IndexOutOfBoundsException(&quot;[Chunk.It] range mismatch: &quot; + iterRange() + &quot; does not include &quot; + i);</span>
+<span class="fc" id="L70">        lastReturnedShift = 0;</span>
+<span class="fc" id="L71">        return (T) a[++i];</span>
+    }
+
+    @Override
+    public long nextIndex() {
+<span class="fc" id="L76">        return range.from + i + 1;</span>
+    }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public T previous() {
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">        if(!hasPrevious())</span>
+<span class="nc" id="L83">            throw new IndexOutOfBoundsException(&quot;[Chunk.It] range mismatch: &quot; + iterRange() + &quot; does not include &quot; + i);</span>
+<span class="fc" id="L84">        lastReturnedShift = 1;</span>
+<span class="fc" id="L85">        return (T) a[i--];</span>
+    }
+
+    @Override
+    public long previousIndex() {
+<span class="fc" id="L90">        return range.from + i;</span>
+    }
+
+    @Override
+    public void set(T e) {
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        if (lastReturnedShift == -1) {</span>
+<span class="fc" id="L96">            throw new IllegalStateException(&quot;[Chunk.It] Either method &quot;</span>
+                    + &quot;previous or next needs to be called before method set&quot; + &quot; can be used&quot;);
+        }
+<span class="fc" id="L99">        a[i + lastReturnedShift] = e; // FIXME THIS IS NOT CORRECT !!!</span>
+<span class="fc" id="L100">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -12,6 +12,8 @@ package handist.collections.glb;
 
 import java.io.Serializable;
 
+import handist.collections.glb.lifeline.Lifeline;
+
 /**
  * Abstract handle gathering common operations and routine to all GLB handles of
  * distributed collections
@@ -19,10 +21,16 @@ import java.io.Serializable;
  * @author Patrick Finnerty
  *
  */
-<span class="fc" id="L22">public class AbstractGlbHandle implements Serializable {</span>
+<span class="fc" id="L24">public class AbstractGlbHandle implements Serializable {</span>
 
     /** Serial Version UID */
     private static final long serialVersionUID = -4684225091595493661L;
+
+    /**
+     * Class designated to be used to build lifelines
+     */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    Class lifelineClass;
 
     /**
      * Checks if the static glb instance of class {@link GlobalLoadBalancer} is
@@ -35,12 +43,23 @@ import java.io.Serializable;
      *                               method being called
      */
     protected GlobalLoadBalancer getGlb() {
-<span class="fc" id="L38">        final GlobalLoadBalancer glb = GlobalLoadBalancer.glb;</span>
-<span class="fc bfc" id="L39" title="All 2 branches covered.">        if (glb == null) {</span>
-<span class="fc" id="L40">            throw new IllegalStateException(&quot;Cannot call method from outside GlobalLoadBalancer#underGlb method&quot;);</span>
+<span class="fc" id="L46">        final GlobalLoadBalancer glb = GlobalLoadBalancer.glb;</span>
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        if (glb == null) {</span>
+<span class="fc" id="L48">            throw new IllegalStateException(&quot;Cannot call method from outside GlobalLoadBalancer#underGlb method&quot;);</span>
         } else {
-<span class="fc" id="L42">            return glb;</span>
+<span class="fc" id="L50">            return glb;</span>
         }
     }
+
+    /**
+     * Sets the lifeline strategy to be used with this collection from then on. Call
+     * with {@code null} to cancel any previously set lifeline implementation and
+     * revert back to the default setting
+     *
+     * @param c the class to be used as lifeline for this collection from then on
+     */
+    public void setLifeline(Class&lt;? extends Lifeline&gt; c) {
+<span class="nc" id="L62">        lifelineClass = c;</span>
+<span class="nc" id="L63">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>
