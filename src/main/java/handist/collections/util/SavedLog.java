@@ -12,6 +12,7 @@ import java.io.ObjectOutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -19,14 +20,10 @@ import java.util.TreeMap;
 
 import apgas.Constructs;
 import apgas.Place;
-import handist.collections.Chunk;
-import handist.collections.LongRange;
-import handist.collections.dist.DistCol;
 import handist.collections.dist.DistLog;
 import handist.collections.dist.DistLog.LogItem;
 import handist.collections.dist.DistLog.LogKey;
 import handist.collections.dist.DistMultiMap;
-import handist.collections.glb.GlobalLoadBalancer;
 
 /**
  * Class used as a substitute to {@link DistLog} to save the events recorded
@@ -105,8 +102,28 @@ public class SavedLog {
     }
 
     /**
-     * Main used to generate a file into which the events of GLB program execution
-     * are recorded
+     * Comparator which sorts the keys of a saved log according to their:
+     * <ol>
+     * <li>place
+     * <li>tag
+     * <li>phase
+     * </ol>
+     */
+    public static final Comparator<? super Key> sortPlaceTagPhase = (o1, o2) -> {
+        int result = Integer.compareUnsigned(o1.place, o2.place);
+        if (result == 0) {
+            result = o1.tag.compareTo(o2.tag);
+        }
+        if (result == 0) {
+            result = Long.compare(o1.phase, o2.phase);
+        }
+        return result;
+    };
+
+    /**
+     * Main which prints the contents of a saved log, with the keys and the number
+     * of entries for said keys on std output, and the entire contents of the saved
+     * log on the error output.
      *
      * @param args one argument: the name of the file into which the log will be
      *             stored
@@ -114,40 +131,31 @@ public class SavedLog {
     public static void main(String[] args) {
         if (args.length < 1) {
             System.err.println("1 arguments required:");
-            System.err.println("\t<file name> \tspecifies the file into which the log recording will be written");
+            System.err.println("\t<file name> \tfile to which a distributed log was saved");
             return;
         }
 
-        final DistCol<Long> col = new DistCol<>();
-        for (long l = 0l; l < 1000; l += 100) {
-            final Chunk<Long> c = new Chunk<>(new LongRange(l, l + 100), idx -> {
-                return new Long(idx);
-            });
-            col.add(c);
-        }
-
-        GlobalLoadBalancer.underGLB(() -> {
-            col.GLB.forEach(i -> i.compareTo(i + 42));
-        });
-
-        final DistLog distLog = GlobalLoadBalancer.getPreviousLog();
-        distLog.globalGather();
-        distLog.printAll(System.out);
-        final SavedLog log = new SavedLog(distLog);
+        SavedLog savedLog;
         try {
-            log.saveToFile(new File(args[0]));
-        } catch (final IOException e) {
-            System.err.println("Issue when trying to write to file:");
+            savedLog = new SavedLog(new File(args[0]));
+        } catch (ClassNotFoundException | IOException e) {
+            System.err.println("Trouble when parsing file ");
             e.printStackTrace();
+            return;
         }
+        savedLog.printKeys(System.out);
+        savedLog.printAll(System.err);
     }
 
     /**
      * Map into which the logged entries of the {@link DistLog} are converted
      */
-    private final HashMap<Key, Collection<LogItem>> loggedEntries;
+    public final HashMap<Key, Collection<LogItem>> loggedEntries;
 
-    private final int numberOfHosts;
+    /**
+     * Number of hosts in the original distributed log recording
+     */
+    public final int numberOfHosts;
 
     /**
      * Constructor
@@ -305,18 +313,16 @@ public class SavedLog {
         return numberOfHosts;
     }
 
+    /**
+     * Dumps the entire contents of the saved log on the provided
+     * {@link PrintStream}.
+     *
+     * @param out the output stream on which the entire contents of the saved log
+     *            need to be dumped
+     */
     public void printAll(PrintStream out) {
         // Custom map sorted by place first and tag second
-        final TreeMap<Key, Collection<LogItem>> sorted = new TreeMap<>((o1, o2) -> {
-            int result = Integer.compareUnsigned(o1.place, o2.place);
-            if (result == 0) {
-                result = o1.tag.compareTo(o2.tag);
-            }
-            if (result == 0) {
-                result = Long.compare(o1.phase, o2.phase);
-            }
-            return result;
-        });
+        final TreeMap<Key, Collection<LogItem>> sorted = new TreeMap<>(sortPlaceTagPhase);
 
         // Insert all logs into the map so that they get sorted
         for (final Entry<Key, Collection<LogItem>> entry : loggedEntries.entrySet()) {
@@ -327,10 +333,30 @@ public class SavedLog {
         sorted.forEach((Key key, Collection<LogItem> items) -> {
             out.println("LogKey: " + key);
             for (final LogItem item : items) {
-                out.println(item);
+                out.println("\t" + item);
             }
         });
+    }
 
+    /**
+     * Prints the keys and the number of entries for each key on the provided
+     * {@link PrintStream}.
+     *
+     * @param out the output stream on which the keys contained by the saved log
+     *            need to be printed
+     */
+    public void printKeys(PrintStream out) {
+        final TreeMap<Key, Collection<LogItem>> sorted = new TreeMap<>(sortPlaceTagPhase);
+
+        // Insert all logs into the map so that they get sorted
+        for (final Entry<Key, Collection<LogItem>> entry : loggedEntries.entrySet()) {
+            sorted.put(entry.getKey(), entry.getValue());
+        }
+
+        // Traverse the sorted map and print each log on a dedicated line
+        sorted.forEach((Key key, Collection<LogItem> items) -> {
+            out.println("LogKey: " + key + "\titemCount: " + items.size());
+        });
     }
 
     /**
