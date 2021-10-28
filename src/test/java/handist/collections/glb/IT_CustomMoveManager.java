@@ -56,7 +56,8 @@ public class IT_CustomMoveManager extends IT_OneSidedMoveManager implements Seri
     @After
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException {
-        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))
+                && DebugFinish.suppressedExceptionsPresent()) {
             System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
             // If we are using the DebugFinish, dump all throwables collected on each host
             DebugFinish.dumpAllSuppressedExceptions();
