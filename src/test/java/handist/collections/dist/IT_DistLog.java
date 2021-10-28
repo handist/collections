@@ -63,7 +63,8 @@ public class IT_DistLog implements Serializable {
     @After
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException {
-        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))
+                && DebugFinish.suppressedExceptionsPresent()) {
             System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
             // If we are using the DebugFinish, dump all throwables collected on each host
             DebugFinish.dumpAllSuppressedExceptions();
@@ -87,22 +88,22 @@ public class IT_DistLog implements Serializable {
                 count = 0;
                 while ((line0 = in0.readLine()) != null) {
                     final String line1 = in1.readLine();
-                    final String msg = "Diff fount in line " + count + ", result: " + line0 + ", correct:" + line1;
+                    final String msg = "Diff found on line " + count + ", obtained: " + line0 + ", expected:" + line1;
                     assertEquals(msg, line0, line1);
                     count++;
                 }
                 final String lineRem = in1.readLine();
-                final String msg2 = "Only correct has line " + count + ":" + lineRem;
+                final String msg2 = "Gap in the number of lines between obtained and expected output: " + count + ":"
+                        + lineRem;
                 assertNull(msg2, lineRem);
 
                 in0.close();
                 in1.close();
             } else {
+                System.err.println("Expected Output file " + file.getAbsolutePath() + " not found. Creating it now...");
                 final PrintStream out = new PrintStream(new FileOutputStream(file));
                 func.accept(out);
                 out.close();
-                System.err.println("Correct file " + file.getAbsolutePath() + " is not found. Now generating...");
-
             }
 
         } catch (final IOException e) {

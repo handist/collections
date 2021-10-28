@@ -364,7 +364,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
     }
 
     /**
-     * Determines whether the log set of this and the target DistLog isntances are
+     * Determines whether the log set of this and the target DistLog instances are
      * equal. It distinguish only tags and ignores the generated places. It return
      * true iff the sets of the logs having the same tag are the same. Diff will be
      * output to {@code out} if they differ.
