@@ -35,15 +35,13 @@ import handist.collections.RangedList;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
+import mpi.MPI;
 
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 4, launcher = TestLauncher.class)
 public class IT_CachableChunkedList implements Serializable {
 
     static class Particle implements Serializable {
-        /**
-         *
-         */
         private static final long serialVersionUID = 7821371179787362791L;
         long pos;
         long force;
@@ -130,6 +128,45 @@ public class IT_CachableChunkedList implements Serializable {
                 caChunks.add(chunk);
             }
         });
+    }
+
+    @Test(timeout = 10000)
+    public void testAllReduceWithPrimitiveStream() throws Throwable {
+        try {
+            testForShare(caChunks);
+            placeGroup.broadcastFlat(() -> {
+                // set value to particle force
+                caChunks.shared.forEach(subRange2, (i, p) -> {
+                    p.force = placeGroup.rank() + i;
+                });
+                caChunks.shared.forEach(subRange1, (i, p) -> {
+                    p.force = (placeGroup.rank() + i) * 2;
+                });
+                // calc sum with allreduce
+                caChunks.allreduce((out, p) -> {
+                    out.writeLong(p.force);
+                    out.writeInt((int) p.force); // just for test
+                    out.writeLong(p.force * 2); // just for test
+                }, (in, p) -> {
+                    p.force = in.readLong();
+                    in.readInt(); // just for test
+                    in.readLong(); // just for test
+                }, MPI.SUM);
+                // assert check
+                caChunks.forEach((i, p) -> {
+                    if (subRange1.contains(i)) {
+                        assertEquals((6 + i * 4) * 2, p.force); // (sum of ranks + value by index) * 2
+                    } else if (subRange2.contains(i)) {
+                        assertEquals((6 + i * 4), p.force); // sum of ranks + value by index
+                    } else {
+                        assertEquals(0, p.force);
+                    }
+                });
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
     }
 
     public void testForAllReduce(final CachableChunkedList<Particle> ca) throws Throwable {
