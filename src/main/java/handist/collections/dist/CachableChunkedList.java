@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -23,9 +24,20 @@ import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.LongTBiConsumer;
+import handist.collections.function.PrimitiveInput;
+import handist.collections.function.PrimitiveOutput;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.Serializer;
+import mpi.MPI;
+import mpi.MPIException;
+import mpi.Op;
 
+/**
+ * {@link DistCol} with additional features allowing it to replicate some range
+ * of values held by a process onto other processes
+ *
+ * @param <T> type contained by this collection
+ */
 public class CachableChunkedList<T> extends DistCol<T> {
 
 //    static class Team<S> extends TeamOperations<S, CachableChunkedList<S>> {
@@ -49,17 +61,44 @@ public class CachableChunkedList<T> extends DistCol<T> {
 //        }
 //    }
 
+    /**
+     * List of chunks that have been shared to this local branch by a remote branch
+     */
     protected ChunkedList<T> shared = new ChunkedList<>();
+    /**
+     * Map keeping track of the "owner" of each range in the collection
+     */
     protected HashMap<RangedList<T>, Place> shared2owner = new HashMap<>();
 
+    /**
+     * Creates a new {@link CachableChunkedList} on the specified
+     * {@link TeamedPlaceGroup}
+     *
+     * @param pg the group of places on which this collection may have a branch
+     */
     public CachableChunkedList(final TeamedPlaceGroup pg) {
         this(pg, new GlobalID());
     }
 
+    /**
+     * Creates a new branch for a {@link CachableChunkedList} with the specified
+     * group of places and id which identifies the distributed collection into which
+     * the created branch is taking place
+     *
+     * @param placeGroup the group of places on which the distributed collection may
+     *                   have a handle
+     * @param id         global id identifying the distributed collection
+     */
     private CachableChunkedList(final TeamedPlaceGroup placeGroup, final GlobalID id) {
         super(placeGroup, id, (TeamedPlaceGroup pg, GlobalID gid) -> new CachableChunkedList<>(pg, gid));
     }
 
+    /**
+     * Adds several ranged lists shared by a remote branch to this local branch
+     *
+     * @param owner  the owner of the shared ranged lists
+     * @param chunks the chunks shared with this branch
+     */
     private void addNewShared(Place owner, List<RangedList<T>> chunks) {
         for (final RangedList<T> chunk : chunks) {
             if (!owner.equals(here())) {
@@ -70,6 +109,12 @@ public class CachableChunkedList<T> extends DistCol<T> {
         }
     }
 
+    /**
+     * Adds a ranged list shared by a remote branch to this local branch
+     *
+     * @param owner the owner of the shared ranged list
+     * @param chunk the shared with this branch
+     */
     private void addNewShared(Place owner, RangedList<T> chunk) {
         if (!owner.equals(here())) {
             add(chunk);
@@ -78,12 +123,135 @@ public class CachableChunkedList<T> extends DistCol<T> {
         shared2owner.put(chunk, owner);
     }
 
+    /**
+     * Conduct allreduce operation on shared chunks using MPI reduce operation.
+     * <p>
+     * This variant cannot handle object data, but is faster than
+     * {@link #allreduce(Function, BiConsumer)} in many cases.
+     * <p>
+     * The core idea consists in converting each individual T object into a number
+     * of {@code long}, {@code int}, and {@code double}, perform an MPI primitive
+     * "all reduce" reduction on these raw types, and modify the T elements
+     * contained by the {@link CachableChunkedList} based on the resulting
+     * {@link PrimitiveInput}.
+     * <p>
+     * The number of raw type values of each type stored into the
+     * {@link PrimitiveOutput} must be the same for all T elements. The
+     * {@code unpack} closure supplied as second parameter must also extract the
+     * same number of raw type data (even if such raw type data is eventually unused
+     * to modify the T element) to preserve the consistency of the data in relation
+     * to the individual T element being processed.
+     *
+     * <br>
+     * =========================================================================
+     * <br>
+     * code sample
+     *
+     * <pre>
+     * class Element {
+     *     double d1, d2;
+     *     int i;
+     * }
+     *
+     * cachableChunkedList.allreduce((PrimitiveOutput out, Element e) -> {
+     *     out.writeDouble(e.d1);
+     *     out.writeDouble(e.d2);
+     *     out.writeInt(e.i);
+     * }, (PrimitiveInput in, Element e) -> {
+     *     e.d1 = in.readDouble(); // Match the unpack order with the pack closure above
+     *     e.d2 = in.readDouble();
+     *     in.readInt(); // (For examples purposes) the int is eventually not used to modify `e`,
+     *                   // but in.readInt needs to be called regardless
+     * }, MPI.SUM);
+     * </pre>
+     *
+     * <br>
+     * =========================================================================
+     * <br>
+     *
+     * @param pack   the function that receives an element and extracts data to
+     *               transfer and reduce with other places.
+     * @param unpack the function that receives a local element and raw data that
+     *               was reduced between the hosts using MPI.
+     * @param op     the MPI reduction operation used to merge the
+     */
+    public void allreduce(BiConsumer<PrimitiveOutput, T> pack, BiConsumer<PrimitiveInput, T> unpack, Op op) {
+        allreduce(new ArrayList<>(shared.ranges()), pack, unpack, op); // TODO: not good, copying ranges to arraylist
+    }
+
     public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
-        allreduce(new ArrayList<>(ranges()), pack, unpack); // TODO: not good, copying ranges to arraylist
+        allreduce(new ArrayList<>(shared.ranges()), pack, unpack); // TODO: not good, copying ranges to arraylist
     }
 
     public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack, CollectiveRelocator.Allgather mm) {
-        allreduce(new ArrayList<>(ranges()), pack, unpack, mm); // TODO: not good, copying ranges to arraylist
+        allreduce(new ArrayList<>(shared.ranges()), pack, unpack, mm); // TODO: not good, copying ranges to arraylist
+    }
+
+    /**
+     * Refer to {@link CachableChunkedList#allreduce(BiConsumer, BiConsumer, Op)}.
+     * <p>
+     * This method needs to be called with the same ranges on all places on which
+     * this {@link CachableChunkedList} is defined. Otherwise it will throw
+     * {@link MPIException}.
+     *
+     * @param ranges the ranges on which the common reduction is to be applied
+     * @throws MPIException if called with different ranges on the various hosts
+     *                      involved in the common reduction
+     */
+    @SuppressWarnings("deprecation")
+    public void allreduce(List<LongRange> ranges, BiConsumer<PrimitiveOutput, T> pack,
+            BiConsumer<PrimitiveInput, T> unpack, Op op) {
+        final List<RangedList<T>> chunks = searchSharedChunks(ranges);
+        final Iterator<RangedList<T>> listIt = chunks.iterator();
+        Iterator<T> chunkIt = listIt.next().iterator();
+        final PrimitiveStream stream = new PrimitiveStream(10);
+
+        // Count how many times one pack calls writeDouble, writeInt, writeLong.
+        pack.accept(stream, chunkIt.next());
+        // Compute how many T elements there are to pack
+        int nbOfElements = 0;
+        for (final RangedList<T> r : chunks) {
+            nbOfElements += r.size();
+        }
+        // Adjust stream size according to how many elements are expected
+        stream.adjustSize(nbOfElements);
+
+        // Process the remainder of the elements ...
+        // Complete the current chunk
+        while (chunkIt.hasNext()) {
+            pack.accept(stream, chunkIt.next());
+        }
+        // Deal with all the remaining chunks in the same manner
+        while (listIt.hasNext()) {
+            chunkIt = listIt.next().iterator();
+            while (chunkIt.hasNext()) {
+                pack.accept(stream, chunkIt.next());
+            }
+        }
+
+        stream.checkIsFull(); // Sanity check, the arrays inside `stream` should be full.
+
+        // communicate
+        if (stream.doubleArray.length != 0) {
+            final int size = stream.doubleArray.length;
+            placeGroup().comm.Allreduce(stream.doubleArray, 0, stream.doubleArray, 0, size, MPI.DOUBLE, op);
+        }
+        if (stream.intArray.length != 0) {
+            final int size = stream.intArray.length;
+            placeGroup().comm.Allreduce(stream.intArray, 0, stream.intArray, 0, size, MPI.INT, op);
+        }
+        if (stream.longArray.length != 0) {
+            final int size = stream.longArray.length;
+            placeGroup().comm.Allreduce(stream.longArray, 0, stream.longArray, 0, size, MPI.LONG, op);
+        }
+
+        // do unpack
+        stream.reset();
+        for (final RangedList<T> chunk : chunks) {
+            chunk.forEach((T, t) -> {
+                unpack.accept(stream, t);
+            });
+        }
     }
 
     public <U> void allreduce(List<LongRange> ranges, Function<T, U> pack, BiConsumer<T, U> unpack) {
@@ -150,15 +318,19 @@ public class CachableChunkedList<T> extends DistCol<T> {
     }
 
     /**
-     * conduct broadcast operation on chunks that are already shared within the
+     * Conducts a broadcast operation on chunks that are already shared within the
      * place group. The user must call each of the broadcast methods of a cachable
      * chunked list in all the place belonging to the place group.
      *
-     * @param ranges
-     * @param pack
-     * @param unpack
-     * @param mm
-     * @param <U>
+     * @param <U>    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param ranges the ranges to braodcast
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     * @param mm     the relocator in charge of handling the communication between
+     *               hosts
      */
     public <U> void bcast(List<LongRange> ranges, Function<T, U> pack, BiConsumer<T, U> unpack,
             CollectiveRelocator.Allgather mm) {
@@ -203,7 +375,7 @@ public class CachableChunkedList<T> extends DistCol<T> {
     @Override
     public void clear() {
         // TODO
-        // The super of clear() assums teamed operation of clear();
+        // The super of clear() assumes teamed operation of clear();
     }
 
     private List<RangedList<T>> exportLocalChunks(List<LongRange> ranges) {
@@ -390,17 +562,22 @@ public class CachableChunkedList<T> extends DistCol<T> {
      * in all the place belonging to the place group. This method should not be
      * called simultaneously with other collective methods. The caller place is
      * treated as the owner even if the chunks become shared.
-     *
+     * <p>
      * Note 1: if you want to share all the local chunks, please call
-     * {@code share()}. Note 2: if you want to specify multiple ranges, please use
-     * {@code share(List<LongRange>)}. Note 3: if you don't want to share any local
-     * chunks from the called place, please specify an empty range or an empty list
-     * of ranges. Note 3: if you want to conduct relocate process of multiple
-     * cachable chunked lists using the same ObjectOutput(Stream), please prepare an
-     * instance of {@link CollectiveRelocator.Allgather} first and call the
-     * relocation methods of the cachable chunked lists in the same order specifying
-     * the collective relocator as a parameter, and finally call the execute method
-     * of the relocator.
+     * {@link #share()}
+     * <p>
+     * Note 2: if you want to specify multiple ranges, please use
+     * {@link #share(List)}.
+     * <p>
+     * Note 3: if you don't want to share any local chunks from the called place,
+     * please specify an empty range or an empty list of ranges.
+     * <p>
+     * Note 4: if you want to conduct the relocation process of multiple cachable
+     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
+     * of {@link CollectiveRelocator.Allgather} first and call the relocation
+     * methods of the cachable chunked lists in the same order specifying the
+     * collective relocator as a parameter, and finally call the execute method of
+     * the relocator.
      *
      * @param ranges The library scans the ranges and exports (the parts of) the
      *               local chunks in the ranges.
