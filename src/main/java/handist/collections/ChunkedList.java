@@ -1741,13 +1741,15 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
-     * returns a continuous RangedList with the given {@Code range} from this Chunked List.
+     * Returns a continuous RangedList with the given {@Code range} from this
+     * {@link ChunkedList}
      *
-     * @param range
-     * @return retun null if such a ranged list does not exist.
+     * @param range range of the desired view
+     * @return {@code null} if the specified range is not present in this
+     *         {@link ChunkedList}
      */
     public RangedList<T> subList1(LongRange range) {
-        LongRange result = range.findOverlap(chunks);
+        final LongRange result = range.findOverlap(chunks);
         if (result == null) {
             return null;
         }

@@ -251,7 +251,6 @@ public class SavedLog {
         for (final Key k : loggedEntries.keySet()) {
             final Collection<LogItem> otherItems = log.getLog(k.place, k.tag, k.phase);
             final Collection<LogItem> myItems = loggedEntries.get(k);
-            System.out.println(otherItems.size() + " " + myItems.size());
 
             if (otherItems != null && otherItems.size() == myItems.size()) {
                 // Check that every item in 'myItems' is also in 'otherItems'

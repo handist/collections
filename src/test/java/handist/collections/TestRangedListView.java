@@ -23,7 +23,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongFunction;
 
 import org.junit.After;
 import org.junit.Before;
@@ -31,7 +30,6 @@ import org.junit.Test;
 
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
-import handist.collections.function.LongTBiConsumer;
 
 /**
  * Junit test class for class {@link RangedListView}.
@@ -113,6 +111,7 @@ public class TestRangedListView implements Serializable {
 
     @Test(expected = UnsupportedOperationException.class)
     public void testConstructorNotSupportedClass() {
+        @SuppressWarnings("unused")
         class NotASupportedClass<T> extends RangedList<T> {
 
             @Override
@@ -133,12 +132,12 @@ public class TestRangedListView implements Serializable {
                 return null;
             }
 
-            //@Override
+            // @Override
             protected Object[] getBody() {
                 return new Object[0];
             }
 
-            //@Override
+            // @Override
             protected long getBodyOffset() {
                 return 0;
             }
@@ -166,6 +165,18 @@ public class TestRangedListView implements Serializable {
             }
 
             @Override
+            public T set(long index, T value) {
+                // TODO Auto-generated method stub
+                return null;
+            }
+
+            @Override
+            public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
+                // TODO Auto-generated method stub
+
+            }
+
+            @Override
             protected Iterator<T> subIterator(LongRange range) {
                 return null;
             }
@@ -178,18 +189,6 @@ public class TestRangedListView implements Serializable {
             @Override
             protected RangedListIterator<T> subListIterator(LongRange range, long from) {
                 return null;
-            }
-
-            @Override
-            public T set(long index, T value) {
-                // TODO Auto-generated method stub
-                return null;
-            }
-
-            @Override
-            public <S> void setupFrom(RangedList<S> source, Function<? super S, ? extends T> func) {
-                // TODO Auto-generated method stub
-
             }
 
             @Override
