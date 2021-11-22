@@ -4,7 +4,6 @@ import handist.collections.function.LongTBiFunction;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.Function;
 
 public class LazyRangedList<S,T> extends RangedList<T> {
     private final RangedList<S> base;

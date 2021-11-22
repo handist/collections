@@ -10,14 +10,12 @@
  ******************************************************************************/
 package handist.collections;
 
-import handist.collections.function.SquareIndexConsumer;
-
-import java.awt.*;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.concurrent.ConcurrentSkipListMap;
+
+import handist.collections.function.SquareIndexConsumer;
 
 /**
  * Class {@link SquareRange} describes an interval over {@code long} values.
@@ -27,19 +25,14 @@ import java.util.function.BiConsumer;
  * {@code long} values l such that a &le; l &lt; b are contained within the
  * {@link SquareRange} [a,b).
  * <p>
- * It is possible to create "empty" {@link SquareRange} instances where the lower
- * bound is equal to the upper bound. In this case it is considered that there
- * are no {@code long} values included in the {@link SquareRange}.
+ * It is possible to create "empty" {@link SquareRange} instances where the
+ * lower bound is equal to the upper bound. In this case it is considered that
+ * there are no {@code long} values included in the {@link SquareRange}.
  */
-public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRange>,*/ Serializable {
-//    /**
-//     * Iterator on the {@code LongRange} contained in a {@link SquareRange}
-//     */
-//    //class It implements Iterator<Long> {
-//    //TK: needless?? Iterable<Pair<Long,LongRange>>??
+public class SquareRange implements Serializable {
 
     /** Serial Version UID */
-//    private static final long serialVersionUID = 6430187870603427655L;
+    private static final long serialVersionUID = 6430187870603427655L;
 
     /**
      * Splits the {@link SquareRange} provided in the list into <em>n</em> lists of
@@ -51,12 +44,13 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
      * <p>
      * The {@link SquareRange} instances given as parameter are not
      *
-     * @param n          number of lists of equal sizes
-     * @param squareRanges {@link SquareRange} instances to distribute into the lists
+     * @param n            number of lists of equal sizes
+     * @param squareRanges {@link SquareRange} instances to distribute into the
+     *                     lists
      * @return lists of {@link SquareRange} instances of equivalent
      */
     public static List<List<SquareRange>> splitList(int n, List<SquareRange> squareRanges) {
-        throw new UnsupportedOperationException("not implemented yet") ;
+        throw new UnsupportedOperationException("not implemented yet");
     }
 
     /** the range of the first dimension */
@@ -66,28 +60,57 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
     public final LongRange inner;
 
     // TODO more variations...
+    /**
+     * the shape formed by inner and outer becomes uppertriangle
+     */
     boolean isUpperTriangle;
+    /** */
     long triangleDiff;
-
 
     /**
      * Constructs a LongRange with the provided parameters.
      *
      * @param outer the range of the first range (outer loop)
      * @param inner the range of the second dimension (inner loop#
-     * @throws IllegalArgumentException if the range of the first or the second dimension is null
+     * @throws IllegalArgumentException if the range of the first or the second
+     *                                  dimension is null
      */
     public SquareRange(LongRange outer, LongRange inner) {
         this.outer = outer;
         this.inner = inner;
         this.isUpperTriangle = false;
     }
+
+    /**
+     * Constructs a LongRange with the provided parameters.
+     *
+     * @param outer           the range of the first range (outer loop)
+     * @param inner           the range of the second dimension (inner loop#
+     * @param isUpperTriangle if true, the shape formed by inner and outer becomes
+     *                        uppertriangle not square. the same index value of
+     *                        inner and outer is not included.
+     * @throws IllegalArgumentException if the range of the first or the second
+     *                                  dimension is null
+     */
     public SquareRange(LongRange outer, LongRange inner, boolean isUpperTriangle) {
         this.outer = outer;
         this.inner = inner;
         this.isUpperTriangle = isUpperTriangle;
         this.triangleDiff = inner.from - outer.from;
     }
+
+    /**
+     * Constructs a LongRange with the provided parameters.
+     *
+     * @param outer           the range of the first range (outer loop)
+     * @param inner           the range of the second dimension (inner loop#
+     * @param isUpperTriangle iif true, the shape formed by inner and outer becomes
+     *                        uppertriangle. the same index value of inner and outer
+     *                        is not included.
+     * @param tri             aa
+     * @throws IllegalArgumentException if the range of the first or the second
+     *                                  dimension is null
+     */
     private SquareRange(LongRange outer, LongRange inner, boolean isUpperTriangle, long tri) {
         this.outer = outer;
         this.inner = inner;
@@ -96,31 +119,96 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
     }
 
     /**
-     * the start column index of the specified row.
-     * @param row the index value of the row
-     * @return
+     * Returns the range of non-empty columns at the specified row
+     *
+     * @param row the index of the row within this squared range
+     * @return the range of non-empty columns at the specified row
      */
-    public long startColumn(long row) {
-        if(isUpperTriangle) return Math.max(row + triangleDiff + 1, inner.from);
-        return inner.from;
-    }
-    public long endColumn(long row) {
-        return inner.to;
-    }
     public LongRange columnRange(long row) {
         return new LongRange(startColumn(row), endColumn(row));
     }
-    public long startRow(long column) {
-        return outer.from;
-    }
-    public long endRow(long column) {
-        if(isUpperTriangle) return Math.min(column - triangleDiff, outer.to);
-        return outer.to;
-    }
-    public LongRange rowRange(long column) {
-        return new LongRange(startRow(column), endRow(column));
+
+    /**
+     * Indicates if the provided index point is included in this instance.
+     *
+     * @param outer0 the long value whose represents the outer index of the point
+     * @param inner0 the long value whose represents the inner index of the point
+     * @return {@code true} if the index point is included within the bounds of this
+     *         {@link SquareRange}, {@code false} otherwise
+     */
+    public boolean contains(long outer0, long inner0) {
+        return outer.contains(outer0) && columnRange(outer0).contains(inner0);
     }
 
+    /**
+     * Indicates if the provided {@link SquareRange} is included within this
+     * instance. A SquareRange is included inside the outer and inner ranges of this
+     * instance contains the outer and inner ranges of the provided instance
+     * respectively.
+     *
+     * @param range the square range whose inclusion into this instance needs to be
+     *              checked
+     * @return true if all the indices of the provided long range are present in
+     *         this instance.
+     */
+    public boolean contains(SquareRange range) {
+        if (range.isUpperTriangle || this.isUpperTriangle) {
+            throw new UnsupportedOperationException("not implemented yet");
+        }
+        return outer.contains(range.outer) && inner.contains(range.inner);
+    }
+
+    /**
+     * Alternative to {@link #contains(long, long)} which throws an exception is the
+     * specified coordinates are not included within this range
+     *
+     * @param outer0 outer index (row index)
+     * @param inner0 inner index (column index)
+     * @throws IndexOutOfBoundsException if the specified coordinates are not
+     *                                   contained within this square range
+     * @see #contains(long, long)
+     */
+    public void containsCheck(long outer0, long inner0) {
+        final boolean result = contains(outer0, inner0);
+        if (!result) {
+            throw new IndexOutOfBoundsException(
+                    "ContainsCheck: " + this + " does not contains [" + outer0 + ", " + inner0 + "].");
+        }
+    }
+
+    /**
+     * Alternative to {@link #contains(SquareRange)} which thrown an exception if
+     * the square range of points specified as parameter are not contained within
+     * this square range
+     *
+     * @param range square range of points to check
+     * @throws IndexOutOfBoundsException if the specified square range is not
+     *                                   contained within this range
+     * @see #contains(SquareRange)
+     */
+    public void containsCheck(SquareRange range) {
+        final boolean result = contains(range);
+        if (!result) {
+            throw new IndexOutOfBoundsException("ContainsCheck: " + this + " does not contains " + range);
+        }
+    }
+
+    /**
+     * Checks if the specified column is present in this square range
+     *
+     * @param column the column to check
+     * @throws IndexOutOfBoundsException if the specified column is not present
+     *                                   within this range
+     */
+    public void containsColumnCheck(long column) {
+        if (this.isUpperTriangle) {
+            throw new UnsupportedOperationException("not implemented yet");
+        }
+        final boolean result = inner.contains(column);
+        if (!result) {
+            throw new IndexOutOfBoundsException("ContainsColumnCheck: " + this + " does not contains column " + column);
+        }
+    }
 
 //    /**
 //     * TK: needless??
@@ -146,11 +234,11 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
 //     */
 //    @Override
 //    public int compareTo(SquareRange r) {
-//        // if (to <= r.from && from != to ) {
-//        // return -1;
-//        // } else if (r.to <= from && from != to) {
-//        // return 1;
-//        // }
+//        if (to <= r.from && from != to ) {
+//          return -1;
+//        } else if (r.to <= from && from != to) {
+//          return 1;
+//        }
 //        // The LongRange instances overlap,
 //        // We order them based on "from" first and "to" second
 //        final int fromComparison = Long.compare(from, r.from);
@@ -170,56 +258,51 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
 //    }
 
     /**
-     * Indicates if the provided index point is included in this instance.
+     * <<<<<<< HEAD Checks if the specified row is present in this square range
      *
-     * @param outer0 the long value whose represents the outer index of the point
-     * @param inner0 the long value whose represents the inner index of the point
-     * @return {@code true} if the index point is included within the bounds of this
-     *         {@link SquareRange}, {@code false} otherwise
+     * @param row the index of the row to check
+     * @throws IndexOutOfBoundsException if the specified row is not contained
+     *                                   within this square range
      */
-    public boolean contains(long outer0, long inner0) {
-       return outer.contains(outer0) && columnRange(outer0).contains(inner0);
+    public void containsRowCheck(long row) {
+        if (this.isUpperTriangle) {
+            throw new UnsupportedOperationException("not implemented yet");
+        }
+        final boolean result = outer.contains(row);
+        if (!result) {
+            throw new IndexOutOfBoundsException("ContainsRowCheck: " + this + " does not contains row " + row);
+        }
     }
-    public void containsCheck(long outer0, long inner0) {
-        boolean result = contains(outer0, inner0);
-        if(!result) throw new IndexOutOfBoundsException("ContainsCheck: " + this + " does not contains [" + outer0 +", "+ inner0 + "].");
-    }
-
 
     /**
-     * Indicates if the provided {@link SquareRange} is included within this instance.
-     * A SquareRange is included inside the outer and inner ranges of this instance
-     * contains the outer and inner ranges of the provided instance respectively.
+     * Returns the index of the last column within this square range
      *
-     * @param range the square range whose inclusion into this instance needs to be checked
-     * @return true if all the indices of the provided long range are present in
-     *         this instance.
+     * @param row the index of the row considered
+     * @return the index of the last column included within this range
      */
-    public boolean contains(SquareRange range) {
-        if(range.isUpperTriangle || this.isUpperTriangle) throw new UnsupportedOperationException("not implemented yet");
-        return outer.contains(range.outer) && inner.contains(range.inner);
-    }
-    public void containsCheck(SquareRange range) {
-        boolean result = contains(range);
-        if(!result) throw new IndexOutOfBoundsException("ContainsCheck: " + this + " does not contains " + range);
-    }
-    public void containsRowCheck(long row) {
-        if(this.isUpperTriangle) throw new UnsupportedOperationException("not implemented yet");
-        boolean result = outer.contains(row);
-        if(!result) throw new IndexOutOfBoundsException("ContainsRowCheck: " + this + " does not contains row " + row);
-    }
-    public void containsColumnCheck(long column) {
-        if(this.isUpperTriangle) throw new UnsupportedOperationException("not implemented yet");
-        boolean result = inner.contains(column);
-        if(!result) throw new IndexOutOfBoundsException("ContainsColumnCheck: " + this + " does not contains column " + column);
+    public long endColumn(long row) {
+        return inner.to;
     }
 
-
+    /**
+     * Returns the last row with values contained within this squared range at the
+     * specified column
+     *
+     * @param column the column considered
+     * @return the index of the last row with values within this range at the
+     *         specified column
+     */
+    public long endRow(long column) {
+        if (isUpperTriangle) {
+            return Math.min(column - triangleDiff, outer.to);
+        }
+        return outer.to;
+    }
 
     /**
      * Checks whether the provided instance and this instance are equal. Two
-     * {@link SquareRange} instances are equal if they share the same upper and lower
-     * bounds.
+     * {@link SquareRange} instances are equal if they share the same upper and
+     * lower bounds.
      *
      * @return true if the provided instance and this instance are equal
      */
@@ -229,8 +312,8 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
             return false;
         }
         final SquareRange sqrange2 = (SquareRange) o;
-        return inner.equals(sqrange2.inner) && outer.equals(sqrange2.outer) &&
-                isUpperTriangle==sqrange2.isUpperTriangle && triangleDiff == sqrange2.triangleDiff;
+        return inner.equals(sqrange2.inner) && outer.equals(sqrange2.outer)
+                && isUpperTriangle == sqrange2.isUpperTriangle && triangleDiff == sqrange2.triangleDiff;
     }
 
     // TODO
@@ -241,40 +324,40 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
     // prepare TreeSet version of the following methods
     // OR
     // prepare LongRangeSet having such facilities
-//    /**
-//     * Checks if this instance intersects with one of the keys contained by the
-//     * provided {@code ConcurrentSkipListMap<LongRange, S> rmap}. Returns the
-//     * smallest of the intersecting keys, or {@code null} if there are no such
-//     * intersecting key.
-//     *
-//     * @param rmap the ConcurrentSkipListMap instance to check
-//     * @return a LongRange key of the provided ConcurrentSkipListMap instance that
-//     *         intersects this instance, or {@code null} if there are so such key.
-//     */
-//    public SquareRange findOverlap(ConcurrentSkipListMap<SquareRange, ?> rmap) {
-//        final SquareRange floorKey = rmap.floorKey(this);
-//        if (floorKey != null && floorKey.isOverlapped(this)) {
-//            return floorKey;
-//        }
-//        final SquareRange nextKey = rmap.higherKey(this);
-//        if (nextKey != null && nextKey.isOverlapped(this)) {
-//            return nextKey;
-//        }
-//        return null;
-//    }
+    /**
+     * Checks if this instance intersects with one of the keys contained by the
+     * provided {@code ConcurrentSkipListMap<LongRange, S> rmap}. Returns the
+     * smallest of the intersecting keys, or {@code null} if there are no such
+     * intersecting key.
+     *
+     * @param rmap the ConcurrentSkipListMap instance to check
+     * @return a LongRange key of the provided ConcurrentSkipListMap instance that
+     *         intersects this instance, or {@code null} if there are so such key.
+     */
+    public SquareRange findOverlap(ConcurrentSkipListMap<SquareRange, ?> rmap) {
+        final SquareRange floorKey = rmap.floorKey(this);
+        if (floorKey != null && floorKey.isOverlapped(this)) {
+            return floorKey;
+        }
+        final SquareRange nextKey = rmap.higherKey(this);
+        if (nextKey != null && nextKey.isOverlapped(this)) {
+            return nextKey;
+        }
+        return null;
+    }
 
     /**
      * Calls the provided function with every {@code long} index contained in this
      * instance.
      * <p>
-     * Calling this function on empty {@link SquareRange} instances will not result in
-     * any call to the function.
+     * Calling this function on empty {@link SquareRange} instances will not result
+     * in any call to the function.
      *
      * @param func the function to apply with every index of this instance
      */
     public void forEach(SquareIndexConsumer func) {
-        outer.forEach((long i)->{
-            columnRange(i).forEach((long j)->{
+        outer.forEach((long i) -> {
+            columnRange(i).forEach((long j) -> {
                 func.accept(i, j);
             });
         });
@@ -282,45 +365,42 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
 
     /**
      * Returns a hash code for the {@link SquareRange}. The hash-code is generated
-     * based on some bit shift operations on the {@link #outer lower} and {@link #inner
-     * upper bound} of the {@link SquareRange}.
+     * based on some bit shift operations on the {@link #outer lower} and
+     * {@link #inner upper bound} of the {@link SquareRange}.
      *
      * @return hash-code for this instance
      */
     @Override
     public int hashCode() {
-        return  ((inner.hashCode() << 4) + (inner.hashCode() >> 16) + outer.hashCode());
+        return ((inner.hashCode() << 4) + (inner.hashCode() >> 16) + outer.hashCode());
     }
-
-
 
     /**
      * Return the intersection range of this instance and the provided one. If there
      * are no index regions that belongs to either ranges, returns null;
      *
-     * @param range the square range whose intersection with this instance is to be checked
+     * @param range the square range whose intersection with this instance is to be
+     *              checked
      * @return a {@link SquareRange} representing the intersection between this and
      *         the provided instance, {@code null} if there is no intersection
      */
     public SquareRange intersection(SquareRange range) {
-        LongRange interOut = outer.intersection(range.outer);
-        LongRange interInn = inner.intersection(range.inner);
-        if (interOut == null || interOut.size()==0 || interInn == null || interInn.size()==0) {
+        final LongRange interOut = outer.intersection(range.outer);
+        final LongRange interInn = inner.intersection(range.inner);
+        if (interOut == null || interOut.size() == 0 || interInn == null || interInn.size() == 0) {
             return null;
         }
-        boolean isUpper = this.isUpperTriangle || range.isUpperTriangle;
-        if(!isUpper) return new SquareRange(interOut, interInn, false);
-        long triDiff =
-                isUpperTriangle?
-                        (range.isUpperTriangle? Math.max(triangleDiff, range.triangleDiff): triangleDiff): // TODO min will be used for lowerTriangle
-                        range.triangleDiff;
+        final boolean isUpper = this.isUpperTriangle || range.isUpperTriangle;
+        if (!isUpper) {
+            return new SquareRange(interOut, interInn, false);
+        }
+        final long triDiff = isUpperTriangle
+                ? (range.isUpperTriangle ? Math.max(triangleDiff, range.triangleDiff) : triangleDiff)
+                : // TODO min will be used for lowerTriangle
+                range.triangleDiff;
         return new SquareRange(interOut, interInn, isUpper, triDiff).normalizeTriangle();
     }
-    private SquareRange normalizeTriangle() {
-        if(startColumn(outer.from) >= inner.to) return null;
-        if(startColumn(outer.to) < inner.from) return new SquareRange(inner, outer); // normal rec
-        return new SquareRange(rowRange(inner.to), columnRange(outer.from-1), true, triangleDiff);
-    }
+
     public SquareRange intersectionCheck(SquareRange subrange) {
         containsCheck(subrange);
         // TODO
@@ -328,8 +408,66 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
         return intersection(subrange);
     }
 
+    /**
+     * Returns true if the provided {@link SquareRange} and this instance are
+     * overlapped. This operation is symmetric, meaning that calling this method
+     * with two instances a and b, the result produced by {@code a.isOverlapped(b)}
+     * is the same as {@code b.isOverlapped(a)}.
+     * <p>
+     * Two {@link SquareRange} a and b are overlapped if they share some indices,
+     * that is if there exist a {@code long} l such that a.contains(l) and
+     * b.contains(l) return true.
+     * <p>
+     * In cases where an empty {@link SquareRange} and a non-empty
+     * {@link SquareRange} are considered, this method returns true if the lower
+     * bound (or upper bound as it has the same value) of the empty instance is
+     * between the lower bound (included) and the upper bound (excluded) of the
+     * other instance.
+     * <p>
+     * If both considered {@link SquareRange} are empty, returns true if they have
+     * the same bounds.
+     *
+     * @param range the range whose overlap with this instance is to be checked
+     * @return true if the provided LongRange and this instance overlap
+     */
+    public boolean isOverlapped(SquareRange range) {
+        if (equals(range)) {
+            return true;
+        }
+        return (inner.isOverlapped(range.inner) && outer.isOverlapped(range.outer));
+    }
 
+    private SquareRange normalizeTriangle() {
+        if (startColumn(outer.from) >= inner.to) {
+            return null;
+        }
+        if (startColumn(outer.to) < inner.from) {
+            return new SquareRange(inner, outer); // normal rec
+        }
+        return new SquareRange(rowRange(inner.to), columnRange(outer.from - 1), true, triangleDiff);
+    }
 
+    /**
+     * Returns the range of rows that have values within this squared range at the
+     * specified column
+     *
+     * @param column the column considered
+     * @return the range of rows included within this squared range that have values
+     *         at the specified column
+     */
+    public LongRange rowRange(long column) {
+        return new LongRange(startRow(column), endRow(column));
+    }
+
+    /**
+     * Returns the size of the this instance.
+     *
+     * @return size of the {@link SquareRange}
+     */
+    public long size() {
+        // TODO : uppertriangle
+        return inner.size() * outer.size();
+    }
 
 //    /**
 //     * Returns true if the provided {@link SquareRange} and this instance are
@@ -349,22 +487,53 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
 //     * If both considered {@link SquareRange} are empty, returns true if they have the
 //     * same bounds.
 //     *
-//     * @param range the range whose overlap with this instance is to be checked
-//     * @return true if the provided LongRange and this instance overlap
+//     * @return a {@link LongStream} of every index contained in this instance
 //     */
-//    public boolean isOverlapped(SquareRange range) {
-//        if (equals(range)) {
-//            return true;
-//        } else if (from == to) {
-//            return from >= range.from && from < range.to;
-//        } else if (range.from == range.to) {
-//            return range.from >= from && range.from < to;
-//        } else {
-//            return (from < range.from) ? (to > range.from) : (from < range.to);
-//        }
+//    public LongStream stream() {
+//        return LongStream.range(from, to);
 //    }
 
+    /**
+     * Splits this range into a grid with the specified number of
+     *
+     * @param outerN number of vertical tiles into which to split this range
+     * @param innerN number of horizontal tiles into which to split this range
+     * @return list of smaller {@link SquareRange}, the union of which covers this
+     *         {@link SquareRange}
+     */
+    public List<SquareRange> split(int outerN, int innerN) {
+        // TODO
+        // more smart split for upper rectangle
+        // lazy way??
+        final List<SquareRange> results = new ArrayList<>();
+        final List<LongRange> splitOuters = outer.split(outerN);
+        final List<LongRange> splitInners = inner.split(innerN);
+        for (final LongRange out0 : splitOuters) {
+            for (final LongRange in0 : splitInners) {
+                final SquareRange sq = intersection(new SquareRange(out0, in0));
+                if (sq != null) {
+                    results.add(sq);
+                }
+            }
+        }
+        return results;
+    }
+
+    /**
+     * Returns the first column index at the specified row.
+     *
+     * @param row the index of the row within the square range
+     * @return the index of the first non-empty column in this square range
+     */
+    public long startColumn(long row) {
+        if (isUpperTriangle) {
+            return Math.max(row + triangleDiff + 1, inner.from);
+        }
+        return inner.from;
+    }
+
 //    /**
+//    TODO
 //     * Returns an iterator on the {@code long} indices contained in this instance
 //     *
 //     * @return a new iterator starting at {@link #from} and whose last value is the
@@ -373,17 +542,6 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
 //    @Override
 //    public Iterator<Long> iterator() {
 //        return new It();
-//    }
-
-//    /**
-//     * Returns the size of the LongRange, i.e. how many different indices are
-//     * contained between its lower bound and its upper bound. In practice, returns
-//     * the difference between {@link #to} and {@link #from}.
-//            *
-//            * @return size of the {@link SquareRange}
-//     */
-//    public long size() {
-//        return to - from;
 //    }
 
 //    /**
@@ -415,25 +573,21 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
 //    public LongStream stream() {
 //        return LongStream.range(from, to);
 //    }
-    public List<SquareRange> split(int outerN, int innerN) {
-        // TODO
-        // more smart split for upper rectangle
-        // lazy way??
-        List<SquareRange> results = new ArrayList<>();
-        List<LongRange> splitOuters = outer.split(outerN);
-        List<LongRange> splitInners = inner.split(innerN);
-        for (LongRange out0 : splitOuters) {
-            for (LongRange in0 : splitInners) {
-                SquareRange sq = intersection(new SquareRange(out0, in0));
-                if(sq!=null) results.add(sq);
-            }
-        }
-        return results;
+
+    /**
+     * Returns the index of the first row with values for the specified column
+     *
+     * @param column the index of the column considered
+     * @return the index of the first row with values at the specified column
+     *         contained within this range
+     */
+    public long startRow(long column) {
+        return outer.from;
     }
 
     /**
      * Returns this SquareRange printed in the following format:
-     * [ outerRange, innerRange ]
+     * [outerRange,innerRange]
      *
      * @return the range of this {@link SquareRange} as "[ outerRange, innerRange] "
      */
@@ -442,4 +596,16 @@ public class SquareRange implements /* Comparable<SquareRange>, Iterable<LongRan
         return "[" + outer + "," + inner + "]";
     }
 
+    /**
+     * Returns a {@link SquareRange} that is translated by the provided outer and
+     * inner. This method does not change the value of this instance.
+     *
+     * @param outer translates in the outer direction.
+     * @param inner translates in the outer direction.
+     * @return translated {@link SquareRange}
+     */
+    public SquareRange translate(long outer, long inner) {
+        return new SquareRange(new LongRange(this.outer.from + outer, this.outer.to + outer),
+                new LongRange(this.inner.from + inner, this.inner.to + inner));
+    }
 }

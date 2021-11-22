@@ -82,8 +82,8 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
         final Object[] ov = (Object[]) secondOperandAndResultArray;
         final Object[] iv = (Object[]) firstOperandArray;
 
-        for (int i = secondOperandArrayOffset,
-                j = firstOperandArrayOffset; i < count + secondOperandArrayOffset; i++, j++) {
+        for (int i = secondOperandArrayOffset, j = firstOperandArrayOffset; i < count
+                + secondOperandArrayOffset; i++, j++) {
             final R result = (R) ov[i];
             final R operand = (R) iv[j];
             result.merge(operand);
@@ -188,7 +188,7 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
      *
      * @param placeGroup into which this instance is participating
      */
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({ "deprecation", "unchecked" })
     public R teamReduction(TeamedPlaceGroup placeGroup) {
         if (placeGroup == null) {
             throw new IllegalStateException("This Reducer is not allowed to perform any global reduction");

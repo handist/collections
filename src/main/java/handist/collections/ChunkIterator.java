@@ -4,10 +4,9 @@ import java.util.Iterator;
 
 public class ChunkIterator<T> implements Iterator<T> {
     private final Object[] a;
-    private final LongRange range;
+    public final LongRange range;
     private int i; // offset inside the chunk
     private final int limit;
-
 
     public ChunkIterator() {
         this.range = new LongRange(0);
@@ -15,22 +14,23 @@ public class ChunkIterator<T> implements Iterator<T> {
         this.limit = 0;
         this.i = -1;
     }
+
+    public ChunkIterator(int offset, LongRange range, Object[] a) {
+        /*
+         * range0 = chunk.getRange().intersection(range0); if(range0 == null) { throw
+         * new IndexOutOfBoundsException(); }
+         */
+        this.range = range;
+        this.a = a;
+        this.limit = offset + (int) range.size();
+        this.i = offset - 1;
+    }
+
     public ChunkIterator(LongRange range, Object[] a) {
         this.range = range;
         this.a = a;
-        this.limit = (int)range.size();
+        this.limit = (int) range.size();
         this.i = -1;
-    }
-    public ChunkIterator(int offset, LongRange range, Object[] a) {
-        /*
-        range0 = chunk.getRange().intersection(range0);
-        if(range0 == null) {
-            throw new IndexOutOfBoundsException();
-        }*/
-        this.range = range;
-        this.a = a;
-        this.limit = offset + (int)range.size();
-        this.i = offset - 1;
     }
 
     @Override
@@ -41,7 +41,9 @@ public class ChunkIterator<T> implements Iterator<T> {
     @Override
     @SuppressWarnings("unchecked")
     public T next() {
-        if(!hasNext()) throw new IndexOutOfBoundsException();
+        if (!hasNext()) {
+            throw new IndexOutOfBoundsException();
+        }
         return (T) a[++i];
     }
 }
