@@ -23,7 +23,7 @@ import handist.collections.RangedList;
  */
 public class AccumulatorCompleteRange<T, R> extends ThreadLocalAccumulator<T, R> {
 
-    AccumulatorCompleteRange(ChunkedList<T> target, Function<Long, R> initFunc, BiConsumer<T, R> reduceFunc) {
+    public AccumulatorCompleteRange(ChunkedList<T> target, Function<Long, R> initFunc, BiConsumer<T, R> reduceFunc) {
         super(target, initFunc, reduceFunc);
     }
 
