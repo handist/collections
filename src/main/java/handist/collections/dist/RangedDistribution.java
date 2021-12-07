@@ -17,7 +17,7 @@ import apgas.Place;
 import handist.collections.LongRange;
 
 /**
- * Interface representing the distribution of a type R onto multiple
+ * Interface representing the distribution of a "range" type R over multiple
  * {@link Place}s. This interface consists in a single method, which maps
  * instances of R to places.
  * <p>
@@ -34,15 +34,11 @@ import handist.collections.LongRange;
  *            of values for instance.
  * @see Distribution
  */
-/*
- * 要素を列挙できるタイプの Distribution, IterableDistribution などに改名すべ? 取り敢えずは、Long 専用で。本来
- * Range[K] { K <: Comparable} 対応にすべきかな？
- */
 public interface RangedDistribution<R> {
 
     /**
-     * Creates a map of the keys contained in the provided parameter to places on
-     * which these keys should be distributed.
+     * Returns a map of the keys contained in the provided range to the places on
+     * which these keys are/should be located.
      * <p>
      * Implementation should ensure that there are no duplicated or overlapping keys
      * in the returned map and that all the contents of the range provided as
@@ -51,5 +47,5 @@ public interface RangedDistribution<R> {
      * @param range the range or collection of "keys" to map to various places
      * @return a Map from R instances to {@link Place}s
      */
-    public Map<R, Place> placeRanges(R range);
+    public Map<R, Place> rangeLocation(R range);
 }

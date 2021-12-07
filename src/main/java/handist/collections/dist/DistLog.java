@@ -327,7 +327,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
 
     /**
      * Creates a {@link DistLog} instance for events that occur in the whole
-     * {@link TeamedPlaceGroup#getWorld()} with an initial phse of {@value 0l}.l
+     * {@link TeamedPlaceGroup#getWorld()} with an initial phase of 0
      */
     public DistLog() {
         this(TeamedPlaceGroup.getWorld());
@@ -335,7 +335,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
 
     /**
      * Creates a {@link DistLog} instance for events to be logged on the provided
-     * place group. The initial logging phase is arbitrarily set to {@value 0l};
+     * place group. The initial logging phase is arbitrarily set to 0l.
      *
      * @param pg the group of places on which events are gathered
      */

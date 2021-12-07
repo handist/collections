@@ -159,7 +159,7 @@ public class DistMap<K, V>
      */
     @Override
     public void clear() {
-        this.data.clear();
+        data.clear();
     }
 
     /**
@@ -460,7 +460,7 @@ public class DistMap<K, V>
     @Override
     public void moveAtSync(Distribution<K> dist, MoveManager mm) {
         final Function<K, Place> rule = (K key) -> {
-            return dist.place(key);
+            return dist.location(key);
         };
         moveAtSync(rule, mm);
     }
@@ -674,7 +674,7 @@ public class DistMap<K, V>
 
     public void relocate(Distribution<K> rule, CollectiveMoveManager mm) throws Exception {
         for (final K key : data.keySet()) {
-            final Place place = rule.place(key);
+            final Place place = rule.location(key);
             // TODO
             // if(place==null) throw SomeException();
             moveAtSync(key, place, mm);

@@ -1741,7 +1741,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
-     * Returns a continuous RangedList with the given {@Code range} from this
+     * Returns a continuous RangedList with the given {@code range} from this
      * {@link ChunkedList}
      *
      * @param range range of the desired view

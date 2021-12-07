@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -108,7 +109,7 @@ public class DistChunkedList<T> extends ChunkedList<T>
          * individual host. This method is blocking and needs to be called on all hosts
          * to terminate.
          *
-         * @param<R> type of the reducer used
+         * @param <R>     type of the reducer used
          * @param reducer the reduction operation to perform
          * @return the result of the specified reduction across all local handles of the
          *         underlying collection
@@ -316,16 +317,6 @@ public class DistChunkedList<T> extends ChunkedList<T>
         }
     }
 
-    public void moveRangeAtSync(final Distribution<Long> dist, final CollectiveMoveManager mm) {
-        moveRangeAtSync((LongRange range) -> {
-            final ArrayList<Pair<Place, LongRange>> listPlaceRange = new ArrayList<>();
-            for (final Long key : range) {
-                listPlaceRange.add(new Pair<>(dist.place(key), new LongRange(key, key + 1)));
-            }
-            return listPlaceRange;
-        }, mm);
-    }
-
     public void moveRangeAtSync(Function<LongRange, List<Pair<Place, LongRange>>> rule, CollectiveMoveManager mm) {
         final DistChunkedList<T> collection = this;
         final HashMap<Place, ArrayList<LongRange>> rangesToMove = new HashMap<>();
@@ -368,11 +359,14 @@ public class DistChunkedList<T> extends ChunkedList<T>
         moveAtSync(chunksToMove, dest, mm);
     }
 
-    public void moveRangeAtSync(final RangedDistribution<LongRange> dist, final CollectiveMoveManager mm)
+    public void moveRangeAtSync(final RangedDistribution<LongRange> rangedDistribution, final CollectiveMoveManager mm)
             throws Exception {
-        moveRangeAtSync((LongRange range) -> {
-            return dist.placeRanges(range);
-        }, mm);
+        for (final LongRange r : ranges()) {
+            final Map<LongRange, Place> relocation = rangedDistribution.rangeLocation(r);
+            for (final Map.Entry<LongRange, Place> reloc : relocation.entrySet()) {
+                moveRangeAtSync(reloc.getKey(), reloc.getValue(), mm);
+            }
+        }
     }
 
     // Method moved to GLOBAL and TEAM operations

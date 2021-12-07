@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -104,11 +103,13 @@ public class DistCol<T> extends DistChunkedList<T> implements ElementLocationMan
 
     @Override
     public void clear() {
-        // TODO
-        // the current implementation assumes TEAMED operation of clear() and
-        // does not support the situation where clear() is only called on some places.
+        // Iterate of all locally held chunks to record their removal
+        for (final LongRange lr : chunks.keySet()) {
+            ldist.remove(lr);
+        }
+
+        // Clear the current entries by delegating to parent implementation
         super.clear();
-        ldist.clear();
     }
 
     /**
@@ -141,20 +142,27 @@ public class DistCol<T> extends DistChunkedList<T> implements ElementLocationMan
         }
     }
 
-    /*
-     * Map<LongRange, Integer> getDiff() { return ldist.diff; }
+    /**
+     * Returns a newly created snapshot of the current distribution of this
+     * collection as a {@link LongRangeDistribution}. This returned distribution's
+     * contents will become out-of-date if the contents of this class are relocated,
+     * added, and/or removed.
+     * <p>
+     * If you need a {@link LongRangeDistribution} to remain up-to-date with the
+     * actual distribution of a {@link DistCol}, considers using
+     * {@link #registerDistribution(UpdatableDistribution)}. By registering a
+     * {@link LongRangeDistribution}, changes in the distribution of entries of this
+     * {@link DistCol} will be reflected in the {@link LongRangeDistribution} object
+     * when the distribution information of {@link DistCol} is updated and
+     * synchronized between hosts using {@link #updateDist()}. This is more
+     * efficient than allocating a new {@link LongRangeDistribution} object each
+     * time the distribution of the distributed collection changes.
+     *
+     * @return a new {@link LongRangeDistribution} object representing the current
+     *         distribution of this collection
      */
-
-    public ConcurrentHashMap<LongRange, Place> getDist() {
-        return ldist.dist;
-    }
-
-    public LongDistribution getDistributionLong() {
-        return LongDistribution.convert(getDist());
-    }
-
-    public LongRangeDistribution getRangedDistributionLong() {
-        return new LongRangeDistribution(getDist());
+    public LongRangeDistribution getDistribution() {
+        return new LongRangeDistribution(ldist.dist);
     }
 
     @Override
@@ -223,6 +231,11 @@ public class DistCol<T> extends DistChunkedList<T> implements ElementLocationMan
     }
 
     @Override
+    public void registerDistribution(UpdatableDistribution<LongRange> distributionToUpdate) {
+        ldist.registerDistribution(distributionToUpdate);
+    }
+
+    @Override
     public RangedList<T> remove(final LongRange r) {
         ldist.remove(r);
         return super.remove(r);
@@ -257,7 +270,7 @@ public class DistCol<T> extends DistChunkedList<T> implements ElementLocationMan
 
     @Override
     public void updateDist() {
-        ldist.updateDist(manager.placeGroup);
+        ldist.update(manager.placeGroup);
     }
 
     @Override

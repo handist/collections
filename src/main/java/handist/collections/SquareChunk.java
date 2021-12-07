@@ -345,7 +345,7 @@ public class SquareChunk<T> implements Serializable, SquareRangedList<T>, KryoSe
      * result in a {@link IllegalArgumentException} being thrown.
      * <p>
      * If the {@link SquareRange} provided has a range that exceeds
-     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be be
+     * {@link Config#maxChunkSize} , an {@link IllegalArgumentException} will be be
      * thrown.
      *
      * @param range the range of the chunk to build
@@ -382,7 +382,7 @@ public class SquareChunk<T> implements Serializable, SquareRangedList<T>, KryoSe
      * result in a {@link IllegalArgumentException} being thrown.
      * <p>
      * If the {@link SquareRange} provided has a range that exceeds
-     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be be
+     * {@link Config#maxChunkSize}, an {@link IllegalArgumentException} will be be
      * thrown.
      *
      * @param range the range of the chunk to build
@@ -411,7 +411,7 @@ public class SquareChunk<T> implements Serializable, SquareRangedList<T>, KryoSe
      * result in a {@link IllegalArgumentException} being thrown.
      * <p>
      * If the {@link SquareRange} provided has a range that exceeds
-     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be be
+     * {@link Config#maxChunkSize}, an {@link IllegalArgumentException} will be be
      * thrown.
      *
      * @param range       the range of the Squarechunk to build
@@ -434,7 +434,7 @@ public class SquareChunk<T> implements Serializable, SquareRangedList<T>, KryoSe
      * {@link IllegalArgumentException} being thrown.
      * <p>
      * If the {@link SquareRange} provided has a range that exceeds
-     * {@value Config#maxChunkSize}, an {@link IllegalArgumentException} will be be
+     * {@link Config#maxChunkSize}, an {@link IllegalArgumentException} will be be
      * thrown.
      *
      * @param range the range of the chunk to build
