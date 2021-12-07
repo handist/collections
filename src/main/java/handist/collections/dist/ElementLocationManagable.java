@@ -29,8 +29,32 @@ public interface ElementLocationManagable<T> {
     public void getSizeDistribution(final long[] result);
 
     /**
-     * Conduct element location management process. This method must be called
-     * simultaneously by process group members.
+     * Registers a distribution object which needs to be updated by the distributed
+     * collection. As the bare minimum, each time the {@link #updateDist()} method
+     * is called, the distributed collection needs to ensure that the distribution
+     * objects registered through this method are updated as well.
+     * <p>
+     * <h2>Implementation Note</h2> Distribution objects registered through this
+     * method are weakly managed, meaning that registering a distribution object
+     * into a distributed collection using this method will not prevent the garbage
+     * collector from recollecting the distribution. In practice this does not
+     * change anything for users. This simply means that registered distributions
+     * that are no longer accessible from anywhere in the program will be
+     * automatically dropped from the registered collections updated by the
+     * distributed collection. Programmers need not to worry about "de-registering"
+     * distribution objects when their use has expired as it will be done
+     * automatically.
+     *
+     * @param distributionToUpdate the updatable distribution which needs to be
+     *                             updated when the distribution of the distributed
+     *                             collection evolves
+     */
+    public void registerDistribution(UpdatableDistribution<T> distributionToUpdate);
+
+    /**
+     * Update the local knowledge of each local handle so that it is up-to-date with
+     * the entire distributed state of the distribution. This method needs to be
+     * called on each local handle on which the distributed collection is defined.
      */
     public void updateDist();
 }

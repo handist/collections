@@ -187,7 +187,7 @@ public class MapEntryDispatcher<K, V> implements KryoSerializable, Serializable 
      *         If not, return null.
      */
     public V put(K key, V value) {
-        final Place next = distribution.place(key);
+        final Place next = distribution.location(key);
         if (next.equals(here())) {
             return putLocal(key, value);
         }

@@ -105,7 +105,7 @@ public class MultiMapEntryDispatcher<K, V> extends MapEntryDispatcher<K, Collect
      *         If not, return null.
      */
     public boolean put1(K key, V value) {
-        final Place next = distribution.place(key);
+        final Place next = distribution.location(key);
         if (next.equals(here())) {
             return put1Local(key, value);
         }

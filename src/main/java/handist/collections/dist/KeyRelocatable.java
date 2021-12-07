@@ -46,7 +46,7 @@ public interface KeyRelocatable<K> {
     public default <D extends Distribution<K>> void moveAtSync(Collection<K> keys, D distribution,
             MoveManager manager) {
         for (final K key : keys) {
-            moveAtSync(key, distribution.place(key), manager);
+            moveAtSync(key, distribution.location(key), manager);
         }
     }
 

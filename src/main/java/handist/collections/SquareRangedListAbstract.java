@@ -17,9 +17,10 @@ import handist.collections.util.Splitter;
  *
  * @param <T> represents the type of each element
  * @param <X> represents the type used for the return type of method
- *            {@Code subview()} or {@Code split()} methods. In practice,
- *            SquareChunk or SquareRangedListView uses SquareRangedList as X and
- *            RangedListProduct uses RangedListProduct as X.
+ *            {@link #subView(SquareRange)}or {@link #split(int, int)} methods.
+ *            In practice, SquareChunk or SquareRangedListView uses
+ *            SquareRangedList as X and RangedListProduct uses RangedListProduct
+ *            as X.
  */
 public interface SquareRangedListAbstract<T, X extends SquareRangedListAbstract<T, X>> extends Iterable<T> {
 

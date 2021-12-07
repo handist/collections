@@ -92,7 +92,7 @@ public interface RangeRelocatable<R> {
      * @param manager     the manager in charge of the transfer
      */
     public default void moveRangeAtSync(R range, RangedDistribution<R> destination, MoveManager manager) {
-        for (final Entry<R, Place> mappings : destination.placeRanges(range).entrySet()) {
+        for (final Entry<R, Place> mappings : destination.rangeLocation(range).entrySet()) {
             moveRangeAtSync(mappings.getKey(), mappings.getValue(), manager);
         }
     }

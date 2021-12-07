@@ -23,6 +23,7 @@ import java.util.function.Function;
 
 import apgas.Place;
 import apgas.util.GlobalID;
+import handist.collections.dist.ElementLocationManager.ParameterErrorException;
 import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
@@ -32,16 +33,19 @@ import handist.collections.function.Serializer;
 
 /**
  * Distributed Map using {@link Long} as key and type <code>V</code> as value.
+ * <h2>Distribution</h2>
+ * <p>
+ * This map implementation has its distribution tracked using an internal
+ * mechanism. A snapshot of the current distribution can be obtained through
+ * method {@link #getDistribution()}.
  *
  * @param <V> the type of the value mappings of this instance
  */
 public class DistIdMap<V> extends DistMap<Long, V>
         implements DistributedCollection<V, DistMap<Long, V>>, ElementLocationManagable<Long> {
-//TODO
-    /* implements ManagedDistribution[Long] */
 
     private static int _debug_level = 0;
-    transient ElementLocationManager<Long> ldist;
+    protected final transient ElementLocationManager<Long> ldist;
     transient float[] locality;
 
     /**
@@ -84,8 +88,10 @@ public class DistIdMap<V> extends DistMap<Long, V>
      */
     @Override
     public void clear() {
+        for (final Long k : data.keySet()) {
+            ldist.remove(k);
+        }
         super.clear();
-        this.ldist.clear();
         Arrays.fill(locality, 1.0f);
     }
 
@@ -158,12 +164,21 @@ public class DistIdMap<V> extends DistMap<Long, V>
         return ldist.diff;
     }
 
-    public Map<Long, Place> getDist() {
-        return ldist.dist;
-    }
-
-    public LongDistribution getDistributionLong() {
-        return new LongDistribution(getDist());
+    /**
+     * Returns a newly created snapshot of the distribution of this
+     * {@link DistIdMap}. Subsequent modifications to the distribution of this
+     * distributed map will not be reflected into the returned instance.
+     * <p>
+     * In case an updated {@link LongDistribution} is needed, consider using
+     * {@link #registerDistribution(UpdatableDistribution)} to update the
+     * {@link LongDistribution} instance each time {@link #updateDist()} is called.
+     * This is more efficient than calling {@link #getDistribution()}
+     *
+     * @return a newly created snapshot of the current distribution of this
+     *         collection.
+     */
+    public LongDistribution getDistribution() {
+        return new LongDistribution(ldist.dist);
     }
 
     /*
@@ -228,7 +243,7 @@ public class DistIdMap<V> extends DistMap<Long, V>
     @Override
     public void moveAtSync(Distribution<Long> dist, MoveManager mm) {
         final Function<Long, Place> rule = (Long key) -> {
-            return dist.place(key);
+            return dist.location(key);
         };
         moveAtSync(rule, mm);
     }
@@ -362,26 +377,29 @@ public class DistIdMap<V> extends DistMap<Long, V>
         return data.put(key, value);
     }
 
-    /*
-     * Remove the corresponding value of the specified id.
-     *
-     * @param id a Long type value.
-     */
-    public V remove(long id) {
-        ldist.remove(id);
-        return super.remove(id);
+    @Override
+    public void registerDistribution(UpdatableDistribution<Long> distributionToUpdate) {
+        ldist.registerDistribution(distributionToUpdate);
     }
 
-    /*
-     * will be implemented in Java using TreeMap public def moveAtSync(range:
-     * LongRange, place: Place, mm:MoveManagerLocal) {U haszero}: void {
+    /**
+     * Removes a mapping from this distributed map local handle, or
+     * <code>null</code> if the object supplied as parameter is not a {@link Long}.
      *
-     * }
+     * @param key the Long key
+     * @return the value to which the key was previously mapped to
+     * @throws ParameterErrorException if there are no mappings associated with the
+     *                                 specified key
      */
-    // TODO???
-    // public def moveAtSync(dist:Distribution[LongRange], mm:MoveManagerLocal):
-    // void {
-    // no need for sparse array
+    @Override
+    public V remove(Object key) {
+        if (key instanceof Long) {
+            ldist.remove((Long) key);
+            return super.remove(key);
+        } else {
+            return null;
+        }
+    }
 
     private V removeForMove(long id) {
         return data.remove(id);
@@ -392,14 +410,8 @@ public class DistIdMap<V> extends DistMap<Long, V>
      */
     @Override
     public void updateDist() {
-        ldist.updateDist(placeGroup);
+        ldist.update(placeGroup);
     }
-
-    /*
-     * public def versioningIdMap(srcName : String){ // return new
-     * BranchingManager[DistIdMap[T], Map[Long,T]](srcName, this); return null as
-     * BranchingManager[DistIdMap[T], Map[Long, T]]; }
-     */
 
     @Override
     public Object writeReplace() throws ObjectStreamException {
