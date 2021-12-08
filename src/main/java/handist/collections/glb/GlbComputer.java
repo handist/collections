@@ -302,6 +302,17 @@ class GlbComputer extends PlaceLocalObject {
             }
             return workCreated;
         }
+
+        /**
+         * Discards all tracking information kept until that point. Can only be called
+         * safely if there are no ongoing GLB computation.
+         *
+         * @see GlobalLoadBalancer#reset()
+         */
+        public void reset() {
+            allTasks.clear();
+            tasksWithWork.clear();
+        }
     }
 
     /** Singleton, local handle instance */
