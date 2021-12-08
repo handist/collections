@@ -18,6 +18,7 @@ import java.util.concurrent.ForkJoinPool;
 
 import apgas.SerializableJob;
 import handist.collections.dist.DistLog;
+import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.glb.GlbOperation.OperationCompletionManagedBlocker;
 import handist.collections.glb.GlbOperation.State;
 
@@ -112,6 +113,19 @@ public class GlobalLoadBalancer {
      */
     public static DistLog getPreviousLog() {
         return previousLog;
+    }
+
+    /**
+     * Triggers the erasure of all tracking information on every host.
+     * <p>
+     * Experimental. Can only be called safely if there are no ongoing GLB
+     * computation.
+     */
+    public static void reset() {
+        TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
+            final GlbComputer computer = GlbComputer.getComputer();
+            computer.reserve.reset();
+        });
     }
 
     /**
