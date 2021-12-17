@@ -2,7 +2,6 @@ package handist.collections.dist;
 
 import static apgas.Constructs.*;
 
-import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -16,6 +15,7 @@ import java.util.function.Function;
 
 import apgas.Place;
 import apgas.util.GlobalID;
+import handist.collections.Chunk;
 import handist.collections.ChunkedList;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
@@ -41,7 +41,7 @@ import mpi.Op;
  */
 public class CachableChunkedList<T> extends DistCol<T> {
 
-//    static class Team<S> extends TeamOperations<S, CachableChunkedList<S>> {
+//    public static class Team<T> extends DistCol.Team<T> {
 //
 //        /**
 //         * Super constructor. Needs to be called by all implementations to initialize
@@ -49,15 +49,57 @@ public class CachableChunkedList<T> extends DistCol<T> {
 //         *
 //         * @param localObject local handle of the distributed collection
 //         */
-//        public Team(CachableChunkedList<S> localObject) {
+//        private Team(CachableChunkedList<T> localObject) {
 //            super(localObject);
 //        }
+//
 //        @Override
 //        public void gather(Place root) {
 //            throw new UnsupportedOperationException("CachableChunkedList does not support gather().");
 //        }
+//
+//        /**
+//         * Computes and gathers the size of each local collection <b>not including
+//         * shared collections</b> into the provided array. This operation usually
+//         * requires that all the hosts that are manipulating the distributed collection
+//         * call this method before it returns on any host. This is due to the fact some
+//         * communication between the {@link Place}s in the collection's
+//         * {@link TeamedPlaceGroup} is needed to compute/gather the result.
+//         *
+//         * @param result long array in which the result will be gathered
+//         */
 //        @Override
-//        public void teamedBalance(CollectiveMoveManager mm) {
+//        public void getSizeDistribution(final long[] result) {
+//            super.getSizeDistribution(result);
+//        }
+//
+//        @Override
+//        public <R extends Reducer<R, T>> R parallelReduce(R reducer) {
+//            return super.parallelReduce(reducer);
+//        }
+//
+//        @Override
+//        public <R extends Reducer<R, T>> R reduce(R reducer) {
+//            return super.reduce(reducer);
+//        }
+//
+//        @Override
+//        public void teamedBalance() {
+//            throw new UnsupportedOperationException("CachableChunkedList does not support balance operations.");
+//        }
+//
+//        @Override
+//        public void teamedBalance(final CollectiveMoveManager mm) {
+//            throw new UnsupportedOperationException("CachableChunkedList does not support balance operations.");
+//        }
+//
+//        @Override
+//        public void teamedBalance(final float[] newLocality) {
+//            throw new UnsupportedOperationException("CachableChunkedList does not support balance operations.");
+//        }
+//
+//        @Override
+//        public void teamedBalance(final float[] newLocality, final CollectiveMoveManager mm) {
 //            throw new UnsupportedOperationException("CachableChunkedList does not support balance operations.");
 //        }
 //    }
@@ -180,10 +222,33 @@ public class CachableChunkedList<T> extends DistCol<T> {
         allreduce(new ArrayList<>(shared.ranges()), pack, unpack, op); // TODO: not good, copying ranges to arraylist
     }
 
+    /**
+     * conduct allreduce operation on shared chunks.
+     *
+     * @param pack   the function that receives an element and extracts data that
+     *               will be transferred to other places and be reduced by the
+     *               unpack operation.
+     * @param unpack the function that receives a local element and the transferred
+     *               data from each place and conducts reduction operation to the
+     *               local element.
+     * @param <U>    the type of the extracted data
+     */
     public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack) {
         allreduce(new ArrayList<>(shared.ranges()), pack, unpack); // TODO: not good, copying ranges to arraylist
     }
 
+    /**
+     * conduct allreduce operation on shared chunks.
+     *
+     * @param pack   the function that receives an element and extracts data that
+     *               will be transferred to other places and be reduced by the
+     *               unpack operation.
+     * @param unpack the function that receives a local element and the transferred
+     *               data from each place and conducts reduction operation to the
+     *               local element.
+     * @param mm     the collective relocator to manage serialize process
+     * @param <U>    the type of the extracted data
+     */
     public <U> void allreduce(Function<T, U> pack, BiConsumer<T, U> unpack, CollectiveRelocator.Allgather mm) {
         allreduce(new ArrayList<>(shared.ranges()), pack, unpack, mm); // TODO: not good, copying ranges to arraylist
     }
@@ -255,6 +320,20 @@ public class CachableChunkedList<T> extends DistCol<T> {
         }
     }
 
+    /**
+     * conduct allreduce operation on shared chunks in the given range. Note: please
+     * use the same ranges in all the places.
+     *
+     * @param ranges the list of ranges in which chunks are applied to the
+     *               operation.
+     * @param pack   the function that receives an element and extracts data that
+     *               will be transferred to other places and be reduced by the
+     *               unpack operation.
+     * @param unpack the function that receives a local element and the transferred
+     *               data from each place and conducts reduction operation to the
+     *               local element.
+     * @param <U>    the type of the extracted data
+     */
     public <U> void allreduce(List<LongRange> ranges, Function<T, U> pack, BiConsumer<T, U> unpack) {
         final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());
         allreduce(ranges, pack, unpack, mm);
@@ -304,14 +383,54 @@ public class CachableChunkedList<T> extends DistCol<T> {
         }
     }
 
+    /**
+     * Conducts a broadcast operation on chunks that are already shared within the
+     * place group. The user must call each of the broadcast methods of a cachable
+     * chunked list in all the place belonging to the place group.
+     *
+     * @param <U>    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     */
     public <U> void bcast(Function<T, U> pack, BiConsumer<T, U> unpack) {
         bcast((LongRange) null, pack, unpack);
     }
 
+    /**
+     * Conducts a broadcast operation on chunks that are already shared within the
+     * place group. The user must call each of the broadcast methods of a cachable
+     * chunked list in all the place belonging to the place group.
+     *
+     * @param <U>    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     * @param mm     the relocator in charge of handling the communication between
+     *               hosts
+     */
     public <U> void bcast(Function<T, U> pack, BiConsumer<T, U> unpack, CollectiveRelocator.Allgather mm) {
         bcast((LongRange) null, pack, unpack, mm);
     }
 
+    /**
+     * Conducts a broadcast operation on chunks that are already shared within the
+     * place group. The user must call each of the broadcast methods of a cachable
+     * chunked list in all the place belonging to the place group.
+     *
+     * @param <U>    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param ranges the ranges to braodcast
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     *
+     */
     public <U> void bcast(List<LongRange> ranges, Function<T, U> pack, BiConsumer<T, U> unpack) {
         final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());
         bcast(ranges, pack, unpack, mm);
@@ -362,12 +481,40 @@ public class CachableChunkedList<T> extends DistCol<T> {
         mm.request(serProcess, desProcess);
     }
 
+    /**
+     * Conducts a broadcast operation on chunks that are already shared within the
+     * place group. The user must call each of the broadcast methods of a cachable
+     * chunked list in all the place belonging to the place group.
+     *
+     * @param <U>    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param range  the range to braodcast
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     */
     public <U> void bcast(LongRange range, Function<T, U> pack, BiConsumer<T, U> unpack) {
         final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());
         bcast(range, pack, unpack, mm);
         mm.execute();
     }
 
+    /**
+     * Conducts a broadcast operation on chunks that are already shared within the
+     * place group. The user must call each of the broadcast methods of a cachable
+     * chunked list in all the place belonging to the place group.
+     *
+     * @param <U>    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param range  the range to braodcast
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     * @param mm     the relocator in charge of handling the communication between
+     *               hosts
+     */
     public <U> void bcast(LongRange range, Function<T, U> pack, BiConsumer<T, U> unpack,
             CollectiveRelocator.Allgather mm) {
         bcast(Collections.singletonList(range), pack, unpack, mm);
@@ -414,10 +561,24 @@ public class CachableChunkedList<T> extends DistCol<T> {
         return result;
     }
 
+    /**
+     * Performs the provided operation on each {@link Chunk}s that are already
+     * shared within the place group and overlapped with the given range.
+     *
+     * @param range range to be scanned
+     * @param func  operation to make on each chunk
+     */
     public void forEachSharedChunk(LongRange range, Consumer<RangedList<T>> func) {
         shared.forEachChunk(range, func);
     }
 
+    /**
+     * Performs the provided operation on each element contained in already shared
+     * {@link Chunk} which owner place is here and overlapped with the given range.
+     *
+     * @param range range to be scanned
+     * @param func  operation to make on each element
+     */
     public void forEachSharedOwner(LongRange range, Consumer<T> func) {
         shared.forEachChunk(range, (RangedList<T> r0) -> {
             if (shared2owner.get(r0).equals(here())) {
@@ -429,6 +590,14 @@ public class CachableChunkedList<T> extends DistCol<T> {
         });
     }
 
+    /**
+     * Performs the provided operation on each element contained in already shared
+     * {@link Chunk} which owner place is here and overlapped with the given range.
+     *
+     * @param range range to be scanned
+     * @param func  to action to perform on each pair of ({@code long} key and (T)
+     *              element
+     */
     public void forEachSharedOwner(LongRange range, LongTBiConsumer<T> func) {
         shared.forEachChunk(range, (RangedList<T> r0) -> {
             if (shared2owner.get(r0).equals(here())) {
@@ -440,6 +609,37 @@ public class CachableChunkedList<T> extends DistCol<T> {
         });
     }
 
+    /**
+     * Returns a newly created snapshot of the current distribution of this
+     * collection as a {@link LongRangeDistribution}. This returned distribution's
+     * contents will become out-of-date if the contents of this class are relocated,
+     * added, and/or removed. <b>The distribution does not include shared
+     * ranges.</b>
+     * <p>
+     * If you need a {@link LongRangeDistribution} to remain up-to-date with the
+     * actual distribution of a {@link DistCol}, considers using
+     * {@link #registerDistribution(UpdatableDistribution)}. By registering a
+     * {@link LongRangeDistribution}, changes in the distribution of entries of this
+     * {@link DistCol} will be reflected in the {@link LongRangeDistribution} object
+     * when the distribution information of {@link DistCol} is updated and
+     * synchronized between hosts using {@link #updateDist()}. This is more
+     * efficient than allocating a new {@link LongRangeDistribution} object each
+     * time the distribution of the distributed collection changes.
+     *
+     * @return a new {@link LongRangeDistribution} object representing the current
+     *         distribution of this collection
+     */
+    @Override
+    public LongRangeDistribution getDistribution() {
+        return super.getDistribution();
+    }
+
+    /**
+     * Returns a place where a given chunk is owned.
+     *
+     * @param chunk to find owner place.
+     * @return a place a place where a given chunk is owned.
+     */
     public Place getSharedOwner(RangedList<T> chunk) {
         return shared2owner.get(chunk);
     }
@@ -453,6 +653,22 @@ public class CachableChunkedList<T> extends DistCol<T> {
         super.moveAtSync(cs, dest, mm);
     }
 
+    /**
+     * Conduct reduce operation on chunks that are already shared with other places
+     * in the given ranges. The reduced result is stored in owner chunks. The user
+     * must call each of the reduce methods of a cachable chunked list in all the
+     * place belonging to the place group.
+     *
+     * @param ranges the list of ranges in which chunks are applied to the
+     *               operation.
+     * @param pack   the function that receives an element and extracts data that
+     *               will be transferred to other places and be reduced by the
+     *               unpack operation.
+     * @param unpack the function that receives a local element and the transferred
+     *               data from each place and conducts reduction operation to the
+     *               local element.
+     * @param <U>    the type of the extracted data
+     */
     public <U> void reduce(List<LongRange> ranges, Function<T, U> pack, SerializableBiConsumer<T, U> unpack) {
         final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup());
         reduce(ranges, pack, unpack, mm);
@@ -464,6 +680,24 @@ public class CachableChunkedList<T> extends DistCol<T> {
         }
     }
 
+    /**
+     * Conduct reduce operation on chunks that are already shared with other places
+     * in the given ranges. The reduced result is stored in owner chunks. The user
+     * must call each of the reduce methods of a cachable chunked list in all the
+     * place belonging to the place group.
+     *
+     * @param ranges the list of ranges in which chunks are applied to the
+     *               operation.
+     * @param pack   the function that receives an element and extracts data that
+     *               will be transferred to other places and be reduced by the
+     *               unpack operation.
+     * @param unpack the function that receives a local element and the transferred
+     *               data from each place and conducts reduction operation to the
+     *               local element.
+     * @param mm     You can relocate multiple cachable chunked lists using the same
+     *               collective relocator, specified with {@code mm}.
+     * @param <U>    the type of the extracted data
+     */
     public <U> void reduce(List<LongRange> ranges, final Function<T, U> pack, final SerializableBiConsumer<T, U> unpack,
             CollectiveMoveManager mm) {
         final CachableChunkedList<T> toBranch = this;
@@ -541,16 +775,91 @@ public class CachableChunkedList<T> extends DistCol<T> {
         throw new UnsupportedOperationException("CachableChunkedList does not support proxy feature.");
     }
 
+    /**
+     * conduct broadcast operation on chunks that are not shared with other places
+     * yet. The user must call each of the share methods of a cachable chunked list
+     * in all the place belonging to the place group. This method should not be
+     * called simultaneously with other collective methods. The caller place is
+     * treated as the owner even if the chunks become shared.
+     * <p>
+     * Note 1: if you want to share all the local chunks, please call
+     * {@link #share()}
+     * <p>
+     * Note 2: if you want to specify multiple ranges, please use
+     * {@link #share(List)}.
+     * <p>
+     * Note 3: if you don't want to share any local chunks from the called place,
+     * please specify an empty range or an empty list of ranges.
+     * <p>
+     * Note 4: if you want to conduct the relocation process of multiple cachable
+     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
+     * of {@link CollectiveRelocator.Allgather} first and call the relocation
+     * methods of the cachable chunked lists in the same order specifying the
+     * collective relocator as a parameter, and finally call the execute method of
+     * the relocator.
+     */
     public void share() {
         final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());
         share(Collections.singletonList(null), mm);
         mm.execute();
     }
 
+    /**
+     * conduct broadcast operation on chunks that are not shared with other places
+     * yet. The user must call each of the share methods of a cachable chunked list
+     * in all the place belonging to the place group. This method should not be
+     * called simultaneously with other collective methods. The caller place is
+     * treated as the owner even if the chunks become shared.
+     * <p>
+     * Note 1: if you want to share all the local chunks, please call
+     * {@link #share()}
+     * <p>
+     * Note 2: if you want to specify multiple ranges, please use
+     * {@link #share(List)}.
+     * <p>
+     * Note 3: if you don't want to share any local chunks from the called place,
+     * please specify an empty range or an empty list of ranges.
+     * <p>
+     * Note 4: if you want to conduct the relocation process of multiple cachable
+     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
+     * of {@link CollectiveRelocator.Allgather} first and call the relocation
+     * methods of the cachable chunked lists in the same order specifying the
+     * collective relocator as a parameter, and finally call the execute method of
+     * the relocator.
+     *
+     * @param mm You can relocate multiple cachable chunked lists using the same
+     *           collective relocator, specified with {@code mm}.
+     */
     public void share(CollectiveRelocator.Allgather mm) {
         share(Collections.singletonList(null), mm);
     }
 
+    /**
+     * conduct broadcast operation on chunks that are not shared with other places
+     * yet. The user must call each of the share methods of a cachable chunked list
+     * in all the place belonging to the place group. This method should not be
+     * called simultaneously with other collective methods. The caller place is
+     * treated as the owner even if the chunks become shared.
+     * <p>
+     * Note 1: if you want to share all the local chunks, please call
+     * {@link #share()}
+     * <p>
+     * Note 2: if you want to specify multiple ranges, please use
+     * {@link #share(List)}.
+     * <p>
+     * Note 3: if you don't want to share any local chunks from the called place,
+     * please specify an empty range or an empty list of ranges.
+     * <p>
+     * Note 4: if you want to conduct the relocation process of multiple cachable
+     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
+     * of {@link CollectiveRelocator.Allgather} first and call the relocation
+     * methods of the cachable chunked lists in the same order specifying the
+     * collective relocator as a parameter, and finally call the execute method of
+     * the relocator.
+     *
+     * @param ranges The library scans the ranges and exports (the parts of) the
+     *               local chunks in the ranges.
+     */
     public void share(List<LongRange> ranges) {
         final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());
         share(ranges, mm);
@@ -598,16 +907,77 @@ public class CachableChunkedList<T> extends DistCol<T> {
         mm.request(serProcess, desProcess);
     }
 
+    /**
+     * conduct broadcast operation on chunks that are not shared with other places
+     * yet. The user must call each of the share methods of a cachable chunked list
+     * in all the place belonging to the place group. This method should not be
+     * called simultaneously with other collective methods. The caller place is
+     * treated as the owner even if the chunks become shared.
+     * <p>
+     * Note 1: if you want to share all the local chunks, please call
+     * {@link #share()}
+     * <p>
+     * Note 2: if you want to specify multiple ranges, please use
+     * {@link #share(List)}.
+     * <p>
+     * Note 3: if you don't want to share any local chunks from the called place,
+     * please specify an empty range or an empty list of ranges.
+     * <p>
+     * Note 4: if you want to conduct the relocation process of multiple cachable
+     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
+     * of {@link CollectiveRelocator.Allgather} first and call the relocation
+     * methods of the cachable chunked lists in the same order specifying the
+     * collective relocator as a parameter, and finally call the execute method of
+     * the relocator.
+     *
+     * @param range The library scans the range and exports (the parts of) the local
+     *              chunks in the range.
+     */
     public void share(LongRange range) {
         final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());
         share(Collections.singletonList(range), mm);
         mm.execute();
     }
 
+    /**
+     * conduct broadcast operation on chunks that are not shared with other places
+     * yet. The user must call each of the share methods of a cachable chunked list
+     * in all the place belonging to the place group. This method should not be
+     * called simultaneously with other collective methods. The caller place is
+     * treated as the owner even if the chunks become shared.
+     * <p>
+     * Note 1: if you want to share all the local chunks, please call
+     * {@link #share()}
+     * <p>
+     * Note 2: if you want to specify multiple ranges, please use
+     * {@link #share(List)}.
+     * <p>
+     * Note 3: if you don't want to share any local chunks from the called place,
+     * please specify an empty range or an empty list of ranges.
+     * <p>
+     * Note 4: if you want to conduct the relocation process of multiple cachable
+     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
+     * of {@link CollectiveRelocator.Allgather} first and call the relocation
+     * methods of the cachable chunked lists in the same order specifying the
+     * collective relocator as a parameter, and finally call the execute method of
+     * the relocator.
+     *
+     * @param range The library scans the range and exports (the parts of) the local
+     *              chunks in the range.
+     * @param mm    You can relocate multiple cachable chunked lists using the same
+     *              collective relocator, specified with {@code mm}.
+     */
     public void share(LongRange range, CollectiveRelocator.Allgather mm) {
         share(Collections.singletonList(range), mm);
     }
 
+    /**
+     * Returns ChunkedList contains chunks that are already shared within the place
+     * group. The returned shared chunkedList has an unmodifiable structure.
+     * Operations such as add and remove cannot be performed.
+     *
+     * @return ChunkedList contains chunks that are already shared
+     */
     public ChunkedList<T> sharedChunks() {
         return new ChunkedList.UnmodifiableView<>(shared);
     }
