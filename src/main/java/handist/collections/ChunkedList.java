@@ -245,16 +245,6 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         }
 
         @Override
-        public <U> void forEach(BiConsumer<? super S, Consumer<? super U>> action, Collection<? super U> toStore) {
-            base.forEach(action, toStore);
-        }
-
-        @Override
-        public <U> void forEach(BiConsumer<? super S, Consumer<? super U>> action, Consumer<? super U> receiver) {
-            base.forEach(action, receiver);
-        }
-
-        @Override
         public <U> void forEach(BiConsumer<? super S, Consumer<? super U>> action,
                 ParallelReceiver<? super U> toStore) {
             base.forEach(action, toStore);
@@ -422,6 +412,16 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         }
 
         @Override
+        public <U> void toBag(BiConsumer<? super S, Consumer<? super U>> action, Collection<? super U> toStore) {
+            base.toBag(action, toStore);
+        }
+
+        @Override
+        public <U> void toBag(BiConsumer<? super S, Consumer<? super U>> action, Consumer<? super U> receiver) {
+            base.toBag(action, receiver);
+        }
+
+        @Override
         public String toString() {
             return base.toString();
         }
@@ -550,7 +550,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads,
             BiConsumer<? super T, Consumer<? super U>> action, final ParallelReceiver<? super U> toStore) {
         final List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
-            sub.forEach(action, toStore.getReceiver());
+            sub.toBag(action, toStore.getReceiver());
         });
         return new FutureN.ReturnGivenResult<>(futures, this);
     }
@@ -603,11 +603,22 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         return new FutureN.ReturnGivenResult<>(futures, this);
     }
 
+    /**
+     * This method was renamed to
+     * {@link #asyncToBag(int, BiConsumer, ParallelReceiver)}
+     *
+     * @param <U>         type of the object created from each T contained in this
+     *                    collection
+     * @param parallelism number of threads to use in parallel
+     * @param action      the action consisting of extracting a U object from a T
+     *                    object of this collection
+     * @param toStore     the collection into which the U objects are gathered
+     * @see Bag
+     */
+    @Deprecated
     public <U> void asyncForEach(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
             final ParallelReceiver<? super U> toStore) {
-        forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
-            sub.forEach(action, toStore.getReceiver());
-        });
+        asyncToBag(parallelism, action, toStore);
     }
 
     public void asyncForEach(int parallelism, Consumer<? super T> action) {
@@ -661,6 +672,25 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             }
         }
         return new FutureN.ReturnGivenResult<>(futures, result);
+    }
+
+    /**
+     * Obtain U objects from each T object contained in this collection and collect
+     * them into a {@link ParallelReceiver}.
+     *
+     * @param <U>         type of the object created from each T contained in this
+     *                    collection
+     * @param parallelism number of threads to use in parallel
+     * @param action      the action consisting of extracting a U object from a T
+     *                    object of this collection
+     * @param bag         the collection into which the U objects are gathered
+     * @see Bag
+     */
+    public <U> void asyncToBag(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
+            final ParallelReceiver<? super U> bag) {
+        forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
+            sub.toBag(action, bag.getReceiver());
+        });
     }
 
     /**
@@ -998,40 +1028,20 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
-     * Performs the provided action on each element of this collection. As part of
-     * this operation, some information of type U can be created or extracted from
-     * elements and potentially stored into the provided collection using the
-     * Consumer of U (second argument of the lambda expression). These elements will
-     * be added using method {@link Collection#add(Object)}.
-     * <p>
-     * As a variant, you may also directly supply a Consumer&lt;U&gt; rather than a
-     * collection using method {@link #forEach(BiConsumer, Consumer)}
+     * This method was renamed to {@link #toBag(BiConsumer, Collection)}
      *
      * @param <U>     the type of the information to extract
      * @param action  action to perform on each element of the collection
      * @param toStore the collection in which the information extracted will be
      *                stored
-     * @see #forEach(BiConsumer, Consumer)
      */
+    @Deprecated
     public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, final Collection<? super U> toStore) {
-        forEach(action, new Consumer<U>() {
-            @Override
-            public void accept(U u) {
-                toStore.add(u);
-            }
-        });
+        toBag(action, toStore);
     }
 
     /**
-     * Performs the provided action o neach element of this collection. As part of
-     * this operation, some information of type U can be created or extracted from
-     * elements and given to the Consumer&lt;U&gt; (second argument of the lambda
-     * expression). This {@link Consumer} available in the lambda expression is the
-     * one given as second parameter of this method.
-     * <p>
-     * As an alternative, you can use method
-     * {@link #forEach(BiConsumer, Collection)} to provide a {@link Collection}
-     * rather than a {@link Consumer} as the second argument of the method.
+     * This method was renamed to {@link #toBag(BiConsumer, Consumer)}
      *
      * @param <U>      the type of the result extracted from the elements in this
      *                 collection
@@ -1039,36 +1049,23 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * @param receiver the receiver which will accept the U instances extracted from
      *                 the elements of this collection
      */
+    @Deprecated
     public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
-        for (final RangedList<T> c : chunks.values()) {
-            c.forEach(t -> action.accept(t, receiver));
-        }
+        toBag(action, receiver);
     }
 
     /**
-     * Performs the provided action sequentially on the instances contained by this
-     * {@link ChunkedList}, allowing for the by-product of the operation to be
-     * stored in the specified {@link ParallelReceiver}.
-     * <p>
-     * This method is necessary as the manner in which instances are placed inside a
-     * {@link ParallelReceiver} differs from that of a normal collection. Although
-     * the features that handle parallel insertion of values are not leveraged in
-     * this sequential method, the preparations needed to insert instances into the
-     * {@link ParallelReceiver} remain necessary.
+     * This method was renamed to {@link #toBag(BiConsumer, ParallelReceiver)}
      *
-     * @param <U>     the type of the data produced from the instances contained in
-     *                this collection and stored in the provided
-     *                {@link ParallelReceiver}
-     * @param action  the action performed on all the elements contained in this
-     *                collection. U instances may be created and given to the
-     *                Consumer&lt;U&gt; as part of this action
-     * @param toStore the parallel receiver which will receive all the U instances
-     *                which are created as part of the action applied on the
-     *                elements of this collection
+     * @param <U>     type produced from T elements contained in this collection
+     * @param action  action consisting of extracting some U information from each
+     *                element in this collection and storing them into the
+     * @param toStore the {@link ParallelReceiver} into which all U elements will be
+     *                placed
      */
+    @Deprecated
     public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, ParallelReceiver<? super U> toStore) {
-        final Consumer<? super U> receiver = toStore.getReceiver();
-        forEach(action, receiver);
+        toBag(action, toStore);
     }
 
     /**
@@ -1109,7 +1106,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<? super U>> action,
             final ParallelReceiver<U> toStore) {
         final List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
-            sub.forEach(action, toStore.getReceiver());
+            sub.toBag(action, toStore.getReceiver());
         });
         waitNfutures(futures);
     }
@@ -1433,15 +1430,30 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         parallelForEach(defaultParallelism(), action);
     }
 
+    /**
+     * This method was renamed to
+     * {@link #parallelToBag(int, BiConsumer, ParallelReceiver)}.
+     *
+     * @param <U>         the type of objects produced
+     * @param parallelism number of threads that will perform this action in
+     *                    parallel
+     * @param action      the action consisting of extracting a U object and placing
+     *                    it into the provided {@link Consumer}
+     * @param toStore     the parallel receiver into which U objects will be placed
+     */
+    @Deprecated
     public <U> void parallelForEach(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
             final ParallelReceiver<? super U> toStore) {
-        finish(() -> {
-            forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
-                sub.forEach(action, toStore.getReceiver());
-            });
-        });
+        parallelToBag(parallelism, action, toStore);
     }
 
+    /**
+     * Performs the specified action on each T element of this collection in
+     * parallel with the specified number of threads. Returns when all
+     *
+     * @param parallelism the number of threads desired
+     * @param action      the action to perform on each T in the collection
+     */
     public void parallelForEach(int parallelism, Consumer<? super T> action) {
         finish(() -> {
             forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
@@ -1450,6 +1462,15 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         });
     }
 
+    /**
+     * Performs the specified action on every (long) index and (T) pair contained in
+     * this collection in parallel. The method returns when the action has been
+     * performed on every element in this collection.
+     *
+     * @param parallelism the number of threads to run this
+     * @param action      action taking the long index and T object mapped at this
+     *                    index as parameter
+     */
     public void parallelForEach(int parallelism, LongTBiConsumer<? super T> action) {
         finish(() -> {
             forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
@@ -1517,6 +1538,31 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public <R extends Reducer<R, T>> R parallelReduce(R reducer) {
         return parallelReduce(Runtime.getRuntime().availableProcessors(), reducer);
+    }
+
+    /**
+     * Extracts an U object from each (T) object contained in this collection and
+     * places it into the provided {@link ParallelReceiver}. This action is
+     * performed in parallel by the specified number of threads.
+     *
+     * @param <U>         type of the object obtained from individual objects of
+     *                    this collection and placed into the
+     *                    {@link ParallelReceiver} given as argument
+     * @param parallelism number of threads to run this computation in parallel on
+     *                    the elements contained in this collection
+     * @param action      action consisting of extracting a U object and placing
+     *                    into the {@link Consumer} provided as second argument to
+     *                    this action.
+     * @param bag         {@link ParallelReceiver} in which all U objects produced
+     *                    during this operation will be stored.
+     */
+    public <U> void parallelToBag(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
+            final ParallelReceiver<? super U> bag) {
+        finish(() -> {
+            forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
+                sub.toBag(action, bag.getReceiver());
+            });
+        });
     }
 
     /**
@@ -1757,6 +1803,76 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             return chunks.get(result).subList(range);
         }
         return null;
+    }
+
+    /**
+     * Performs the provided action on each element of this collection. As part of
+     * this operation, some information of type U can be created or extracted from
+     * elements and potentially stored into the provided collection using the
+     * Consumer of U (second argument of the lambda expression). These elements will
+     * be added using method {@link Collection#add(Object)}.
+     * <p>
+     * As a variant, you may also directly supply a Consumer&lt;U&gt; rather than a
+     * collection using method {@link #toBag(BiConsumer, Consumer)}
+     *
+     * @param <U>     the type of the information to extract
+     * @param action  action to perform on each element of the collection
+     * @param toStore the collection in which the information extracted will be
+     *                stored
+     * @see #toBag(BiConsumer, Consumer)
+     */
+    public <U> void toBag(BiConsumer<? super T, Consumer<? super U>> action, final Collection<? super U> toStore) {
+        final Consumer<? super U> consumer = u -> toStore.add(u);
+        toBag(action, consumer);
+    }
+
+    /**
+     * Performs the provided action on each element of this collection. As part of
+     * this operation, some information of type U can be created or extracted from
+     * elements and given to the Consumer&lt;U&gt; (second argument of the lambda
+     * expression). This {@link Consumer} available in the lambda expression is the
+     * one given as second parameter of this method.
+     * <p>
+     * As an alternative, you can use method {@link #toBag(BiConsumer, Collection)}
+     * to provide a {@link Collection} rather than a {@link Consumer} as the second
+     * argument of the method.
+     *
+     * @param <U>      the type of the result extracted from the elements in this
+     *                 collection
+     * @param action   the action to perform on each element of this collection
+     * @param receiver the receiver which will accept the U instances extracted from
+     *                 the elements of this collection
+     */
+    public <U> void toBag(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
+        for (final RangedList<T> c : chunks.values()) {
+            c.forEach(t -> action.accept(t, receiver));
+        }
+    }
+
+    /**
+     * Performs the provided action sequentially on the instances contained by this
+     * {@link ChunkedList}, allowing for the by-product of the operation to be
+     * stored in the specified {@link ParallelReceiver}.
+     * <p>
+     * This method is necessary as the manner in which instances are placed inside a
+     * {@link ParallelReceiver} differs from that of a normal collection. Although
+     * the features that handle parallel insertion of values are not leveraged in
+     * this sequential method, the preparations needed to insert instances into the
+     * {@link ParallelReceiver} remain necessary.
+     *
+     * @param <U>    the type of the data produced from the instances contained in
+     *               this collection and stored in the provided
+     *               {@link ParallelReceiver}
+     * @param action the action performed on all the elements contained in this
+     *               collection. U instances may be created and given to the
+     *               Consumer&lt;U&gt; as part of this action
+     * @param bag    the parallel receiver which will receive all the U instances
+     *               which are created as part of the action applied on the elements
+     *               of this collection
+     */
+    public <U> void toBag(BiConsumer<? super T, Consumer<? super U>> action, ParallelReceiver<? super U> bag) {
+        final Consumer<? super U> receiver = bag.getReceiver();
+        toBag(action, receiver);
     }
 
     @Override
