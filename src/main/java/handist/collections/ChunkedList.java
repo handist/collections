@@ -1028,13 +1028,14 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
-     * This method was renamed to {@link #forEach(BiConsumer, Collection)}
+     * This method was renamed to {@link #toBag(BiConsumer, Collection)}
      *
      * @param <U>     the type of the information to extract
      * @param action  action to perform on each element of the collection
      * @param toStore the collection in which the information extracted will be
      *                stored
      */
+    @Deprecated
     public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, final Collection<? super U> toStore) {
         toBag(action, toStore);
     }
@@ -1057,7 +1058,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * This method was renamed to {@link #toBag(BiConsumer, ParallelReceiver)}
      *
      * @param <U>     type produced from T elements contained in this collection
-     * @param action  action concisting of extracting some U information from each
+     * @param action  action consisting of extracting some U information from each
      *                element in this collection and storing them into the
      * @param toStore the {@link ParallelReceiver} into which all U elements will be
      *                placed
