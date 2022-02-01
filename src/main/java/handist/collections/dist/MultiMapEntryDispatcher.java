@@ -13,20 +13,20 @@ package handist.collections.dist;
 import static apgas.Constructs.*;
 
 import java.io.ByteArrayInputStream;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 
 import apgas.Place;
+import handist.collections.MultiMap;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 
 /**
  *
- * {@link DistMultiMap} has this class in order to dispatch entris to places
- * defined by {@link Distribution}. Relocate entries between places by calling
+ * {@link MultiMap} has this class in order to dispatch entris to places defined
+ * by {@link Distribution}. Relocate entries between places by calling
  * {@link MapEntryDispatcher.TeamOperations#dispatch} The dispatched entries are
- * added to original {@link DistMultiMap}.
+ * added to original {@link MultiMap}.
  *
  * Please be careful that reference relationships like multiple references to
  * one object are not maintained.
@@ -38,26 +38,15 @@ import handist.collections.dist.util.ObjectOutput;
  */
 public class MultiMapEntryDispatcher<K, V> extends MapEntryDispatcher<K, Collection<V>> {
 
-    /**
-     *
-     */
-    private static final long serialVersionUID = 2555479516784942235L;
-
-    /**
-     * @param distMap
-     * @param dist
-     */
-    MultiMapEntryDispatcher(DistMultiMap<K, V> distMap, Distribution<K> dist) {
-        this(distMap, distMap.placeGroup(), dist);
-    }
+    private static final long serialVersionUID = -8897691961652214931L;
 
     /**
      * @param distMap
      * @param pg
      * @param dist
      */
-    MultiMapEntryDispatcher(DistMultiMap<K, V> distMap, TeamedPlaceGroup pg, Distribution<K> dist) {
-        super(distMap, pg, dist);
+    MultiMapEntryDispatcher(MultiMap<K, V> multiMap, TeamedPlaceGroup pg, Distribution<K> dist) {
+        super(multiMap, pg, dist);
     }
 
     @Override
@@ -117,12 +106,7 @@ public class MultiMapEntryDispatcher<K, V> extends MapEntryDispatcher<K, Collect
     }
 
     private boolean put1Local(K key, V value) {
-        Collection<V> list = base.get(key);
-        if (list == null) {
-            list = new ArrayList<>();
-            base.put(key, list);
-        }
-        return list.add(value);
+        return ((MultiMap<K, V>) base).put1(key, value);
     }
 
     /**

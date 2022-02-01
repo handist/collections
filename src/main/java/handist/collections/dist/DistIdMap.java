@@ -17,12 +17,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Set;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
 
 import apgas.Place;
 import apgas.util.GlobalID;
+import handist.collections.LongRange;
 import handist.collections.dist.ElementLocationManager.ParameterErrorException;
 import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
@@ -41,12 +46,11 @@ import handist.collections.function.Serializer;
  *
  * @param <V> the type of the value mappings of this instance
  */
-public class DistIdMap<V> extends DistMap<Long, V>
-        implements DistributedCollection<V, DistMap<Long, V>>, ElementLocationManagable<Long> {
+public class DistIdMap<V> extends DistSortedMap<Long, V> implements DistributedCollection<V, DistMap<Long, V>>,
+        ElementLocationManagable<Long>, RangeRelocatable<LongRange> {
 
     private static int _debug_level = 0;
     protected final transient ElementLocationManager<Long> ldist;
-    transient float[] locality;
 
     /**
      * Construct a DistIdMap. {@link TeamedPlaceGroup#getWorld()} is used as the
@@ -64,23 +68,15 @@ public class DistIdMap<V> extends DistMap<Long, V>
      * @param placeGroup the PlaceGroup.
      */
     public DistIdMap(TeamedPlaceGroup placeGroup) {
-        super(placeGroup);
-        super.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistIdMap<>(pg0, gid));
-        // TODO
-        this.ldist = new ElementLocationManager<>();
-        ldist.setup(data.keySet());
-        locality = new float[placeGroup.size()];
-        Arrays.fill(locality, 1.0f);
+        this(placeGroup, new GlobalID());
     }
 
     protected DistIdMap(TeamedPlaceGroup placeGroup, GlobalID id) {
-        super(placeGroup, id);
+        super(placeGroup, id, new ConcurrentSkipListMap<>());
         super.GLOBAL = new GlobalOperations<>(this, (TeamedPlaceGroup pg0, GlobalID gid) -> new DistIdMap<>(pg0, gid));
         // TODO
         this.ldist = new ElementLocationManager<>();
         ldist.setup(data.keySet());
-        locality = new float[placeGroup.size()];
-        Arrays.fill(locality, 1.0f);
     }
 
     /**
@@ -158,6 +154,30 @@ public class DistIdMap<V> extends DistMap<Long, V>
      */
     public V get(long id) {
         return data.get(id);
+    }
+
+    @Deprecated
+    @Override
+    public Collection<LongRange> getAllRanges() {
+        // Find range from the beginning. Modify if more efficient implementation.
+        final Collection<LongRange> ret = new ArrayList<>();
+        Long key = firstKey();
+        Long from = key;
+        final Long last = lastKey();
+
+        while (key <= last) {
+            final Long next = higherKey(key);
+            if (next == null) {
+                ret.add(new LongRange(from, key + 1));
+                break;
+            }
+            if (next != key + 1l) {
+                ret.add(new LongRange(from, key + 1));
+                from = next;
+            }
+            key = next;
+        }
+        return ret;
     }
 
     Map<Long, Integer> getDiff() {
@@ -290,9 +310,83 @@ public class DistIdMap<V> extends DistMap<Long, V>
         mm.request(dest, serialize, deserialize);
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public void moveAtSync(Long from, Long to, Place dest, MoveManager mm) {
+        if (dest.equals(here())) {
+            return;
+        }
+
+        final DistIdMap<V> toBranch = this;
+        final Serializer serialize = (ObjectOutput s) -> {
+            final ConcurrentNavigableMap<Long, V> sub = data.subMap(from, to);
+            final int num = sub.size();
+            s.writeInt(num);
+            if (num == 0) {
+                return;
+            }
+            final Iterator<Long> iter = sub.keySet().iterator();
+            while (iter.hasNext()) {
+                final Long key = iter.next();
+                final V value = this.removeForMove(key);
+                if (value == null) {
+                    throw new NullPointerException("DistIdMap.moveAtSync null pointer value of key: " + key);
+                }
+                final byte mType = ldist.moveOut(key, dest);
+                s.writeLong(key);
+                s.writeByte(mType);
+                s.writeObject(value);
+            }
+        };
+        final DeSerializer deserialize = (ObjectInput ds) -> {
+            final int num = ds.readInt();
+            for (int i = 0; i < num; i++) {
+                final long k = ds.readLong();
+                final byte mType = ds.readByte();
+                final V v = (V) ds.readObject();
+                toBranch.putForMove(k, mType, v);
+            }
+        };
+        mm.request(dest, serialize, deserialize);
+    }
+
     @Override
     public void moveAtSync(Long key, Place dest, MoveManager mm) {
         moveAtSync(key.longValue(), dest, mm);
+    }
+
+    /**
+     * Marks keys inner given range of this local handle for relocation using the
+     * provided distribution to determine where each individual keys should go. The
+     * transfer is actually performed the next the specified manager's
+     * {@link CollectiveMoveManager#sync()} method is called.
+     *
+     * @param range transfer entries which keys index is range.from or more and less
+     *              than range.to.
+     * @param rule  the function that determines where each individual range should
+     *              be relocated to
+     * @param mm    the move manager in charge of the transfer
+     */
+    public void moveAtSync(LongRange range, LongRangeDistribution rule, MoveManager mm) {
+        final Map<LongRange, Place> dest = rule.rangeLocation(range);
+        for (final Entry<LongRange, Place> entry : dest.entrySet()) {
+            moveRangeAtSync(entry.getKey(), entry.getValue(), mm);
+        }
+    }
+
+    /**
+     * Marks all keys of this local handle for relocation using the provided
+     * distribution to determine where each individual keys should go. The transfer
+     * is actually performed the next the specified manager's
+     * {@link CollectiveMoveManager#sync()} method is called.
+     *
+     * @param rule the function that determines where each individual range should
+     *             be relocated to
+     * @param mm   the move manager in charge of the transfer
+     */
+    public void moveAtSync(LongRangeDistribution rule, MoveManager mm) {
+        final NavigableMap<Long, V> map = data;
+        moveAtSync(new LongRange(map.firstKey(), map.lastKey() + 1), rule, mm);
     }
 
     @Override
@@ -350,6 +444,24 @@ public class DistIdMap<V> extends DistMap<Long, V>
     }
 
     /**
+     * Marks keys inner given range for relocation over to the specified place. The
+     * actual transfer will be performed the next time the specified manager's
+     * {@link CollectiveMoveManager#sync()} method is called.
+     *
+     * @param range transfer entries which keys index is range.from or more and less
+     *              than range.to.
+     * @param dest  the place to which these keys should be relocated
+     * @param mm    the manager in charge of performing the relocation
+     */
+    @Override
+    public void moveRangeAtSync(LongRange range, Place dest, MoveManager mm) {
+        if (dest.equals(here())) {
+            return;
+        }
+        moveAtSync(range.from, range.to, dest, mm);
+    }
+
+    /**
      * Put a new entry into the local map entry
      *
      * @param id    a Long type value.
@@ -363,7 +475,16 @@ public class DistIdMap<V> extends DistMap<Long, V>
         return data.put(id, value);
     }
 
-    private V putForMove(long key, byte mType, V value) throws Exception {
+    @Override
+    public V put(Long key, V value) {
+        if (data.containsKey(key)) {
+            return data.put(key, value);
+        }
+        ldist.add(key);
+        return data.put(key, value);
+    }
+
+    protected V putForMove(long key, byte mType, V value) throws Exception {
         switch (mType) {
         case ElementLocationManager.MOVE_NEW:
             ldist.moveInNew(key);
@@ -374,12 +495,36 @@ public class DistIdMap<V> extends DistMap<Long, V>
         default:
             throw new Exception("SystemError when calling putForMove " + key);
         }
-        return data.put(key, value);
+        return super.putForMove(key, value);
     }
 
     @Override
     public void registerDistribution(UpdatableDistribution<Long> distributionToUpdate) {
         ldist.registerDistribution(distributionToUpdate);
+    }
+
+    /**
+     * TODO : move to team operation and global operation
+     *
+     * @param rule the function that determines where each individual range should
+     *             be relocated to
+     */
+    public void relocate(LongRangeDistribution rule) throws Exception {
+        final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup());
+        moveAtSync(rule, mm);
+        mm.sync();
+    }
+
+    /**
+     * TODO : move to team operation and global operation
+     *
+     * @param rule the function that determines where each individual range should
+     *             be relocated to
+     * @param mm   the move manager in charge of the transfer
+     */
+    public void relocate(LongRangeDistribution rule, CollectiveMoveManager mm) throws Exception {
+        moveAtSync(rule, mm);
+        mm.sync();
     }
 
     /**
