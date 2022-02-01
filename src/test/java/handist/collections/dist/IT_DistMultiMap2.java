@@ -100,6 +100,28 @@ public class IT_DistMultiMap2 implements Serializable {
     }
 
     @Test(timeout = 5000)
+    public void testGetObjectDispatcher() throws Throwable {
+        try {
+            WORLD.broadcastFlat(() -> {
+                final Distribution<String> rule = ((String key) -> {
+                    return WORLD.get(0);
+                });
+                final MultiMapEntryDispatcher<String, Element> dispatcher = distMultiMap.getObjectDispatcher(rule);
+                dispatcher.put1("test", new Element("test" + WORLD.rank()));
+                dispatcher.TEAM.dispatch();
+                if (WORLD.rank() == 0) {
+                    assertEquals(WORLD.size(), distMultiMap.get("test").size());
+                } else {
+                    assertFalse(distMultiMap.containsKey("test"));
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
+    }
+
+    @Test(timeout = 5000)
     public void testGlobalForEach() throws Throwable {
         final String prefix = "TESTGLOBALFOREACH";
         // Add a prefix to all the first element of the lists
