@@ -90,8 +90,8 @@ public class GlobalOperations<T, C extends DistributedCollection<T, C>> implemen
      */
     @SuppressWarnings("rawtypes")
     public void getSizeDistribution(final long[] result) {
-        if (localHandle instanceof ElementLocationManagable) {
-            ((ElementLocationManagable) localHandle).getSizeDistribution(result);
+        if (localHandle instanceof ElementLocationManageable) {
+            ((ElementLocationManageable) localHandle).getSizeDistribution(result);
         } else {
             localHandle.placeGroup().broadcastFlat(() -> {
                 localHandle.team().getSizeDistribution(result);

@@ -47,7 +47,7 @@ import handist.collections.function.Serializer;
  * @param <V> the type of the value mappings of this instance
  */
 public class DistIdMap<V> extends DistSortedMap<Long, V> implements DistributedCollection<V, DistMap<Long, V>>,
-        ElementLocationManagable<Long>, RangeRelocatable<LongRange> {
+        ElementLocationManageable<Long>, RangeRelocatable<LongRange> {
 
     private static int _debug_level = 0;
     protected final transient ElementLocationManager<Long> ldist;

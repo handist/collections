@@ -7,7 +7,7 @@ import apgas.Place;
  * distributed collection to be automatically informed of changes in its
  * distribution through the package-visible methods. Subscribing an instance of
  * this class is done through method
- * {@link ElementLocationManagable#registerDistribution(UpdatableDistribution)}
+ * {@link ElementLocationManageable#registerDistribution(UpdatableDistribution)}
  *
  * @author Patrick Finnerty
  *

@@ -81,8 +81,8 @@ public abstract class GeneralDistManager<T> implements Serializable {
 
     @SuppressWarnings("rawtypes")
     protected void checkDistInfo(long[] result) {
-        if (branch instanceof ElementLocationManagable) {
-            ((ElementLocationManagable) branch).getSizeDistribution(result);
+        if (branch instanceof ElementLocationManageable) {
+            ((ElementLocationManageable) branch).getSizeDistribution(result);
             return;
         } else {
             // TODO
