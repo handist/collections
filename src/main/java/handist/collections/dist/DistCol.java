@@ -31,7 +31,7 @@ import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.Serializer;
 
-public class DistCol<T> extends DistChunkedList<T> implements ElementLocationManagable<LongRange> {
+public class DistCol<T> extends DistChunkedList<T> implements ElementLocationManageable<LongRange> {
 
     private static int _debug_level = 5;
     /**

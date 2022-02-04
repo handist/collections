@@ -17,7 +17,7 @@ package handist.collections.dist;
  *
  * @param <T> The type of index or keys to manage the elements.
  */
-public interface ElementLocationManagable<T> {
+public interface ElementLocationManageable<T> {
     /**
      * Computes and gathers the size of each local collection into the provided
      * array. In the case of {@code ElementLocationManagable}, this method is

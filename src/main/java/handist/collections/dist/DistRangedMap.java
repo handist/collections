@@ -31,7 +31,7 @@ import handist.collections.function.Serializer;
  * @author yoshikikawanishi
  */
 public class DistRangedMap<T> extends RangedMap<T> implements DistributedCollection<T, DistRangedMap<T>>,
-        RangeRelocatable<LongRange>, ElementLocationManagable<LongRange>, SerializableWithReplace {
+        RangeRelocatable<LongRange>, ElementLocationManageable<LongRange>, SerializableWithReplace {
 
     /**
      * Internal class that handles distribution-related operations.

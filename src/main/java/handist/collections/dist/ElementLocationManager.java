@@ -111,7 +111,7 @@ class ElementLocationManager<T> {
      * A {@link WeakHashMap} is used with "null" values is used so that the
      * distribution objects used as keys in this collection can be garbage-collected
      * if they are no longer in use in other parts of the program, as represented in
-     * {@link ElementLocationManagable#registerDistribution(UpdatableDistribution)}.
+     * {@link ElementLocationManageable#registerDistribution(UpdatableDistribution)}.
      * Refer to the Java documentation of {@link WeakHashMap} for further details.
      */
     protected Map<UpdatableDistribution<T>, Object> registeredDistribution = new WeakHashMap<>();
@@ -325,7 +325,7 @@ class ElementLocationManager<T> {
 
     /**
      * Registers a distribution that will be actively updated by the
-     * {@link ElementLocationManagable} from now on. The registered distribution
+     * {@link ElementLocationManageable} from now on. The registered distribution
      * will receive updates until it is garbage-collected as it is internally kept
      * in a "weak" collection.
      * <p>
