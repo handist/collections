@@ -7,12 +7,13 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Consumer;
 
+import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.function.LongTBiConsumer;
 import handist.collections.function.SquareIndexTConsumer;
 import handist.collections.util.Splitter;
 
 /**
- * SquareRangedListAbstract is a general interface for SquareRangedList and
+ * AbstractSquareRangedList is a general interface for SquareRangedList and
  * RangedListProduct.
  *
  * @param <T> represents the type of each element
@@ -22,7 +23,7 @@ import handist.collections.util.Splitter;
  *            SquareRangedList as X and RangedListProduct uses RangedListProduct
  *            as X.
  */
-public interface SquareRangedListAbstract<T, X extends SquareRangedListAbstract<T, X>> extends Iterable<T> {
+public interface AbstractSquareRangedList<T, X extends AbstractSquareRangedList<T, X>> extends Iterable<T> {
 
     public static int hashCode(SquareRangedList<?> rlist) {
         int hashCode = 1;
@@ -268,36 +269,6 @@ public interface SquareRangedListAbstract<T, X extends SquareRangedListAbstract<
     }
 
     /**
-     * Splits equally squares into <em>outer</em> * <em>inner</em> and return some
-     * squares for each host equally. Assigned squares are divided to list of sizes
-     * nThreads.
-     *
-     * @param outer      the number of split outer range.
-     * @param inner      the number ot split inner range.
-     * @param ithHost    the current host id. Be less than numHosts.
-     * @param numHosts   the number of hosts to assign split squares.
-     * @param numThreads the number of threads to divide squares to {@link List}.
-     * @param rand       the way to assign squares to hosts and threads.
-     * @return List of list of {@link SquareRangedList}. Size of outer list is
-     *         numTherads. Size of inner list is number of {@link SquareRangedList}
-     *         for each thread.
-     */
-    default List<List<X>> splitNM(int outer, int inner, int ithHost, int numHosts, int numThreads, Random rand) {
-        final List<SquareRange> ranges = splitRange(outer, inner);
-        if (rand != null) {
-            Collections.shuffle(ranges, rand);
-        }
-        final List<List<X>> results = new ArrayList<>();
-        final Splitter split = new Splitter(ranges.size(), numHosts);
-        final Splitter splitIn = new Splitter(split.ith(ithHost), split.ith(ithHost + 1), numThreads);
-        for (int i = 0; i < numThreads; i++) {
-            final List<SquareRange> assigned = splitIn.getIth(i, ranges);
-            results.add(getViews(assigned));
-        }
-        return results;
-    }
-
-    /**
      * Return the list of {@link SquareRange} that split into <em>outer</em> +
      * <em>inner</em> {@link SquareRange} instances of equal size (or near equal
      * size if the size of this instance is not divisible.
@@ -326,6 +297,40 @@ public interface SquareRangedListAbstract<T, X extends SquareRangedListAbstract<
      *         {@link SquareRangedList} that fit in the provided range.
      */
     X subView(SquareRange range);
+
+    /**
+     * Splits equally squares into <em>outer</em> * <em>inner</em> and return some
+     * squares for each host equally. Assigned squares are divided to list of sizes
+     * nThreads.
+     *
+     * @param outer      the number of split outer range.
+     * @param inner      the number ot split inner range.
+     * @param ithHost    the current host id. Be less than numHosts.
+     * @param numHosts   the number of hosts to assign split squares.
+     * @param numThreads the number of threads to divide squares to {@link List}.
+     * @param seed       seed used to randomly assign squares to hosts, must the
+     *                   same on all hosts
+     * @return List of list of {@link SquareRangedList}. Size of outer list is
+     *         numTherads. Size of inner list is number of {@link SquareRangedList}
+     *         for each thread.
+     */
+    default List<List<X>> teamedSplitNM(int outer, int inner, TeamedPlaceGroup pg, int numThreads, long seed) {
+        final int numHosts = pg.size();
+        final int ithHost = pg.rank();
+        final Random rand = new Random(seed);
+        final List<SquareRange> ranges = splitRange(outer, inner);
+        if (rand != null) {
+            Collections.shuffle(ranges, rand);
+        }
+        final List<List<X>> results = new ArrayList<>();
+        final Splitter split = new Splitter(ranges.size(), numHosts);
+        final Splitter splitIn = new Splitter(split.ith(ithHost), split.ith(ithHost + 1), numThreads);
+        for (int i = 0; i < numThreads; i++) {
+            final List<SquareRange> assigned = splitIn.getIth(i, ranges);
+            results.add(getViews(assigned));
+        }
+        return results;
+    }
 
     /**
      * Returns the elements contained in this instance in a one-dimensional array.

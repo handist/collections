@@ -544,7 +544,7 @@ public class SquareChunk<T> implements Serializable, SquareRangedList<T>, KryoSe
         if (o == null) {
             return false;
         }
-        if (!(o instanceof SquareRangedListAbstract)) {
+        if (!(o instanceof AbstractSquareRangedList)) {
             return false;
         }
         final SquareRangedList<?> target = (SquareRangedList<?>) o;
@@ -780,7 +780,7 @@ public class SquareChunk<T> implements Serializable, SquareRangedList<T>, KryoSe
      */
     @Override
     public int hashCode() {
-        return SquareRangedListAbstract.hashCode(this);
+        return AbstractSquareRangedList.hashCode(this);
     }
 
     @Override

@@ -776,31 +776,14 @@ public class CachableChunkedList<T> extends DistCol<T> {
     }
 
     /**
-     * conduct broadcast operation on chunks that are not shared with other places
-     * yet. The user must call each of the share methods of a cachable chunked list
-     * in all the place belonging to the place group. This method should not be
-     * called simultaneously with other collective methods. The caller place is
-     * treated as the owner even if the chunks become shared.
-     * <p>
-     * Note 1: if you want to share all the local chunks, please call
-     * {@link #share()}
-     * <p>
-     * Note 2: if you want to specify multiple ranges, please use
-     * {@link #share(List)}.
-     * <p>
-     * Note 3: if you don't want to share any local chunks from the called place,
-     * please specify an empty range or an empty list of ranges.
-     * <p>
-     * Note 4: if you want to conduct the relocation process of multiple cachable
-     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
-     * of {@link CollectiveRelocator.Allgather} first and call the relocation
-     * methods of the cachable chunked lists in the same order specifying the
-     * collective relocator as a parameter, and finally call the execute method of
-     * the relocator.
+     * Calls for the sharing of chunks between the local handles of the
+     * {@link CachableChunkedList}, but with this local handle not sharing any chunk
+     * with the other handles. Instead, it will only receive the chunked shared by
+     * the other handles.
      */
     public void share() {
         final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());
-        share(Collections.singletonList(null), mm);
+        share(Collections.emptyList(), mm);
         mm.execute();
     }
 

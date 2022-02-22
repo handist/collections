@@ -17,7 +17,7 @@ public class SquareRangedListView<T> implements SquareRangedList<T> {
      * provided {@link SquareRangedList} only on the specified range.
      * <p>
      * The provided base can either be a {@link SquareChunk} or
-     * {@link RangedListProduct} or an existing {@link SquareRangedListView}, in
+     * {@link SimpleRangedListProduct} or an existing {@link SquareRangedListView}, in
      * which case the {@link SquareChunk} base of this {@link RangedListView} will
      * be extracted.
      *

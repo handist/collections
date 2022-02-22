@@ -305,6 +305,23 @@ public class IT_CachableChunkedList implements Serializable {
         }
     }
 
+    @Test(timeout = 10000)
+    public void testShareAllRangesFromPlace0() throws Throwable {
+        final CachableChunkedList<Particle> particles = new CachableChunkedList<>(placeGroup);
+
+        particles.add(new Chunk<>(subRange1, l -> new Particle(l)));
+
+        placeGroup.broadcastFlat(() -> {
+            if (placeGroup.rank() == 0) {
+                particles.share(subRange1);
+            } else {
+                particles.share();
+            }
+            assertTrue(particles.containsRange(subRange1));
+        });
+
+    }
+
     /**
      * Checks that the initialization of the distMap was done correctly
      *

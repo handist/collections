@@ -1,4 +1,4 @@
-package handist.collections.dist.util;
+package handist.collections.function;
 
 import java.io.Serializable;
 import java.util.function.BiFunction;

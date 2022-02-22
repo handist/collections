@@ -34,7 +34,7 @@ public class TestProduct {
     @Test
     public void test0() {
         final Chunk<Element> chunk = new Chunk<>(new LongRange(10, 20), (Long index) -> new Element(index));
-        final RangedListProduct<Element, Element> pro = new RangedListProduct<>(chunk, chunk);
+        final SimpleRangedListProduct<Element, Element> pro = new SimpleRangedListProduct<>(chunk, chunk);
 
         pro.forEach((Pair<Element, Element> pair) -> {
             pair.second.sum.addAndGet(pair.first.index);
@@ -77,7 +77,7 @@ public class TestProduct {
             e.sum.set(0);
         });
 
-        final RangedListProduct<Element, Element> proH = new RangedListProduct<>(chunk, chunk, true);
+        final SimpleRangedListProduct<Element, Element> proH = new SimpleRangedListProduct<>(chunk, chunk, true);
         proH.forEach((Pair<Element, Element> pair) -> {
             pair.second.sum.addAndGet(pair.first.index);
             pair.first.sum.addAndGet(pair.second.index);

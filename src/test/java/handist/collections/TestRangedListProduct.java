@@ -49,10 +49,10 @@ public class TestRangedListProduct implements Serializable {
     private static final long serialVersionUID = -7848690131967719062L;
 
     /** product of listFirst[1,10), listSecond[2,10) */
-    private RangedListProduct<First, Second> prod;
+    private SimpleRangedListProduct<First, Second> prod;
     /** triangle product of listFirst[1,10), listSecond[2,10) */
     @SuppressWarnings("unused")
-    private RangedListProduct<First, Second> triangle;
+    private SimpleRangedListProduct<First, Second> triangle;
 
     /** [1,10) range list, value is "10 + index" */
     private RangedList<First> listFirst;
@@ -70,8 +70,8 @@ public class TestRangedListProduct implements Serializable {
         listSecond = new Chunk<>(rangeSecond, (index) -> {
             return new Second(20 + index);
         });
-        prod = new RangedListProduct<>(listFirst, listSecond);
-        triangle = new RangedListProduct<>(listFirst, listSecond, true);
+        prod = new SimpleRangedListProduct<>(listFirst, listSecond);
+        triangle = new SimpleRangedListProduct<>(listFirst, listSecond, true);
     }
 
     @After
@@ -111,5 +111,4 @@ public class TestRangedListProduct implements Serializable {
         final SquareRange expected = new SquareRange(rangeFirst, rangeSecond);
         assertEquals(expected, prod.getRange());
     }
-
 }

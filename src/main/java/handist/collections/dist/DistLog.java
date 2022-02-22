@@ -21,7 +21,7 @@ import apgas.Constructs;
 import apgas.Place;
 import apgas.util.GlobalID;
 import handist.collections.dist.util.Pair;
-import handist.collections.dist.util.SerializableBiFunction;
+import handist.collections.function.SerializableBiFunction;
 
 /**
  * DistLog is a distributed log manager. It collects log on places and gather it
