@@ -1,4 +1,4 @@
 package handist.collections;
 
-public interface SquareRangedList<T> extends SquareRangedListAbstract<T, SquareRangedList<T>> {
+public interface SquareRangedList<T> extends AbstractSquareRangedList<T, SquareRangedList<T>> {
 }

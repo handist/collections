@@ -34,8 +34,11 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import handist.collections.FutureN.ReturnGivenResult;
+import handist.collections.accumulator.Accumulator;
+import handist.collections.accumulator.Accumulator.ThreadLocalAccumulator;
 import handist.collections.dist.Reducer;
 import handist.collections.function.LongTBiConsumer;
+import handist.collections.function.LongTTriConsumer;
 
 /**
  * Large collection containing multiple {@link Chunk}s. This overcomes the
@@ -469,6 +472,27 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             accumulator += r.size();
         }
         size = new AtomicLong(accumulator);
+    }
+
+    /**
+     * Updates the contents of this collection based on the information contained in
+     * the provided accumulator.
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information is recorded
+     * @param update the closure which given an entry T of this collection and the
+     *               corresponding accumulator A, updates the contents of the T
+     *               entry.
+     */
+    public <A> void accept(Accumulator<A> acc, BiConsumer<T, A> update) {
+        for (final ThreadLocalAccumulator<A> tla : acc.getAllThreadLocalAccumulator()) {
+            for (final LongRange lr : tla.ranges()) {
+                final ChunkedList<A> accs = tla.acquire(lr);
+                for (long l = lr.from; l < lr.to; l++) {
+                    update.accept(get(l), accs.get(l));
+                }
+            }
+        }
     }
 
     /**
@@ -1028,6 +1052,35 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
+     * Uses this collection entries to accumulate information into the supplied
+     * {@link Accumulator}.
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information is recorded
+     * @param action the action to perform with regards to each T element contained
+     *               in this collection.
+     */
+    public <A> void forEach(Accumulator<A> acc, BiConsumer<T, ThreadLocalAccumulator<A>> action) {
+        final ThreadLocalAccumulator<A> accumulator = acc.obtainThreadLocalAccumulators(1).get(0);
+        forEach(t -> action.accept(t, accumulator));
+    }
+
+    /**
+     * Uses this collection entries to accumulate information into the supplied
+     * {@link Accumulator}
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information is recorded
+     * @param action the action to perform with regards to each index/T element
+     *               contained in this collection, the third argument of this
+     *               closure is the thread-local accumulator
+     */
+    public <A> void forEach(Accumulator<A> acc, LongTTriConsumer<T, ThreadLocalAccumulator<A>> action) {
+        final ThreadLocalAccumulator<A> accumulator = acc.obtainThreadLocalAccumulators(1).get(0);
+        forEach((l, t) -> action.accept(l, t, accumulator));
+    }
+
+    /**
      * This method was renamed to {@link #toBag(BiConsumer, Collection)}
      *
      * @param <U>     the type of the information to extract
@@ -1397,6 +1450,81 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
+     * Updates the contents of this collection in parallel, based on the information
+     * contained in the provided accumulator.
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information is recorded
+     * @param update the closure which given an entry T of this collection and the
+     *               corresponding accumulator A, updates the contents of the T
+     *               entry.
+     */
+    public <A> void parallelAccept(Accumulator<A> acc, BiConsumer<T, A> update) {
+        parallelAccept(Runtime.getRuntime().availableProcessors(), acc, update);
+    }
+
+    /**
+     * Updates the contents of this collection in parallel, based on the information
+     * contained in the provided accumulator
+     *
+     * @param <A>         accumulator type
+     * @param parallelism number of threads desired for this collection
+     * @param acc         the accumulator into which information was recorded
+     * @param update      the closure given every T and matching A type in the
+     *                    accumulator comes to update T
+     */
+    public <A> void parallelAccept(int parallelism, Accumulator<A> acc, BiConsumer<T, A> update) {
+        finish(() -> {
+            forEachParallelBody(parallelism, cl -> {
+                // For each TLA in acc
+                for (final ThreadLocalAccumulator<A> tla : acc.getAllThreadLocalAccumulator()) {
+                    // Obtain the ranges matching that of assigned `cl`
+                    final ChunkedList<A> tlaChunk = tla.getChunkedList();
+
+                    // Probably a more efficient implementation possible
+                    cl.forEach((l, t) -> {
+                        if (tlaChunk.containsIndex(l)) {
+                            update.accept(t, tlaChunk.get(l));
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    /**
+     * Accumulates information into the provided accumulator, using this
+     * collection's element as a source
+     * <p>
+     * This method is a parallel variant of method
+     * {@link #forEach(Accumulator, BiConsumer)}
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information will be stored
+     * @param action the action to perform with respect to each T element contained
+     *               in this collection
+     */
+    public <A> void parallelForEach(Accumulator<A> acc, BiConsumer<T, ThreadLocalAccumulator<A>> action) {
+        parallelForEach(Runtime.getRuntime().availableProcessors(), acc, action);
+    }
+
+    /**
+     * Accumulates information into the provided accumulator in parallel, using this
+     * collection's index/element as a source
+     * <p>
+     * This method is a parallel variant of method
+     * {@link #forEach(Accumulator, LongTTriConsumer)}
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information will be stored
+     * @param action the action to perform with respect to each index/T element
+     *               contained in this collection
+     */
+    public <A> void parallelForEach(Accumulator<A> acc, LongTTriConsumer<T, ThreadLocalAccumulator<A>> action) {
+        parallelForEach(Runtime.getRuntime().availableProcessors(), acc, action);
+    }
+
+    /**
      * Performs the provided action on each element of this collection in parallel
      * using the provided {@link ExecutorService} with the specified degree of
      * parallelism. This action may involve extracting some information of type U
@@ -1428,6 +1556,60 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public void parallelForEach(Consumer<? super T> action) {
         parallelForEach(defaultParallelism(), action);
+    }
+
+    /**
+     * Accumulates information into the provided accumulator with the specified
+     * level of parallelism, using this collection's element as a source.
+     *
+     * @param parallelism number of threads to use to perform this computation
+     * @param acc         the accumulator into which information will be stored
+     * @param action      the action to perform with respect to each T element
+     *                    contained in the this collection
+     */
+    public <A> void parallelForEach(int parallelism, Accumulator<A> acc,
+            BiConsumer<T, ThreadLocalAccumulator<A>> action) {
+        final List<ThreadLocalAccumulator<A>> accumulators = acc.obtainThreadLocalAccumulators(parallelism);
+        final List<ChunkedList<T>> separated = separate(parallelism);
+        finish(() -> {
+            for (int threadId = 0; threadId < parallelism; threadId++) {
+                final ThreadLocalAccumulator<A> tla = accumulators.get(threadId);
+                final ChunkedList<T> toProcess = separated.get(threadId);
+                async(() -> {
+                    toProcess.forEach((l, t) -> {
+                        action.accept(t, tla);
+                    });
+                });
+            }
+        });
+    }
+
+    /**
+     * Accumulates information into the provided accumulator in parallel using the
+     * specified parallelism level, using this collection's index/element as a
+     * source
+     *
+     * @param <A>         type of the accumulator
+     * @param parallelism number of threads to use to perform this computation
+     * @param acc         the accumulator into which information will be stored
+     * @param action      the action to perform with respect to each index/T element
+     *                    contained in the this collection
+     */
+    public <A> void parallelForEach(int parallelism, Accumulator<A> acc,
+            LongTTriConsumer<T, ThreadLocalAccumulator<A>> action) {
+        final List<ThreadLocalAccumulator<A>> accumulators = acc.obtainThreadLocalAccumulators(parallelism);
+        final List<ChunkedList<T>> separated = separate(parallelism);
+        finish(() -> {
+            for (int threadId = 0; threadId < parallelism; threadId++) {
+                final ThreadLocalAccumulator<A> tla = accumulators.get(threadId);
+                final ChunkedList<T> toProcess = separated.get(threadId);
+                async(() -> {
+                    toProcess.forEach((l, t) -> {
+                        action.accept(l, t, tla);
+                    });
+                });
+            }
+        });
     }
 
     /**

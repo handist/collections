@@ -6,7 +6,7 @@ import java.io.Serializable;
 import apgas.Constructs;
 import apgas.Place;
 import apgas.util.SerializableWithReplace;
-import handist.collections.dist.util.SerializableBiFunction;
+import handist.collections.function.SerializableBiFunction;
 
 /**
  * This class is used to make a distributed object that wraps a Distributed

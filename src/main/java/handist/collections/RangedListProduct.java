@@ -1,55 +1,54 @@
 package handist.collections;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
+import java.util.function.Function;
 
+import handist.collections.accumulator.Accumulator;
+import handist.collections.accumulator.Accumulator.ThreadLocalAccumulator;
+import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.dist.util.Pair;
-import handist.collections.function.LongTBiConsumer;
-import handist.collections.function.SquareIndexTConsumer;
+import handist.collections.function.MultiConsumer;
+import handist.collections.function.TriConsumer;
 
-public class RangedListProduct<S, T> implements SquareRangedListAbstract<Pair<S, T>, RangedListProduct<S, T>> {
-    private final RangedList<S> first;
-    private final RangedList<T> second;
-    private final SquareRange range;
-    private final boolean simpleRect;
+/**
+ * Factory class used to create new product instances and define common methods
+ * for products.
+ *
+ * @author Patrick Finnerty
+ *
+ * @param <S> type carried by the first operand to the product
+ * @param <T> type carried by the second operant to the product, may be
+ *            identical to the first
+ */
+public abstract class RangedListProduct<S, T> implements AbstractSquareRangedList<Pair<S, T>, RangedListProduct<S, T>> {
 
-    public RangedListProduct(RangedList<S> first, RangedList<T> second) {
-        this.first = first;
-        this.second = second;
-        this.range = new SquareRange(first.getRange(), second.getRange());
-        this.simpleRect = true;
+    /**
+     * Creates a product between two ranged lists.
+     *
+     * @param <S>    type contained by the first list
+     * @param <T>    type contained by the second list
+     * @param first  first operand to the product
+     * @param second second operand to the product
+     * @return a product containing all the combination pairs possible from the two
+     *         given arguments
+     */
+    public static <S, T> RangedListProduct<S, T> newProduct(RangedList<S> first, RangedList<T> second) {
+        return new SimpleRangedListProduct<>(first, second);
     }
 
-    public RangedListProduct(RangedList<S> first, RangedList<T> second, boolean isUpperRect) {
-        this(first, second, new SquareRange(first.getRange(), second.getRange(), isUpperRect));
-    }
-
-    public RangedListProduct(RangedList<S> first, RangedList<T> second, SquareRange range) {
-        this.first = first;
-        this.second = second;
-        this.range = range;
-        this.simpleRect = !range.isUpperTriangle;
-    }
-
-    @Override
-    public RangedList<RangedList<Pair<S, T>>> asColumnList() {
-        return new LazyRangedList<>(second, (long column, T t0) -> {
-            return new LazyRangedList<>(getFirstView(column), (long row, S s0) -> {
-                return new Pair<>(s0, t0);
-            });
-        });
-    }
-
-    @Override
-    public RangedList<RangedList<Pair<S, T>>> asRowList() {
-        return new LazyRangedList<>(first, (long row, S s0) -> {
-            return new LazyRangedList<>(getSecondView(row), (long column, T t0) -> {
-                return new Pair<>(s0, t0);
-            });
-        });
+    /**
+     * Creates a product between two ranged lists containing all unique pairs (upper
+     * triangle)
+     *
+     * @param <S>    type contained by the first list
+     * @param <T>    type contained by the second list
+     * @param first  first operand to the product
+     * @param second second operand to the product
+     * @return a product containing all the combination pairs possible from the two
+     *         given arguments
+     */
+    public static <S, T> RangedListProduct<S, T> newProductTriangle(RangedList<S> first, RangedList<T> second) {
+        return new SimpleRangedListProduct<>(first, second, true);
     }
 
     /**
@@ -61,167 +60,25 @@ public class RangedListProduct<S, T> implements SquareRangedListAbstract<Pair<S,
         throw new UnsupportedOperationException("contains is not supported by RangedListProduct.");
     }
 
-    @Override
-    public void forEach(Consumer<? super Pair<S, T>> action) {
-        first.forEach((long row, S s) -> {
-            getSecondView(row).forEach((T t) -> {
-                action.accept(new Pair<>(s, t));
-            });
-        });
-    }
-
-    @Override
-    public void forEach(SquareIndexTConsumer<? super Pair<S, T>> action) {
-        first.forEach((long row, S s) -> {
-            getSecondView(row).forEach((long column, T t) -> { // TK row dependent filter
-                action.accept(row, column, new Pair<>(s, t));
-            });
-        });
-    }
-
-    @Override
-    public void forEach(SquareRange range, Consumer<? super Pair<S, T>> action) {
-        subView(range).forEach(action);
-    }
-
-    @Override
-    public void forEach(SquareRange range, SquareIndexTConsumer<? super Pair<S, T>> action) {
-        subView(range).forEach(action);
-    }
-
-    @Override
-    public void forEachColumn(LongRange cRange, LongTBiConsumer<RangedList<Pair<S, T>>> columnAction) {
-        second.forEach(cRange, (long column, T t0) -> {
-            columnAction.accept(column,
-                    new LazyRangedList<>(getFirstView(column), (long row, S s0) -> new Pair<>(s0, t0)));
-        });
-    }
-
-    @Override
-    public void forEachColumn(LongTBiConsumer<RangedList<Pair<S, T>>> columnAction) {
-        second.forEach((long column, T t0) -> {
-            columnAction.accept(column,
-                    new LazyRangedList<>(getFirstView(column), (long row, S s0) -> new Pair<>(s0, t0)));
-        });
-    }
-
-    public void forEachRow(BiConsumer<S, RangedList<T>> consumer) {
-        first.forEach((long row, S s) -> {
-            consumer.accept(s, getSecondView(row));
-        });
-    }
-
-    @Override
-    public void forEachRow(LongRange rRange, LongTBiConsumer<RangedList<Pair<S, T>>> rowAction) {
-        first.forEach(rRange, (long row, S s0) -> {
-            rowAction.accept(row, new LazyRangedList<>(getSecondView(row), (long column, T t0) -> new Pair<>(s0, t0)));
-        });
-    }
-
-    @Override
-    public void forEachRow(LongTBiConsumer<RangedList<Pair<S, T>>> rowAction) {
-        first.forEach((long row, S s0) -> {
-            rowAction.accept(row, new LazyRangedList<>(getSecondView(row), (long column, T t0) -> new Pair<>(s0, t0)));
-        });
-    }
-
-    @Override
-    public void forEachWithSiblings(SquareRange range, Consumer<SquareSiblingAccessor<Pair<S, T>>> action) {
-        throw new UnsupportedOperationException("not implemented yet");
-    }
-
-    @Override
-    public Pair<S, T> get(long index, long index2) {
-        // range check dependent
-        return new Pair<>(first.get(index), second.get(index));
-    }
-
-    @Override
-    public RangedList<Pair<S, T>> getColumnView(long column) {
-        final T t0 = second.get(column);
-        return new LazyRangedList<>(getFirstView(column), (long row, S s0) -> new Pair<>(s0, t0));
-    }
-
-    private RangedList<S> getFirstView(long column) {
-        return simpleRect ? first : first.subList(range.columnRange(column));
-    }
-
-    @Override
-    public SquareRange getRange() {
-        return range;
-    }
-
-    @Override
-    public RangedList<Pair<S, T>> getRowView(long row) {
-        final S s0 = first.get(row);
-        return new LazyRangedList<>(getSecondView(row), (long column, T t0) -> new Pair<>(s0, t0));
-    }
-
-    private RangedList<T> getSecondView(long row) {
-        return simpleRect ? second : second.subList(range.columnRange(row));
-    }
-
-    @Override
-    public Iterator<Pair<S, T>> iterator() {
-        return new SquareChunkIterator<>(range, toArray());
-    }
-
     /**
-     * Set is not supported by RangedListProduct.
+     *
+     * @param action action to perform with regards to all the pairs form by the
+     *               first argument and the entries contained in the second argument
      */
-    @Deprecated
-    @Override
-    public Pair<S, T> set(long index, long index2, Pair<S, T> value) {
-        throw new UnsupportedOperationException("set is not supported by RangedListProduct.");
+    public abstract void forEachRow(BiConsumer<S, RangedList<T>> action);
+
+    public <A> void parallelForEach(Accumulator<A> acc, BiConsumer<Pair<S, T>, ThreadLocalAccumulator<A>> action) {
+        parallelForEach(acc, Runtime.getRuntime().availableProcessors(), action);
     }
 
-    @Override
-    public Iterator<Pair<S, T>> subIterator(SquareRange range) {
-        final SquareRange r = range.intersection(getRange());
-        return new SquareChunkIterator<>(r, getRange(), toArray());
-    }
+    public abstract <A> void parallelForEach(Accumulator<A> acc, int parallelism,
+            BiConsumer<Pair<S, T>, ThreadLocalAccumulator<A>> action);
 
-    @Override
-    public RangedListProduct<S, T> subView(SquareRange range) {
-        range = getRange().intersection(range);
-        return new RangedListProduct<>(first.subList(range.outer), second.subList(range.inner), range);
-    }
+    public abstract <A, O> void parallelForEachRow(Accumulator<A> acc, int parallelism,
+            MultiConsumer<S, RangedList<T>, ThreadLocalAccumulator<A>, O> action, Function<Integer, O> oSupplier);
 
-    @Override
-    public Object[] toArray() {
-        final Object[] o = new Object[(int) range.size()];
-        final int count[] = { 0 };
-        forEach((Pair<S, T> pair) -> {
-            o[count[0]] = pair;
-            count[0]++;
-        });
-        return o;
-    }
+    public abstract <A> void parallelForEachRow(Accumulator<A> acc, int parallelism,
+            TriConsumer<S, RangedList<T>, ThreadLocalAccumulator<A>> action);
 
-    @Override
-    public Object[] toArray(SquareRange newRange) {
-        final Object[] o = new Object[(int) newRange.size()];
-        final int count[] = { 0 };
-        forEach(newRange, (Pair<S, T> pair) -> {
-            o[count[0]] = pair;
-            count[0]++;
-        });
-        return o;
-    }
-
-    @Override
-    public SquareChunk<Pair<S, T>> toChunk(SquareRange newRange) {
-        final Object[] newRail = toArray(newRange); // check range at toArray
-        if (newRail.length == 0) {
-            throw new IllegalArgumentException("[RangedListProduct] toChunk(emptyRange) is not permitted.");
-        }
-        return new SquareChunk<>(newRange, newRail);
-    }
-
-    @Override
-    public List<Pair<S, T>> toList(SquareRange newRange) {
-        final ArrayList<Pair<S, T>> list = new ArrayList<>((int) newRange.size());
-        forEach(newRange, (t) -> list.add(t));
-        return list;
-    }
+    public abstract RangedListProduct<S, T> teamedSplit(int outer, int inner, TeamedPlaceGroup pg, long seed);
 }
