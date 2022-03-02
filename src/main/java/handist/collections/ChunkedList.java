@@ -36,9 +36,15 @@ import java.util.function.Predicate;
 import handist.collections.FutureN.ReturnGivenResult;
 import handist.collections.accumulator.Accumulator;
 import handist.collections.accumulator.Accumulator.ThreadLocalAccumulator;
-import handist.collections.dist.Reducer;
 import handist.collections.function.LongTBiConsumer;
 import handist.collections.function.LongTTriConsumer;
+import handist.collections.reducer.BoolReducer;
+import handist.collections.reducer.DoubleReducer;
+import handist.collections.reducer.FloatReducer;
+import handist.collections.reducer.IntReducer;
+import handist.collections.reducer.LongReducer;
+import handist.collections.reducer.Reducer;
+import handist.collections.reducer.ShortReducer;
 
 /**
  * Large collection containing multiple {@link Chunk}s. This overcomes the
@@ -359,13 +365,113 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         }
 
         @Override
+        public boolean parallelReduce(BoolReducer.Op op, Function<S, Boolean> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
+        public double parallelReduce(DoubleReducer.Op op, Function<S, Double> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
+        public float parallelReduce(FloatReducer.Op op, Function<S, Float> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
+        public boolean parallelReduce(int parallelism, BoolReducer.Op op, Function<S, Boolean> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public double parallelReduce(int parallelism, DoubleReducer.Op op, Function<S, Double> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public float parallelReduce(int parallelism, FloatReducer.Op op, Function<S, Float> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public int parallelReduce(int parallelism, IntReducer.Op op, Function<S, Integer> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public long parallelReduce(int parallelism, LongReducer.Op op, Function<S, Long> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public <R extends Reducer<R, S>> R parallelReduce(int parallelism, R reducer) {
+            return base.parallelReduce(parallelism, reducer);
+        }
+
+        @Override
+        public short parallelReduce(int parallelism, ShortReducer.Op op, Function<S, Short> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public int parallelReduce(IntReducer.Op op, Function<S, Integer> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
+        public long parallelReduce(LongReducer.Op op, Function<S, Long> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
+        public <R extends Reducer<R, S>> R parallelReduce(R reducer) {
+            return base.parallelReduce(reducer);
+        }
+
+        @Override
+        public short parallelReduce(ShortReducer.Op op, Function<S, Short> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
         public Collection<LongRange> ranges() {
             return base.ranges();
         }
 
         @Override
+        public boolean reduce(BoolReducer.Op op, Function<S, Boolean> extractFunc) {
+            return base.reduce(op, extractFunc);
+        }
+
+        @Override
+        public double reduce(DoubleReducer.Op op, Function<S, Double> extractFunc) {
+            return base.reduce(op, extractFunc);
+        }
+
+        @Override
+        public float reduce(FloatReducer.Op op, Function<S, Float> extractFunc) {
+            return base.reduce(op, extractFunc);
+        }
+
+        @Override
+        public int reduce(IntReducer.Op op, Function<S, Integer> extractFunc) {
+            return base.reduce(op, extractFunc);
+        }
+
+        @Override
+        public long reduce(LongReducer.Op op, Function<S, Long> extractFunc) {
+            return base.reduce(op, extractFunc);
+        }
+
+        @Override
         public <R extends Reducer<R, S>> R reduce(R reducer) {
             return base.reduce(reducer);
+        }
+
+        @Override
+        public short reduce(ShortReducer.Op op, Function<S, Short> extractFunc) {
+            return base.reduce(op, extractFunc);
         }
 
         @Override
@@ -1675,6 +1781,227 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
 
     /**
      * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public boolean parallelReduce(BoolReducer.Op op, Function<T, Boolean> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public double parallelReduce(DoubleReducer.Op op, Function<T, Double> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public float parallelReduce(FloatReducer.Op op, Function<T, Float> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public boolean parallelReduce(int parallelism, BoolReducer.Op op, Function<T, Boolean> extractFunc) {
+        final BoolReducer reducer = new BoolReducer(op);
+        final ConcurrentLinkedQueue<BoolReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final BoolReducer threadLocalReducer = new BoolReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> {
+                if (threadLocalReducer.reduce(extractFunc.apply(t))) { // determined result in the middle.
+                    return;
+                }
+            });
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            final boolean finish = reducer.reduce(reducers.poll().value());
+            if (finish) {
+                break;
+            }
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public double parallelReduce(int parallelism, DoubleReducer.Op op, Function<T, Double> extractFunc) {
+        final DoubleReducer reducer = new DoubleReducer(op);
+        final ConcurrentLinkedQueue<DoubleReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final DoubleReducer threadLocalReducer = new DoubleReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> threadLocalReducer.reduce(extractFunc.apply(t)));
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            reducer.reduce(reducers.poll().value());
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public float parallelReduce(int parallelism, FloatReducer.Op op, Function<T, Float> extractFunc) {
+        final FloatReducer reducer = new FloatReducer(op);
+        final ConcurrentLinkedQueue<FloatReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final FloatReducer threadLocalReducer = new FloatReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> threadLocalReducer.reduce(extractFunc.apply(t)));
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            reducer.reduce(reducers.poll().value());
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public int parallelReduce(int parallelism, IntReducer.Op op, Function<T, Integer> extractFunc) {
+        final IntReducer reducer = new IntReducer(op);
+        final ConcurrentLinkedQueue<IntReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final IntReducer threadLocalReducer = new IntReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> threadLocalReducer.reduce(extractFunc.apply(t)));
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            reducer.reduce(reducers.poll().value());
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public long parallelReduce(int parallelism, LongReducer.Op op, Function<T, Long> extractFunc) {
+        final LongReducer reducer = new LongReducer(op);
+        final ConcurrentLinkedQueue<LongReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final LongReducer threadLocalReducer = new LongReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> threadLocalReducer.reduce(extractFunc.apply(t)));
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            reducer.reduce(reducers.poll().value());
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
      * elements present in this collection.
      *
      * @param <R>         the type of the reducer used
@@ -1710,6 +2037,67 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public short parallelReduce(int parallelism, ShortReducer.Op op, Function<T, Short> extractFunc) {
+        final ShortReducer reducer = new ShortReducer(op);
+        final ConcurrentLinkedQueue<ShortReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final ShortReducer threadLocalReducer = new ShortReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> threadLocalReducer.reduce(extractFunc.apply(t)));
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            reducer.reduce(reducers.poll().value());
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public int parallelReduce(IntReducer.Op op, Function<T, Integer> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public long parallelReduce(LongReducer.Op op, Function<T, Long> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
+    }
+
+    /**
      * Performs a parallel reduction on all the elements of contained in this
      * {@link ChunkedList}.
      *
@@ -1720,6 +2108,19 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public <R extends Reducer<R, T>> R parallelReduce(R reducer) {
         return parallelReduce(Runtime.getRuntime().availableProcessors(), reducer);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public short parallelReduce(ShortReducer.Op op, Function<T, Short> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
     }
 
     /**
@@ -1759,6 +2160,80 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public boolean reduce(BoolReducer.Op op, Function<T, Boolean> extractFunc) {
+        final BoolReducer reducer = new BoolReducer(op);
+        forEach((t) -> {
+            if (reducer.reduce(extractFunc.apply(t))) { // the result is determined in the middle.
+                return;
+            }
+        });
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public double reduce(DoubleReducer.Op op, Function<T, Double> extractFunc) {
+        final DoubleReducer reducer = new DoubleReducer(op);
+        forEach(t -> reducer.reduce(extractFunc.apply(t)));
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public float reduce(FloatReducer.Op op, Function<T, Float> extractFunc) {
+        final FloatReducer reducer = new FloatReducer(op);
+        forEach(t -> reducer.reduce(extractFunc.apply(t)));
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public int reduce(IntReducer.Op op, Function<T, Integer> extractFunc) {
+        final IntReducer reducer = new IntReducer(op);
+        forEach(t -> reducer.reduce(extractFunc.apply(t)));
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public long reduce(LongReducer.Op op, Function<T, Long> extractFunc) {
+        final LongReducer reducer = new LongReducer(op);
+        forEach(t -> reducer.reduce(extractFunc.apply(t)));
+        return reducer.value();
+    }
+
+    /**
      * Sequentially reduces all the elements contained in this {@link ChunkedList}
      * using the reducer provided as parameter
      *
@@ -1769,6 +2244,20 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     public <R extends Reducer<R, T>> R reduce(R reducer) {
         forEach(t -> reducer.reduce(t));
         return reducer;
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public short reduce(ShortReducer.Op op, Function<T, Short> extractFunc) {
+        final ShortReducer reducer = new ShortReducer(op);
+        forEach(t -> reducer.reduce(extractFunc.apply(t)));
+        return reducer.value();
     }
 
     /**

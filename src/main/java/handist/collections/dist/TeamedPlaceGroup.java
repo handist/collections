@@ -260,6 +260,19 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
     }
 
     /**
+     * Gathers one boolean variable from all places, wrapping MPI#Allgather.
+     *
+     * @param val the value to gather.
+     * @return an array storing gathered values to.
+     */
+    public boolean[] allGather1(boolean val) {
+        final boolean[] send = new boolean[] { val };
+        final boolean[] recv = new boolean[size];
+        comm.Allgather(send, 0, 1, MPI.BOOLEAN, recv, 0, 1, MPI.BOOLEAN);
+        return recv;
+    }
+
+    /**
      * Gathers one double variable from all places, wrapping MPI#Allgather.
      *
      * @param val the value to gather.
@@ -322,6 +335,20 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
         final short[] recv = new short[size];
         comm.Allgather(send, 0, 1, MPI.SHORT, recv, 0, 1, MPI.SHORT);
         return recv;
+    }
+
+    /**
+     * Combine one boolean value of each process using the reduce operation, and
+     * return the combined value of the all process.
+     *
+     * @param val send value.
+     * @param op  reduce operation.
+     * @return the combined value.
+     */
+    public boolean allReduce1(boolean val, Op op) {
+        final boolean[] v = new boolean[] { val };
+        comm.Allreduce(v, 0, v, 0, 1, MPI.BOOLEAN, op);
+        return v[0];
     }
 
     /**
@@ -418,6 +445,22 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
     }
 
     /**
+     * Broadcast one boolean value from the root place to all processes of the
+     * group.
+     *
+     * @param val  sent value from the root place. In other places, the value will
+     *             be ignored.
+     * @param root broadcast a value from the place.
+     * @return If the root place, return val and if other places, return recieved
+     *         value.
+     */
+    public boolean bCast1(boolean val, Place root) {
+        final boolean[] v = new boolean[] { val };
+        comm.Bcast(v, 0, 1, MPI.BOOLEAN, rank(root));
+        return v[0];
+    }
+
+    /**
      * Broadcast one double value from the root place to all processes of the group.
      *
      * @param val  sent value from the root place. In other places, the value will
@@ -508,6 +551,21 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
             }
             job.run();
         });
+    }
+
+    /**
+     * Gathers one boolean variable from all places, wrapping MPI#gather.
+     *
+     * @param val  the value to gather.
+     * @param root gather values from all places to the root.
+     * @return If at the root place, return an array storing gathered values to. At
+     *         other places, return null.
+     */
+    public boolean[] gather1(boolean val, Place root) {
+        final boolean[] v = new boolean[] { val };
+        final boolean[] recv = new boolean[size];
+        comm.Gather(v, 0, 1, MPI.BOOLEAN, recv, 0, 1, MPI.BOOLEAN, rank(root));
+        return (root.equals(here())) ? recv : null;
     }
 
     /**
@@ -647,6 +705,23 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
             throw new RuntimeException("[TeamedPlaceGroup] " + place + " is not a member of " + this);
         }
         return result;
+    }
+
+    /**
+     *
+     * Combine one int value of each process using the reduce operation, and return
+     * the combined value of the root process.
+     *
+     * @param val  send value.
+     * @param op   reduce operation.
+     * @param root combined value is returned only the root place.
+     * @return at root place, the combined value. at other places, return val as it
+     *         is.
+     */
+    public boolean reduce1(boolean val, Op op, Place root) {
+        final boolean[] v = new boolean[] { val };
+        comm.Reduce(v, 0, v, 0, 1, MPI.BOOLEAN, op, rank(root));
+        return v[0];
     }
 
     /**

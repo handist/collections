@@ -8,12 +8,13 @@
  *
  * SPDX-License-Identifier: EPL-1.0
  ******************************************************************************/
-package handist.collections.dist;
+package handist.collections.reducer;
 
 import java.io.Serializable;
 import java.util.HashMap;
 
 import apgas.util.GlobalID;
+import handist.collections.dist.TeamedPlaceGroup;
 import mpi.Datatype;
 import mpi.MPI;
 import mpi.Op;
@@ -82,8 +83,8 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
         final Object[] ov = (Object[]) secondOperandAndResultArray;
         final Object[] iv = (Object[]) firstOperandArray;
 
-        for (int i = secondOperandArrayOffset, j = firstOperandArrayOffset; i < count
-                + secondOperandArrayOffset; i++, j++) {
+        for (int i = secondOperandArrayOffset,
+                j = firstOperandArrayOffset; i < count + secondOperandArrayOffset; i++, j++) {
             final R result = (R) ov[i];
             final R operand = (R) iv[j];
             result.merge(operand);
@@ -121,7 +122,7 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
             throw new IllegalArgumentException("Method Reducer#globalReduction does not tolerate null parameters");
         }
 
-        final int reductionRank = placeGroup.myrank;
+        final int reductionRank = placeGroup.rank();
 
         placeGroup.broadcastFlat(() -> {
             // Retrieve the local object through the global id

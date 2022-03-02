@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoSerializable;
@@ -33,7 +34,13 @@ import com.esotericsoftware.kryo.io.Output;
 
 import apgas.GlobalRuntime;
 import handist.collections.dist.DistBag;
-import handist.collections.dist.Reducer;
+import handist.collections.reducer.BoolReducer;
+import handist.collections.reducer.DoubleReducer;
+import handist.collections.reducer.FloatReducer;
+import handist.collections.reducer.IntReducer;
+import handist.collections.reducer.LongReducer;
+import handist.collections.reducer.Reducer;
+import handist.collections.reducer.ShortReducer;
 
 /**
  * Container for user-defined types.
@@ -300,6 +307,251 @@ public class Bag<T> implements ParallelReceiver<T>, Serializable, KryoSerializab
 
     /**
      * Performs the specified reduction on the elements contained in this bag in
+     * parallel, using an operation provided by default. This {@link Bag} will be
+     * emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param boolFunc    defines the value to be reduced
+     * @param parallelism the maximum number of concurrent threads allocated to this
+     *                    reduction operation (must be greater or equal to 1)
+     * @return the value after the reduction has completed
+     */
+    public boolean parallelReduce(int parallelism, BoolReducer.Op op, Function<T, Boolean> boolFunc) {
+        final ExecutorService pool = GlobalRuntime.getRuntime().getExecutorService();
+        final BoolReducer reducer = new BoolReducer(op);
+        final ArrayList<Future<BoolReducer>> reducerInstances = new ArrayList<>(parallelism);
+
+        for (int i = 0; i < parallelism; i++) {
+            // The individual job consists in reducing every element in every list present
+            // in member #bags until we run out of lists
+            final BoolReducer r = new BoolReducer(op);
+            final Future<BoolReducer> future = pool.submit(() -> {
+                List<T> list = bags.poll();
+                while (list != null) {
+                    for (final T t : list) {
+                        r.reduce(boolFunc.apply(t));
+                    }
+                    list = bags.poll();
+                }
+            }, r);
+            reducerInstances.add(future);
+        }
+
+        // Here we wait for each future to terminate and we merge then into the instance
+        // given as parameter
+        for (final Future<BoolReducer> future : reducerInstances) {
+            try {
+                reducer.reduce(future.get().value());
+            } catch (final InterruptedException e) {
+                e.printStackTrace();
+            } catch (final ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // All the individual reducers have been merged into the given instance, we
+        // return this result
+        return reducer.value();
+    }
+
+    /**
+     * Performs the specified reduction on the elements contained in this bag in
+     * parallel, using an operation provided by default. This {@link Bag} will be
+     * emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param doubleFunc  defines the value to be reduced
+     * @param parallelism the maximum number of concurrent threads allocated to this
+     *                    reduction operation (must be greater or equal to 1)
+     * @return the value after the reduction has completed
+     */
+    public double parallelReduce(int parallelism, DoubleReducer.Op op, Function<T, Double> doubleFunc) {
+        final ExecutorService pool = GlobalRuntime.getRuntime().getExecutorService();
+        final DoubleReducer reducer = new DoubleReducer(op);
+        final ArrayList<Future<DoubleReducer>> reducerInstances = new ArrayList<>(parallelism);
+
+        for (int i = 0; i < parallelism; i++) {
+            // The individual job consists in reducing every element in every list present
+            // in member #bags until we run out of lists
+            final DoubleReducer r = new DoubleReducer(op);
+            final Future<DoubleReducer> future = pool.submit(() -> {
+                List<T> list = bags.poll();
+                while (list != null) {
+                    for (final T t : list) {
+                        r.reduce(doubleFunc.apply(t));
+                    }
+                    list = bags.poll();
+                }
+            }, r);
+            reducerInstances.add(future);
+        }
+
+        // Here we wait for each future to terminate and we merge then into the instance
+        // given as parameter
+        for (final Future<DoubleReducer> future : reducerInstances) {
+            try {
+                reducer.reduce(future.get().value());
+            } catch (final InterruptedException e) {
+                e.printStackTrace();
+            } catch (final ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // All the individual reducers have been merged into the given instance, we
+        // return this result
+        return reducer.value();
+    }
+
+    /**
+     * Performs the specified reduction on the elements contained in this bag in
+     * parallel, using an operation provided by default. This {@link Bag} will be
+     * emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param floatFunc   defines the value to be reduced
+     * @param parallelism the maximum number of concurrent threads allocated to this
+     *                    reduction operation (must be greater or equal to 1)
+     * @return the value after the reduction has completed
+     */
+    public float parallelReduce(int parallelism, FloatReducer.Op op, Function<T, Float> floatFunc) {
+        final ExecutorService pool = GlobalRuntime.getRuntime().getExecutorService();
+        final FloatReducer reducer = new FloatReducer(op);
+        final ArrayList<Future<FloatReducer>> reducerInstances = new ArrayList<>(parallelism);
+
+        for (int i = 0; i < parallelism; i++) {
+            // The individual job consists in reducing every element in every list present
+            // in member #bags until we run out of lists
+            final FloatReducer r = new FloatReducer(op);
+            final Future<FloatReducer> future = pool.submit(() -> {
+                List<T> list = bags.poll();
+                while (list != null) {
+                    for (final T t : list) {
+                        r.reduce(floatFunc.apply(t));
+                    }
+                    list = bags.poll();
+                }
+            }, r);
+            reducerInstances.add(future);
+        }
+
+        // Here we wait for each future to terminate and we merge then into the instance
+        // given as parameter
+        for (final Future<FloatReducer> future : reducerInstances) {
+            try {
+                reducer.reduce(future.get().value());
+            } catch (final InterruptedException e) {
+                e.printStackTrace();
+            } catch (final ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // All the individual reducers have been merged into the given instance, we
+        // return this result
+        return reducer.value();
+    }
+
+    /**
+     * Performs the specified reduction on the elements contained in this bag in
+     * parallel, using an operation provided by default. This {@link Bag} will be
+     * emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param intFunc     defines the value to be reduced
+     * @param parallelism the maximum number of concurrent threads allocated to this
+     *                    reduction operation (must be greater or equal to 1)
+     * @return the value after the reduction has completed
+     */
+    public int parallelReduce(int parallelism, IntReducer.Op op, Function<T, Integer> intFunc) {
+        final ExecutorService pool = GlobalRuntime.getRuntime().getExecutorService();
+        final IntReducer reducer = new IntReducer(op);
+        final ArrayList<Future<IntReducer>> reducerInstances = new ArrayList<>(parallelism);
+
+        for (int i = 0; i < parallelism; i++) {
+            // The individual job consists in reducing every element in every list present
+            // in member #bags until we run out of lists
+            final IntReducer r = new IntReducer(op);
+            final Future<IntReducer> future = pool.submit(() -> {
+                List<T> list = bags.poll();
+                while (list != null) {
+                    for (final T t : list) {
+                        r.reduce(intFunc.apply(t));
+                    }
+                    list = bags.poll();
+                }
+            }, r);
+            reducerInstances.add(future);
+        }
+
+        // Here we wait for each future to terminate and we merge then into the instance
+        // given as parameter
+        for (final Future<IntReducer> future : reducerInstances) {
+            try {
+                reducer.reduce(future.get().value());
+            } catch (final InterruptedException e) {
+                e.printStackTrace();
+            } catch (final ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // All the individual reducers have been merged into the given instance, we
+        // return this result
+        return reducer.value();
+    }
+
+    /**
+     * Performs the specified reduction on the elements contained in this bag in
+     * parallel, using an operation provided by default. This {@link Bag} will be
+     * emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param longFunc    defines the value to be reduced
+     * @param parallelism the maximum number of concurrent threads allocated to this
+     *                    reduction operation (must be greater or equal to 1)
+     * @return the value after the reduction has completed
+     */
+    public long parallelReduce(int parallelism, LongReducer.Op op, Function<T, Long> longFunc) {
+        final ExecutorService pool = GlobalRuntime.getRuntime().getExecutorService();
+        final LongReducer reducer = new LongReducer(op);
+        final ArrayList<Future<LongReducer>> reducerInstances = new ArrayList<>(parallelism);
+
+        for (int i = 0; i < parallelism; i++) {
+            // The individual job consists in reducing every element in every list present
+            // in member #bags until we run out of lists
+            final LongReducer r = new LongReducer(op);
+            final Future<LongReducer> future = pool.submit(() -> {
+                List<T> list = bags.poll();
+                while (list != null) {
+                    for (final T t : list) {
+                        r.reduce(longFunc.apply(t));
+                    }
+                    list = bags.poll();
+                }
+            }, r);
+            reducerInstances.add(future);
+        }
+
+        // Here we wait for each future to terminate and we merge then into the instance
+        // given as parameter
+        for (final Future<LongReducer> future : reducerInstances) {
+            try {
+                reducer.reduce(future.get().value());
+            } catch (final InterruptedException e) {
+                e.printStackTrace();
+            } catch (final ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // All the individual reducers have been merged into the given instance, we
+        // return this result
+        return reducer.value();
+    }
+
+    /**
+     * Performs the specified reduction on the elements contained in this bag in
      * parallel. This {@link Bag} will be emptied as a result
      *
      * @param <R>         type of the reducer
@@ -343,6 +595,55 @@ public class Bag<T> implements ParallelReceiver<T>, Serializable, KryoSerializab
         // All the individual reducers have been merged into the given instance, we
         // return this result
         return reducer;
+    }
+
+    /**
+     * Performs the specified reduction on the elements contained in this bag in
+     * parallel, using an operation provided by default. This {@link Bag} will be
+     * emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param shortFunc   defines the value to be reduced
+     * @param parallelism the maximum number of concurrent threads allocated to this
+     *                    reduction operation (must be greater or equal to 1)
+     * @return the value after the reduction has completed
+     */
+    public short parallelReduce(int parallelism, ShortReducer.Op op, Function<T, Short> shortFunc) {
+        final ExecutorService pool = GlobalRuntime.getRuntime().getExecutorService();
+        final ShortReducer reducer = new ShortReducer(op);
+        final ArrayList<Future<ShortReducer>> reducerInstances = new ArrayList<>(parallelism);
+
+        for (int i = 0; i < parallelism; i++) {
+            // The individual job consists in reducing every element in every list present
+            // in member #bags until we run out of lists
+            final ShortReducer r = new ShortReducer(op);
+            final Future<ShortReducer> future = pool.submit(() -> {
+                List<T> list = bags.poll();
+                while (list != null) {
+                    for (final T t : list) {
+                        r.reduce(shortFunc.apply(t));
+                    }
+                    list = bags.poll();
+                }
+            }, r);
+            reducerInstances.add(future);
+        }
+
+        // Here we wait for each future to terminate and we merge then into the instance
+        // given as parameter
+        for (final Future<ShortReducer> future : reducerInstances) {
+            try {
+                reducer.reduce(future.get().value());
+            } catch (final InterruptedException e) {
+                e.printStackTrace();
+            } catch (final ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // All the individual reducers have been merged into the given instance, we
+        // return this result
+        return reducer.value();
     }
 
     /**
@@ -441,21 +742,123 @@ public class Bag<T> implements ParallelReceiver<T>, Serializable, KryoSerializab
     }
 
     /**
+     * Sequentially reduces all the elements contained in this {@link Bag}, using an
+     * operation provided by default. This {@link Bag} will be emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public boolean reduce(BoolReducer.Op op, Function<T, Boolean> extractFunc) {
+        final BoolReducer reducer = new BoolReducer(op);
+        while (!isEmpty()) {
+            if (reducer.reduce(extractFunc.apply(remove()))) {
+                clear();
+                return reducer.value();
+            }
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link Bag}, using an
+     * operation provided by default. This {@link Bag} will be emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public double reduce(DoubleReducer.Op op, Function<T, Double> extractFunc) {
+        final DoubleReducer reducer = new DoubleReducer(op);
+        while (!isEmpty()) {
+            reducer.reduce(extractFunc.apply(remove()));
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link Bag}, using an
+     * operation provided by default. This {@link Bag} will be emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public float reduce(FloatReducer.Op op, Function<T, Float> extractFunc) {
+        final FloatReducer reducer = new FloatReducer(op);
+        while (!isEmpty()) {
+            reducer.reduce(extractFunc.apply(remove()));
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link Bag}, using an
+     * operation provided by default. This {@link Bag} will be emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public int reduce(IntReducer.Op op, Function<T, Integer> extractFunc) {
+        final IntReducer reducer = new IntReducer(op);
+        while (!isEmpty()) {
+            reducer.reduce(extractFunc.apply(remove()));
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link Bag}, using an
+     * operation provided by default. This {@link Bag} will be emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public long reduce(LongReducer.Op op, Function<T, Long> extractFunc) {
+        final LongReducer reducer = new LongReducer(op);
+        while (!isEmpty()) {
+            reducer.reduce(extractFunc.apply(remove()));
+        }
+        return reducer.value();
+    }
+
+    /**
      * Sequentially reduces all the elements contained in this bag using the reducer
-     * provided as parameter
+     * provided as parameter. This {@link Bag} will be emptied as a result
      *
      * @param <R>     type of the reducer
      * @param reducer reducer to be used to reduce this parameter
      * @return the reducer provided as parameter after the reduction has completed
      */
     public <R extends Reducer<R, T>> R reduce(R reducer) {
-        forEach(t -> reducer.reduce(t));
+        while (!isEmpty()) {
+            reducer.reduce(remove());
+        }
         return reducer;
     }
 
     /**
+     * Sequentially reduces all the elements contained in this {@link Bag}, using an
+     * operation provided by default. This {@link Bag} will be emptied as a result
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public short reduce(ShortReducer.Op op, Function<T, Short> extractFunc) {
+        final ShortReducer reducer = new ShortReducer(op);
+        while (!isEmpty()) {
+            reducer.reduce(extractFunc.apply(remove()));
+        }
+        return reducer.value();
+    }
+
+    /**
      * Sequentially reduces all the lists of Ts contained in this bag into the
-     * provided reducer and returns that reducer.
+     * provided reducer and returns that reducer.This {@link Bag} will be emptied as
+     * a result
      *
      * @param <R>     the type of the reducer
      * @param reducer the reducer into which this bag needs to be reduced
@@ -463,8 +866,8 @@ public class Bag<T> implements ParallelReceiver<T>, Serializable, KryoSerializab
      *         list in this {@link Bag}
      */
     public <R extends Reducer<R, List<T>>> R reduceList(R reducer) {
-        for (final List<T> list : bags) {
-            reducer.reduce(list);
+        while (!isEmpty()) {
+            reducer.reduce(bags.poll());
         }
         return reducer;
     }
