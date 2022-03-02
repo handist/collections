@@ -122,9 +122,6 @@ public abstract class Accumulator<A> {
      * Protected constructor. Initializes members common to all
      * ThreadLocalAccumulator implementations
      *
-     * @param targetChunkedList   {@link ChunkedList} targeted by this accumulator,
-     *                            specifies which indices are susceptible to get an
-     *                            accumulator
      * @param initializerFunction function used to initialize a new accumulator A
      *                            for the T object located at the specified index
      */

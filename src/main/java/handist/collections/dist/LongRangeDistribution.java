@@ -25,9 +25,10 @@ import handist.collections.LongRange;
  * may be extended to other distributed collections in the future.
  * <p>
  * This class allows users to inquire about the location of particular entries
- * of a distributed collection through methods {@link #rangeLocation(LongRange)},
- * {@link #location(Long)}, and {@link #location(LongRange)}. Internally, this
- * information is kept in a {@link Map}&lt;{@link LongRange},{@link Place}&gt;.
+ * of a distributed collection through methods
+ * {@link #rangeLocation(LongRange)}, {@link #location(Long)}, and
+ * {@link #location(LongRange)}. Internally, this information is kept in a
+ * {@link Map}&lt;{@link LongRange},{@link Place}&gt;.
  * <p>
  * This class is an {@link UpdatableDistribution}, meaning it can be registered
  * into a collection so that it is automatically updated when changes in the
@@ -76,11 +77,11 @@ public class LongRangeDistribution extends UpdatableDistribution<LongRange>
      *
      * Creates a new {@link LongRangeDistribution} with the provided
      * {@link TreeMap}. It is assumed that the provided map uses the
-     * {@link ChunkedList.LongRangeOrdering} to sort its keys. If it is not the
-     * case, this constructor will throw an {@link IllegalArgumentException}.
+     * {@link LongRangeOrdering} to sort its keys. If it is not the case, this
+     * constructor will throw an {@link IllegalArgumentException}.
      *
      *
-     * @param map the map to use to build this {@link LongRangeDistribution}.
+     * @param map the map to use to build this instance
      * @throws IllegalArgumentException if the provided map does not use the
      *                                  appropriate ordering
      * @see #clone()

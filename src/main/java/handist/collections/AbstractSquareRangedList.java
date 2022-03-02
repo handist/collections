@@ -305,9 +305,8 @@ public interface AbstractSquareRangedList<T, X extends AbstractSquareRangedList<
      *
      * @param outer      the number of split outer range.
      * @param inner      the number ot split inner range.
-     * @param ithHost    the current host id. Be less than numHosts.
-     * @param numHosts   the number of hosts to assign split squares.
-     * @param numThreads the number of threads to divide squares to {@link List}.
+     * @param pg         the group between which this ranged list is split
+     * @param numThreads the number of threads to whom squares should be assigned to
      * @param seed       seed used to randomly assign squares to hosts, must the
      *                   same on all hosts
      * @return List of list of {@link SquareRangedList}. Size of outer list is
