@@ -15,11 +15,6 @@ public class SquareRangedListView<T> implements SquareRangedList<T> {
     /**
      * Creates a new {@link SquareRangedListView} which grants access to the
      * provided {@link SquareRangedList} only on the specified range.
-     * <p>
-     * The provided base can either be a {@link SquareChunk} or
-     * {@link SimpleRangedListProduct} or an existing {@link SquareRangedListView}, in
-     * which case the {@link SquareChunk} base of this {@link RangedListView} will
-     * be extracted.
      *
      * @param base     {@link SquareRangedList} this instance will control access to
      * @param subRange the range of indices that the created instance allows access
