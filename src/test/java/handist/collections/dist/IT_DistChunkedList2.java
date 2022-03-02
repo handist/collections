@@ -35,6 +35,7 @@ import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.TestChunkedList.ElementCounter;
+import handist.collections.reducer.LongReducer;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -590,6 +591,23 @@ public class IT_DistChunkedList2 implements Serializable {
             final ElementCounter<Element> secondCount = distChunkedList.team().reduce(new ElementCounter<>());
             assertEquals(350l, secondCount.counter);
         });
+    }
+
+    @Test(timeout = 10000)
+    public void testTeamReduction_PrimitiveReducer() {
+        try {
+            world.broadcastFlat(() -> {
+                final long count = distChunkedList.TEAM.reduce(LongReducer.Op.SUM, (e) -> {
+                    if (e.s == "a") {
+                        return 1l;
+                    }
+                    return 0l;
+                });
+                assertEquals(100l, count);
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+        }
     }
 
 }
