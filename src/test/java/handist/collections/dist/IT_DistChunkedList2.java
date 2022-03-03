@@ -595,19 +595,40 @@ public class IT_DistChunkedList2 implements Serializable {
 
     @Test(timeout = 10000)
     public void testTeamReduction_PrimitiveReducer() {
-        try {
-            world.broadcastFlat(() -> {
-                final long count = distChunkedList.TEAM.reduce(LongReducer.Op.SUM, (e) -> {
-                    if (e.s == "a") {
-                        return 1l;
-                    }
-                    return 0l;
-                });
-                assertEquals(100l, count);
+        world.broadcastFlat(() -> {
+            // count when there are no chunks
+            long count = distChunkedList.TEAM.reduce(LongReducer.Op.SUM, (e) -> {
+                if (e.s == "a") {
+                    return 1l;
+                }
+                return 0l;
             });
-        } catch (final MultipleException me) {
-            me.printStackTrace();
-        }
+            assertEquals(0l, count);
+            // Add some chunks depending on the rank of the host
+            switch (world.myrank) {
+            case 0:
+                distChunkedList.add(chunk0To100);
+                break;
+            case 1:
+                distChunkedList.add(chunk100To200);
+                break;
+            case 2:
+                distChunkedList.add(chunk0To100);
+                distChunkedList.add(chunk200To250);
+                break;
+            case 3:
+            default:
+                // Add no chunk
+            }
+            // count chunk0To100 elements
+            count = distChunkedList.TEAM.reduce(LongReducer.Op.SUM, (e) -> {
+                if (e.s.charAt(0) == 'a') {
+                    return 1l;
+                }
+                return 0l;
+            });
+            assertEquals(200l, count);
+        });
     }
 
 }
