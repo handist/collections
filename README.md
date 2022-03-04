@@ -5,8 +5,9 @@ A Java distributed collections library.
 ## Documentation / Information
 
 | Version                                                              |                                                                                                                                                                                   |
+|-|-|
 | master head                                                          | [Javadoc](master-latest/apidocs/index.html)<br>[Test Coverage Report](master-latest/jacoco/index.html)                                                                            |
-| [v1.2.0](https://github.com/handist/collections/releases/tag/v1.2.0) | March 2nd 2022: Third release of the library<br>[Javadoc](v1.2.0/apidocs/index.html)<br>[Test Coverage Report](v1.2.0/jacoco/index.html)<br>[Maven Report](v1.2.0/index.html)     |
+| [v1.2.0](https://github.com/handist/collections/releases/tag/v1.2.0) | March 4th 2022: Third release of the library<br>[Javadoc](v1.2.0/apidocs/index.html)<br>[Test Coverage Report](v1.2.0/jacoco/index.html)<br>[Maven Report](v1.2.0/index.html)     |
 | [v1.1.0](https://github.com/handist/collections/releases/tag/v1.1.0) | October 16th 2021: Second release of the library<br>[Javadoc](v1.1.0/apidocs/index.html)<br>[Test Coverage Report](v1.1.0/jacoco/index.html)<br>[Maven Report](v1.1.0/index.html) |
 | [v1.0.0](https://github.com/handist/collections/releases/tag/v1.0.0) | March 27th 2021: First release of the library<br>[Javadoc](v1.0.0/apidocs/index.html)<br>[Test Coverage Report](v1.0.0/jacoco/index.html)<br>[Maven Report](v1.0.0/index.html)    |
 
