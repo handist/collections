@@ -108,7 +108,7 @@ public interface DistributedCollection<T, C extends DistributedCollection<T, C>>
     /**
      * Returns the size of the number of elements in each place.
      *
-     * @return the size in {@long}
+     * @return the size in long type
      */
     public abstract long longSize();
 

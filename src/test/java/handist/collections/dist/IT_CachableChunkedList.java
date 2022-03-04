@@ -14,30 +14,34 @@ import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
 import apgas.Place;
+import apgas.impl.Config;
+import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
+import mpi.MPI;
 
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 4, launcher = TestLauncher.class)
 public class IT_CachableChunkedList implements Serializable {
 
     static class Particle implements Serializable {
-        /**
-         *
-         */
         private static final long serialVersionUID = 7821371179787362791L;
         long pos;
         long force;
@@ -96,6 +100,20 @@ public class IT_CachableChunkedList implements Serializable {
     /** PlaceGroup object representing the collaboration between processes */
     TeamedPlaceGroup placeGroup;
 
+    @Rule
+    public transient TestName nameOfCurrentTest = new TestName();
+
+    @After
+    public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
+            NoSuchMethodException, SecurityException {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))
+                && DebugFinish.suppressedExceptionsPresent()) {
+            System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
+            // If we are using the DebugFinish, dump all throwables collected on each host
+            DebugFinish.dumpAllSuppressedExceptions();
+        }
+    }
+
     @Before
     public void setUp() throws Exception {
         placeGroup = TeamedPlaceGroup.getWorld();
@@ -110,6 +128,45 @@ public class IT_CachableChunkedList implements Serializable {
                 caChunks.add(chunk);
             }
         });
+    }
+
+    @Test(timeout = 10000)
+    public void testAllReduceWithPrimitiveStream() throws Throwable {
+        try {
+            testForShare(caChunks);
+            placeGroup.broadcastFlat(() -> {
+                // set value to particle force
+                caChunks.shared.forEach(subRange2, (i, p) -> {
+                    p.force = placeGroup.rank() + i;
+                });
+                caChunks.shared.forEach(subRange1, (i, p) -> {
+                    p.force = (placeGroup.rank() + i) * 2;
+                });
+                // calc sum with allreduce
+                caChunks.allreduce((out, p) -> {
+                    out.writeLong(p.force);
+                    out.writeInt((int) p.force); // just for test
+                    out.writeLong(p.force * 2); // just for test
+                }, (in, p) -> {
+                    p.force = in.readLong();
+                    in.readInt(); // just for test
+                    in.readLong(); // just for test
+                }, MPI.SUM);
+                // assert check
+                caChunks.forEach((i, p) -> {
+                    if (subRange1.contains(i)) {
+                        assertEquals((6 + i * 4) * 2, p.force); // (sum of ranks + value by index) * 2
+                    } else if (subRange2.contains(i)) {
+                        assertEquals((6 + i * 4), p.force); // sum of ranks + value by index
+                    } else {
+                        assertEquals(0, p.force);
+                    }
+                });
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
     }
 
     public void testForAllReduce(final CachableChunkedList<Particle> ca) throws Throwable {
@@ -246,6 +303,23 @@ public class IT_CachableChunkedList implements Serializable {
             me.printStackTrace();
             throw me.getSuppressed()[0];
         }
+    }
+
+    @Test(timeout = 10000)
+    public void testShareAllRangesFromPlace0() throws Throwable {
+        final CachableChunkedList<Particle> particles = new CachableChunkedList<>(placeGroup);
+
+        particles.add(new Chunk<>(subRange1, l -> new Particle(l)));
+
+        placeGroup.broadcastFlat(() -> {
+            if (placeGroup.rank() == 0) {
+                particles.share(subRange1);
+            } else {
+                particles.share();
+            }
+            assertTrue(particles.containsRange(subRange1));
+        });
+
     }
 
     /**

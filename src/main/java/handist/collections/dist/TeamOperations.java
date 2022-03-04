@@ -58,8 +58,8 @@ public class TeamOperations<T, C extends DistributedCollection<T, C>> {
      */
     @SuppressWarnings({ "rawtypes", "deprecation" })
     public void getSizeDistribution(final long[] result) {
-        if (handle instanceof ElementLocationManagable) {
-            ((ElementLocationManagable) handle).getSizeDistribution(result);
+        if (handle instanceof ElementLocationManageable) {
+            ((ElementLocationManageable) handle).getSizeDistribution(result);
             return;
         }
         final TeamedPlaceGroup pg = handle.placeGroup();
@@ -239,8 +239,8 @@ public class TeamOperations<T, C extends DistributedCollection<T, C>> {
      */
     @SuppressWarnings("rawtypes")
     public void updateDist() {
-        if (handle instanceof ElementLocationManagable) {
-            ((ElementLocationManagable) handle).updateDist();
+        if (handle instanceof ElementLocationManageable) {
+            ((ElementLocationManageable) handle).updateDist();
         }
     }
 

@@ -78,7 +78,8 @@ public class IT_DistBag2 implements Serializable {
     @After
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException {
-        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))
+                && DebugFinish.suppressedExceptionsPresent()) {
             System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
             // If we are using the DebugFinish, dump all throwables collected on each host
             DebugFinish.dumpAllSuppressedExceptions();
@@ -106,21 +107,21 @@ public class IT_DistBag2 implements Serializable {
             m.execute();
         });
         final int[][] board = new int[4][4];
-        System.out.println("Dbag0-----");
+//        System.out.println("Dbag0-----");
         dbag0.forEach((Element e) -> {
             // System.out.println(e);
         });
-        System.out.println("Dbag0 writting-----");
+//        System.out.println("Dbag0 writting-----");
         dbag0.forEach((Element e) -> {
             final int v = board[e.key][e.inc()]++;
             // System.out.println("board:" + v);
             // System.out.println(e);
         });
-        System.out.println("Dbag1-----");
+//        System.out.println("Dbag1-----");
         dbag1.forEach((Element e) -> {
             // System.out.println(e);
         });
-        System.out.println("Dbag1 writting-----");
+//        System.out.println("Dbag1 writting-----");
         dbag1.forEach((Element e) -> {
             final int v = board[e.key][e.inc()]++;
             // System.out.println("board:" + v);

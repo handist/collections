@@ -35,6 +35,7 @@ import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
 import handist.collections.LongRange;
 import handist.collections.TestChunkedList.ElementCounter;
+import handist.collections.reducer.LongReducer;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -105,7 +106,8 @@ public class IT_DistChunkedList2 implements Serializable {
     @After
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException {
-        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))
+                && DebugFinish.suppressedExceptionsPresent()) {
             System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
             // If we are using the DebugFinish, dump all throwables collected on each host
             DebugFinish.dumpAllSuppressedExceptions();
@@ -588,6 +590,44 @@ public class IT_DistChunkedList2 implements Serializable {
             // There are now a total of 350 elements in the distributed chunkedList
             final ElementCounter<Element> secondCount = distChunkedList.team().reduce(new ElementCounter<>());
             assertEquals(350l, secondCount.counter);
+        });
+    }
+
+    @Test(timeout = 10000)
+    public void testTeamReduction_PrimitiveReducer() {
+        world.broadcastFlat(() -> {
+            // count when there are no chunks
+            long count = distChunkedList.TEAM.reduce(LongReducer.Op.SUM, (e) -> {
+                if (e.s == "a") {
+                    return 1l;
+                }
+                return 0l;
+            });
+            assertEquals(0l, count);
+            // Add some chunks depending on the rank of the host
+            switch (world.myrank) {
+            case 0:
+                distChunkedList.add(chunk0To100);
+                break;
+            case 1:
+                distChunkedList.add(chunk100To200);
+                break;
+            case 2:
+                distChunkedList.add(chunk0To100);
+                distChunkedList.add(chunk200To250);
+                break;
+            case 3:
+            default:
+                // Add no chunk
+            }
+            // count chunk0To100 elements
+            count = distChunkedList.TEAM.reduce(LongReducer.Op.SUM, (e) -> {
+                if (e.s.charAt(0) == 'a') {
+                    return 1l;
+                }
+                return 0l;
+            });
+            assertEquals(200l, count);
         });
     }
 

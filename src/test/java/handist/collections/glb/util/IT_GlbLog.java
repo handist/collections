@@ -21,8 +21,8 @@ import apgas.impl.DebugFinish;
 import handist.collections.dist.DistLog;
 import handist.collections.dist.DistLog.LogItem;
 import handist.collections.dist.DistLog.LogKey;
-import handist.collections.util.SavedLog;
 import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.util.SavedLog;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -57,7 +57,8 @@ public class IT_GlbLog implements Serializable {
     @After
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException {
-        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))
+                && DebugFinish.suppressedExceptionsPresent()) {
             System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
             // If we are using the DebugFinish, dump all throwables collected on each host
             DebugFinish.dumpAllSuppressedExceptions();
@@ -133,8 +134,8 @@ public class IT_GlbLog implements Serializable {
     }
 
     /**
-     * Checks that a {@link SavedLog} instance created from a {@link DistLog} contains
-     * all its logged instances
+     * Checks that a {@link SavedLog} instance created from a {@link DistLog}
+     * contains all its logged instances
      */
     @Test
     public void checkGlbLogMatchesDistLog() {

@@ -18,6 +18,12 @@ import apgas.util.GlobalID;
 import handist.collections.dist.util.IntFloatPair;
 import handist.collections.dist.util.IntLongPair;
 
+/**
+ * General Distribution Manager which handles the entries of a distributed
+ * collection based on their number
+ *
+ * @param <T> the type of the local handle of the distributed collection
+ */
 public abstract class GeneralDistManager<T> implements Serializable {
 
     private static int _debug_level = 5;
@@ -75,8 +81,8 @@ public abstract class GeneralDistManager<T> implements Serializable {
 
     @SuppressWarnings("rawtypes")
     protected void checkDistInfo(long[] result) {
-        if (branch instanceof ElementLocationManagable) {
-            ((ElementLocationManagable) branch).getSizeDistribution(result);
+        if (branch instanceof ElementLocationManageable) {
+            ((ElementLocationManageable) branch).getSizeDistribution(result);
             return;
         } else {
             // TODO

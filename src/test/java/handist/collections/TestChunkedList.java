@@ -35,9 +35,9 @@ import java.util.function.Consumer;
 import org.junit.Before;
 import org.junit.Test;
 
-import handist.collections.dist.Reducer;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
+import handist.collections.reducer.Reducer;
 
 @SuppressWarnings("deprecation")
 public class TestChunkedList {
@@ -133,7 +133,7 @@ public class TestChunkedList {
 
         }
 
-        private int nextReceiver;
+        private final AtomicInteger nextReceiver;
 
         ConcurrentSkipListSet<Integer>[] parallelAcceptors;
 
@@ -146,7 +146,7 @@ public class TestChunkedList {
          */
         @SuppressWarnings("unchecked")
         public MultiIntegerReceiver(int parallelism) {
-            nextReceiver = 0;
+            nextReceiver = new AtomicInteger();
             parallelAcceptors = new ConcurrentSkipListSet[parallelism];
             for (int i = 0; i < parallelism; i++) {
                 parallelAcceptors[i] = new ConcurrentSkipListSet<>();
@@ -167,7 +167,7 @@ public class TestChunkedList {
 
         @Override
         public Consumer<Integer> getReceiver() {
-            return new PConsumer(nextReceiver++);
+            return new PConsumer(nextReceiver.getAndIncrement());
         }
 
         @Override

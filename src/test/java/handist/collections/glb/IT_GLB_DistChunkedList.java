@@ -36,8 +36,8 @@ import handist.collections.RangedList;
 import handist.collections.dist.CollectiveMoveManager;
 import handist.collections.dist.DistBag;
 import handist.collections.dist.DistChunkedList;
-import handist.collections.dist.Reducer;
 import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.reducer.Reducer;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
@@ -252,7 +252,8 @@ public class IT_GLB_DistChunkedList implements Serializable {
     @After
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException {
-        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))
+                && DebugFinish.suppressedExceptionsPresent()) {
             System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
             // If we are using the DebugFinish, dump all throwables collected on each host
             DebugFinish.dumpAllSuppressedExceptions();

@@ -18,7 +18,7 @@ import apgas.Place;
  * Represents the mapping of a key to a place for a distributed collection. This
  * interface proposes a single method which assigns a {@link Place} to a key.
  * Distributed collection facilities will use implementations of this interface
- * by interrogating the {@link #place(Object)} method with the keys they are
+ * by interrogating the {@link #location(Object)} method with the keys they are
  * manipulating to identify on which host the associated value should be
  * located.
  * <p>
@@ -30,22 +30,12 @@ import apgas.Place;
  */
 public interface Distribution<K> extends Serializable {
 
-    public Place place(K key);
-
     /**
-     * Apply the given function to the elements(keys) of the distribuiton.
+     * Returns the location of an entry in a distribution
      *
-     * @param func defines the behavior for the geven key:K and its location p:
-     *             Place.
+     * @param key object used to identify an entry in the distributed collection
+     * @return the location of the entry as recorded by this distribution, null if
+     *         the enquired entry is unknown to this distribution
      */
-    // public map(func: (key:K, p: Place) => void): void;
-
-    /**
-     * Apply the given function to the elements(keys) that should be assigned to the
-     * specifiedplace
-     *
-     * @param place the destination place
-     * @param func  defines the behavior for the geven key:K
-     */
-    // public map(place:Place, func: (key:K) => void): void;
+    public Place location(K key);
 }

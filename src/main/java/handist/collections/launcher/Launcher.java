@@ -28,8 +28,33 @@ public class Launcher {
      * @throws Exception if such an exception is thrown by the {@link MPILauncher}
      */
     public static void main(String[] args) throws Exception {
+        String[] newArgs = args;
+
+        // Insert the MPJ "0 0 native" arguments if necessary
+        // First, establish if we are running with MPJ
+        boolean isMPJ = false;
+        try {
+            final Class<?> mpjdevCommClass = Class.forName("mpjdev.Comm");
+            isMPJ = (mpjdevCommClass != null);
+        } catch (final Exception e) {
+            // Ignore any exception
+        }
+        // Insert the parameters if running with MPJ
+        if (isMPJ) {
+            newArgs = new String[args.length + 3];
+            newArgs[0] = "0";
+            newArgs[1] = "0";
+            newArgs[2] = "native";
+            for (int i = 0; i < args.length; i++) {
+                newArgs[i + 3] = args[i];
+            }
+        }
+
+        // Register the necessary plugin for the APGAS-MPI launcher
         TeamedPlaceGroup.setup();
-        MPILauncher.main(args);
+
+        // Launch the APGAS-MPI launcher
+        MPILauncher.main(newArgs);
     }
 
 }

@@ -21,7 +21,7 @@ import apgas.Constructs;
 import apgas.Place;
 import apgas.util.GlobalID;
 import handist.collections.dist.util.Pair;
-import handist.collections.dist.util.SerializableBiFunction;
+import handist.collections.function.SerializableBiFunction;
 
 /**
  * DistLog is a distributed log manager. It collects log on places and gather it
@@ -327,7 +327,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
 
     /**
      * Creates a {@link DistLog} instance for events that occur in the whole
-     * {@link TeamedPlaceGroup#getWorld()} with an initial phse of {@value 0l}.l
+     * {@link TeamedPlaceGroup#getWorld()} with an initial phase of 0
      */
     public DistLog() {
         this(TeamedPlaceGroup.getWorld());
@@ -335,7 +335,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
 
     /**
      * Creates a {@link DistLog} instance for events to be logged on the provided
-     * place group. The initial logging phase is arbitrarily set to {@value 0l};
+     * place group. The initial logging phase is arbitrarily set to 0l.
      *
      * @param pg the group of places on which events are gathered
      */
@@ -364,7 +364,7 @@ public class DistLog extends DistCollectionSatellite<DistConcurrentMultiMap<Dist
     }
 
     /**
-     * Determines whether the log set of this and the target DistLog isntances are
+     * Determines whether the log set of this and the target DistLog instances are
      * equal. It distinguish only tags and ignores the generated places. It return
      * true iff the sets of the logs having the same tag are the same. Diff will be
      * output to {@code out} if they differ.

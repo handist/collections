@@ -68,7 +68,8 @@ public class IT_DistMultiMap2 implements Serializable {
     @After
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException {
-        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))
+                && DebugFinish.suppressedExceptionsPresent()) {
             System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
             // If we are using the DebugFinish, dump all throwables collected on each host
             DebugFinish.dumpAllSuppressedExceptions();
@@ -96,6 +97,28 @@ public class IT_DistMultiMap2 implements Serializable {
     @After
     public void tearDown() throws Throwable {
         distMultiMap.destroy();
+    }
+
+    @Test(timeout = 5000)
+    public void testGetObjectDispatcher() throws Throwable {
+        try {
+            WORLD.broadcastFlat(() -> {
+                final Distribution<String> rule = ((String key) -> {
+                    return WORLD.get(0);
+                });
+                final MultiMapEntryDispatcher<String, Element> dispatcher = distMultiMap.getObjectDispatcher(rule);
+                dispatcher.put1("test", new Element("test" + WORLD.rank()));
+                dispatcher.TEAM.dispatch();
+                if (WORLD.rank() == 0) {
+                    assertEquals(WORLD.size(), distMultiMap.get("test").size());
+                } else {
+                    assertFalse(distMultiMap.containsKey("test"));
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
     }
 
     @Test(timeout = 5000)

@@ -67,14 +67,14 @@ public class MapEntryDispatcher<K, V> implements KryoSerializable, Serializable 
             final byte[] buf = CollectiveRelocator.exchangeBytesWithinGroup(placeGroup, out.toByteArray(), sendOffset,
                     sendSize, rcvOffset, rcvSize);
             handle.executeDeserialize(buf, rcvOffset, rcvSize);
-            clearOutputs();
+            clear();
         }
     }
 
-    private static final long serialVersionUID = 6002859058320904125L;
+    private static final long serialVersionUID = -8298092935400058332L;
 
     protected TeamedPlaceGroup placeGroup;
-    protected DistMap<K, V> base;
+    protected Map<K, V> base;
     public TeamOperations TEAM;
 
     protected Map<Place, Map<Thread, ObjectOutput>> outputMap;
@@ -83,18 +83,10 @@ public class MapEntryDispatcher<K, V> implements KryoSerializable, Serializable 
 
     /**
      * @param distMap
-     * @param dist
-     */
-    MapEntryDispatcher(DistMap<K, V> distMap, Distribution<K> dist) {
-        this(distMap, distMap.placeGroup(), dist);
-    }
-
-    /**
-     * @param distMap
      * @param pg
      * @param dist
      */
-    MapEntryDispatcher(DistMap<K, V> distMap, TeamedPlaceGroup pg, Distribution<K> dist) {
+    MapEntryDispatcher(Map<K, V> distMap, TeamedPlaceGroup pg, Distribution<K> dist) {
         base = distMap;
         placeGroup = pg;
         TEAM = new TeamOperations(this);
@@ -107,14 +99,9 @@ public class MapEntryDispatcher<K, V> implements KryoSerializable, Serializable 
     }
 
     /**
-     * Remove the all local entries.
+     * Remove the all local entries that was put dispatcher.
      */
     public void clear() {
-        clearOutputs();
-        base.clear();
-    }
-
-    protected void clearOutputs() {
         for (final Place place : outputMap.keySet()) {
             for (final ObjectOutput output : outputMap.get(place).values()) {
                 output.clear();
@@ -187,7 +174,7 @@ public class MapEntryDispatcher<K, V> implements KryoSerializable, Serializable 
      *         If not, return null.
      */
     public V put(K key, V value) {
-        final Place next = distribution.place(key);
+        final Place next = distribution.location(key);
         if (next.equals(here())) {
             return putLocal(key, value);
         }

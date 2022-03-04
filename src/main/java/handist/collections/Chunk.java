@@ -25,7 +25,6 @@ import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
-
 /**
  * Large collection that can contain objects mapped to long indices.
  *
@@ -143,11 +142,15 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      */
     public Chunk(LongRange range, T t) {
         this(range);
-        // TODO Is this what we really want to do?
-        // The mapping will be on the SAME OBJECT for every long in LongRange.
-        // Don't we need a Generator<T> generator as argument and create an
-        // instance for each key with Arrays.setAll(a, generator) ?
         Arrays.fill(a, t);
+    }
+
+    private LongRange calcSubIteratorRange(LongRange range) {
+        range = this.getRange().intersection(range);
+        if (range == null) {
+            throw new IndexOutOfBoundsException();
+        }
+        return range;
     }
 
     /**
@@ -263,6 +266,7 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
      *              {@link RangedListIterator#next()}
      * @return a new {@link RangedListIterator} starting at the specified index
      */
+    @Override
     public RangedListIterator<T> listIterator(long index) {
         return new ChunkListIterator<>(this.range, index, this.a);
     }
@@ -305,33 +309,27 @@ public class Chunk<T> extends RangedList<T> implements Serializable, KryoSeriali
         a[(int) offset] = v;
         return prev;
     }
-    private LongRange calcSubIteratorRange(LongRange range) {
-        range = this.getRange().intersection(range);
-        if(range == null) {
-            throw new IndexOutOfBoundsException();
-        }
-        return range;
-    }
+
     @Override
     public Iterator<T> subIterator(LongRange range) {
         range = calcSubIteratorRange(range);
-        int offset = (int)(range.from-this.getRange().from);
-        return new ChunkIterator(offset, range, this.a);
+        final int offset = (int) (range.from - this.getRange().from);
+        return new ChunkIterator<>(offset, range, this.a);
     }
+
     @Override
     public RangedListIterator<T> subListIterator(LongRange range) {
         range = calcSubIteratorRange(range);
-        int offset = (int)(range.from-this.getRange().from);
-        return new ChunkListIterator<T>(offset, range, this.a);
+        final int offset = (int) (range.from - this.getRange().from);
+        return new ChunkListIterator<>(offset, range, this.a);
     }
+
     @Override
     public RangedListIterator<T> subListIterator(LongRange range, long i0) {
         range = calcSubIteratorRange(range);
-        int offset = (int)(range.from-this.getRange().from);
-        return new ChunkListIterator<T>(offset, range, i0, this.a);
+        final int offset = (int) (range.from - this.getRange().from);
+        return new ChunkListIterator<>(offset, range, i0, this.a);
     }
-
-
 
     /**
      * {@inheritDoc}

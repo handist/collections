@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -40,6 +41,13 @@ import handist.collections.function.DeSerializer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
 import handist.collections.glb.DistColGlb;
+import handist.collections.reducer.BoolReducer;
+import handist.collections.reducer.DoubleReducer;
+import handist.collections.reducer.FloatReducer;
+import handist.collections.reducer.IntReducer;
+import handist.collections.reducer.LongReducer;
+import handist.collections.reducer.Reducer;
+import handist.collections.reducer.ShortReducer;
 
 /**
  * A class for handling objects at multiple places. It is allowed to add new
@@ -92,6 +100,86 @@ public class DistChunkedList<T> extends ChunkedList<T>
          * individual host. This method is blocking and needs to be called on all hosts
          * to terminate.
          *
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public boolean parallelReduce(BoolReducer.Op op, Function<T, Boolean> extractFunc) {
+            final boolean local = handle.parallelReduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, BoolReducer.getMPIOp(op));
+        }
+
+        /**
+         * Performs a parallel reduction on each local handle of the underlyin
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public double parallelReduce(DoubleReducer.Op op, Function<T, Double> extractFunc) {
+            final double local = handle.parallelReduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, DoubleReducer.getMPIOp(op));
+        }
+
+        /**
+         * Performs a parallel reduction on each local handle of the underlyin
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public float parallelReduce(FloatReducer.Op op, Function<T, Float> extractFunc) {
+            final float local = handle.parallelReduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, FloatReducer.getMPIOp(op));
+        }
+
+        /**
+         * Performs a parallel reduction on each local handle of the underlyin
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public int parallelReduce(IntReducer.Op op, Function<T, Integer> extractFunc) {
+            final int local = handle.parallelReduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, IntReducer.getMPIOp(op));
+        }
+
+        /**
+         * Performs a parallel reduction on each local handle of the underlyin
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public long parallelReduce(LongReducer.Op op, Function<T, Long> extractFunc) {
+            final long local = handle.parallelReduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, LongReducer.getMPIOp(op));
+        }
+
+        /**
+         * Performs a parallel reduction on each local handle of the underlyin
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
          * @param <R>     the type of the reducer used
          * @param reducer the reduction operation to perform
          * @return the result of the specified reduction across all local handles of the
@@ -103,20 +191,131 @@ public class DistChunkedList<T> extends ChunkedList<T>
         }
 
         /**
+         * Performs a parallel reduction on each local handle of the underlyin
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public short parallelReduce(ShortReducer.Op op, Function<T, Short> extractFunc) {
+            final short local = handle.parallelReduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, ShortReducer.getMPIOp(op));
+        }
+
+        /**
          * Performs a sequential reduction on each handle of the underlying
          * {@link DistChunkedList} collection before reducing the result of each
          * individual host. This method is blocking and needs to be called on all hosts
          * to terminate.
          *
-         * @param<R> type of the reducer used
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public boolean reduce(BoolReducer.Op op, Function<T, Boolean> extractFunc) {
+            final boolean local = handle.reduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, BoolReducer.getMPIOp(op));
+        }
+
+        /**
+         * Performs a sequential reduction on each handle of the underlying
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public double reduce(DoubleReducer.Op op, Function<T, Double> extractFunc) {
+            final double local = handle.reduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, DoubleReducer.getMPIOp(op));
+        }
+
+        /**
+         * Performs a sequential reduction on each handle of the underlying
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public float reduce(FloatReducer.Op op, Function<T, Float> extractFunc) {
+            final float local = handle.reduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, FloatReducer.getMPIOp(op));
+        }
+
+        /**
+         * Performs a sequential reduction on each handle of the underlying
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public int reduce(IntReducer.Op op, Function<T, Integer> extractFunc) {
+            final int local = handle.reduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, IntReducer.getMPIOp(op));
+        }
+
+        /**
+         * Performs a sequential reduction on each handle of the underlying
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public long reduce(LongReducer.Op op, Function<T, Long> extractFunc) {
+            final long local = handle.reduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, LongReducer.getMPIOp(op));
+        }
+
+        /**
+         * Performs a sequential reduction on each handle of the underlying
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param <R>     type of the reducer used
          * @param reducer the reduction operation to perform
          * @return the result of the specified reduction across all local handles of the
          *         underlying collection
          */
         public <R extends Reducer<R, T>> R reduce(R reducer) {
             final R localReduce = handle.reduce(reducer);
-
             return localReduce.teamReduction(handle.placeGroup());
+        }
+
+        /**
+         * Performs a sequential reduction on each handle of the underlying
+         * {@link DistChunkedList} collection before reducing the result of each
+         * individual host. This method is blocking and needs to be called on all hosts
+         * to terminate.
+         *
+         * @param op          specifies the type of reduction operation
+         * @param extractFunc defines the value to be reduced
+         * @return the result of the specified reduction across all local handles of the
+         *         underlying collection
+         */
+        public short reduce(ShortReducer.Op op, Function<T, Short> extractFunc) {
+            final short local = handle.reduce(op, extractFunc);
+            return handle.placeGroup().allReduce1(local, ShortReducer.getMPIOp(op));
         }
     }
 
@@ -316,16 +515,6 @@ public class DistChunkedList<T> extends ChunkedList<T>
         }
     }
 
-    public void moveRangeAtSync(final Distribution<Long> dist, final CollectiveMoveManager mm) {
-        moveRangeAtSync((LongRange range) -> {
-            final ArrayList<Pair<Place, LongRange>> listPlaceRange = new ArrayList<>();
-            for (final Long key : range) {
-                listPlaceRange.add(new Pair<>(dist.place(key), new LongRange(key, key + 1)));
-            }
-            return listPlaceRange;
-        }, mm);
-    }
-
     public void moveRangeAtSync(Function<LongRange, List<Pair<Place, LongRange>>> rule, CollectiveMoveManager mm) {
         final DistChunkedList<T> collection = this;
         final HashMap<Place, ArrayList<LongRange>> rangesToMove = new HashMap<>();
@@ -368,11 +557,14 @@ public class DistChunkedList<T> extends ChunkedList<T>
         moveAtSync(chunksToMove, dest, mm);
     }
 
-    public void moveRangeAtSync(final RangedDistribution<LongRange> dist, final CollectiveMoveManager mm)
+    public void moveRangeAtSync(final RangedDistribution<LongRange> rangedDistribution, final CollectiveMoveManager mm)
             throws Exception {
-        moveRangeAtSync((LongRange range) -> {
-            return dist.placeRanges(range);
-        }, mm);
+        for (final LongRange r : ranges()) {
+            final Map<LongRange, Place> relocation = rangedDistribution.rangeLocation(r);
+            for (final Map.Entry<LongRange, Place> reloc : relocation.entrySet()) {
+                moveRangeAtSync(reloc.getKey(), reloc.getValue(), mm);
+            }
+        }
     }
 
     // Method moved to GLOBAL and TEAM operations

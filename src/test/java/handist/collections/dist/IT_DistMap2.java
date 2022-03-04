@@ -76,7 +76,8 @@ public class IT_DistMap2 implements Serializable {
     @After
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException {
-        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))
+                && DebugFinish.suppressedExceptionsPresent()) {
             System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
             // If we are using the DebugFinish, dump all throwables collected on each host
             DebugFinish.dumpAllSuppressedExceptions();
@@ -97,6 +98,30 @@ public class IT_DistMap2 implements Serializable {
     @After
     public void tearDown() throws Exception {
         distMap.destroy();
+    }
+
+    @Test(timeout = 10000)
+    public void testGetObjectDispatcher() throws Throwable {
+        try {
+            placeGroup.broadcastFlat(() -> {
+                final Distribution<String> rule = ((String key) -> {
+                    return placeGroup.get(0);
+                });
+                final MapEntryDispatcher<String, Element> dispatcher = distMap.getObjectDispatcher(rule);
+                dispatcher.put("test" + placeGroup.rank(), new Element("test"));
+                dispatcher.TEAM.dispatch();
+                if (placeGroup.rank() == 0) {
+                    for (int i = 0; i < placeGroup.size; i++) {
+                        assertTrue(distMap.containsKey("test" + i));
+                    }
+                } else {
+                    assertFalse(distMap.containsKey("test" + placeGroup.rank()));
+                }
+            });
+        } catch (final MultipleException me) {
+            me.printStackTrace();
+            throw me.getSuppressed()[0];
+        }
     }
 
     @Test(timeout = 10000)

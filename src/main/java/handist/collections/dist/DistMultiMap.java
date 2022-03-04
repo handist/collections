@@ -22,6 +22,7 @@ import java.util.function.BiFunction;
 
 import apgas.Place;
 import apgas.util.GlobalID;
+import handist.collections.MultiMap;
 import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
@@ -36,7 +37,7 @@ import mpjbuf.IllegalArgumentException;
  * @param <K> type of the key used in the {@link DistMultiMap}
  * @param <V> type of the elements contained in the lists to which the keys map
  */
-public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
+public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> implements MultiMap<K, V> {
 
     /**
      * Construct a DistMultiMap.
@@ -95,6 +96,7 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
      *
      * @param op the operation.
      */
+    @Override
     public void forEach1(BiConsumer<K, V> op) {
         for (final Entry<K, Collection<V>> entry : data.entrySet()) {
             final K key = entry.getKey();
@@ -105,20 +107,20 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
     }
 
     /**
-     * Return {@link MultiMapEntryDispatcher} instance that enable fast relocation
-     * between places than normal. One {@link DistMultiMap} has one dispatcher.
+     * Return new {@link MultiMapEntryDispatcher} instance that enable fast
+     * relocation between places than normal.
      *
      * @param rule Determines the dispatch destination.
      * @return :
      */
     @Override
     public MultiMapEntryDispatcher<K, V> getObjectDispatcher(Distribution<K> rule) {
-        return new MultiMapEntryDispatcher<>(this, rule);
+        return new MultiMapEntryDispatcher<>(this, placeGroup(), rule);
     }
 
     /**
-     * Return {@link MapEntryDispatcher} instance that enable fast relocation
-     * between places than normal. One {@link DistMap} has one dispatcher.
+     * Return new {@link MapEntryDispatcher} instance that enable fast relocation
+     * between places than normal.
      *
      * @param rule Determines the dispatch destination.
      * @param pg   Relocate in this placegroup.
@@ -204,6 +206,19 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
         mm.request(pl, serialize, deserialize);
     }
 
+    @Override
+    public Collection<V> put(K key, Collection<V> values) {
+        Collection<V> list = data.get(key);
+        if (list == null) {
+            list = createEmptyCollection();
+            data.put(key, list);
+        }
+        if (values != null) {
+            list.addAll(values);
+        }
+        return list;
+    }
+
     /**
      * Puts a new value to the list of specified entry.
      *
@@ -212,6 +227,7 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
      * @return {@code true} as the collection is modified as a result (as specified
      *         by {@link Collection#add(Object)}.
      */
+    @Override
     public boolean put1(K key, V value) {
         Collection<V> list = data.get(key);
         if (list == null) {
@@ -246,7 +262,8 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
         mm.request(pl, serialize, deserialize);
     }
 
-    public boolean putForMove(K key, Collection<V> values) {
+    @Override
+    protected Collection<V> putForMove(K key, Collection<V> values) {
         Collection<V> list = data.get(key);
         if (list == null) {
             list = createEmptyCollection();
@@ -256,7 +273,7 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
         if (values != null) {
             list.addAll(values);
         }
-        return false;
+        return list;
     }
 
     /**
@@ -265,7 +282,7 @@ public class DistMultiMap<K, V> extends DistMap<K, Collection<V>> {
      * @param key the key whose mapping need to be removed from this instance
      * @return the list of all the mappings to the specified key.
      */
-    public Collection<V> removeForMove(K key) {
+    Collection<V> removeForMove(K key) {
         final Collection<V> list = data.remove(key);
         return list;
     }

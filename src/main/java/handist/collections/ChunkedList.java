@@ -34,8 +34,17 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import handist.collections.FutureN.ReturnGivenResult;
-import handist.collections.dist.Reducer;
+import handist.collections.accumulator.Accumulator;
+import handist.collections.accumulator.Accumulator.ThreadLocalAccumulator;
 import handist.collections.function.LongTBiConsumer;
+import handist.collections.function.LongTTriConsumer;
+import handist.collections.reducer.BoolReducer;
+import handist.collections.reducer.DoubleReducer;
+import handist.collections.reducer.FloatReducer;
+import handist.collections.reducer.IntReducer;
+import handist.collections.reducer.LongReducer;
+import handist.collections.reducer.Reducer;
+import handist.collections.reducer.ShortReducer;
 
 /**
  * Large collection containing multiple {@link Chunk}s. This overcomes the
@@ -245,16 +254,6 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         }
 
         @Override
-        public <U> void forEach(BiConsumer<? super S, Consumer<? super U>> action, Collection<? super U> toStore) {
-            base.forEach(action, toStore);
-        }
-
-        @Override
-        public <U> void forEach(BiConsumer<? super S, Consumer<? super U>> action, Consumer<? super U> receiver) {
-            base.forEach(action, receiver);
-        }
-
-        @Override
         public <U> void forEach(BiConsumer<? super S, Consumer<? super U>> action,
                 ParallelReceiver<? super U> toStore) {
             base.forEach(action, toStore);
@@ -366,13 +365,113 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         }
 
         @Override
+        public boolean parallelReduce(BoolReducer.Op op, Function<S, Boolean> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
+        public double parallelReduce(DoubleReducer.Op op, Function<S, Double> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
+        public float parallelReduce(FloatReducer.Op op, Function<S, Float> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
+        public boolean parallelReduce(int parallelism, BoolReducer.Op op, Function<S, Boolean> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public double parallelReduce(int parallelism, DoubleReducer.Op op, Function<S, Double> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public float parallelReduce(int parallelism, FloatReducer.Op op, Function<S, Float> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public int parallelReduce(int parallelism, IntReducer.Op op, Function<S, Integer> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public long parallelReduce(int parallelism, LongReducer.Op op, Function<S, Long> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public <R extends Reducer<R, S>> R parallelReduce(int parallelism, R reducer) {
+            return base.parallelReduce(parallelism, reducer);
+        }
+
+        @Override
+        public short parallelReduce(int parallelism, ShortReducer.Op op, Function<S, Short> extractFunc) {
+            return base.parallelReduce(parallelism, op, extractFunc);
+        }
+
+        @Override
+        public int parallelReduce(IntReducer.Op op, Function<S, Integer> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
+        public long parallelReduce(LongReducer.Op op, Function<S, Long> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
+        public <R extends Reducer<R, S>> R parallelReduce(R reducer) {
+            return base.parallelReduce(reducer);
+        }
+
+        @Override
+        public short parallelReduce(ShortReducer.Op op, Function<S, Short> extractFunc) {
+            return base.parallelReduce(op, extractFunc);
+        }
+
+        @Override
         public Collection<LongRange> ranges() {
             return base.ranges();
         }
 
         @Override
+        public boolean reduce(BoolReducer.Op op, Function<S, Boolean> extractFunc) {
+            return base.reduce(op, extractFunc);
+        }
+
+        @Override
+        public double reduce(DoubleReducer.Op op, Function<S, Double> extractFunc) {
+            return base.reduce(op, extractFunc);
+        }
+
+        @Override
+        public float reduce(FloatReducer.Op op, Function<S, Float> extractFunc) {
+            return base.reduce(op, extractFunc);
+        }
+
+        @Override
+        public int reduce(IntReducer.Op op, Function<S, Integer> extractFunc) {
+            return base.reduce(op, extractFunc);
+        }
+
+        @Override
+        public long reduce(LongReducer.Op op, Function<S, Long> extractFunc) {
+            return base.reduce(op, extractFunc);
+        }
+
+        @Override
         public <R extends Reducer<R, S>> R reduce(R reducer) {
             return base.reduce(reducer);
+        }
+
+        @Override
+        public short reduce(ShortReducer.Op op, Function<S, Short> extractFunc) {
+            return base.reduce(op, extractFunc);
         }
 
         @Override
@@ -419,6 +518,16 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         @Override
         public ChunkedList<S> subList(LongRange range) {
             return new UnmodifiableView<>(base.subList(range));
+        }
+
+        @Override
+        public <U> void toBag(BiConsumer<? super S, Consumer<? super U>> action, Collection<? super U> toStore) {
+            base.toBag(action, toStore);
+        }
+
+        @Override
+        public <U> void toBag(BiConsumer<? super S, Consumer<? super U>> action, Consumer<? super U> receiver) {
+            base.toBag(action, receiver);
         }
 
         @Override
@@ -469,6 +578,27 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             accumulator += r.size();
         }
         size = new AtomicLong(accumulator);
+    }
+
+    /**
+     * Updates the contents of this collection based on the information contained in
+     * the provided accumulator.
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information is recorded
+     * @param update the closure which given an entry T of this collection and the
+     *               corresponding accumulator A, updates the contents of the T
+     *               entry.
+     */
+    public <A> void accept(Accumulator<A> acc, BiConsumer<T, A> update) {
+        for (final ThreadLocalAccumulator<A> tla : acc.getAllThreadLocalAccumulator()) {
+            for (final LongRange lr : tla.ranges()) {
+                final ChunkedList<A> accs = tla.acquire(lr);
+                for (long l = lr.from; l < lr.to; l++) {
+                    update.accept(get(l), accs.get(l));
+                }
+            }
+        }
     }
 
     /**
@@ -550,7 +680,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     public <U> Future<ChunkedList<T>> asyncForEach(ExecutorService pool, int nthreads,
             BiConsumer<? super T, Consumer<? super U>> action, final ParallelReceiver<? super U> toStore) {
         final List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
-            sub.forEach(action, toStore.getReceiver());
+            sub.toBag(action, toStore.getReceiver());
         });
         return new FutureN.ReturnGivenResult<>(futures, this);
     }
@@ -603,11 +733,22 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         return new FutureN.ReturnGivenResult<>(futures, this);
     }
 
+    /**
+     * This method was renamed to
+     * {@link #asyncToBag(int, BiConsumer, ParallelReceiver)}
+     *
+     * @param <U>         type of the object created from each T contained in this
+     *                    collection
+     * @param parallelism number of threads to use in parallel
+     * @param action      the action consisting of extracting a U object from a T
+     *                    object of this collection
+     * @param toStore     the collection into which the U objects are gathered
+     * @see Bag
+     */
+    @Deprecated
     public <U> void asyncForEach(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
             final ParallelReceiver<? super U> toStore) {
-        forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
-            sub.forEach(action, toStore.getReceiver());
-        });
+        asyncToBag(parallelism, action, toStore);
     }
 
     public void asyncForEach(int parallelism, Consumer<? super T> action) {
@@ -661,6 +802,25 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             }
         }
         return new FutureN.ReturnGivenResult<>(futures, result);
+    }
+
+    /**
+     * Obtain U objects from each T object contained in this collection and collect
+     * them into a {@link ParallelReceiver}.
+     *
+     * @param <U>         type of the object created from each T contained in this
+     *                    collection
+     * @param parallelism number of threads to use in parallel
+     * @param action      the action consisting of extracting a U object from a T
+     *                    object of this collection
+     * @param bag         the collection into which the U objects are gathered
+     * @see Bag
+     */
+    public <U> void asyncToBag(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
+            final ParallelReceiver<? super U> bag) {
+        forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
+            sub.toBag(action, bag.getReceiver());
+        });
     }
 
     /**
@@ -998,40 +1158,49 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
-     * Performs the provided action on each element of this collection. As part of
-     * this operation, some information of type U can be created or extracted from
-     * elements and potentially stored into the provided collection using the
-     * Consumer of U (second argument of the lambda expression). These elements will
-     * be added using method {@link Collection#add(Object)}.
-     * <p>
-     * As a variant, you may also directly supply a Consumer&lt;U&gt; rather than a
-     * collection using method {@link #forEach(BiConsumer, Consumer)}
+     * Uses this collection entries to accumulate information into the supplied
+     * {@link Accumulator}.
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information is recorded
+     * @param action the action to perform with regards to each T element contained
+     *               in this collection.
+     */
+    public <A> void forEach(Accumulator<A> acc, BiConsumer<T, ThreadLocalAccumulator<A>> action) {
+        final ThreadLocalAccumulator<A> accumulator = acc.obtainThreadLocalAccumulators(1).get(0);
+        forEach(t -> action.accept(t, accumulator));
+    }
+
+    /**
+     * Uses this collection entries to accumulate information into the supplied
+     * {@link Accumulator}
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information is recorded
+     * @param action the action to perform with regards to each index/T element
+     *               contained in this collection, the third argument of this
+     *               closure is the thread-local accumulator
+     */
+    public <A> void forEach(Accumulator<A> acc, LongTTriConsumer<T, ThreadLocalAccumulator<A>> action) {
+        final ThreadLocalAccumulator<A> accumulator = acc.obtainThreadLocalAccumulators(1).get(0);
+        forEach((l, t) -> action.accept(l, t, accumulator));
+    }
+
+    /**
+     * This method was renamed to {@link #toBag(BiConsumer, Collection)}
      *
      * @param <U>     the type of the information to extract
      * @param action  action to perform on each element of the collection
      * @param toStore the collection in which the information extracted will be
      *                stored
-     * @see #forEach(BiConsumer, Consumer)
      */
+    @Deprecated
     public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, final Collection<? super U> toStore) {
-        forEach(action, new Consumer<U>() {
-            @Override
-            public void accept(U u) {
-                toStore.add(u);
-            }
-        });
+        toBag(action, toStore);
     }
 
     /**
-     * Performs the provided action o neach element of this collection. As part of
-     * this operation, some information of type U can be created or extracted from
-     * elements and given to the Consumer&lt;U&gt; (second argument of the lambda
-     * expression). This {@link Consumer} available in the lambda expression is the
-     * one given as second parameter of this method.
-     * <p>
-     * As an alternative, you can use method
-     * {@link #forEach(BiConsumer, Collection)} to provide a {@link Collection}
-     * rather than a {@link Consumer} as the second argument of the method.
+     * This method was renamed to {@link #toBag(BiConsumer, Consumer)}
      *
      * @param <U>      the type of the result extracted from the elements in this
      *                 collection
@@ -1039,36 +1208,23 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      * @param receiver the receiver which will accept the U instances extracted from
      *                 the elements of this collection
      */
+    @Deprecated
     public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
-        for (final RangedList<T> c : chunks.values()) {
-            c.forEach(t -> action.accept(t, receiver));
-        }
+        toBag(action, receiver);
     }
 
     /**
-     * Performs the provided action sequentially on the instances contained by this
-     * {@link ChunkedList}, allowing for the by-product of the operation to be
-     * stored in the specified {@link ParallelReceiver}.
-     * <p>
-     * This method is necessary as the manner in which instances are placed inside a
-     * {@link ParallelReceiver} differs from that of a normal collection. Although
-     * the features that handle parallel insertion of values are not leveraged in
-     * this sequential method, the preparations needed to insert instances into the
-     * {@link ParallelReceiver} remain necessary.
+     * This method was renamed to {@link #toBag(BiConsumer, ParallelReceiver)}
      *
-     * @param <U>     the type of the data produced from the instances contained in
-     *                this collection and stored in the provided
-     *                {@link ParallelReceiver}
-     * @param action  the action performed on all the elements contained in this
-     *                collection. U instances may be created and given to the
-     *                Consumer&lt;U&gt; as part of this action
-     * @param toStore the parallel receiver which will receive all the U instances
-     *                which are created as part of the action applied on the
-     *                elements of this collection
+     * @param <U>     type produced from T elements contained in this collection
+     * @param action  action consisting of extracting some U information from each
+     *                element in this collection and storing them into the
+     * @param toStore the {@link ParallelReceiver} into which all U elements will be
+     *                placed
      */
+    @Deprecated
     public <U> void forEach(BiConsumer<? super T, Consumer<? super U>> action, ParallelReceiver<? super U> toStore) {
-        final Consumer<? super U> receiver = toStore.getReceiver();
-        forEach(action, receiver);
+        toBag(action, toStore);
     }
 
     /**
@@ -1109,7 +1265,7 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     public <U> void forEach(ExecutorService pool, int nthreads, BiConsumer<? super T, Consumer<? super U>> action,
             final ParallelReceiver<U> toStore) {
         final List<Future<?>> futures = forEachParallelBody(pool, nthreads, (ChunkedList<T> sub) -> {
-            sub.forEach(action, toStore.getReceiver());
+            sub.toBag(action, toStore.getReceiver());
         });
         waitNfutures(futures);
     }
@@ -1400,6 +1556,81 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
+     * Updates the contents of this collection in parallel, based on the information
+     * contained in the provided accumulator.
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information is recorded
+     * @param update the closure which given an entry T of this collection and the
+     *               corresponding accumulator A, updates the contents of the T
+     *               entry.
+     */
+    public <A> void parallelAccept(Accumulator<A> acc, BiConsumer<T, A> update) {
+        parallelAccept(Runtime.getRuntime().availableProcessors(), acc, update);
+    }
+
+    /**
+     * Updates the contents of this collection in parallel, based on the information
+     * contained in the provided accumulator
+     *
+     * @param <A>         accumulator type
+     * @param parallelism number of threads desired for this collection
+     * @param acc         the accumulator into which information was recorded
+     * @param update      the closure given every T and matching A type in the
+     *                    accumulator comes to update T
+     */
+    public <A> void parallelAccept(int parallelism, Accumulator<A> acc, BiConsumer<T, A> update) {
+        finish(() -> {
+            forEachParallelBody(parallelism, cl -> {
+                // For each TLA in acc
+                for (final ThreadLocalAccumulator<A> tla : acc.getAllThreadLocalAccumulator()) {
+                    // Obtain the ranges matching that of assigned `cl`
+                    final ChunkedList<A> tlaChunk = tla.getChunkedList();
+
+                    // Probably a more efficient implementation possible
+                    cl.forEach((l, t) -> {
+                        if (tlaChunk.containsIndex(l)) {
+                            update.accept(t, tlaChunk.get(l));
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    /**
+     * Accumulates information into the provided accumulator, using this
+     * collection's element as a source
+     * <p>
+     * This method is a parallel variant of method
+     * {@link #forEach(Accumulator, BiConsumer)}
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information will be stored
+     * @param action the action to perform with respect to each T element contained
+     *               in this collection
+     */
+    public <A> void parallelForEach(Accumulator<A> acc, BiConsumer<T, ThreadLocalAccumulator<A>> action) {
+        parallelForEach(Runtime.getRuntime().availableProcessors(), acc, action);
+    }
+
+    /**
+     * Accumulates information into the provided accumulator in parallel, using this
+     * collection's index/element as a source
+     * <p>
+     * This method is a parallel variant of method
+     * {@link #forEach(Accumulator, LongTTriConsumer)}
+     *
+     * @param <A>    accumulator type
+     * @param acc    the accumulator into which information will be stored
+     * @param action the action to perform with respect to each index/T element
+     *               contained in this collection
+     */
+    public <A> void parallelForEach(Accumulator<A> acc, LongTTriConsumer<T, ThreadLocalAccumulator<A>> action) {
+        parallelForEach(Runtime.getRuntime().availableProcessors(), acc, action);
+    }
+
+    /**
      * Performs the provided action on each element of this collection in parallel
      * using the provided {@link ExecutorService} with the specified degree of
      * parallelism. This action may involve extracting some information of type U
@@ -1433,15 +1664,84 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         parallelForEach(defaultParallelism(), action);
     }
 
-    public <U> void parallelForEach(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
-            final ParallelReceiver<? super U> toStore) {
+    /**
+     * Accumulates information into the provided accumulator with the specified
+     * level of parallelism, using this collection's element as a source.
+     *
+     * @param parallelism number of threads to use to perform this computation
+     * @param acc         the accumulator into which information will be stored
+     * @param action      the action to perform with respect to each T element
+     *                    contained in the this collection
+     */
+    public <A> void parallelForEach(int parallelism, Accumulator<A> acc,
+            BiConsumer<T, ThreadLocalAccumulator<A>> action) {
+        final List<ThreadLocalAccumulator<A>> accumulators = acc.obtainThreadLocalAccumulators(parallelism);
+        final List<ChunkedList<T>> separated = separate(parallelism);
         finish(() -> {
-            forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
-                sub.forEach(action, toStore.getReceiver());
-            });
+            for (int threadId = 0; threadId < parallelism; threadId++) {
+                final ThreadLocalAccumulator<A> tla = accumulators.get(threadId);
+                final ChunkedList<T> toProcess = separated.get(threadId);
+                async(() -> {
+                    toProcess.forEach((l, t) -> {
+                        action.accept(t, tla);
+                    });
+                });
+            }
         });
     }
 
+    /**
+     * Accumulates information into the provided accumulator in parallel using the
+     * specified parallelism level, using this collection's index/element as a
+     * source
+     *
+     * @param <A>         type of the accumulator
+     * @param parallelism number of threads to use to perform this computation
+     * @param acc         the accumulator into which information will be stored
+     * @param action      the action to perform with respect to each index/T element
+     *                    contained in the this collection
+     */
+    public <A> void parallelForEach(int parallelism, Accumulator<A> acc,
+            LongTTriConsumer<T, ThreadLocalAccumulator<A>> action) {
+        final List<ThreadLocalAccumulator<A>> accumulators = acc.obtainThreadLocalAccumulators(parallelism);
+        final List<ChunkedList<T>> separated = separate(parallelism);
+        finish(() -> {
+            for (int threadId = 0; threadId < parallelism; threadId++) {
+                final ThreadLocalAccumulator<A> tla = accumulators.get(threadId);
+                final ChunkedList<T> toProcess = separated.get(threadId);
+                async(() -> {
+                    toProcess.forEach((l, t) -> {
+                        action.accept(l, t, tla);
+                    });
+                });
+            }
+        });
+    }
+
+    /**
+     * This method was renamed to
+     * {@link #parallelToBag(int, BiConsumer, ParallelReceiver)}.
+     *
+     * @param <U>         the type of objects produced
+     * @param parallelism number of threads that will perform this action in
+     *                    parallel
+     * @param action      the action consisting of extracting a U object and placing
+     *                    it into the provided {@link Consumer}
+     * @param toStore     the parallel receiver into which U objects will be placed
+     */
+    @Deprecated
+    public <U> void parallelForEach(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
+            final ParallelReceiver<? super U> toStore) {
+        parallelToBag(parallelism, action, toStore);
+    }
+
+    /**
+     * Performs the specified action on each T element of this collection in
+     * parallel with the specified number of threads. Returns when all
+     *
+     * @param parallelism the number of threads desired
+     * @param action      the action to perform on each T in the collection
+     */
     public void parallelForEach(int parallelism, Consumer<? super T> action) {
         finish(() -> {
             forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
@@ -1450,6 +1750,15 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         });
     }
 
+    /**
+     * Performs the specified action on every (long) index and (T) pair contained in
+     * this collection in parallel. The method returns when the action has been
+     * performed on every element in this collection.
+     *
+     * @param parallelism the number of threads to run this
+     * @param action      action taking the long index and T object mapped at this
+     *                    index as parameter
+     */
     public void parallelForEach(int parallelism, LongTBiConsumer<? super T> action) {
         finish(() -> {
             forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
@@ -1468,6 +1777,227 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public void parallelForEach(LongTBiConsumer<? super T> action) {
         parallelForEach(defaultParallelism(), action);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public boolean parallelReduce(BoolReducer.Op op, Function<T, Boolean> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public double parallelReduce(DoubleReducer.Op op, Function<T, Double> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public float parallelReduce(FloatReducer.Op op, Function<T, Float> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public boolean parallelReduce(int parallelism, BoolReducer.Op op, Function<T, Boolean> extractFunc) {
+        final BoolReducer reducer = new BoolReducer(op);
+        final ConcurrentLinkedQueue<BoolReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final BoolReducer threadLocalReducer = new BoolReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> {
+                if (threadLocalReducer.reduce(extractFunc.apply(t))) { // determined result in the middle.
+                    return;
+                }
+            });
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            final boolean finish = reducer.reduce(reducers.poll().value());
+            if (finish) {
+                break;
+            }
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public double parallelReduce(int parallelism, DoubleReducer.Op op, Function<T, Double> extractFunc) {
+        final DoubleReducer reducer = new DoubleReducer(op);
+        final ConcurrentLinkedQueue<DoubleReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final DoubleReducer threadLocalReducer = new DoubleReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> threadLocalReducer.reduce(extractFunc.apply(t)));
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            reducer.reduce(reducers.poll().value());
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public float parallelReduce(int parallelism, FloatReducer.Op op, Function<T, Float> extractFunc) {
+        final FloatReducer reducer = new FloatReducer(op);
+        final ConcurrentLinkedQueue<FloatReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final FloatReducer threadLocalReducer = new FloatReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> threadLocalReducer.reduce(extractFunc.apply(t)));
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            reducer.reduce(reducers.poll().value());
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public int parallelReduce(int parallelism, IntReducer.Op op, Function<T, Integer> extractFunc) {
+        final IntReducer reducer = new IntReducer(op);
+        final ConcurrentLinkedQueue<IntReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final IntReducer threadLocalReducer = new IntReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> threadLocalReducer.reduce(extractFunc.apply(t)));
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            reducer.reduce(reducers.poll().value());
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public long parallelReduce(int parallelism, LongReducer.Op op, Function<T, Long> extractFunc) {
+        final LongReducer reducer = new LongReducer(op);
+        final ConcurrentLinkedQueue<LongReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final LongReducer threadLocalReducer = new LongReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> threadLocalReducer.reduce(extractFunc.apply(t)));
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            reducer.reduce(reducers.poll().value());
+        }
+        return reducer.value();
     }
 
     /**
@@ -1507,6 +2037,67 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default
+     *
+     * @param parallelism the level of parallelism (i.e. number of threads) desired
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public short parallelReduce(int parallelism, ShortReducer.Op op, Function<T, Short> extractFunc) {
+        final ShortReducer reducer = new ShortReducer(op);
+        final ConcurrentLinkedQueue<ShortReducer> reducers = new ConcurrentLinkedQueue<>();
+
+        final Consumer<ChunkedList<T>> reducerAction = (c) -> {
+            // Each thread participating will create its own R instance
+            final ShortReducer threadLocalReducer = new ShortReducer(op);
+            // That new instance is kept in the "reducers"
+            reducers.add(threadLocalReducer);
+            // For all elements in the assigned ChunkedList, apply the reduction
+            c.forEach(t -> threadLocalReducer.reduce(extractFunc.apply(t)));
+        };
+
+        finish(() -> {
+            forEachParallelBody(parallelism, reducerAction);
+        });
+
+        // All threads have processed their share. We now merge all R instances into the
+        // original instance
+        while (!reducers.isEmpty()) {
+            reducer.reduce(reducers.poll().value());
+        }
+        return reducer.value();
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public int parallelReduce(IntReducer.Op op, Function<T, Integer> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public long parallelReduce(LongReducer.Op op, Function<T, Long> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
+    }
+
+    /**
      * Performs a parallel reduction on all the elements of contained in this
      * {@link ChunkedList}.
      *
@@ -1517,6 +2108,44 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public <R extends Reducer<R, T>> R parallelReduce(R reducer) {
         return parallelReduce(Runtime.getRuntime().availableProcessors(), reducer);
+    }
+
+    /**
+     * Performs a parallel reduction with the specified level of parallelism on the
+     * elements contained in this {@link ChunkedList}, using an operation provided
+     * by default in this library
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public short parallelReduce(ShortReducer.Op op, Function<T, Short> extractFunc) {
+        return parallelReduce(defaultParallelism(), op, extractFunc);
+    }
+
+    /**
+     * Extracts an U object from each (T) object contained in this collection and
+     * places it into the provided {@link ParallelReceiver}. This action is
+     * performed in parallel by the specified number of threads.
+     *
+     * @param <U>         type of the object obtained from individual objects of
+     *                    this collection and placed into the
+     *                    {@link ParallelReceiver} given as argument
+     * @param parallelism number of threads to run this computation in parallel on
+     *                    the elements contained in this collection
+     * @param action      action consisting of extracting a U object and placing
+     *                    into the {@link Consumer} provided as second argument to
+     *                    this action.
+     * @param bag         {@link ParallelReceiver} in which all U objects produced
+     *                    during this operation will be stored.
+     */
+    public <U> void parallelToBag(int parallelism, BiConsumer<? super T, Consumer<? super U>> action,
+            final ParallelReceiver<? super U> bag) {
+        finish(() -> {
+            forEachParallelBody(parallelism, (ChunkedList<T> sub) -> {
+                sub.toBag(action, bag.getReceiver());
+            });
+        });
     }
 
     /**
@@ -1531,6 +2160,80 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public boolean reduce(BoolReducer.Op op, Function<T, Boolean> extractFunc) {
+        final BoolReducer reducer = new BoolReducer(op);
+        forEach((t) -> {
+            if (reducer.reduce(extractFunc.apply(t))) { // the result is determined in the middle.
+                return;
+            }
+        });
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public double reduce(DoubleReducer.Op op, Function<T, Double> extractFunc) {
+        final DoubleReducer reducer = new DoubleReducer(op);
+        forEach(t -> reducer.reduce(extractFunc.apply(t)));
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public float reduce(FloatReducer.Op op, Function<T, Float> extractFunc) {
+        final FloatReducer reducer = new FloatReducer(op);
+        forEach(t -> reducer.reduce(extractFunc.apply(t)));
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public int reduce(IntReducer.Op op, Function<T, Integer> extractFunc) {
+        final IntReducer reducer = new IntReducer(op);
+        forEach(t -> reducer.reduce(extractFunc.apply(t)));
+        return reducer.value();
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public long reduce(LongReducer.Op op, Function<T, Long> extractFunc) {
+        final LongReducer reducer = new LongReducer(op);
+        forEach(t -> reducer.reduce(extractFunc.apply(t)));
+        return reducer.value();
+    }
+
+    /**
      * Sequentially reduces all the elements contained in this {@link ChunkedList}
      * using the reducer provided as parameter
      *
@@ -1541,6 +2244,20 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     public <R extends Reducer<R, T>> R reduce(R reducer) {
         forEach(t -> reducer.reduce(t));
         return reducer;
+    }
+
+    /**
+     * Sequentially reduces all the elements contained in this {@link ChunkedList},
+     * using an operation provided by default
+     *
+     * @param op          specifies the type of reduction operation
+     * @param extractFunc defines the value to be reduced
+     * @return the value after the reduction has completed
+     */
+    public short reduce(ShortReducer.Op op, Function<T, Short> extractFunc) {
+        final ShortReducer reducer = new ShortReducer(op);
+        forEach(t -> reducer.reduce(extractFunc.apply(t)));
+        return reducer.value();
     }
 
     /**
@@ -1741,13 +2458,15 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
     }
 
     /**
-     * returns a continuous RangedList with the given {@Code range} from this Chunked List.
+     * Returns a continuous RangedList with the given {@code range} from this
+     * {@link ChunkedList}
      *
-     * @param range
-     * @return retun null if such a ranged list does not exist.
+     * @param range range of the desired view
+     * @return {@code null} if the specified range is not present in this
+     *         {@link ChunkedList}
      */
     public RangedList<T> subList1(LongRange range) {
-        LongRange result = range.findOverlap(chunks);
+        final LongRange result = range.findOverlap(chunks);
         if (result == null) {
             return null;
         }
@@ -1755,6 +2474,76 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
             return chunks.get(result).subList(range);
         }
         return null;
+    }
+
+    /**
+     * Performs the provided action on each element of this collection. As part of
+     * this operation, some information of type U can be created or extracted from
+     * elements and potentially stored into the provided collection using the
+     * Consumer of U (second argument of the lambda expression). These elements will
+     * be added using method {@link Collection#add(Object)}.
+     * <p>
+     * As a variant, you may also directly supply a Consumer&lt;U&gt; rather than a
+     * collection using method {@link #toBag(BiConsumer, Consumer)}
+     *
+     * @param <U>     the type of the information to extract
+     * @param action  action to perform on each element of the collection
+     * @param toStore the collection in which the information extracted will be
+     *                stored
+     * @see #toBag(BiConsumer, Consumer)
+     */
+    public <U> void toBag(BiConsumer<? super T, Consumer<? super U>> action, final Collection<? super U> toStore) {
+        final Consumer<? super U> consumer = u -> toStore.add(u);
+        toBag(action, consumer);
+    }
+
+    /**
+     * Performs the provided action on each element of this collection. As part of
+     * this operation, some information of type U can be created or extracted from
+     * elements and given to the Consumer&lt;U&gt; (second argument of the lambda
+     * expression). This {@link Consumer} available in the lambda expression is the
+     * one given as second parameter of this method.
+     * <p>
+     * As an alternative, you can use method {@link #toBag(BiConsumer, Collection)}
+     * to provide a {@link Collection} rather than a {@link Consumer} as the second
+     * argument of the method.
+     *
+     * @param <U>      the type of the result extracted from the elements in this
+     *                 collection
+     * @param action   the action to perform on each element of this collection
+     * @param receiver the receiver which will accept the U instances extracted from
+     *                 the elements of this collection
+     */
+    public <U> void toBag(BiConsumer<? super T, Consumer<? super U>> action, Consumer<? super U> receiver) {
+        for (final RangedList<T> c : chunks.values()) {
+            c.forEach(t -> action.accept(t, receiver));
+        }
+    }
+
+    /**
+     * Performs the provided action sequentially on the instances contained by this
+     * {@link ChunkedList}, allowing for the by-product of the operation to be
+     * stored in the specified {@link ParallelReceiver}.
+     * <p>
+     * This method is necessary as the manner in which instances are placed inside a
+     * {@link ParallelReceiver} differs from that of a normal collection. Although
+     * the features that handle parallel insertion of values are not leveraged in
+     * this sequential method, the preparations needed to insert instances into the
+     * {@link ParallelReceiver} remain necessary.
+     *
+     * @param <U>    the type of the data produced from the instances contained in
+     *               this collection and stored in the provided
+     *               {@link ParallelReceiver}
+     * @param action the action performed on all the elements contained in this
+     *               collection. U instances may be created and given to the
+     *               Consumer&lt;U&gt; as part of this action
+     * @param bag    the parallel receiver which will receive all the U instances
+     *               which are created as part of the action applied on the elements
+     *               of this collection
+     */
+    public <U> void toBag(BiConsumer<? super T, Consumer<? super U>> action, ParallelReceiver<? super U> bag) {
+        final Consumer<? super U> receiver = bag.getReceiver();
+        toBag(action, receiver);
     }
 
     @Override

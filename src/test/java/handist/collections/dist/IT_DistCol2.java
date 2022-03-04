@@ -16,6 +16,8 @@ import static org.junit.Assert.*;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 
 import org.junit.After;
@@ -27,6 +29,7 @@ import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import apgas.MultipleException;
+import apgas.Place;
 import apgas.impl.Config;
 import apgas.impl.DebugFinish;
 import handist.collections.Chunk;
@@ -101,11 +104,23 @@ public class IT_DistCol2 implements Serializable {
     @After
     public void afterEachTest() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException,
             NoSuchMethodException, SecurityException {
-        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))) {
+        if (DebugFinish.class.getCanonicalName().equals(System.getProperty(Config.APGAS_FINISH))
+                && DebugFinish.suppressedExceptionsPresent()) {
             System.err.println("Dumping the errors that occurred during " + nameOfCurrentTest.getMethodName());
             // If we are using the DebugFinish, dump all throwables collected on each host
             DebugFinish.dumpAllSuppressedExceptions();
         }
+    }
+
+    /**
+     * Utility method used to determine the "next" host in a rotation
+     *
+     * @return the "next" place by rotation
+     */
+    private Place nextPlaceRotate() {
+        final int placeId = here().id;
+        final int next = placeId + 1 < world.size() ? placeId + 1 : 0;
+        return world.get(next);
     }
 
     /**
@@ -210,6 +225,163 @@ public class IT_DistCol2 implements Serializable {
             me.printStackTrace();
             throw me.getSuppressed()[0];
         }
+    }
+
+    /**
+     * Checks that the {@link LongRangeDistribution} returned by a {@link DistCol}
+     * works as expected
+     */
+    @Test
+    public void testDistributionSnapshots() {
+        // Before any insertion, is empty
+        final LongRangeDistribution initialDistribution = distCol.getDistribution();
+        assertTrue(initialDistribution.getDistribution().isEmpty());
+
+        // Insert some local and remote values
+        distCol.add(chunk0To100);
+        at(place(1), () -> {
+            distCol.add(chunk100To200);
+        });
+
+        final LongRangeDistribution afterInsert = distCol.getDistribution();
+        assertTrue(!afterInsert.getDistribution().isEmpty());
+        final Map<LongRange, Place> mappings = afterInsert.rangeLocation(range0To100);
+        assertEquals(place(0), mappings.get(range0To100));
+    }
+
+    @Test
+    public void testDistributionSubscribed() {
+        final LongRangeDistribution distribution = new LongRangeDistribution();
+        distCol.registerDistribution(distribution);
+
+        assertNull(distribution.location(range0To100));
+        assertNull(distribution.location(range100To200));
+        assertNull(distribution.location(range200To250));
+
+        at(place(1), () -> distCol.add(chunk0To100));
+        distCol.add(chunk100To200);
+        // Remote modification are not yet known on Place0
+        assertEquals(place(0), distribution.location(range100To200));
+        assertNull(distribution.location(range0To100));
+
+        world.broadcastFlat(() -> distCol.updateDist());
+
+        // After updateDist, everybody knows everybody
+        assertEquals(place(1), distribution.location(range0To100));
+        assertEquals(place(1), distribution.location(52l));
+
+        distCol.clear();
+
+        // After clearing the local contents, remote status should remain known.
+        assertTrue(!distCol.contains(range100To200)); // this chunk was just removed
+        assertNull(distribution.location(range100To200));
+        assertEquals(place(0), at(place(1), () -> {
+            return distCol.getDistribution().location(range100To200);
+        }));
+        assertEquals(place(1), distribution.location(range0To100));
+
+        world.broadcastFlat(() -> distCol.updateDist());
+
+        assertNull(distribution.location(range100To200));
+
+        // After the update, getting a snapshot of the distribution on place(1) to check
+        at(place(1), () -> {
+            final LongRangeDistribution distSnapshot = distCol.getDistribution();
+            assertEquals(place(1), distSnapshot.location(range0To100));
+            assertNull(distSnapshot.location(range100To200));
+        });
+    }
+
+    /**
+     * Checks that registered {@link LongRangeDistribution} get updated with correct
+     * information. This test specifically uses a rotation between 4 places to make
+     * sure that no confusion is made between ranks and places.
+     */
+    @Test
+    public void testDistributionSubscribed2() {
+        world.broadcastFlat(() -> {
+            final LongRangeDistribution lrd = new LongRangeDistribution();
+            distCol.registerDistribution(lrd);
+            switch (here().id) {
+            case 0:
+                distCol.add(chunk0To100);
+                break;
+            case 1:
+                distCol.add(chunk100To200);
+                break;
+            case 2:
+                distCol.add(chunk200To250);
+                break;
+            default:
+            }
+
+            // Perform a rotation
+            final CollectiveMoveManager mm = new CollectiveMoveManager(world);
+            final RangedDistribution<LongRange> dist = lr -> {
+                final Map<LongRange, Place> toReturn = new HashMap<>();
+                toReturn.put(lr, nextPlaceRotate());
+                return toReturn;
+            };
+            distCol.moveRangeAtSync(dist, mm);
+            mm.sync();
+
+            // Update distribution
+            distCol.updateDist();
+
+            // Debug print
+            for (final LongRange lr : distCol.ranges()) {
+                System.out.println(here() + ":rank" + world.rank() + " contains " + lr);
+            }
+
+            // Check contents of the lrd
+            assertEquals(world.get(1), lrd.location(range0To100));
+            assertEquals(world.get(2), lrd.location(range100To200));
+            assertEquals(world.get(3), lrd.location(range200To250));
+        });
+    }
+
+    /**
+     * Checks that registered {@link LongRangeDistribution} get updated with correct
+     * information. This test specifically uses a rotation between 4 places to make
+     * sure that no confusion is made between ranks and places.
+     */
+    @Test
+    public void testDistributionSubscribed3() {
+        world.broadcastFlat(() -> {
+            final LongRangeDistribution lrd = new LongRangeDistribution();
+            distCol.registerDistribution(lrd);
+            // Add ranges and perform rotation
+            final CollectiveMoveManager mm = new CollectiveMoveManager(world);
+            switch (here().id) {
+            case 0:
+                distCol.add(chunk0To100);
+                distCol.moveRangeAtSync(range0To100, place(1), mm);
+                break;
+            case 1:
+                distCol.add(chunk100To200);
+                distCol.moveRangeAtSync(range100To200, place(2), mm);
+                break;
+            case 2:
+                distCol.add(chunk200To250);
+                distCol.moveRangeAtSync(range200To250, place(3), mm);
+                break;
+            default:
+            }
+            mm.sync();
+
+            // Update distribution
+            distCol.updateDist();
+
+            // Debug print
+            for (final LongRange lr : distCol.ranges()) {
+                System.out.println(here() + ":rank" + world.rank() + " contains " + lr);
+            }
+
+            // Check contents of the lrd
+            assertEquals(place(1), lrd.location(range0To100));
+            assertEquals(place(2), lrd.location(range100To200));
+            assertEquals(place(3), lrd.location(range200To250));
+        });
     }
 
     /**

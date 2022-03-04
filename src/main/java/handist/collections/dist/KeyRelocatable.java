@@ -11,6 +11,7 @@
 package handist.collections.dist;
 
 import java.util.Collection;
+import java.util.function.Function;
 
 import apgas.Place;
 
@@ -46,7 +47,7 @@ public interface KeyRelocatable<K> {
     public default <D extends Distribution<K>> void moveAtSync(Collection<K> keys, D distribution,
             MoveManager manager) {
         for (final K key : keys) {
-            moveAtSync(key, distribution.place(key), manager);
+            moveAtSync(key, distribution.location(key), manager);
         }
     }
 
@@ -59,11 +60,7 @@ public interface KeyRelocatable<K> {
      * @param destination the place to which these keys should be relocated
      * @param manager     the manager in charge of performing the relocation
      */
-    public default void moveAtSync(Collection<K> keys, Place destination, MoveManager manager) {
-        for (final K key : keys) {
-            moveAtSync(key, destination, manager);
-        }
-    }
+    public void moveAtSync(Collection<K> keys, Place destination, MoveManager manager);
 
     /**
      * Marks all the keys of this local handle for relocation using the provided
@@ -76,8 +73,23 @@ public interface KeyRelocatable<K> {
      * @param manager      the move manager in charge of the transfer
      */
     public default void moveAtSync(Distribution<K> distribution, MoveManager manager) {
-        moveAtSync(getAllKeys(), distribution, manager);
+        final Function<K, Place> rule = (K key) -> {
+            return distribution.location(key);
+        };
+        moveAtSync(rule, manager);
     }
+
+    /**
+     * Marks all the keys of this local handle for relocation using the provided
+     * distribution to determine where each individual keys should go. The transfer
+     * is actually performed the next the specified manager's
+     * {@link CollectiveMoveManager#sync()} method is called.
+     *
+     * @param rule    the function that determines where each individual key should
+     *                be relocated to
+     * @param manager the move manager in charge of the transfer
+     */
+    public void moveAtSync(Function<K, Place> rule, MoveManager manager);
 
     /**
      * Marks the specified key for relocation over to the specified place. The
@@ -89,4 +101,12 @@ public interface KeyRelocatable<K> {
      * @param manager     manager in charge of the transfer
      */
     public void moveAtSync(K key, Place destination, MoveManager manager);
+
+    public void relocate(Distribution<K> rule) throws Exception;
+
+    public void relocate(Distribution<K> rule, CollectiveMoveManager mm) throws Exception;
+
+    public void relocate(Function<K, Place> rule) throws Exception;
+
+    public void relocate(Function<K, Place> rule, CollectiveMoveManager mm) throws Exception;
 }
