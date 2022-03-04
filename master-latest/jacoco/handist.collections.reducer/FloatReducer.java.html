@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FloatReducer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.reducer</a> &gt; <span class="el_source">FloatReducer.java</span></div><h1>FloatReducer.java</h1><pre class="source lang-java linenums">package handist.collections.reducer;
+
+import java.io.Serializable;
+import java.util.function.Consumer;
+
+import mpi.MPI;
+
+public class FloatReducer implements Serializable {
+
+    /**
+     * The reduction operations provided by default, &lt;em&gt;SUM&lt;/em&gt;, &lt;em&gt;PROD&lt;/em&gt;,
+     * &lt;em&gt;MAX&lt;/em&gt;, &lt;em&gt;MIN&lt;/em&gt;
+     */
+<span class="fc" id="L14">    public static enum Op {</span>
+<span class="fc" id="L15">        SUM, PROD, MAX, MIN</span>
+    }
+
+    private static final long serialVersionUID = -648909085372911699L;
+
+    public static mpi.Op getMPIOp(Op op) {
+<span class="nc bnc" id="L21" title="All 5 branches missed.">        switch (op) {</span>
+        case SUM:
+<span class="nc" id="L23">            return MPI.SUM;</span>
+        case PROD:
+<span class="nc" id="L25">            return MPI.PROD;</span>
+        case MAX:
+<span class="nc" id="L27">            return MPI.MAX;</span>
+        case MIN:
+<span class="nc" id="L29">            return MPI.MIN;</span>
+        }
+<span class="nc" id="L31">        throw new IllegalArgumentException();</span>
+    }
+
+    private float value;
+    private final Consumer&lt;Float&gt; reduceFunc;
+
+<span class="fc" id="L37">    public FloatReducer(Op op) {</span>
+<span class="pc bpc" id="L38" title="1 of 5 branches missed.">        switch (op) {</span>
+        case SUM:
+<span class="fc" id="L40">            value = 0f;</span>
+<span class="fc" id="L41">            reduceFunc = (input) -&gt; value += input;</span>
+<span class="fc" id="L42">            break;</span>
+        case PROD:
+<span class="fc" id="L44">            value = 1f;</span>
+<span class="fc" id="L45">            reduceFunc = (input) -&gt; value *= input;</span>
+<span class="fc" id="L46">            break;</span>
+        case MAX:
+<span class="fc" id="L48">            value = Float.MIN_VALUE;</span>
+<span class="fc" id="L49">            reduceFunc = (input) -&gt; {</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">                if (input &gt; value) {</span>
+<span class="fc" id="L51">                    value = input;</span>
+                }
+<span class="fc" id="L53">            };</span>
+<span class="fc" id="L54">            break;</span>
+        case MIN:
+<span class="fc" id="L56">            value = Float.MAX_VALUE;</span>
+<span class="fc" id="L57">            reduceFunc = (input) -&gt; {</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">                if (input &lt; value) {</span>
+<span class="fc" id="L59">                    value = input;</span>
+                }
+<span class="fc" id="L61">            };</span>
+<span class="fc" id="L62">            break;</span>
+        default:
+<span class="nc" id="L64">            throw new UnsupportedOperationException(&quot;FloatReducer does not support the operation :&quot; + op);</span>
+        }
+<span class="fc" id="L66">    }</span>
+
+    public void reduce(float input) {
+<span class="fc" id="L69">        reduceFunc.accept(input);</span>
+<span class="fc" id="L70">    }</span>
+
+    public float value() {
+<span class="fc" id="L73">        return value;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

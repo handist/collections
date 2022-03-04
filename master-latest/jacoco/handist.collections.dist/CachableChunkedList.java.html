@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -14,6 +15,7 @@ import java.util.function.Function;
 
 import apgas.Place;
 import apgas.util.GlobalID;
+import handist.collections.Chunk;
 import handist.collections.ChunkedList;
 import handist.collections.LongRange;
 import handist.collections.RangedList;
@@ -23,12 +25,23 @@ import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.LongTBiConsumer;
+import handist.collections.function.PrimitiveInput;
+import handist.collections.function.PrimitiveOutput;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.Serializer;
+import mpi.MPI;
+import mpi.MPIException;
+import mpi.Op;
 
+/**
+ * {@link DistCol} with additional features allowing it to replicate some range
+ * of values held by a process onto other processes
+ *
+ * @param &lt;T&gt; type contained by this collection
+ */
 public class CachableChunkedList&lt;T&gt; extends DistCol&lt;T&gt; {
 
-//    static class Team&lt;S&gt; extends TeamOperations&lt;S, CachableChunkedList&lt;S&gt;&gt; {
+//    public static class Team&lt;T&gt; extends DistCol.Team&lt;T&gt; {
 //
 //        /**
 //         * Super constructor. Needs to be called by all implementations to initialize
@@ -36,61 +49,296 @@ public class CachableChunkedList&lt;T&gt; extends DistCol&lt;T&gt; {
 //         *
 //         * @param localObject local handle of the distributed collection
 //         */
-//        public Team(CachableChunkedList&lt;S&gt; localObject) {
+//        private Team(CachableChunkedList&lt;T&gt; localObject) {
 //            super(localObject);
 //        }
+//
 //        @Override
 //        public void gather(Place root) {
 //            throw new UnsupportedOperationException(&quot;CachableChunkedList does not support gather().&quot;);
 //        }
+//
+//        /**
+//         * Computes and gathers the size of each local collection &lt;b&gt;not including
+//         * shared collections&lt;/b&gt; into the provided array. This operation usually
+//         * requires that all the hosts that are manipulating the distributed collection
+//         * call this method before it returns on any host. This is due to the fact some
+//         * communication between the {@link Place}s in the collection's
+//         * {@link TeamedPlaceGroup} is needed to compute/gather the result.
+//         *
+//         * @param result long array in which the result will be gathered
+//         */
 //        @Override
-//        public void teamedBalance(CollectiveMoveManager mm) {
+//        public void getSizeDistribution(final long[] result) {
+//            super.getSizeDistribution(result);
+//        }
+//
+//        @Override
+//        public &lt;R extends Reducer&lt;R, T&gt;&gt; R parallelReduce(R reducer) {
+//            return super.parallelReduce(reducer);
+//        }
+//
+//        @Override
+//        public &lt;R extends Reducer&lt;R, T&gt;&gt; R reduce(R reducer) {
+//            return super.reduce(reducer);
+//        }
+//
+//        @Override
+//        public void teamedBalance() {
+//            throw new UnsupportedOperationException(&quot;CachableChunkedList does not support balance operations.&quot;);
+//        }
+//
+//        @Override
+//        public void teamedBalance(final CollectiveMoveManager mm) {
+//            throw new UnsupportedOperationException(&quot;CachableChunkedList does not support balance operations.&quot;);
+//        }
+//
+//        @Override
+//        public void teamedBalance(final float[] newLocality) {
+//            throw new UnsupportedOperationException(&quot;CachableChunkedList does not support balance operations.&quot;);
+//        }
+//
+//        @Override
+//        public void teamedBalance(final float[] newLocality, final CollectiveMoveManager mm) {
 //            throw new UnsupportedOperationException(&quot;CachableChunkedList does not support balance operations.&quot;);
 //        }
 //    }
 
-<span class="fc" id="L52">    protected ChunkedList&lt;T&gt; shared = new ChunkedList&lt;&gt;();</span>
-<span class="fc" id="L53">    protected HashMap&lt;RangedList&lt;T&gt;, Place&gt; shared2owner = new HashMap&lt;&gt;();</span>
+    /**
+     * List of chunks that have been shared to this local branch by a remote branch
+     */
+<span class="fc" id="L110">    protected ChunkedList&lt;T&gt; shared = new ChunkedList&lt;&gt;();</span>
+    /**
+     * Map keeping track of the &quot;owner&quot; of each range in the collection
+     */
+<span class="fc" id="L114">    protected HashMap&lt;RangedList&lt;T&gt;, Place&gt; shared2owner = new HashMap&lt;&gt;();</span>
 
+    /**
+     * Creates a new {@link CachableChunkedList} on the specified
+     * {@link TeamedPlaceGroup}
+     *
+     * @param pg the group of places on which this collection may have a branch
+     */
     public CachableChunkedList(final TeamedPlaceGroup pg) {
-<span class="fc" id="L56">        this(pg, new GlobalID());</span>
-<span class="fc" id="L57">    }</span>
+<span class="fc" id="L123">        this(pg, new GlobalID());</span>
+<span class="fc" id="L124">    }</span>
 
+    /**
+     * Creates a new branch for a {@link CachableChunkedList} with the specified
+     * group of places and id which identifies the distributed collection into which
+     * the created branch is taking place
+     *
+     * @param placeGroup the group of places on which the distributed collection may
+     *                   have a handle
+     * @param id         global id identifying the distributed collection
+     */
     private CachableChunkedList(final TeamedPlaceGroup placeGroup, final GlobalID id) {
-<span class="pc" id="L60">        super(placeGroup, id, (TeamedPlaceGroup pg, GlobalID gid) -&gt; new CachableChunkedList&lt;&gt;(pg, gid));</span>
-<span class="fc" id="L61">    }</span>
+<span class="pc" id="L136">        super(placeGroup, id, (TeamedPlaceGroup pg, GlobalID gid) -&gt; new CachableChunkedList&lt;&gt;(pg, gid));</span>
+<span class="fc" id="L137">    }</span>
 
+    /**
+     * Adds several ranged lists shared by a remote branch to this local branch
+     *
+     * @param owner  the owner of the shared ranged lists
+     * @param chunks the chunks shared with this branch
+     */
     private void addNewShared(Place owner, List&lt;RangedList&lt;T&gt;&gt; chunks) {
-<span class="fc bfc" id="L64" title="All 2 branches covered.">        for (final RangedList&lt;T&gt; chunk : chunks) {</span>
-<span class="pc bpc" id="L65" title="1 of 2 branches missed.">            if (!owner.equals(here())) {</span>
-<span class="fc" id="L66">                add(chunk);</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">        for (final RangedList&lt;T&gt; chunk : chunks) {</span>
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">            if (!owner.equals(here())) {</span>
+<span class="fc" id="L148">                add(chunk);</span>
             }
-<span class="fc" id="L68">            shared.add(chunk);</span>
-<span class="fc" id="L69">            shared2owner.put(chunk, owner);</span>
-<span class="fc" id="L70">        }</span>
-<span class="fc" id="L71">    }</span>
+<span class="fc" id="L150">            shared.add(chunk);</span>
+<span class="fc" id="L151">            shared2owner.put(chunk, owner);</span>
+<span class="fc" id="L152">        }</span>
+<span class="fc" id="L153">    }</span>
 
+    /**
+     * Adds a ranged list shared by a remote branch to this local branch
+     *
+     * @param owner the owner of the shared ranged list
+     * @param chunk the shared with this branch
+     */
     private void addNewShared(Place owner, RangedList&lt;T&gt; chunk) {
-<span class="pc bpc" id="L74" title="1 of 2 branches missed.">        if (!owner.equals(here())) {</span>
-<span class="nc" id="L75">            add(chunk);</span>
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">        if (!owner.equals(here())) {</span>
+<span class="nc" id="L163">            add(chunk);</span>
         }
-<span class="fc" id="L77">        shared.add(chunk);</span>
-<span class="fc" id="L78">        shared2owner.put(chunk, owner);</span>
-<span class="fc" id="L79">    }</span>
+<span class="fc" id="L165">        shared.add(chunk);</span>
+<span class="fc" id="L166">        shared2owner.put(chunk, owner);</span>
+<span class="fc" id="L167">    }</span>
 
+    /**
+     * Conduct allreduce operation on shared chunks using MPI reduce operation.
+     * &lt;p&gt;
+     * This variant cannot handle object data, but is faster than
+     * {@link #allreduce(Function, BiConsumer)} in many cases.
+     * &lt;p&gt;
+     * The core idea consists in converting each individual T object into a number
+     * of {@code long}, {@code int}, and {@code double}, perform an MPI primitive
+     * &quot;all reduce&quot; reduction on these raw types, and modify the T elements
+     * contained by the {@link CachableChunkedList} based on the resulting
+     * {@link PrimitiveInput}.
+     * &lt;p&gt;
+     * The number of raw type values of each type stored into the
+     * {@link PrimitiveOutput} must be the same for all T elements. The
+     * {@code unpack} closure supplied as second parameter must also extract the
+     * same number of raw type data (even if such raw type data is eventually unused
+     * to modify the T element) to preserve the consistency of the data in relation
+     * to the individual T element being processed.
+     *
+     * &lt;br&gt;
+     * =========================================================================
+     * &lt;br&gt;
+     * code sample
+     *
+     * &lt;pre&gt;
+     * class Element {
+     *     double d1, d2;
+     *     int i;
+     * }
+     *
+     * cachableChunkedList.allreduce((PrimitiveOutput out, Element e) -&gt; {
+     *     out.writeDouble(e.d1);
+     *     out.writeDouble(e.d2);
+     *     out.writeInt(e.i);
+     * }, (PrimitiveInput in, Element e) -&gt; {
+     *     e.d1 = in.readDouble(); // Match the unpack order with the pack closure above
+     *     e.d2 = in.readDouble();
+     *     in.readInt(); // (For examples purposes) the int is eventually not used to modify `e`,
+     *                   // but in.readInt needs to be called regardless
+     * }, MPI.SUM);
+     * &lt;/pre&gt;
+     *
+     * &lt;br&gt;
+     * =========================================================================
+     * &lt;br&gt;
+     *
+     * @param pack   the function that receives an element and extracts data to
+     *               transfer and reduce with other places.
+     * @param unpack the function that receives a local element and raw data that
+     *               was reduced between the hosts using MPI.
+     * @param op     the MPI reduction operation used to merge the
+     */
+    public void allreduce(BiConsumer&lt;PrimitiveOutput, T&gt; pack, BiConsumer&lt;PrimitiveInput, T&gt; unpack, Op op) {
+<span class="fc" id="L222">        allreduce(new ArrayList&lt;&gt;(shared.ranges()), pack, unpack, op); // TODO: not good, copying ranges to arraylist</span>
+<span class="fc" id="L223">    }</span>
+
+    /**
+     * conduct allreduce operation on shared chunks.
+     *
+     * @param pack   the function that receives an element and extracts data that
+     *               will be transferred to other places and be reduced by the
+     *               unpack operation.
+     * @param unpack the function that receives a local element and the transferred
+     *               data from each place and conducts reduction operation to the
+     *               local element.
+     * @param &lt;U&gt;    the type of the extracted data
+     */
     public &lt;U&gt; void allreduce(Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack) {
-<span class="nc" id="L82">        allreduce(new ArrayList&lt;&gt;(ranges()), pack, unpack); // TODO: not good, copying ranges to arraylist</span>
-<span class="nc" id="L83">    }</span>
+<span class="nc" id="L237">        allreduce(new ArrayList&lt;&gt;(shared.ranges()), pack, unpack); // TODO: not good, copying ranges to arraylist</span>
+<span class="nc" id="L238">    }</span>
 
+    /**
+     * conduct allreduce operation on shared chunks.
+     *
+     * @param pack   the function that receives an element and extracts data that
+     *               will be transferred to other places and be reduced by the
+     *               unpack operation.
+     * @param unpack the function that receives a local element and the transferred
+     *               data from each place and conducts reduction operation to the
+     *               local element.
+     * @param mm     the collective relocator to manage serialize process
+     * @param &lt;U&gt;    the type of the extracted data
+     */
     public &lt;U&gt; void allreduce(Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack, CollectiveRelocator.Allgather mm) {
-<span class="nc" id="L86">        allreduce(new ArrayList&lt;&gt;(ranges()), pack, unpack, mm); // TODO: not good, copying ranges to arraylist</span>
-<span class="nc" id="L87">    }</span>
+<span class="nc" id="L253">        allreduce(new ArrayList&lt;&gt;(shared.ranges()), pack, unpack, mm); // TODO: not good, copying ranges to arraylist</span>
+<span class="nc" id="L254">    }</span>
 
+    /**
+     * Refer to {@link CachableChunkedList#allreduce(BiConsumer, BiConsumer, Op)}.
+     * &lt;p&gt;
+     * This method needs to be called with the same ranges on all places on which
+     * this {@link CachableChunkedList} is defined. Otherwise it will throw
+     * {@link MPIException}.
+     *
+     * @param ranges the ranges on which the common reduction is to be applied
+     * @throws MPIException if called with different ranges on the various hosts
+     *                      involved in the common reduction
+     */
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public void allreduce(List&lt;LongRange&gt; ranges, BiConsumer&lt;PrimitiveOutput, T&gt; pack,
+            BiConsumer&lt;PrimitiveInput, T&gt; unpack, Op op) {
+<span class="fc" id="L270">        final List&lt;RangedList&lt;T&gt;&gt; chunks = searchSharedChunks(ranges);</span>
+<span class="fc" id="L271">        final Iterator&lt;RangedList&lt;T&gt;&gt; listIt = chunks.iterator();</span>
+<span class="fc" id="L272">        Iterator&lt;T&gt; chunkIt = listIt.next().iterator();</span>
+<span class="fc" id="L273">        final PrimitiveStream stream = new PrimitiveStream(10);</span>
+
+        // Count how many times one pack calls writeDouble, writeInt, writeLong.
+<span class="fc" id="L276">        pack.accept(stream, chunkIt.next());</span>
+        // Compute how many T elements there are to pack
+<span class="fc" id="L278">        int nbOfElements = 0;</span>
+<span class="fc bfc" id="L279" title="All 2 branches covered.">        for (final RangedList&lt;T&gt; r : chunks) {</span>
+<span class="fc" id="L280">            nbOfElements += r.size();</span>
+<span class="fc" id="L281">        }</span>
+        // Adjust stream size according to how many elements are expected
+<span class="fc" id="L283">        stream.adjustSize(nbOfElements);</span>
+
+        // Process the remainder of the elements ...
+        // Complete the current chunk
+<span class="fc bfc" id="L287" title="All 2 branches covered.">        while (chunkIt.hasNext()) {</span>
+<span class="fc" id="L288">            pack.accept(stream, chunkIt.next());</span>
+        }
+        // Deal with all the remaining chunks in the same manner
+<span class="fc bfc" id="L291" title="All 2 branches covered.">        while (listIt.hasNext()) {</span>
+<span class="fc" id="L292">            chunkIt = listIt.next().iterator();</span>
+<span class="fc bfc" id="L293" title="All 2 branches covered.">            while (chunkIt.hasNext()) {</span>
+<span class="fc" id="L294">                pack.accept(stream, chunkIt.next());</span>
+            }
+        }
+
+<span class="fc" id="L298">        stream.checkIsFull(); // Sanity check, the arrays inside `stream` should be full.</span>
+
+        // communicate
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">        if (stream.doubleArray.length != 0) {</span>
+<span class="nc" id="L302">            final int size = stream.doubleArray.length;</span>
+<span class="nc" id="L303">            placeGroup().comm.Allreduce(stream.doubleArray, 0, stream.doubleArray, 0, size, MPI.DOUBLE, op);</span>
+        }
+<span class="pc bpc" id="L305" title="1 of 2 branches missed.">        if (stream.intArray.length != 0) {</span>
+<span class="fc" id="L306">            final int size = stream.intArray.length;</span>
+<span class="fc" id="L307">            placeGroup().comm.Allreduce(stream.intArray, 0, stream.intArray, 0, size, MPI.INT, op);</span>
+        }
+<span class="pc bpc" id="L309" title="1 of 2 branches missed.">        if (stream.longArray.length != 0) {</span>
+<span class="fc" id="L310">            final int size = stream.longArray.length;</span>
+<span class="fc" id="L311">            placeGroup().comm.Allreduce(stream.longArray, 0, stream.longArray, 0, size, MPI.LONG, op);</span>
+        }
+
+        // do unpack
+<span class="fc" id="L315">        stream.reset();</span>
+<span class="fc bfc" id="L316" title="All 2 branches covered.">        for (final RangedList&lt;T&gt; chunk : chunks) {</span>
+<span class="fc" id="L317">            chunk.forEach((T, t) -&gt; {</span>
+<span class="fc" id="L318">                unpack.accept(stream, t);</span>
+<span class="fc" id="L319">            });</span>
+<span class="fc" id="L320">        }</span>
+<span class="fc" id="L321">    }</span>
+
+    /**
+     * conduct allreduce operation on shared chunks in the given range. Note: please
+     * use the same ranges in all the places.
+     *
+     * @param ranges the list of ranges in which chunks are applied to the
+     *               operation.
+     * @param pack   the function that receives an element and extracts data that
+     *               will be transferred to other places and be reduced by the
+     *               unpack operation.
+     * @param unpack the function that receives a local element and the transferred
+     *               data from each place and conducts reduction operation to the
+     *               local element.
+     * @param &lt;U&gt;    the type of the extracted data
+     */
     public &lt;U&gt; void allreduce(List&lt;LongRange&gt; ranges, Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack) {
-<span class="fc" id="L90">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
-<span class="fc" id="L91">        allreduce(ranges, pack, unpack, mm);</span>
-<span class="fc" id="L92">        mm.execute();</span>
-<span class="fc" id="L93">    }</span>
+<span class="fc" id="L338">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
+<span class="fc" id="L339">        allreduce(ranges, pack, unpack, mm);</span>
+<span class="fc" id="L340">        mm.execute();</span>
+<span class="fc" id="L341">    }</span>
 
     /**
      * conduct allreduce operation on shared chunks in the given range. Note: please
@@ -109,280 +357,435 @@ public class CachableChunkedList&lt;T&gt; extends DistCol&lt;T&gt; {
      */
     public &lt;U&gt; void allreduce(List&lt;LongRange&gt; ranges, Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack,
             CollectiveRelocator.Allgather mm) {
-<span class="fc" id="L112">        final List&lt;RangedList&lt;T&gt;&gt; chunks = searchSharedChunks(ranges);</span>
-<span class="fc" id="L113">        final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
-<span class="fc bfc" id="L114" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; chunk : chunks) {</span>
-<span class="fc" id="L115">                chunk.forEach((T elem) -&gt; {</span>
-<span class="fc" id="L116">                    s.writeObject(pack.apply(elem));</span>
-<span class="fc" id="L117">                });</span>
-<span class="fc" id="L118">            }</span>
-<span class="fc" id="L119">        };</span>
-<span class="fc" id="L120">        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -&gt; {</span>
-<span class="fc bfc" id="L121" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; chunk : chunks) {</span>
-<span class="fc" id="L122">                chunk.forEach((T elem) -&gt; {</span>
+<span class="fc" id="L360">        final List&lt;RangedList&lt;T&gt;&gt; chunks = searchSharedChunks(ranges);</span>
+<span class="fc" id="L361">        final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
+<span class="fc bfc" id="L362" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; chunk : chunks) {</span>
+<span class="fc" id="L363">                chunk.forEach((T elem) -&gt; {</span>
+<span class="fc" id="L364">                    s.writeObject(pack.apply(elem));</span>
+<span class="fc" id="L365">                });</span>
+<span class="fc" id="L366">            }</span>
+<span class="fc" id="L367">        };</span>
+<span class="fc" id="L368">        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place place) -&gt; {</span>
+<span class="fc bfc" id="L369" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; chunk : chunks) {</span>
+<span class="fc" id="L370">                chunk.forEach((T elem) -&gt; {</span>
                     @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L124">                    final U diff = (U) ds.readObject();</span>
-<span class="fc" id="L125">                    unpack.accept(elem, diff);</span>
-<span class="fc" id="L126">                });</span>
-<span class="fc" id="L127">            }</span>
-<span class="fc" id="L128">        };</span>
-<span class="fc" id="L129">        mm.request(serProcess, desProcess);</span>
-<span class="fc" id="L130">    }</span>
+<span class="fc" id="L372">                    final U diff = (U) ds.readObject();</span>
+<span class="fc" id="L373">                    unpack.accept(elem, diff);</span>
+<span class="fc" id="L374">                });</span>
+<span class="fc" id="L375">            }</span>
+<span class="fc" id="L376">        };</span>
+<span class="fc" id="L377">        mm.request(serProcess, desProcess);</span>
+<span class="fc" id="L378">    }</span>
 
     private void assertUnshared(LongRange r) {
-<span class="pc bpc" id="L133" title="1 of 2 branches missed.">        if (!searchSharedChunks(Collections.singletonList(r)).isEmpty()) {</span>
-<span class="nc" id="L134">            throw new IllegalStateException(&quot;CachableChunkedList found shared chunks in range: &quot; + r);</span>
+<span class="pc bpc" id="L381" title="1 of 2 branches missed.">        if (!searchSharedChunks(Collections.singletonList(r)).isEmpty()) {</span>
+<span class="nc" id="L382">            throw new IllegalStateException(&quot;CachableChunkedList found shared chunks in range: &quot; + r);</span>
         }
-<span class="fc" id="L136">    }</span>
-
-    public &lt;U&gt; void bcast(Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack) {
-<span class="nc" id="L139">        bcast((LongRange) null, pack, unpack);</span>
-<span class="nc" id="L140">    }</span>
-
-    public &lt;U&gt; void bcast(Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack, CollectiveRelocator.Allgather mm) {
-<span class="nc" id="L143">        bcast((LongRange) null, pack, unpack, mm);</span>
-<span class="nc" id="L144">    }</span>
-
-    public &lt;U&gt; void bcast(List&lt;LongRange&gt; ranges, Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack) {
-<span class="nc" id="L147">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
-<span class="nc" id="L148">        bcast(ranges, pack, unpack, mm);</span>
-<span class="nc" id="L149">        mm.execute();</span>
-<span class="nc" id="L150">    }</span>
+<span class="fc" id="L384">    }</span>
 
     /**
-     * conduct broadcast operation on chunks that are already shared within the
+     * Conducts a broadcast operation on chunks that are already shared within the
      * place group. The user must call each of the broadcast methods of a cachable
      * chunked list in all the place belonging to the place group.
      *
-     * @param ranges
-     * @param pack
-     * @param unpack
-     * @param mm
-     * @param &lt;U&gt;
+     * @param &lt;U&gt;    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     */
+    public &lt;U&gt; void bcast(Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack) {
+<span class="nc" id="L399">        bcast((LongRange) null, pack, unpack);</span>
+<span class="nc" id="L400">    }</span>
+
+    /**
+     * Conducts a broadcast operation on chunks that are already shared within the
+     * place group. The user must call each of the broadcast methods of a cachable
+     * chunked list in all the place belonging to the place group.
+     *
+     * @param &lt;U&gt;    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     * @param mm     the relocator in charge of handling the communication between
+     *               hosts
+     */
+    public &lt;U&gt; void bcast(Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack, CollectiveRelocator.Allgather mm) {
+<span class="nc" id="L417">        bcast((LongRange) null, pack, unpack, mm);</span>
+<span class="nc" id="L418">    }</span>
+
+    /**
+     * Conducts a broadcast operation on chunks that are already shared within the
+     * place group. The user must call each of the broadcast methods of a cachable
+     * chunked list in all the place belonging to the place group.
+     *
+     * @param &lt;U&gt;    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param ranges the ranges to braodcast
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     *
+     */
+    public &lt;U&gt; void bcast(List&lt;LongRange&gt; ranges, Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack) {
+<span class="nc" id="L435">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
+<span class="nc" id="L436">        bcast(ranges, pack, unpack, mm);</span>
+<span class="nc" id="L437">        mm.execute();</span>
+<span class="nc" id="L438">    }</span>
+
+    /**
+     * Conducts a broadcast operation on chunks that are already shared within the
+     * place group. The user must call each of the broadcast methods of a cachable
+     * chunked list in all the place belonging to the place group.
+     *
+     * @param &lt;U&gt;    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param ranges the ranges to braodcast
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     * @param mm     the relocator in charge of handling the communication between
+     *               hosts
      */
     public &lt;U&gt; void bcast(List&lt;LongRange&gt; ranges, Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack,
             CollectiveRelocator.Allgather mm) {
-<span class="fc" id="L165">        final List&lt;RangedList&lt;T&gt;&gt; chunks = searchSharedChunks(here(), ranges);</span>
-<span class="fc" id="L166">        final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
-<span class="fc" id="L167">            s.writeObject(ranges);</span>
-<span class="fc bfc" id="L168" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; chunk : chunks) {</span>
-<span class="fc" id="L169">                chunk.forEach((T elem) -&gt; {</span>
-<span class="fc" id="L170">                    s.writeObject(pack.apply(elem));</span>
-<span class="fc" id="L171">                });</span>
-<span class="fc" id="L172">            }</span>
-<span class="fc" id="L173">        };</span>
-<span class="fc" id="L174">        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place p) -&gt; {</span>
-<span class="pc bpc" id="L175" title="1 of 2 branches missed.">            if (p.equals(here())) {</span>
-<span class="nc" id="L176">                return;</span>
+<span class="fc" id="L457">        final List&lt;RangedList&lt;T&gt;&gt; chunks = searchSharedChunks(here(), ranges);</span>
+<span class="fc" id="L458">        final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
+<span class="fc" id="L459">            s.writeObject(ranges);</span>
+<span class="fc bfc" id="L460" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; chunk : chunks) {</span>
+<span class="fc" id="L461">                chunk.forEach((T elem) -&gt; {</span>
+<span class="fc" id="L462">                    s.writeObject(pack.apply(elem));</span>
+<span class="fc" id="L463">                });</span>
+<span class="fc" id="L464">            }</span>
+<span class="fc" id="L465">        };</span>
+<span class="fc" id="L466">        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place p) -&gt; {</span>
+<span class="pc bpc" id="L467" title="1 of 2 branches missed.">            if (p.equals(here())) {</span>
+<span class="nc" id="L468">                return;</span>
             }
             @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L179">            final List&lt;LongRange&gt; rangesX = (List&lt;LongRange&gt;) ds.readObject();</span>
-<span class="fc" id="L180">            final List&lt;RangedList&lt;T&gt;&gt; receiving = searchSharedChunks(p, rangesX);</span>
-<span class="fc bfc" id="L181" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; chunk : receiving) {</span>
-<span class="fc" id="L182">                chunk.forEach((T elem) -&gt; {</span>
+<span class="fc" id="L471">            final List&lt;LongRange&gt; rangesX = (List&lt;LongRange&gt;) ds.readObject();</span>
+<span class="fc" id="L472">            final List&lt;RangedList&lt;T&gt;&gt; receiving = searchSharedChunks(p, rangesX);</span>
+<span class="fc bfc" id="L473" title="All 2 branches covered.">            for (final RangedList&lt;T&gt; chunk : receiving) {</span>
+<span class="fc" id="L474">                chunk.forEach((T elem) -&gt; {</span>
                     @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L184">                    final U diff = (U) ds.readObject();</span>
-<span class="fc" id="L185">                    unpack.accept(elem, diff);</span>
-<span class="fc" id="L186">                });</span>
-<span class="fc" id="L187">            }</span>
-<span class="fc" id="L188">        };</span>
-<span class="fc" id="L189">        mm.request(serProcess, desProcess);</span>
-<span class="fc" id="L190">    }</span>
+<span class="fc" id="L476">                    final U diff = (U) ds.readObject();</span>
+<span class="fc" id="L477">                    unpack.accept(elem, diff);</span>
+<span class="fc" id="L478">                });</span>
+<span class="fc" id="L479">            }</span>
+<span class="fc" id="L480">        };</span>
+<span class="fc" id="L481">        mm.request(serProcess, desProcess);</span>
+<span class="fc" id="L482">    }</span>
 
+    /**
+     * Conducts a broadcast operation on chunks that are already shared within the
+     * place group. The user must call each of the broadcast methods of a cachable
+     * chunked list in all the place belonging to the place group.
+     *
+     * @param &lt;U&gt;    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param range  the range to braodcast
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     */
     public &lt;U&gt; void bcast(LongRange range, Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack) {
-<span class="fc" id="L193">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
-<span class="fc" id="L194">        bcast(range, pack, unpack, mm);</span>
-<span class="fc" id="L195">        mm.execute();</span>
-<span class="fc" id="L196">    }</span>
+<span class="fc" id="L498">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
+<span class="fc" id="L499">        bcast(range, pack, unpack, mm);</span>
+<span class="fc" id="L500">        mm.execute();</span>
+<span class="fc" id="L501">    }</span>
 
+    /**
+     * Conducts a broadcast operation on chunks that are already shared within the
+     * place group. The user must call each of the broadcast methods of a cachable
+     * chunked list in all the place belonging to the place group.
+     *
+     * @param &lt;U&gt;    the type used to transfer information from originals to shared
+     *               replicas on remote places
+     * @param range  the range to braodcast
+     * @param pack   the function used to transform T objects into the U type used
+     *               for transfer
+     * @param unpack the closure used to update the T objects based on on the
+     *               received U objects
+     * @param mm     the relocator in charge of handling the communication between
+     *               hosts
+     */
     public &lt;U&gt; void bcast(LongRange range, Function&lt;T, U&gt; pack, BiConsumer&lt;T, U&gt; unpack,
             CollectiveRelocator.Allgather mm) {
-<span class="fc" id="L200">        bcast(Collections.singletonList(range), pack, unpack, mm);</span>
-<span class="fc" id="L201">    }</span>
+<span class="fc" id="L520">        bcast(Collections.singletonList(range), pack, unpack, mm);</span>
+<span class="fc" id="L521">    }</span>
 
     @Override
     public void clear() {
         // TODO
-        // The super of clear() assums teamed operation of clear();
-<span class="nc" id="L207">    }</span>
+        // The super of clear() assumes teamed operation of clear();
+<span class="nc" id="L527">    }</span>
 
     private List&lt;RangedList&lt;T&gt;&gt; exportLocalChunks(List&lt;LongRange&gt; ranges) {
         // TODO
         // Should we check the overlaps in ranges?
-<span class="fc" id="L212">        final ArrayList&lt;RangedList&lt;T&gt;&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L213" title="All 2 branches covered.">        for (final LongRange range : ranges) {</span>
-<span class="fc" id="L214">            forEachChunk(range, (RangedList&lt;T&gt; chunk) -&gt; {</span>
-<span class="fc" id="L215">                final LongRange r0 = chunk.getRange();</span>
-<span class="fc bfc" id="L216" title="All 2 branches covered.">                if (range.contains(r0)) {</span>
-<span class="fc" id="L217">                    addNewShared(here(), chunk);</span>
-<span class="fc" id="L218">                    result.add(chunk);</span>
-<span class="pc bpc" id="L219" title="1 of 4 branches missed.">                } else if (r0.from &lt; range.from &amp;&amp; r0.to &gt; range.to) {</span>
-<span class="nc bnc" id="L220" title="All 2 branches missed.">                    if (attemptSplitChunkAtTwoPoints(range)) {</span>
-<span class="nc" id="L221">                        final RangedList&lt;T&gt; c = getChunk(range);</span>
-<span class="nc" id="L222">                        addNewShared(here(), c);</span>
-<span class="nc" id="L223">                        result.add(c);</span>
-<span class="nc" id="L224">                    } else {</span>
-<span class="nc" id="L225">                        throw new ConcurrentModificationException();</span>
+<span class="fc" id="L532">        final ArrayList&lt;RangedList&lt;T&gt;&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L533" title="All 2 branches covered.">        for (final LongRange range : ranges) {</span>
+<span class="fc" id="L534">            forEachChunk(range, (RangedList&lt;T&gt; chunk) -&gt; {</span>
+<span class="fc" id="L535">                final LongRange r0 = chunk.getRange();</span>
+<span class="fc bfc" id="L536" title="All 2 branches covered.">                if (range.contains(r0)) {</span>
+<span class="fc" id="L537">                    addNewShared(here(), chunk);</span>
+<span class="fc" id="L538">                    result.add(chunk);</span>
+<span class="pc bpc" id="L539" title="1 of 4 branches missed.">                } else if (r0.from &lt; range.from &amp;&amp; r0.to &gt; range.to) {</span>
+<span class="nc bnc" id="L540" title="All 2 branches missed.">                    if (attemptSplitChunkAtTwoPoints(range)) {</span>
+<span class="nc" id="L541">                        final RangedList&lt;T&gt; c = getChunk(range);</span>
+<span class="nc" id="L542">                        addNewShared(here(), c);</span>
+<span class="nc" id="L543">                        result.add(c);</span>
+<span class="nc" id="L544">                    } else {</span>
+<span class="nc" id="L545">                        throw new ConcurrentModificationException();</span>
                     }
                 } else {
-<span class="fc bfc" id="L228" title="All 2 branches covered.">                    final long splitPoint = (r0.from &gt;= range.from) ? range.to : range.from;</span>
-<span class="fc bfc" id="L229" title="All 2 branches covered.">                    final LongRange rRange = (r0.from &gt;= range.from) ? new LongRange(r0.from, range.to)</span>
+<span class="fc bfc" id="L548" title="All 2 branches covered.">                    final long splitPoint = (r0.from &gt;= range.from) ? range.to : range.from;</span>
+<span class="fc bfc" id="L549" title="All 2 branches covered.">                    final LongRange rRange = (r0.from &gt;= range.from) ? new LongRange(r0.from, range.to)</span>
                             : new LongRange(range.from, r0.to);
-<span class="pc bpc" id="L231" title="1 of 2 branches missed.">                    if (attemptSplitChunkAtSinglePoint(new LongRange(splitPoint))) {</span>
-<span class="fc" id="L232">                        final RangedList&lt;T&gt; c = getChunk(rRange);</span>
-<span class="fc" id="L233">                        addNewShared(here(), c);</span>
-<span class="fc" id="L234">                        result.add(c);</span>
-<span class="fc" id="L235">                    } else {</span>
-<span class="nc" id="L236">                        throw new ConcurrentModificationException();</span>
+<span class="pc bpc" id="L551" title="1 of 2 branches missed.">                    if (attemptSplitChunkAtSinglePoint(new LongRange(splitPoint))) {</span>
+<span class="fc" id="L552">                        final RangedList&lt;T&gt; c = getChunk(rRange);</span>
+<span class="fc" id="L553">                        addNewShared(here(), c);</span>
+<span class="fc" id="L554">                        result.add(c);</span>
+<span class="fc" id="L555">                    } else {</span>
+<span class="nc" id="L556">                        throw new ConcurrentModificationException();</span>
                     }
                 }
-<span class="fc" id="L239">            });</span>
-<span class="fc" id="L240">        }</span>
-<span class="fc" id="L241">        return result;</span>
+<span class="fc" id="L559">            });</span>
+<span class="fc" id="L560">        }</span>
+<span class="fc" id="L561">        return result;</span>
     }
 
+    /**
+     * Performs the provided operation on each {@link Chunk}s that are already
+     * shared within the place group and overlapped with the given range.
+     *
+     * @param range range to be scanned
+     * @param func  operation to make on each chunk
+     */
     public void forEachSharedChunk(LongRange range, Consumer&lt;RangedList&lt;T&gt;&gt; func) {
-<span class="nc" id="L245">        shared.forEachChunk(range, func);</span>
-<span class="nc" id="L246">    }</span>
+<span class="nc" id="L572">        shared.forEachChunk(range, func);</span>
+<span class="nc" id="L573">    }</span>
 
+    /**
+     * Performs the provided operation on each element contained in already shared
+     * {@link Chunk} which owner place is here and overlapped with the given range.
+     *
+     * @param range range to be scanned
+     * @param func  operation to make on each element
+     */
     public void forEachSharedOwner(LongRange range, Consumer&lt;T&gt; func) {
-<span class="fc" id="L249">        shared.forEachChunk(range, (RangedList&lt;T&gt; r0) -&gt; {</span>
-<span class="fc bfc" id="L250" title="All 2 branches covered.">            if (shared2owner.get(r0).equals(here())) {</span>
-<span class="pc bpc" id="L251" title="1 of 2 branches missed.">                if (!range.contains(r0.getRange())) {</span>
-<span class="fc" id="L252">                    r0 = r0.subList(range);</span>
+<span class="fc" id="L583">        shared.forEachChunk(range, (RangedList&lt;T&gt; r0) -&gt; {</span>
+<span class="fc bfc" id="L584" title="All 2 branches covered.">            if (shared2owner.get(r0).equals(here())) {</span>
+<span class="pc bpc" id="L585" title="1 of 2 branches missed.">                if (!range.contains(r0.getRange())) {</span>
+<span class="fc" id="L586">                    r0 = r0.subList(range);</span>
                 }
-<span class="fc" id="L254">                r0.forEach(func);</span>
+<span class="fc" id="L588">                r0.forEach(func);</span>
             }
-<span class="fc" id="L256">        });</span>
-<span class="fc" id="L257">    }</span>
+<span class="fc" id="L590">        });</span>
+<span class="fc" id="L591">    }</span>
 
+    /**
+     * Performs the provided operation on each element contained in already shared
+     * {@link Chunk} which owner place is here and overlapped with the given range.
+     *
+     * @param range range to be scanned
+     * @param func  to action to perform on each pair of ({@code long} key and (T)
+     *              element
+     */
     public void forEachSharedOwner(LongRange range, LongTBiConsumer&lt;T&gt; func) {
-<span class="nc" id="L260">        shared.forEachChunk(range, (RangedList&lt;T&gt; r0) -&gt; {</span>
-<span class="nc bnc" id="L261" title="All 2 branches missed.">            if (shared2owner.get(r0).equals(here())) {</span>
-<span class="nc bnc" id="L262" title="All 2 branches missed.">                if (!range.contains(r0.getRange())) {</span>
-<span class="nc" id="L263">                    r0 = r0.subList(range);</span>
+<span class="nc" id="L602">        shared.forEachChunk(range, (RangedList&lt;T&gt; r0) -&gt; {</span>
+<span class="nc bnc" id="L603" title="All 2 branches missed.">            if (shared2owner.get(r0).equals(here())) {</span>
+<span class="nc bnc" id="L604" title="All 2 branches missed.">                if (!range.contains(r0.getRange())) {</span>
+<span class="nc" id="L605">                    r0 = r0.subList(range);</span>
                 }
-<span class="nc" id="L265">                r0.forEach(func);</span>
+<span class="nc" id="L607">                r0.forEach(func);</span>
             }
-<span class="nc" id="L267">        });</span>
-<span class="nc" id="L268">    }</span>
+<span class="nc" id="L609">        });</span>
+<span class="nc" id="L610">    }</span>
 
+    /**
+     * Returns a newly created snapshot of the current distribution of this
+     * collection as a {@link LongRangeDistribution}. This returned distribution's
+     * contents will become out-of-date if the contents of this class are relocated,
+     * added, and/or removed. &lt;b&gt;The distribution does not include shared
+     * ranges.&lt;/b&gt;
+     * &lt;p&gt;
+     * If you need a {@link LongRangeDistribution} to remain up-to-date with the
+     * actual distribution of a {@link DistCol}, considers using
+     * {@link #registerDistribution(UpdatableDistribution)}. By registering a
+     * {@link LongRangeDistribution}, changes in the distribution of entries of this
+     * {@link DistCol} will be reflected in the {@link LongRangeDistribution} object
+     * when the distribution information of {@link DistCol} is updated and
+     * synchronized between hosts using {@link #updateDist()}. This is more
+     * efficient than allocating a new {@link LongRangeDistribution} object each
+     * time the distribution of the distributed collection changes.
+     *
+     * @return a new {@link LongRangeDistribution} object representing the current
+     *         distribution of this collection
+     */
+    @Override
+    public LongRangeDistribution getDistribution() {
+<span class="nc" id="L634">        return super.getDistribution();</span>
+    }
+
+    /**
+     * Returns a place where a given chunk is owned.
+     *
+     * @param chunk to find owner place.
+     * @return a place a place where a given chunk is owned.
+     */
     public Place getSharedOwner(RangedList&lt;T&gt; chunk) {
-<span class="fc" id="L271">        return shared2owner.get(chunk);</span>
+<span class="fc" id="L644">        return shared2owner.get(chunk);</span>
     }
 
     @Override
     protected void moveAtSync(final List&lt;RangedList&lt;T&gt;&gt; cs, final Place dest, final MoveManager mm) {
         // check or filter out shared ones.
-<span class="nc bnc" id="L277" title="All 2 branches missed.">        for (final RangedList&lt;T&gt; c : cs) {</span>
-<span class="nc" id="L278">            assertUnshared(c.getRange());</span>
-<span class="nc" id="L279">        }</span>
-<span class="nc" id="L280">        super.moveAtSync(cs, dest, mm);</span>
-<span class="nc" id="L281">    }</span>
+<span class="nc bnc" id="L650" title="All 2 branches missed.">        for (final RangedList&lt;T&gt; c : cs) {</span>
+<span class="nc" id="L651">            assertUnshared(c.getRange());</span>
+<span class="nc" id="L652">        }</span>
+<span class="nc" id="L653">        super.moveAtSync(cs, dest, mm);</span>
+<span class="nc" id="L654">    }</span>
 
+    /**
+     * Conduct reduce operation on chunks that are already shared with other places
+     * in the given ranges. The reduced result is stored in owner chunks. The user
+     * must call each of the reduce methods of a cachable chunked list in all the
+     * place belonging to the place group.
+     *
+     * @param ranges the list of ranges in which chunks are applied to the
+     *               operation.
+     * @param pack   the function that receives an element and extracts data that
+     *               will be transferred to other places and be reduced by the
+     *               unpack operation.
+     * @param unpack the function that receives a local element and the transferred
+     *               data from each place and conducts reduction operation to the
+     *               local element.
+     * @param &lt;U&gt;    the type of the extracted data
+     */
     public &lt;U&gt; void reduce(List&lt;LongRange&gt; ranges, Function&lt;T, U&gt; pack, SerializableBiConsumer&lt;T, U&gt; unpack) {
-<span class="fc" id="L284">        final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup());</span>
-<span class="fc" id="L285">        reduce(ranges, pack, unpack, mm);</span>
+<span class="fc" id="L673">        final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup());</span>
+<span class="fc" id="L674">        reduce(ranges, pack, unpack, mm);</span>
         try {
-<span class="fc" id="L287">            mm.sync();</span>
-<span class="nc" id="L288">        } catch (final Exception e) {</span>
-<span class="nc" id="L289">            e.printStackTrace();</span>
-<span class="nc" id="L290">            throw new Error(&quot;Exception raised during CachbleArray#reduce().&quot;);</span>
-<span class="fc" id="L291">        }</span>
-<span class="fc" id="L292">    }</span>
+<span class="fc" id="L676">            mm.sync();</span>
+<span class="nc" id="L677">        } catch (final Exception e) {</span>
+<span class="nc" id="L678">            e.printStackTrace();</span>
+<span class="nc" id="L679">            throw new Error(&quot;Exception raised during CachbleArray#reduce().&quot;);</span>
+<span class="fc" id="L680">        }</span>
+<span class="fc" id="L681">    }</span>
 
+    /**
+     * Conduct reduce operation on chunks that are already shared with other places
+     * in the given ranges. The reduced result is stored in owner chunks. The user
+     * must call each of the reduce methods of a cachable chunked list in all the
+     * place belonging to the place group.
+     *
+     * @param ranges the list of ranges in which chunks are applied to the
+     *               operation.
+     * @param pack   the function that receives an element and extracts data that
+     *               will be transferred to other places and be reduced by the
+     *               unpack operation.
+     * @param unpack the function that receives a local element and the transferred
+     *               data from each place and conducts reduction operation to the
+     *               local element.
+     * @param mm     You can relocate multiple cachable chunked lists using the same
+     *               collective relocator, specified with {@code mm}.
+     * @param &lt;U&gt;    the type of the extracted data
+     */
     public &lt;U&gt; void reduce(List&lt;LongRange&gt; ranges, final Function&lt;T, U&gt; pack, final SerializableBiConsumer&lt;T, U&gt; unpack,
             CollectiveMoveManager mm) {
-<span class="fc" id="L296">        final CachableChunkedList&lt;T&gt; toBranch = this;</span>
-<span class="fc bfc" id="L297" title="All 2 branches covered.">        for (final Place p : placeGroup().places()) {</span>
-<span class="fc bfc" id="L298" title="All 2 branches covered.">            if (p.equals(here())) {</span>
-<span class="fc" id="L299">                continue;</span>
+<span class="fc" id="L703">        final CachableChunkedList&lt;T&gt; toBranch = this;</span>
+<span class="fc bfc" id="L704" title="All 2 branches covered.">        for (final Place p : placeGroup().places()) {</span>
+<span class="fc bfc" id="L705" title="All 2 branches covered.">            if (p.equals(here())) {</span>
+<span class="fc" id="L706">                continue;</span>
             }
-<span class="fc" id="L301">            final List&lt;RangedList&lt;T&gt;&gt; chunks = searchSharedChunks(p, ranges);</span>
-<span class="fc" id="L302">            final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
-<span class="fc" id="L303">                s.writeInt(chunks.size());</span>
-<span class="fc bfc" id="L304" title="All 2 branches covered.">                for (final RangedList&lt;T&gt; chunk : chunks) {</span>
-<span class="fc" id="L305">                    s.writeObject(chunk.getRange());</span>
-<span class="fc" id="L306">                    chunk.forEach((T elem) -&gt; {</span>
-<span class="fc" id="L307">                        s.writeObject(pack.apply(elem));</span>
-<span class="fc" id="L308">                    });</span>
-<span class="fc" id="L309">                }</span>
-<span class="fc" id="L310">            };</span>
-<span class="fc" id="L311">            final DeSerializer desProcess = (ObjectInput ds) -&gt; {</span>
-<span class="fc" id="L312">                final int n = ds.readInt();</span>
-<span class="fc bfc" id="L313" title="All 2 branches covered.">                for (int i = 0; i &lt; n; i++) {</span>
-<span class="fc" id="L314">                    final LongRange range0 = (LongRange) ds.readObject();</span>
-<span class="pc bpc" id="L315" title="1 of 2 branches missed.">                    if (!toBranch.containsRange(range0)) {</span>
-<span class="nc" id="L316">                        throw new ConcurrentModificationException(</span>
-<span class="nc" id="L317">                                &quot;The specified range seems to be remove from &quot; + toBranch + &quot; at &quot; + here());</span>
+<span class="fc" id="L708">            final List&lt;RangedList&lt;T&gt;&gt; chunks = searchSharedChunks(p, ranges);</span>
+<span class="fc" id="L709">            final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
+<span class="fc" id="L710">                s.writeInt(chunks.size());</span>
+<span class="fc bfc" id="L711" title="All 2 branches covered.">                for (final RangedList&lt;T&gt; chunk : chunks) {</span>
+<span class="fc" id="L712">                    s.writeObject(chunk.getRange());</span>
+<span class="fc" id="L713">                    chunk.forEach((T elem) -&gt; {</span>
+<span class="fc" id="L714">                        s.writeObject(pack.apply(elem));</span>
+<span class="fc" id="L715">                    });</span>
+<span class="fc" id="L716">                }</span>
+<span class="fc" id="L717">            };</span>
+<span class="fc" id="L718">            final DeSerializer desProcess = (ObjectInput ds) -&gt; {</span>
+<span class="fc" id="L719">                final int n = ds.readInt();</span>
+<span class="fc bfc" id="L720" title="All 2 branches covered.">                for (int i = 0; i &lt; n; i++) {</span>
+<span class="fc" id="L721">                    final LongRange range0 = (LongRange) ds.readObject();</span>
+<span class="pc bpc" id="L722" title="1 of 2 branches missed.">                    if (!toBranch.containsRange(range0)) {</span>
+<span class="nc" id="L723">                        throw new ConcurrentModificationException(</span>
+<span class="nc" id="L724">                                &quot;The specified range seems to be remove from &quot; + toBranch + &quot; at &quot; + here());</span>
                     }
-<span class="fc" id="L319">                    toBranch.forEach(range0, (T elem) -&gt; {</span>
+<span class="fc" id="L726">                    toBranch.forEach(range0, (T elem) -&gt; {</span>
                         @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L321">                        final U diff = (U) ds.readObject();</span>
-<span class="fc" id="L322">                        unpack.accept(elem, diff);</span>
-<span class="fc" id="L323">                    });</span>
+<span class="fc" id="L728">                        final U diff = (U) ds.readObject();</span>
+<span class="fc" id="L729">                        unpack.accept(elem, diff);</span>
+<span class="fc" id="L730">                    });</span>
                 }
-<span class="fc" id="L325">            };</span>
-<span class="fc" id="L326">            mm.request(p, serProcess, desProcess);</span>
-<span class="fc" id="L327">        }</span>
-<span class="fc" id="L328">    }</span>
+<span class="fc" id="L732">            };</span>
+<span class="fc" id="L733">            mm.request(p, serProcess, desProcess);</span>
+<span class="fc" id="L734">        }</span>
+<span class="fc" id="L735">    }</span>
 
     @Override
     public RangedList&lt;T&gt; remove(final LongRange r) {
-<span class="fc" id="L332">        assertUnshared(r);</span>
-<span class="fc" id="L333">        return super.remove(r);</span>
+<span class="fc" id="L739">        assertUnshared(r);</span>
+<span class="fc" id="L740">        return super.remove(r);</span>
     }
 
     private List&lt;RangedList&lt;T&gt;&gt; searchSharedChunks(List&lt;LongRange&gt; ranges) {
-<span class="fc" id="L337">        final ArrayList&lt;RangedList&lt;T&gt;&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L338" title="All 2 branches covered.">        for (final LongRange range : ranges) {</span>
-<span class="fc" id="L339">            shared.forEachChunk(range, (RangedList&lt;T&gt; r0) -&gt; {</span>
-<span class="pc bpc" id="L340" title="1 of 2 branches missed.">                if (range.contains(r0.getRange())) {</span>
-<span class="nc" id="L341">                    result.add(r0);</span>
+<span class="fc" id="L744">        final ArrayList&lt;RangedList&lt;T&gt;&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L745" title="All 2 branches covered.">        for (final LongRange range : ranges) {</span>
+<span class="fc" id="L746">            shared.forEachChunk(range, (RangedList&lt;T&gt; r0) -&gt; {</span>
+<span class="fc bfc" id="L747" title="All 2 branches covered.">                if (range.contains(r0.getRange())) {</span>
+<span class="fc" id="L748">                    result.add(r0);</span>
                 } else {
-<span class="fc" id="L343">                    result.add(r0.subList(range));</span>
+<span class="fc" id="L750">                    result.add(r0.subList(range));</span>
                 }
-<span class="fc" id="L345">            });</span>
-<span class="fc" id="L346">        }</span>
-<span class="fc" id="L347">        return result;</span>
+<span class="fc" id="L752">            });</span>
+<span class="fc" id="L753">        }</span>
+<span class="fc" id="L754">        return result;</span>
     }
 
     private List&lt;RangedList&lt;T&gt;&gt; searchSharedChunks(Place owner, List&lt;LongRange&gt; ranges) {
-<span class="fc" id="L351">        final ArrayList&lt;RangedList&lt;T&gt;&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L352" title="All 2 branches covered.">        for (final LongRange range : ranges) {</span>
-<span class="fc" id="L353">            shared.forEachChunk(range, (RangedList&lt;T&gt; r0) -&gt; {</span>
-<span class="fc bfc" id="L354" title="All 2 branches covered.">                if (shared2owner.get(r0).equals(owner)) {</span>
-<span class="pc bpc" id="L355" title="1 of 2 branches missed.">                    if (range.contains(r0.getRange())) {</span>
-<span class="nc" id="L356">                        result.add(r0);</span>
+<span class="fc" id="L758">        final ArrayList&lt;RangedList&lt;T&gt;&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L759" title="All 2 branches covered.">        for (final LongRange range : ranges) {</span>
+<span class="fc" id="L760">            shared.forEachChunk(range, (RangedList&lt;T&gt; r0) -&gt; {</span>
+<span class="fc bfc" id="L761" title="All 2 branches covered.">                if (shared2owner.get(r0).equals(owner)) {</span>
+<span class="pc bpc" id="L762" title="1 of 2 branches missed.">                    if (range.contains(r0.getRange())) {</span>
+<span class="nc" id="L763">                        result.add(r0);</span>
                     } else {
-<span class="fc" id="L358">                        result.add(r0.subList(range));</span>
+<span class="fc" id="L765">                        result.add(r0.subList(range));</span>
                     }
                 }
-<span class="fc" id="L361">            });</span>
-<span class="fc" id="L362">        }</span>
-<span class="fc" id="L363">        return result;</span>
+<span class="fc" id="L768">            });</span>
+<span class="fc" id="L769">        }</span>
+<span class="fc" id="L770">        return result;</span>
     }
 
     @Override
     public void setProxyGenerator(Function&lt;Long, T&gt; func) {
-<span class="nc" id="L368">        throw new UnsupportedOperationException(&quot;CachableChunkedList does not support proxy feature.&quot;);</span>
+<span class="nc" id="L775">        throw new UnsupportedOperationException(&quot;CachableChunkedList does not support proxy feature.&quot;);</span>
     }
 
+    /**
+     * Calls for the sharing of chunks between the local handles of the
+     * {@link CachableChunkedList}, but with this local handle not sharing any chunk
+     * with the other handles. Instead, it will only receive the chunked shared by
+     * the other handles.
+     */
     public void share() {
-<span class="nc" id="L372">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
-<span class="nc" id="L373">        share(Collections.singletonList(null), mm);</span>
-<span class="nc" id="L374">        mm.execute();</span>
-<span class="nc" id="L375">    }</span>
-
-    public void share(CollectiveRelocator.Allgather mm) {
-<span class="nc" id="L378">        share(Collections.singletonList(null), mm);</span>
-<span class="nc" id="L379">    }</span>
-
-    public void share(List&lt;LongRange&gt; ranges) {
-<span class="nc" id="L382">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
-<span class="nc" id="L383">        share(ranges, mm);</span>
-<span class="nc" id="L384">        mm.execute();</span>
-<span class="nc" id="L385">    }</span>
+<span class="fc" id="L785">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
+<span class="fc" id="L786">        share(Collections.emptyList(), mm);</span>
+<span class="fc" id="L787">        mm.execute();</span>
+<span class="fc" id="L788">    }</span>
 
     /**
      * conduct broadcast operation on chunks that are not shared with other places
@@ -390,17 +793,84 @@ public class CachableChunkedList&lt;T&gt; extends DistCol&lt;T&gt; {
      * in all the place belonging to the place group. This method should not be
      * called simultaneously with other collective methods. The caller place is
      * treated as the owner even if the chunks become shared.
-     *
+     * &lt;p&gt;
      * Note 1: if you want to share all the local chunks, please call
-     * {@code share()}. Note 2: if you want to specify multiple ranges, please use
-     * {@code share(List&lt;LongRange&gt;)}. Note 3: if you don't want to share any local
-     * chunks from the called place, please specify an empty range or an empty list
-     * of ranges. Note 3: if you want to conduct relocate process of multiple
-     * cachable chunked lists using the same ObjectOutput(Stream), please prepare an
-     * instance of {@link CollectiveRelocator.Allgather} first and call the
-     * relocation methods of the cachable chunked lists in the same order specifying
-     * the collective relocator as a parameter, and finally call the execute method
-     * of the relocator.
+     * {@link #share()}
+     * &lt;p&gt;
+     * Note 2: if you want to specify multiple ranges, please use
+     * {@link #share(List)}.
+     * &lt;p&gt;
+     * Note 3: if you don't want to share any local chunks from the called place,
+     * please specify an empty range or an empty list of ranges.
+     * &lt;p&gt;
+     * Note 4: if you want to conduct the relocation process of multiple cachable
+     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
+     * of {@link CollectiveRelocator.Allgather} first and call the relocation
+     * methods of the cachable chunked lists in the same order specifying the
+     * collective relocator as a parameter, and finally call the execute method of
+     * the relocator.
+     *
+     * @param mm You can relocate multiple cachable chunked lists using the same
+     *           collective relocator, specified with {@code mm}.
+     */
+    public void share(CollectiveRelocator.Allgather mm) {
+<span class="nc" id="L817">        share(Collections.singletonList(null), mm);</span>
+<span class="nc" id="L818">    }</span>
+
+    /**
+     * conduct broadcast operation on chunks that are not shared with other places
+     * yet. The user must call each of the share methods of a cachable chunked list
+     * in all the place belonging to the place group. This method should not be
+     * called simultaneously with other collective methods. The caller place is
+     * treated as the owner even if the chunks become shared.
+     * &lt;p&gt;
+     * Note 1: if you want to share all the local chunks, please call
+     * {@link #share()}
+     * &lt;p&gt;
+     * Note 2: if you want to specify multiple ranges, please use
+     * {@link #share(List)}.
+     * &lt;p&gt;
+     * Note 3: if you don't want to share any local chunks from the called place,
+     * please specify an empty range or an empty list of ranges.
+     * &lt;p&gt;
+     * Note 4: if you want to conduct the relocation process of multiple cachable
+     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
+     * of {@link CollectiveRelocator.Allgather} first and call the relocation
+     * methods of the cachable chunked lists in the same order specifying the
+     * collective relocator as a parameter, and finally call the execute method of
+     * the relocator.
+     *
+     * @param ranges The library scans the ranges and exports (the parts of) the
+     *               local chunks in the ranges.
+     */
+    public void share(List&lt;LongRange&gt; ranges) {
+<span class="nc" id="L847">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
+<span class="nc" id="L848">        share(ranges, mm);</span>
+<span class="nc" id="L849">        mm.execute();</span>
+<span class="nc" id="L850">    }</span>
+
+    /**
+     * conduct broadcast operation on chunks that are not shared with other places
+     * yet. The user must call each of the share methods of a cachable chunked list
+     * in all the place belonging to the place group. This method should not be
+     * called simultaneously with other collective methods. The caller place is
+     * treated as the owner even if the chunks become shared.
+     * &lt;p&gt;
+     * Note 1: if you want to share all the local chunks, please call
+     * {@link #share()}
+     * &lt;p&gt;
+     * Note 2: if you want to specify multiple ranges, please use
+     * {@link #share(List)}.
+     * &lt;p&gt;
+     * Note 3: if you don't want to share any local chunks from the called place,
+     * please specify an empty range or an empty list of ranges.
+     * &lt;p&gt;
+     * Note 4: if you want to conduct the relocation process of multiple cachable
+     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
+     * of {@link CollectiveRelocator.Allgather} first and call the relocation
+     * methods of the cachable chunked lists in the same order specifying the
+     * collective relocator as a parameter, and finally call the execute method of
+     * the relocator.
      *
      * @param ranges The library scans the ranges and exports (the parts of) the
      *               local chunks in the ranges.
@@ -408,38 +878,99 @@ public class CachableChunkedList&lt;T&gt; extends DistCol&lt;T&gt; {
      *               collective relocator, specified with {@code mm}.
      */
     public void share(final List&lt;LongRange&gt; ranges, CollectiveRelocator.Allgather mm) {
-<span class="fc" id="L411">        final List&lt;RangedList&lt;T&gt;&gt; chunks = exportLocalChunks(ranges);</span>
-<span class="fc" id="L412">        final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
-<span class="fc" id="L413">            s.writeObject(chunks);</span>
-<span class="fc" id="L414">        };</span>
-<span class="fc" id="L415">        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place sender) -&gt; {</span>
+<span class="fc" id="L881">        final List&lt;RangedList&lt;T&gt;&gt; chunks = exportLocalChunks(ranges);</span>
+<span class="fc" id="L882">        final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
+<span class="fc" id="L883">            s.writeObject(chunks);</span>
+<span class="fc" id="L884">        };</span>
+<span class="fc" id="L885">        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place sender) -&gt; {</span>
             @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L417">            final List&lt;RangedList&lt;T&gt;&gt; received = (List&lt;RangedList&lt;T&gt;&gt;) ds.readObject();</span>
-<span class="fc" id="L418">            addNewShared(sender, received);</span>
-<span class="fc" id="L419">        };</span>
-<span class="fc" id="L420">        mm.request(serProcess, desProcess);</span>
-<span class="fc" id="L421">    }</span>
+<span class="fc" id="L887">            final List&lt;RangedList&lt;T&gt;&gt; received = (List&lt;RangedList&lt;T&gt;&gt;) ds.readObject();</span>
+<span class="fc" id="L888">            addNewShared(sender, received);</span>
+<span class="fc" id="L889">        };</span>
+<span class="fc" id="L890">        mm.request(serProcess, desProcess);</span>
+<span class="fc" id="L891">    }</span>
 
+    /**
+     * conduct broadcast operation on chunks that are not shared with other places
+     * yet. The user must call each of the share methods of a cachable chunked list
+     * in all the place belonging to the place group. This method should not be
+     * called simultaneously with other collective methods. The caller place is
+     * treated as the owner even if the chunks become shared.
+     * &lt;p&gt;
+     * Note 1: if you want to share all the local chunks, please call
+     * {@link #share()}
+     * &lt;p&gt;
+     * Note 2: if you want to specify multiple ranges, please use
+     * {@link #share(List)}.
+     * &lt;p&gt;
+     * Note 3: if you don't want to share any local chunks from the called place,
+     * please specify an empty range or an empty list of ranges.
+     * &lt;p&gt;
+     * Note 4: if you want to conduct the relocation process of multiple cachable
+     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
+     * of {@link CollectiveRelocator.Allgather} first and call the relocation
+     * methods of the cachable chunked lists in the same order specifying the
+     * collective relocator as a parameter, and finally call the execute method of
+     * the relocator.
+     *
+     * @param range The library scans the range and exports (the parts of) the local
+     *              chunks in the range.
+     */
     public void share(LongRange range) {
-<span class="fc" id="L424">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
-<span class="fc" id="L425">        share(Collections.singletonList(range), mm);</span>
-<span class="fc" id="L426">        mm.execute();</span>
-<span class="fc" id="L427">    }</span>
+<span class="fc" id="L920">        final CollectiveRelocator.Allgather mm = new CollectiveRelocator.Allgather(placeGroup());</span>
+<span class="fc" id="L921">        share(Collections.singletonList(range), mm);</span>
+<span class="fc" id="L922">        mm.execute();</span>
+<span class="fc" id="L923">    }</span>
 
+    /**
+     * conduct broadcast operation on chunks that are not shared with other places
+     * yet. The user must call each of the share methods of a cachable chunked list
+     * in all the place belonging to the place group. This method should not be
+     * called simultaneously with other collective methods. The caller place is
+     * treated as the owner even if the chunks become shared.
+     * &lt;p&gt;
+     * Note 1: if you want to share all the local chunks, please call
+     * {@link #share()}
+     * &lt;p&gt;
+     * Note 2: if you want to specify multiple ranges, please use
+     * {@link #share(List)}.
+     * &lt;p&gt;
+     * Note 3: if you don't want to share any local chunks from the called place,
+     * please specify an empty range or an empty list of ranges.
+     * &lt;p&gt;
+     * Note 4: if you want to conduct the relocation process of multiple cachable
+     * chunked lists using the same ObjectOutput(Stream), please prepare an instance
+     * of {@link CollectiveRelocator.Allgather} first and call the relocation
+     * methods of the cachable chunked lists in the same order specifying the
+     * collective relocator as a parameter, and finally call the execute method of
+     * the relocator.
+     *
+     * @param range The library scans the range and exports (the parts of) the local
+     *              chunks in the range.
+     * @param mm    You can relocate multiple cachable chunked lists using the same
+     *              collective relocator, specified with {@code mm}.
+     */
     public void share(LongRange range, CollectiveRelocator.Allgather mm) {
-<span class="nc" id="L430">        share(Collections.singletonList(range), mm);</span>
-<span class="nc" id="L431">    }</span>
+<span class="nc" id="L954">        share(Collections.singletonList(range), mm);</span>
+<span class="nc" id="L955">    }</span>
 
+    /**
+     * Returns ChunkedList contains chunks that are already shared within the place
+     * group. The returned shared chunkedList has an unmodifiable structure.
+     * Operations such as add and remove cannot be performed.
+     *
+     * @return ChunkedList contains chunks that are already shared
+     */
     public ChunkedList&lt;T&gt; sharedChunks() {
-<span class="nc" id="L434">        return new ChunkedList.UnmodifiableView&lt;&gt;(shared);</span>
+<span class="nc" id="L965">        return new ChunkedList.UnmodifiableView&lt;&gt;(shared);</span>
     }
 
     @Override
     public Object writeReplace() throws ObjectStreamException {
-<span class="fc" id="L439">        final TeamedPlaceGroup pg1 = manager.placeGroup;</span>
-<span class="fc" id="L440">        final GlobalID id1 = id();</span>
-<span class="fc" id="L441">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
-<span class="fc" id="L442">            return new CachableChunkedList&lt;&gt;(pg1, id1);</span>
+<span class="fc" id="L970">        final TeamedPlaceGroup pg1 = manager.placeGroup;</span>
+<span class="fc" id="L971">        final GlobalID id1 = id();</span>
+<span class="fc" id="L972">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L973">            return new CachableChunkedList&lt;&gt;(pg1, id1);</span>
         });
     }
 

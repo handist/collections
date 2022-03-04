@@ -12,6 +12,7 @@ import java.io.ObjectOutputStream;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -19,14 +20,10 @@ import java.util.TreeMap;
 
 import apgas.Constructs;
 import apgas.Place;
-import handist.collections.Chunk;
-import handist.collections.LongRange;
-import handist.collections.dist.DistCol;
 import handist.collections.dist.DistLog;
 import handist.collections.dist.DistLog.LogItem;
 import handist.collections.dist.DistLog.LogKey;
 import handist.collections.dist.DistMultiMap;
-import handist.collections.glb.GlobalLoadBalancer;
 
 /**
  * Class used as a substitute to {@link DistLog} to save the events recorded
@@ -67,11 +64,11 @@ public class SavedLog {
          * @param t tag under which the events are gathered
          * @param f the phase during which the events occurred
          */
-<span class="fc" id="L70">        private Key(int p, String t, long f) {</span>
-<span class="fc" id="L71">            place = p;</span>
-<span class="fc" id="L72">            tag = t;</span>
-<span class="fc" id="L73">            phase = f;</span>
-<span class="fc" id="L74">        }</span>
+<span class="fc" id="L67">        private Key(int p, String t, long f) {</span>
+<span class="fc" id="L68">            place = p;</span>
+<span class="fc" id="L69">            tag = t;</span>
+<span class="fc" id="L70">            phase = f;</span>
+<span class="fc" id="L71">        }</span>
 
         /**
          * Two {@link Key}s are equal iff their respective {@link #place}, {@link #tag}
@@ -80,74 +77,85 @@ public class SavedLog {
          */
         @Override
         public boolean equals(Object obj) {
-<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            if (obj == null) {</span>
-<span class="nc" id="L84">                return false;</span>
-<span class="pc bpc" id="L85" title="1 of 2 branches missed.">            } else if (obj instanceof LogKey) {</span>
-<span class="nc" id="L86">                final LogKey logKey = (LogKey) obj;</span>
-<span class="nc bnc" id="L87" title="All 6 branches missed.">                return place == logKey.place.id &amp;&amp; nullSafeEquals(tag, logKey.tag) &amp;&amp; (phase == logKey.phase);</span>
-<span class="pc bpc" id="L88" title="1 of 2 branches missed.">            } else if (obj instanceof Key) {</span>
-<span class="fc" id="L89">                final Key key2 = (Key) obj;</span>
-<span class="pc bpc" id="L90" title="3 of 6 branches missed.">                return place == key2.place &amp;&amp; nullSafeEquals(tag, key2.tag) &amp;&amp; (phase == key2.phase);</span>
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">            if (obj == null) {</span>
+<span class="nc" id="L81">                return false;</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">            } else if (obj instanceof LogKey) {</span>
+<span class="nc" id="L83">                final LogKey logKey = (LogKey) obj;</span>
+<span class="nc bnc" id="L84" title="All 6 branches missed.">                return place == logKey.place.id &amp;&amp; nullSafeEquals(tag, logKey.tag) &amp;&amp; (phase == logKey.phase);</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">            } else if (obj instanceof Key) {</span>
+<span class="fc" id="L86">                final Key key2 = (Key) obj;</span>
+<span class="pc bpc" id="L87" title="3 of 6 branches missed.">                return place == key2.place &amp;&amp; nullSafeEquals(tag, key2.tag) &amp;&amp; (phase == key2.phase);</span>
             }
-<span class="nc" id="L92">            return false;</span>
+<span class="nc" id="L89">            return false;</span>
         }
 
         @Override
         public int hashCode() {
-<span class="fc" id="L97">            return place + (tag.hashCode() &lt;&lt; 2) + (int) (phase &lt;&lt; 4 + phase &gt;&gt; 16);</span>
+<span class="fc" id="L94">            return place + (tag.hashCode() &lt;&lt; 2) + (int) (phase &lt;&lt; 4 + phase &gt;&gt; 16);</span>
         }
 
         @Override
         public String toString() {
-<span class="nc" id="L102">            return &quot;Log@Place(&quot; + place + &quot;), tag: &quot; + tag + &quot;, phase: &quot; + phase;</span>
+<span class="nc" id="L99">            return &quot;Log@Place(&quot; + place + &quot;), tag: &quot; + tag + &quot;, phase: &quot; + phase;</span>
         }
 
     }
 
     /**
-     * Main used to generate a file into which the events of GLB program execution
-     * are recorded
+     * Comparator which sorts the keys of a saved log according to their:
+     * &lt;ol&gt;
+     * &lt;li&gt;place
+     * &lt;li&gt;tag
+     * &lt;li&gt;phase
+     * &lt;/ol&gt;
+     */
+<span class="fc" id="L112">    public static final Comparator&lt;? super Key&gt; sortPlaceTagPhase = (o1, o2) -&gt; {</span>
+<span class="nc" id="L113">        int result = Integer.compareUnsigned(o1.place, o2.place);</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">        if (result == 0) {</span>
+<span class="nc" id="L115">            result = o1.tag.compareTo(o2.tag);</span>
+        }
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        if (result == 0) {</span>
+<span class="nc" id="L118">            result = Long.compare(o1.phase, o2.phase);</span>
+        }
+<span class="nc" id="L120">        return result;</span>
+    };
+
+    /**
+     * Main which prints the contents of a saved log, with the keys and the number
+     * of entries for said keys on std output, and the entire contents of the saved
+     * log on the error output.
      *
      * @param args one argument: the name of the file into which the log will be
      *             stored
      */
     public static void main(String[] args) {
-<span class="nc bnc" id="L115" title="All 2 branches missed.">        if (args.length &lt; 1) {</span>
-<span class="nc" id="L116">            System.err.println(&quot;1 arguments required:&quot;);</span>
-<span class="nc" id="L117">            System.err.println(&quot;\t&lt;file name&gt; \tspecifies the file into which the log recording will be written&quot;);</span>
-<span class="nc" id="L118">            return;</span>
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (args.length &lt; 1) {</span>
+<span class="nc" id="L133">            System.err.println(&quot;1 arguments required:&quot;);</span>
+<span class="nc" id="L134">            System.err.println(&quot;\t&lt;file name&gt; \tfile to which a distributed log was saved&quot;);</span>
+<span class="nc" id="L135">            return;</span>
         }
 
-<span class="nc" id="L121">        final DistCol&lt;Long&gt; col = new DistCol&lt;&gt;();</span>
-<span class="nc bnc" id="L122" title="All 2 branches missed.">        for (long l = 0l; l &lt; 1000; l += 100) {</span>
-<span class="nc" id="L123">            final Chunk&lt;Long&gt; c = new Chunk&lt;&gt;(new LongRange(l, l + 100), idx -&gt; {</span>
-<span class="nc" id="L124">                return new Long(idx);</span>
-            });
-<span class="nc" id="L126">            col.add(c);</span>
-        }
-
-<span class="nc" id="L129">        GlobalLoadBalancer.underGLB(() -&gt; {</span>
-<span class="nc" id="L130">            col.GLB.forEach(i -&gt; i.compareTo(i + 42));</span>
-<span class="nc" id="L131">        });</span>
-
-<span class="nc" id="L133">        final DistLog distLog = GlobalLoadBalancer.getPreviousLog();</span>
-<span class="nc" id="L134">        distLog.globalGather();</span>
-<span class="nc" id="L135">        distLog.printAll(System.out);</span>
-<span class="nc" id="L136">        final SavedLog log = new SavedLog(distLog);</span>
+        SavedLog savedLog;
         try {
-<span class="nc" id="L138">            log.saveToFile(new File(args[0]));</span>
-<span class="nc" id="L139">        } catch (final IOException e) {</span>
-<span class="nc" id="L140">            System.err.println(&quot;Issue when trying to write to file:&quot;);</span>
-<span class="nc" id="L141">            e.printStackTrace();</span>
-<span class="nc" id="L142">        }</span>
-<span class="nc" id="L143">    }</span>
+<span class="nc" id="L140">            savedLog = new SavedLog(new File(args[0]));</span>
+<span class="nc" id="L141">        } catch (ClassNotFoundException | IOException e) {</span>
+<span class="nc" id="L142">            System.err.println(&quot;Trouble when parsing file &quot;);</span>
+<span class="nc" id="L143">            e.printStackTrace();</span>
+<span class="nc" id="L144">            return;</span>
+<span class="nc" id="L145">        }</span>
+<span class="nc" id="L146">        savedLog.printKeys(System.out);</span>
+<span class="nc" id="L147">        savedLog.printAll(System.err);</span>
+<span class="nc" id="L148">    }</span>
 
     /**
      * Map into which the logged entries of the {@link DistLog} are converted
      */
-    private final HashMap&lt;Key, Collection&lt;LogItem&gt;&gt; loggedEntries;
+    public final HashMap&lt;Key, Collection&lt;LogItem&gt;&gt; loggedEntries;
 
-    private final int numberOfHosts;
+    /**
+     * Number of hosts in the original distributed log recording
+     */
+    public final int numberOfHosts;
 
     /**
      * Constructor
@@ -155,21 +163,21 @@ public class SavedLog {
      * @param log the distributed log instance into which events that occurred
      *            during a GLB execution were recorded
      */
-<span class="fc" id="L158">    public SavedLog(DistLog log) {</span>
-<span class="fc" id="L159">        numberOfHosts = Constructs.places().size();</span>
+<span class="fc" id="L166">    public SavedLog(DistLog log) {</span>
+<span class="fc" id="L167">        numberOfHosts = Constructs.places().size();</span>
 
-<span class="fc" id="L161">        log.globalGather();</span>
+<span class="fc" id="L169">        log.globalGather();</span>
 
-<span class="fc" id="L163">        final DistMultiMap&lt;LogKey, LogItem&gt; distLogMap = log.getDistMultiMap();</span>
-<span class="fc" id="L164">        loggedEntries = new HashMap&lt;&gt;(distLogMap.size());</span>
+<span class="fc" id="L171">        final DistMultiMap&lt;LogKey, LogItem&gt; distLogMap = log.getDistMultiMap();</span>
+<span class="fc" id="L172">        loggedEntries = new HashMap&lt;&gt;(distLogMap.size());</span>
 
         // Initialize member loggedEntries by substituting the keys used to log the
         // various entries
-<span class="fc" id="L168">        log.getDistMultiMap().forEach((key, entries) -&gt; {</span>
-<span class="fc" id="L169">            final Key substituteKey = new Key(key.place.id, key.tag, key.phase);</span>
-<span class="fc" id="L170">            loggedEntries.put(substituteKey, entries);</span>
-<span class="fc" id="L171">        });</span>
-<span class="fc" id="L172">    }</span>
+<span class="fc" id="L176">        log.getDistMultiMap().forEach((key, entries) -&gt; {</span>
+<span class="fc" id="L177">            final Key substituteKey = new Key(key.place.id, key.tag, key.phase);</span>
+<span class="fc" id="L178">            loggedEntries.put(substituteKey, entries);</span>
+<span class="fc" id="L179">        });</span>
+<span class="fc" id="L180">    }</span>
 
     /**
      * Constructor
@@ -183,49 +191,49 @@ public class SavedLog {
      *                                specified file
      */
     @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L186">    public SavedLog(File file) throws IOException, ClassNotFoundException {</span>
-<span class="fc" id="L187">        final ObjectInputStream inStream = new ObjectInputStream(new FileInputStream(file));</span>
-<span class="fc" id="L188">        numberOfHosts = inStream.readInt();</span>
-<span class="fc" id="L189">        loggedEntries = (HashMap&lt;Key, Collection&lt;LogItem&gt;&gt;) inStream.readObject();</span>
-<span class="fc" id="L190">        inStream.close();</span>
-<span class="fc" id="L191">    }</span>
+<span class="fc" id="L194">    public SavedLog(File file) throws IOException, ClassNotFoundException {</span>
+<span class="fc" id="L195">        final ObjectInputStream inStream = new ObjectInputStream(new FileInputStream(file));</span>
+<span class="fc" id="L196">        numberOfHosts = inStream.readInt();</span>
+<span class="fc" id="L197">        loggedEntries = (HashMap&lt;Key, Collection&lt;LogItem&gt;&gt;) inStream.readObject();</span>
+<span class="fc" id="L198">        inStream.close();</span>
+<span class="fc" id="L199">    }</span>
 
     @Override
     public boolean equals(Object o) {
-<span class="pc bpc" id="L195" title="1 of 2 branches missed.">        if (o == null) {</span>
-<span class="nc" id="L196">            return false;</span>
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">        if (o == null) {</span>
+<span class="nc" id="L204">            return false;</span>
         }
-<span class="fc bfc" id="L198" title="All 2 branches covered.">        if (o instanceof SavedLog) {</span>
-<span class="fc" id="L199">            return equalsGlbLog((SavedLog) o);</span>
-<span class="pc bpc" id="L200" title="1 of 2 branches missed.">        } else if (o instanceof DistLog) {</span>
-<span class="fc" id="L201">            return equalsDistLog((DistLog) o);</span>
+<span class="fc bfc" id="L206" title="All 2 branches covered.">        if (o instanceof SavedLog) {</span>
+<span class="fc" id="L207">            return equalsGlbLog((SavedLog) o);</span>
+<span class="pc bpc" id="L208" title="1 of 2 branches missed.">        } else if (o instanceof DistLog) {</span>
+<span class="fc" id="L209">            return equalsDistLog((DistLog) o);</span>
         } else {
-<span class="nc" id="L203">            return false;</span>
+<span class="nc" id="L211">            return false;</span>
         }
     }
 
     private boolean equalsDistLog(DistLog log) {
-<span class="fc" id="L208">        final Map&lt;LogKey, Collection&lt;LogItem&gt;&gt; logMap = log.getDistMultiMap();</span>
-<span class="fc bfc" id="L209" title="All 2 branches covered.">        if (logMap.size() != loggedEntries.size()) {</span>
-<span class="fc" id="L210">            return false;</span>
+<span class="fc" id="L216">        final Map&lt;LogKey, Collection&lt;LogItem&gt;&gt; logMap = log.getDistMultiMap();</span>
+<span class="fc bfc" id="L217" title="All 2 branches covered.">        if (logMap.size() != loggedEntries.size()) {</span>
+<span class="fc" id="L218">            return false;</span>
         }
 
-<span class="fc bfc" id="L213" title="All 2 branches covered.">        for (final Key k : loggedEntries.keySet()) {</span>
-<span class="fc" id="L214">            final Collection&lt;LogItem&gt; otherItems = log.getLog(place(k.place), k.tag, k.phase);</span>
-<span class="fc" id="L215">            final Collection&lt;LogItem&gt; myItems = loggedEntries.get(k);</span>
+<span class="fc bfc" id="L221" title="All 2 branches covered.">        for (final Key k : loggedEntries.keySet()) {</span>
+<span class="fc" id="L222">            final Collection&lt;LogItem&gt; otherItems = log.getLog(place(k.place), k.tag, k.phase);</span>
+<span class="fc" id="L223">            final Collection&lt;LogItem&gt; myItems = loggedEntries.get(k);</span>
 
-<span class="pc bpc" id="L217" title="2 of 4 branches missed.">            if (otherItems != null &amp;&amp; otherItems.size() == myItems.size()) {</span>
+<span class="pc bpc" id="L225" title="2 of 4 branches missed.">            if (otherItems != null &amp;&amp; otherItems.size() == myItems.size()) {</span>
                 // Check that every item in 'myItems' is also in 'otherItems'
-<span class="pc bpc" id="L219" title="1 of 2 branches missed.">                if (!otherItems.containsAll(myItems)) {</span>
-<span class="nc" id="L220">                    return false;</span>
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">                if (!otherItems.containsAll(myItems)) {</span>
+<span class="nc" id="L228">                    return false;</span>
                 }
             } else {
-<span class="nc" id="L223">                return false;</span>
+<span class="nc" id="L231">                return false;</span>
             }
             // 2-way comparison
-<span class="fc" id="L226">        }</span>
+<span class="fc" id="L234">        }</span>
 
-<span class="fc" id="L228">        return true;</span>
+<span class="fc" id="L236">        return true;</span>
     }
 
     /**
@@ -235,28 +243,27 @@ public class SavedLog {
      * @return
      */
     private boolean equalsGlbLog(SavedLog log) {
-<span class="fc" id="L238">        final Map&lt;Key, Collection&lt;LogItem&gt;&gt; logMap = log.loggedEntries;</span>
-<span class="pc bpc" id="L239" title="1 of 2 branches missed.">        if (logMap.size() != loggedEntries.size()) {</span>
-<span class="nc" id="L240">            return false;</span>
+<span class="fc" id="L246">        final Map&lt;Key, Collection&lt;LogItem&gt;&gt; logMap = log.loggedEntries;</span>
+<span class="pc bpc" id="L247" title="1 of 2 branches missed.">        if (logMap.size() != loggedEntries.size()) {</span>
+<span class="nc" id="L248">            return false;</span>
         }
 
-<span class="fc bfc" id="L243" title="All 2 branches covered.">        for (final Key k : loggedEntries.keySet()) {</span>
-<span class="fc" id="L244">            final Collection&lt;LogItem&gt; otherItems = log.getLog(k.place, k.tag, k.phase);</span>
-<span class="fc" id="L245">            final Collection&lt;LogItem&gt; myItems = loggedEntries.get(k);</span>
-<span class="fc" id="L246">            System.out.println(otherItems.size() + &quot; &quot; + myItems.size());</span>
+<span class="fc bfc" id="L251" title="All 2 branches covered.">        for (final Key k : loggedEntries.keySet()) {</span>
+<span class="fc" id="L252">            final Collection&lt;LogItem&gt; otherItems = log.getLog(k.place, k.tag, k.phase);</span>
+<span class="fc" id="L253">            final Collection&lt;LogItem&gt; myItems = loggedEntries.get(k);</span>
 
-<span class="pc bpc" id="L248" title="2 of 4 branches missed.">            if (otherItems != null &amp;&amp; otherItems.size() == myItems.size()) {</span>
+<span class="pc bpc" id="L255" title="2 of 4 branches missed.">            if (otherItems != null &amp;&amp; otherItems.size() == myItems.size()) {</span>
                 // Check that every item in 'myItems' is also in 'otherItems'
-<span class="pc bpc" id="L250" title="1 of 2 branches missed.">                if (!otherItems.containsAll(myItems)) {</span>
-<span class="nc" id="L251">                    return false;</span>
+<span class="pc bpc" id="L257" title="1 of 2 branches missed.">                if (!otherItems.containsAll(myItems)) {</span>
+<span class="nc" id="L258">                    return false;</span>
                 }
             } else {
-<span class="nc" id="L254">                return false;</span>
+<span class="nc" id="L261">                return false;</span>
             }
             // 2-way comparison
-<span class="fc" id="L257">        }</span>
+<span class="fc" id="L264">        }</span>
 
-<span class="fc" id="L259">        return true;</span>
+<span class="fc" id="L266">        return true;</span>
     }
 
     /**
@@ -269,7 +276,7 @@ public class SavedLog {
      *         the specified tuple, {@code null} if there are no such
      */
     public Collection&lt;LogItem&gt; getLog(int place, String tag, long phase) {
-<span class="fc" id="L272">        return getLog(new Key(place, tag, phase));</span>
+<span class="fc" id="L279">        return getLog(new Key(place, tag, phase));</span>
     }
 
     /**
@@ -280,7 +287,7 @@ public class SavedLog {
      *         there are no such elements
      */
     public Collection&lt;LogItem&gt; getLog(Key k) {
-<span class="fc" id="L283">        return loggedEntries.get(k);</span>
+<span class="fc" id="L290">        return loggedEntries.get(k);</span>
     }
 
     /**
@@ -292,7 +299,7 @@ public class SavedLog {
      * @return collection of logged items that
      */
     public Collection&lt;LogItem&gt; getLog(LogKey k) {
-<span class="fc" id="L295">        return getLog(k.place.id, k.tag, k.phase);</span>
+<span class="fc" id="L302">        return getLog(k.place.id, k.tag, k.phase);</span>
     }
 
     /**
@@ -302,36 +309,54 @@ public class SavedLog {
      * @return the number of processes involved in this computation
      */
     public int placeCount() {
-<span class="nc" id="L305">        return numberOfHosts;</span>
+<span class="nc" id="L312">        return numberOfHosts;</span>
     }
 
+    /**
+     * Dumps the entire contents of the saved log on the provided
+     * {@link PrintStream}.
+     *
+     * @param out the output stream on which the entire contents of the saved log
+     *            need to be dumped
+     */
     public void printAll(PrintStream out) {
         // Custom map sorted by place first and tag second
-<span class="nc" id="L310">        final TreeMap&lt;Key, Collection&lt;LogItem&gt;&gt; sorted = new TreeMap&lt;&gt;((o1, o2) -&gt; {</span>
-<span class="nc" id="L311">            int result = Integer.compareUnsigned(o1.place, o2.place);</span>
-<span class="nc bnc" id="L312" title="All 2 branches missed.">            if (result == 0) {</span>
-<span class="nc" id="L313">                result = o1.tag.compareTo(o2.tag);</span>
-            }
-<span class="nc bnc" id="L315" title="All 2 branches missed.">            if (result == 0) {</span>
-<span class="nc" id="L316">                result = Long.compare(o1.phase, o2.phase);</span>
-            }
-<span class="nc" id="L318">            return result;</span>
-        });
+<span class="nc" id="L324">        final TreeMap&lt;Key, Collection&lt;LogItem&gt;&gt; sorted = new TreeMap&lt;&gt;(sortPlaceTagPhase);</span>
 
         // Insert all logs into the map so that they get sorted
-<span class="nc bnc" id="L322" title="All 2 branches missed.">        for (final Entry&lt;Key, Collection&lt;LogItem&gt;&gt; entry : loggedEntries.entrySet()) {</span>
-<span class="nc" id="L323">            sorted.put(entry.getKey(), entry.getValue());</span>
-<span class="nc" id="L324">        }</span>
+<span class="nc bnc" id="L327" title="All 2 branches missed.">        for (final Entry&lt;Key, Collection&lt;LogItem&gt;&gt; entry : loggedEntries.entrySet()) {</span>
+<span class="nc" id="L328">            sorted.put(entry.getKey(), entry.getValue());</span>
+<span class="nc" id="L329">        }</span>
 
         // Traverse the sorted map and print each log on a dedicated line
-<span class="nc" id="L327">        sorted.forEach((Key key, Collection&lt;LogItem&gt; items) -&gt; {</span>
-<span class="nc" id="L328">            out.println(&quot;LogKey: &quot; + key);</span>
-<span class="nc bnc" id="L329" title="All 2 branches missed.">            for (final LogItem item : items) {</span>
-<span class="nc" id="L330">                out.println(item);</span>
-<span class="nc" id="L331">            }</span>
-<span class="nc" id="L332">        });</span>
+<span class="nc" id="L332">        sorted.forEach((Key key, Collection&lt;LogItem&gt; items) -&gt; {</span>
+<span class="nc" id="L333">            out.println(&quot;LogKey: &quot; + key);</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">            for (final LogItem item : items) {</span>
+<span class="nc" id="L335">                out.println(&quot;\t&quot; + item);</span>
+<span class="nc" id="L336">            }</span>
+<span class="nc" id="L337">        });</span>
+<span class="nc" id="L338">    }</span>
 
-<span class="nc" id="L334">    }</span>
+    /**
+     * Prints the keys and the number of entries for each key on the provided
+     * {@link PrintStream}.
+     *
+     * @param out the output stream on which the keys contained by the saved log
+     *            need to be printed
+     */
+    public void printKeys(PrintStream out) {
+<span class="nc" id="L348">        final TreeMap&lt;Key, Collection&lt;LogItem&gt;&gt; sorted = new TreeMap&lt;&gt;(sortPlaceTagPhase);</span>
+
+        // Insert all logs into the map so that they get sorted
+<span class="nc bnc" id="L351" title="All 2 branches missed.">        for (final Entry&lt;Key, Collection&lt;LogItem&gt;&gt; entry : loggedEntries.entrySet()) {</span>
+<span class="nc" id="L352">            sorted.put(entry.getKey(), entry.getValue());</span>
+<span class="nc" id="L353">        }</span>
+
+        // Traverse the sorted map and print each log on a dedicated line
+<span class="nc" id="L356">        sorted.forEach((Key key, Collection&lt;LogItem&gt; items) -&gt; {</span>
+<span class="nc" id="L357">            out.println(&quot;LogKey: &quot; + key + &quot;\titemCount: &quot; + items.size());</span>
+<span class="nc" id="L358">        });</span>
+<span class="nc" id="L359">    }</span>
 
     /**
      * Records this instance to a file for later retrieval
@@ -341,13 +366,13 @@ public class SavedLog {
      *                     specified file
      */
     public void saveToFile(File file) throws IOException {
-<span class="fc" id="L344">        final ObjectOutputStream outStream = new ObjectOutputStream(new FileOutputStream(file));</span>
+<span class="fc" id="L369">        final ObjectOutputStream outStream = new ObjectOutputStream(new FileOutputStream(file));</span>
 
-<span class="fc" id="L346">        outStream.writeInt(numberOfHosts);</span>
-<span class="fc" id="L347">        outStream.writeObject(loggedEntries);</span>
+<span class="fc" id="L371">        outStream.writeInt(numberOfHosts);</span>
+<span class="fc" id="L372">        outStream.writeObject(loggedEntries);</span>
 
-<span class="fc" id="L349">        outStream.flush();</span>
-<span class="fc" id="L350">        outStream.close();</span>
-<span class="fc" id="L351">    }</span>
+<span class="fc" id="L374">        outStream.flush();</span>
+<span class="fc" id="L375">        outStream.close();</span>
+<span class="fc" id="L376">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

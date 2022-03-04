@@ -15,6 +15,7 @@ import static apgas.Constructs.*;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import apgas.Place;
@@ -26,301 +27,433 @@ import handist.collections.function.Serializer;
 
 /**
  * This class manages the elements of a distributed collection in a
- * difference-basis.
+ * difference-basis. It is meant to be used as a member on each handle of a
+ * distributed collection whose distribution needs to be tracked.
  *
- * @param &lt;T&gt; the type of the unit of index/key management. Currently
- *            {@code Long} and {@code LongRange} are supported.
+ * @param &lt;T&gt; the type of the object used as index or key to identify entries in
+ *            the collection whose distribution is being tracked.
  */
-<span class="pc bpc" id="L34" title="1 of 2 branches missed.">public class ElementLocationManager&lt;T&gt; {</span>
+<span class="pc bpc" id="L36" title="1 of 2 branches missed.">class ElementLocationManager&lt;T&gt; {</span>
 
+    /**
+     * Error class used when inconsistencies in the distribution attributable to a
+     * forbidden operation made by the user are encountered.
+     */
     static class ParameterErrorException extends RuntimeException {
-        /**
-         *
-         */
+        /** Serial Version UID */
         private static final long serialVersionUID = -9038636040813564069L;
+        /** Integer code describing the cause of the problem */
         public int reason;
 
         ParameterErrorException(int reason, String msg) {
-<span class="nc" id="L44">            super(msg);</span>
-<span class="nc" id="L45">            this.reason = reason;</span>
-<span class="nc" id="L46">        }</span>
+<span class="nc" id="L49">            super(msg);</span>
+<span class="nc" id="L50">            this.reason = reason;</span>
+<span class="nc" id="L51">        }</span>
     };
 
-    /*
-     * public static class Range extends DistManager&lt;LongRange&gt; { }
+    /**
+     * Error class used when an internal error occurred in the
+     * ElementLocationManager. Assuming that direct modifications to members
+     * {@link #diff} and {@link #dist} are not made and that this class'
+     * implementation is correct, this error should never be thrown.
      */
-
     static class SystemError extends Error {
-        /**
-         *
-         */
+        /** Serial Version UID */
         private static final long serialVersionUID = 4466816572543219426L;
+        /** Integer Code describing the nature of the problem */
         public int reason;
 
         SystemError(int reason, String msg) {
-<span class="nc" id="L61">            super(msg);</span>
-<span class="nc" id="L62">            this.reason = reason;</span>
-<span class="nc" id="L63">        }</span>
+<span class="nc" id="L67">            super(msg);</span>
+<span class="nc" id="L68">            this.reason = reason;</span>
+<span class="nc" id="L69">        }</span>
     }
 
-    public static final int DIST_ADDED = 1;
+    /** Code used when a key is added to the local handle of the collection */
+    static final int DIST_ADDED = 1;
     /** Code for key received from remote place to this local handle */
-    public static final int DIST_MOVED_IN = 4;
-    public static final int DIST_REMOVED = 2;
+    static final int DIST_MOVED_IN = 4;
+    /** Code used when a key is removed from the local handle of the collection */
+    static final int DIST_REMOVED = 2;
 
-    public static final byte MOVE_NEW = 1; // New range created on local handle
-    public static final byte MOVE_NONE = 0;
-    public static final byte MOVE_OLD = 2;
+    /**
+     * Code used to describe that a newly added entry to the local collection (code
+     * {@link #DIST_ADDED} in {@link #diff}) was relocated to a remote host
+     */
+    static final byte MOVE_NEW = 1;
+    /**
+     * Code used to describe that an entry that was previously relocated to some
+     * place(s) has now returned to its original location.
+     */
+    static final byte MOVE_NONE = 0;
+    /**
+     * Code used to describe that an entry already known to all local handles was
+     * relocated
+     */
+    static final byte MOVE_OLD = 2;
 
     /**
      * Changes since that last time updateDist was called that will need to be
      * notified to remote places. There may be other changes that occurred on remote
      * places that this local handle is not yet aware of.
      */
-<span class="fc" id="L80">    public ConcurrentHashMap&lt;T, Integer&gt; diff = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L100">    ConcurrentHashMap&lt;T, Integer&gt; diff = new ConcurrentHashMap&lt;&gt;();</span>
     /** Current knowledge of the key-holding information on local &amp; remote places */
-<span class="fc" id="L82">    public ConcurrentHashMap&lt;T, Place&gt; dist = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L102">    ConcurrentHashMap&lt;T, Place&gt; dist = new ConcurrentHashMap&lt;&gt;();</span>
 
-<span class="fc" id="L84">    HashSet&lt;T&gt; importedDiffKeys = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L104">    HashSet&lt;T&gt; importedDiffKeys = new HashSet&lt;&gt;();</span>
 
-    public void add(T key) throws ElementOverlapException {
-<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
-<span class="nc bnc" id="L88" title="All 2 branches missed.">            if (distIsLocal(key)) {</span>
-<span class="nc bnc" id="L89" title="All 2 branches missed.">                if (diffHasKey(key)) {</span>
-<span class="nc bnc" id="L90" title="All 2 branches missed.">                    if (diffOfKeyIs(key, (DIST_ADDED | DIST_MOVED_IN))) {</span>
-<span class="nc" id="L91">                        reject(&quot;add&quot;, 103, key);</span>
+    /**
+     * WeakHashMap used to contain the distribution which need to receive updates
+     * when changes to the distribution are made.
+     * &lt;h2&gt;Implementation notes&lt;/h2&gt;
+     * &lt;p&gt;
+     * A {@link WeakHashMap} is used with &quot;null&quot; values is used so that the
+     * distribution objects used as keys in this collection can be garbage-collected
+     * if they are no longer in use in other parts of the program, as represented in
+     * {@link ElementLocationManageable#registerDistribution(UpdatableDistribution)}.
+     * Refer to the Java documentation of {@link WeakHashMap} for further details.
+     */
+<span class="fc" id="L117">    protected Map&lt;UpdatableDistribution&lt;T&gt;, Object&gt; registeredDistribution = new WeakHashMap&lt;&gt;();</span>
+
+    /**
+     * Registers the fact that a new key / entry was added to the local collection.
+     *
+     * @param key the object which identifies the newly added entry to the
+     *            collection
+     * @throws ElementOverlapException if the added key is known to be present on a
+     *                                 remote host
+     */
+    void add(T key) throws ElementOverlapException {
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">            if (distIsLocal(key)) {</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">                if (diffHasKey(key)) {</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">                    if (diffOfKeyIs(key, (DIST_ADDED | DIST_MOVED_IN))) {</span>
+<span class="nc" id="L132">                        reject(&quot;add&quot;, 103, key);</span>
                     } else {
-<span class="nc" id="L93">                        systemError(&quot;add&quot;, 104, key);</span>
+<span class="nc" id="L134">                        systemError(&quot;add&quot;, 104, key);</span>
                     }
                 } else {
-<span class="nc" id="L96">                    reject(&quot;add&quot;, 102, key);</span>
+<span class="nc" id="L137">                    reject(&quot;add&quot;, 102, key);</span>
                 }
             } else {
-<span class="nc" id="L99">                reject(&quot;add&quot;, 105, key);</span>
+<span class="nc" id="L140">                reject(&quot;add&quot;, 105, key);</span>
             }
         } else {
-<span class="pc bpc" id="L102" title="1 of 2 branches missed.">            if (diffHasKey(key)) {</span>
-<span class="nc bnc" id="L103" title="All 2 branches missed.">                if (diffOfKeyIs(key, DIST_REMOVED)) {</span>
-<span class="nc" id="L104">                    diff.remove(key);</span>
-<span class="nc" id="L105">                    dist.put(key, here());</span>
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">            if (diffHasKey(key)) {</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">                if (diffOfKeyIs(key, DIST_REMOVED)) {</span>
+<span class="nc" id="L145">                    diff.remove(key);</span>
+<span class="nc" id="L146">                    dist.put(key, here());</span>
+<span class="nc" id="L147">                    registeredDistributionUpdate(key, here());</span>
                 } else {
-<span class="nc" id="L107">                    systemError(&quot;add&quot;, 101, key);</span>
+<span class="nc" id="L149">                    systemError(&quot;add&quot;, 101, key);</span>
                 }
             } else {
-<span class="fc" id="L110">                diff.put(key, DIST_ADDED);</span>
-<span class="fc" id="L111">                dist.put(key, here());</span>
+<span class="fc" id="L152">                diff.put(key, DIST_ADDED);</span>
+<span class="fc" id="L153">                dist.put(key, here());</span>
+<span class="fc" id="L154">                registeredDistributionUpdate(key, here());</span>
             }
         }
-<span class="fc" id="L114">    }</span>
+<span class="fc" id="L157">    }</span>
 
+    /**
+     * This method is part of the procedure needed to update the local knwoledge of
+     * the global distribution. A call to this method updates the contents of the
+     * local distribution knowledge with the knowledge received from remote places.
+     * Checks are made to make sure that the received individual change is
+     * consistent with information obtained from other hosts using member
+     * {@link #importedDiffKeys}.
+     *
+     *
+     * @param key       the key about which some information was received
+     * @param operation the operation that the remote operation registered about
+     *                  this key
+     * @param from      the place from which the present information came from
+     * @throws Exception if inconsistencies are detected, such as a remote place
+     *                   adding an entry already owned by another place (&quot;duplicate
+     *                   key&quot; case)
+     * @see #update(TeamedPlaceGroup)
+     */
     void applyDiff(T key, int operation, Place from) throws Exception {
         // System.out.println(&quot;[&quot; + here.id + &quot;] applyDiff &quot; + key + &quot; op: &quot; + operation
         // + &quot; from: &quot; + from.id);
-<span class="pc bpc" id="L119" title="2 of 4 branches missed.">        if (importedDiffKeys.contains(key) || diff.containsKey(key)) {</span>
-<span class="nc" id="L120">            reject(&quot;applyDiff with duplicate key &quot;, operation, key);</span>
+<span class="pc bpc" id="L180" title="2 of 4 branches missed.">        if (importedDiffKeys.contains(key) || diff.containsKey(key)) {</span>
+<span class="nc" id="L181">            reject(&quot;applyDiff with duplicate key &quot;, operation, key);</span>
         } else {
-<span class="fc" id="L122">            importedDiffKeys.add(key);</span>
-<span class="fc bfc" id="L123" title="All 2 branches covered.">            if ((operation &amp; (DIST_ADDED | DIST_MOVED_IN)) != 0) {</span>
-<span class="fc" id="L124">                dist.put(key, from);</span>
+<span class="fc" id="L183">            importedDiffKeys.add(key);</span>
+<span class="fc bfc" id="L184" title="All 2 branches covered.">            if ((operation &amp; (DIST_ADDED | DIST_MOVED_IN)) != 0) {</span>
+<span class="fc" id="L185">                dist.put(key, from);</span>
+<span class="fc" id="L186">                registeredDistributionUpdate(key, from);</span>
             } else {
                 // operation == DIST_REMOVED
-<span class="fc" id="L127">                dist.remove(key);</span>
+<span class="fc" id="L189">                dist.remove(key);</span>
+<span class="fc" id="L190">                registeredDistributionRemove(key);</span>
             }
         }
-<span class="fc" id="L130">    }</span>
+<span class="fc" id="L193">    }</span>
 
-    public void clear() {
-<span class="nc" id="L133">        dist.clear();</span>
-<span class="nc" id="L134">        diff.clear();</span>
-<span class="nc" id="L135">    }</span>
+    /**
+     * Removes all distribution knowledge of this local instance. This method should
+     * only be called when all entries in the local handle of the distributed
+     * collection are removed.
+     */
+    void clear() {
+<span class="nc" id="L201">        dist.clear();</span>
+<span class="nc" id="L202">        diff.clear();</span>
+        // FIXME this is not correct.
+        // In diff, the fact that all local entries have been removed needs to be
+        // recorded.
+        // Also, the registered distributions need to be updated accordingly.
+<span class="nc" id="L207">    }</span>
 
-    public boolean diffHasKey(T key) {
-<span class="fc" id="L138">        return diff.containsKey(key);</span>
+    protected boolean diffHasKey(T key) {
+<span class="fc" id="L210">        return diff.containsKey(key);</span>
     }
 
-    public boolean diffOfKeyIs(T key, int operation) {
-<span class="fc bfc" id="L142" title="All 2 branches covered.">        return (diff.get(key) &amp; operation) != 0;</span>
+    protected boolean diffOfKeyIs(T key, int operation) {
+<span class="fc bfc" id="L214" title="All 2 branches covered.">        return (diff.get(key) &amp; operation) != 0;</span>
     }
 
-    public boolean distHasKey(T key) {
-<span class="fc" id="L146">        return dist.containsKey(key);</span>
+    protected boolean distHasKey(T key) {
+<span class="fc" id="L218">        return dist.containsKey(key);</span>
     }
 
-    public boolean distIsLocal(T key) {
-<span class="fc bfc" id="L150" title="All 2 branches covered.">        return dist.get(key) == here();</span>
+    protected boolean distIsLocal(T key) {
+<span class="fc bfc" id="L222" title="All 2 branches covered.">        return dist.get(key) == here();</span>
     }
 
-    public void moveInNew(T key) throws Exception {
+    protected void moveInNew(T key) throws Exception {
         // System.out.println(&quot;&gt;&gt;&gt; moveInNew &quot; + key + &quot; distHasKey: &quot; + distHasKey(key)
         // + &quot; diffHasKey: &quot; + diffHasKey(key));
 
-<span class="pc bpc" id="L157" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
-<span class="nc bnc" id="L158" title="All 2 branches missed.">            if (distIsLocal(key)) {</span>
-<span class="nc bnc" id="L159" title="All 4 branches missed.">                if (diffHasKey(key) &amp;&amp; diffOfKeyIs(key, DIST_ADDED)) {</span>
-<span class="nc" id="L160">                    reject(&quot;moveInNew&quot;, 402, key);</span>
+<span class="pc bpc" id="L229" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">            if (distIsLocal(key)) {</span>
+<span class="nc bnc" id="L231" title="All 4 branches missed.">                if (diffHasKey(key) &amp;&amp; diffOfKeyIs(key, DIST_ADDED)) {</span>
+<span class="nc" id="L232">                    reject(&quot;moveInNew&quot;, 402, key);</span>
                 } else {
-<span class="nc" id="L162">                    systemError(&quot;moveInNew&quot;, 403, key);</span>
+<span class="nc" id="L234">                    systemError(&quot;moveInNew&quot;, 403, key);</span>
                 }
             } else {
                 // !distIsLocal(key)
-<span class="nc bnc" id="L166" title="All 2 branches missed.">                if (diffHasKey(key)) {</span>
-<span class="nc" id="L167">                    systemError(&quot;moveInNew&quot;, 404, key);</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">                if (diffHasKey(key)) {</span>
+<span class="nc" id="L239">                    systemError(&quot;moveInNew&quot;, 404, key);</span>
                 } else {
                     // System.out.println(&quot;&gt;&gt;&gt; AAA&quot;);
-<span class="nc" id="L170">                    diff.put(key, DIST_ADDED);</span>
-<span class="nc" id="L171">                    dist.put(key, here());</span>
+<span class="nc" id="L242">                    diff.put(key, DIST_ADDED);</span>
+<span class="nc" id="L243">                    dist.put(key, here());</span>
+<span class="nc" id="L244">                    registeredDistributionUpdate(key, here());</span>
                 }
             }
         } else {
             // !distHasKey(key)
-<span class="pc bpc" id="L176" title="1 of 2 branches missed.">            if (diffHasKey(key)) {</span>
-<span class="nc" id="L177">                systemError(&quot;moveInNew&quot;, 401, key);</span>
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">            if (diffHasKey(key)) {</span>
+<span class="nc" id="L250">                systemError(&quot;moveInNew&quot;, 401, key);</span>
             } else {
                 // System.out.println(&quot;&gt;&gt;&gt; BBB&quot;);
-<span class="fc" id="L180">                diff.put(key, DIST_ADDED);</span>
-<span class="fc" id="L181">                dist.put(key, here());</span>
+<span class="fc" id="L253">                diff.put(key, DIST_ADDED);</span>
+<span class="fc" id="L254">                dist.put(key, here());</span>
+<span class="fc" id="L255">                registeredDistributionUpdate(key, here());</span>
             }
         }
-<span class="fc" id="L184">    }</span>
+<span class="fc" id="L258">    }</span>
 
-    public void moveInOld(T key) throws Exception {
-<span class="pc bpc" id="L187" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
-<span class="pc bpc" id="L188" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
-<span class="nc" id="L189">                systemError(&quot;moveInOld&quot;, 406, key);</span>
+    void moveInOld(T key) throws Exception {
+<span class="pc bpc" id="L261" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
+<span class="pc bpc" id="L262" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
+<span class="nc" id="L263">                systemError(&quot;moveInOld&quot;, 406, key);</span>
             } else {
                 // !distIsLocal(key)
-<span class="pc bpc" id="L192" title="1 of 2 branches missed.">                if (diffHasKey(key)) {</span>
-<span class="nc" id="L193">                    systemError(&quot;moveInOld&quot;, 407, key);</span>
+<span class="pc bpc" id="L266" title="1 of 2 branches missed.">                if (diffHasKey(key)) {</span>
+<span class="nc" id="L267">                    systemError(&quot;moveInOld&quot;, 407, key);</span>
                 } else {
-<span class="fc" id="L195">                    diff.put(key, DIST_MOVED_IN);</span>
-<span class="fc" id="L196">                    dist.put(key, here());</span>
+<span class="fc" id="L269">                    diff.put(key, DIST_MOVED_IN);</span>
+<span class="fc" id="L270">                    dist.put(key, here());</span>
+<span class="fc" id="L271">                    registeredDistributionUpdate(key, here());</span>
                 }
             }
         } else {
             // !distHasKey(key)
-<span class="nc" id="L201">            systemError(&quot;moveInOld&quot;, 405, key);</span>
+<span class="nc" id="L276">            systemError(&quot;moveInOld&quot;, 405, key);</span>
         }
-<span class="fc" id="L203">    }</span>
+<span class="fc" id="L278">    }</span>
 
-    public byte moveOut(T key, Place dest) {
-<span class="pc bpc" id="L206" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
+    byte moveOut(T key, Place dest) {
+<span class="pc bpc" id="L281" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
             // System.out.println(&quot;&gt;&gt;&gt; distHasKey&quot;);
-<span class="pc bpc" id="L208" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
-<span class="fc bfc" id="L209" title="All 2 branches covered.">                if (diffHasKey(key)) {</span>
-<span class="fc bfc" id="L210" title="All 2 branches covered.">                    if (diffOfKeyIs(key, DIST_ADDED)) {</span>
-<span class="fc" id="L211">                        diff.remove(key);</span>
-<span class="fc" id="L212">                        dist.remove(key);</span>
-<span class="fc" id="L213">                        return MOVE_NEW;</span>
-<span class="pc bpc" id="L214" title="1 of 2 branches missed.">                    } else if (diffOfKeyIs(key, DIST_MOVED_IN)) {</span>
-<span class="fc" id="L215">                        diff.remove(key);</span>
-<span class="fc" id="L216">                        dist.put(key, dest);</span>
-<span class="fc" id="L217">                        return MOVE_OLD;</span>
+<span class="pc bpc" id="L283" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
+<span class="fc bfc" id="L284" title="All 2 branches covered.">                if (diffHasKey(key)) {</span>
+<span class="fc bfc" id="L285" title="All 2 branches covered.">                    if (diffOfKeyIs(key, DIST_ADDED)) {</span>
+<span class="fc" id="L286">                        diff.remove(key);</span>
+<span class="fc" id="L287">                        dist.remove(key);</span>
+<span class="fc" id="L288">                        registeredDistributionRemove(key);</span>
+<span class="fc" id="L289">                        return MOVE_NEW;</span>
+<span class="pc bpc" id="L290" title="1 of 2 branches missed.">                    } else if (diffOfKeyIs(key, DIST_MOVED_IN)) {</span>
+<span class="fc" id="L291">                        diff.remove(key);</span>
+<span class="fc" id="L292">                        dist.put(key, dest);</span>
+<span class="fc" id="L293">                        registeredDistributionUpdate(key, dest);</span>
+<span class="fc" id="L294">                        return MOVE_OLD;</span>
                     } else {
-<span class="nc" id="L219">                        systemError(&quot;moveOut&quot;, 804, key);</span>
+<span class="nc" id="L296">                        systemError(&quot;moveOut&quot;, 804, key);</span>
                     }
                 } else {
-<span class="fc" id="L222">                    dist.put(key, dest);</span>
-<span class="fc" id="L223">                    return MOVE_OLD;</span>
+<span class="fc" id="L299">                    dist.put(key, dest);</span>
+<span class="fc" id="L300">                    registeredDistributionUpdate(key, dest);</span>
+<span class="fc" id="L301">                    return MOVE_OLD;</span>
                 }
             } else {
                 // !distIsLocal(key)
-<span class="nc" id="L227">                reject(&quot;moveOut&quot;, 805, key);</span>
+<span class="nc" id="L305">                reject(&quot;moveOut&quot;, 805, key);</span>
             }
         } else {
             // !distHasKey(key)
             // System.out.println(&quot;&gt;&gt;&gt; !distHasKey&quot;);
-<span class="nc bnc" id="L232" title="All 2 branches missed.">            if (diffHasKey(key)) {</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">            if (diffHasKey(key)) {</span>
                 // System.out.println(&quot;&gt;&gt;&gt; diffHasKey&quot;);
-<span class="nc bnc" id="L234" title="All 2 branches missed.">                if (diffOfKeyIs(key, DIST_REMOVED)) {</span>
-<span class="nc" id="L235">                    reject(&quot;moveOut&quot;, 802, key);</span>
+<span class="nc bnc" id="L312" title="All 2 branches missed.">                if (diffOfKeyIs(key, DIST_REMOVED)) {</span>
+<span class="nc" id="L313">                    reject(&quot;moveOut&quot;, 802, key);</span>
                 } else {
-<span class="nc" id="L237">                    systemError(&quot;moveOut&quot;, 803, key);</span>
+<span class="nc" id="L315">                    systemError(&quot;moveOut&quot;, 803, key);</span>
                 }
             } else {
                 // System.out.println(&quot;&gt;&gt;&gt; !diffHasKey&quot;);
-<span class="nc" id="L241">                reject(&quot;moveOut&quot;, 801, key);</span>
+<span class="nc" id="L319">                reject(&quot;moveOut&quot;, 801, key);</span>
             }
         }
         // System.out.println(&quot;&gt;&gt;&gt; MOVE_NONE&quot;);
-<span class="nc" id="L245">        return MOVE_NONE;</span>
+<span class="nc" id="L323">        return MOVE_NONE;</span>
     }
+
+    /**
+     * Registers a distribution that will be actively updated by the
+     * {@link ElementLocationManageable} from now on. The registered distribution
+     * will receive updates until it is garbage-collected as it is internally kept
+     * in a &quot;weak&quot; collection.
+     * &lt;p&gt;
+     * The contents of the given distribution are updated with the current knowledge
+     * of this class when this method is called.
+     * &lt;p&gt;
+     * It is best to avoid inserting and removing entries of a distributed
+     * collection when calling this method. This may cause some inconsistencies
+     * between the information held by this instance and the information contained
+     * in the distribution given as parameter.
+     *
+     * @param distributionToUpdate distribution into which changes in distribution
+     *                             managed by this object need to be reflected
+     */
+    void registerDistribution(UpdatableDistribution&lt;T&gt; distributionToUpdate) {
+        // Update the contents with the current knowledge of the situation
+<span class="fc bfc" id="L345" title="All 2 branches covered.">        for (final Map.Entry&lt;T, Place&gt; distEntry : dist.entrySet()) {</span>
+<span class="fc" id="L346">            distributionToUpdate.updateLocation(distEntry.getKey(), distEntry.getValue());</span>
+<span class="fc" id="L347">        }</span>
+
+        // Register the distribution to reflect the changes from now on
+<span class="fc" id="L350">        registeredDistribution.put(distributionToUpdate, null);</span>
+<span class="fc" id="L351">    }</span>
+
+    /**
+     * Sub-routine used to update the registered distributions with the fact that a
+     * key has been removed from the collection
+     *
+     * @param key the key removed from the collection
+     */
+    protected void registeredDistributionRemove(T key) {
+<span class="fc bfc" id="L360" title="All 2 branches covered.">        for (final UpdatableDistribution&lt;T&gt; distribution : registeredDistribution.keySet()) {</span>
+<span class="fc" id="L361">            distribution.removeLocation(key);</span>
+<span class="fc" id="L362">        }</span>
+<span class="fc" id="L363">    }</span>
+
+    /**
+     * Sub-routine used to update the location of an entry into all the registered
+     * distribution contained
+     *
+     * @param key      the key to update
+     * @param location the location of the specified key
+     */
+    protected void registeredDistributionUpdate(T key, Place location) {
+<span class="fc bfc" id="L373" title="All 2 branches covered.">        for (final UpdatableDistribution&lt;T&gt; distribution : registeredDistribution.keySet()) {</span>
+<span class="fc" id="L374">            distribution.updateLocation(key, location);</span>
+<span class="fc" id="L375">        }</span>
+<span class="fc" id="L376">    }</span>
 
     void reject(String method, int reason, T key) throws ParameterErrorException {
-<span class="nc" id="L249">        final String msg = &quot;[&quot; + here() + &quot;] Error when calling &quot; + method + &quot; &quot; + key + &quot; on code &quot; + reason;</span>
-<span class="nc" id="L250">        System.err.println(msg);</span>
-<span class="nc" id="L251">        throw new ParameterErrorException(reason, msg);</span>
+<span class="nc" id="L379">        final String msg = &quot;[&quot; + here() + &quot;] Error when calling &quot; + method + &quot; &quot; + key + &quot; on code &quot; + reason;</span>
+<span class="nc" id="L380">        System.err.println(msg);</span>
+<span class="nc" id="L381">        throw new ParameterErrorException(reason, msg);</span>
     }
 
-    public void remove(T key) {
-<span class="pc bpc" id="L255" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
-<span class="pc bpc" id="L256" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
-<span class="fc bfc" id="L257" title="All 2 branches covered.">                if (diffHasKey(key)) {</span>
+    void remove(T key) {
+<span class="pc bpc" id="L385" title="1 of 2 branches missed.">        if (distHasKey(key)) {</span>
+<span class="pc bpc" id="L386" title="1 of 2 branches missed.">            if (distIsLocal(key)) {</span>
+<span class="fc bfc" id="L387" title="All 2 branches covered.">                if (diffHasKey(key)) {</span>
                     // System.out.println(&quot;[&quot; + here.id + &quot;] remove key &quot; + key);
-<span class="pc bpc" id="L259" title="1 of 2 branches missed.">                    if (diffOfKeyIs(key, DIST_ADDED)) {</span>
-<span class="fc" id="L260">                        diff.remove(key);</span>
-<span class="fc" id="L261">                        dist.remove(key);</span>
-<span class="nc bnc" id="L262" title="All 2 branches missed.">                    } else if (diffOfKeyIs(key, DIST_MOVED_IN)) {</span>
-<span class="nc" id="L263">                        diff.put(key, DIST_REMOVED);</span>
-<span class="nc" id="L264">                        dist.remove(key);</span>
+<span class="pc bpc" id="L389" title="1 of 2 branches missed.">                    if (diffOfKeyIs(key, DIST_ADDED)) {</span>
+<span class="fc" id="L390">                        diff.remove(key);</span>
+<span class="fc" id="L391">                        dist.remove(key);</span>
+<span class="fc" id="L392">                        registeredDistributionRemove(key);</span>
+<span class="nc bnc" id="L393" title="All 2 branches missed.">                    } else if (diffOfKeyIs(key, DIST_MOVED_IN)) {</span>
+<span class="nc" id="L394">                        diff.put(key, DIST_REMOVED);</span>
+<span class="nc" id="L395">                        dist.remove(key);</span>
+<span class="nc" id="L396">                        registeredDistributionRemove(key);</span>
                     } else {
-<span class="nc" id="L266">                        systemError(&quot;remove&quot;, 202, key);</span>
+<span class="nc" id="L398">                        systemError(&quot;remove&quot;, 202, key);</span>
                     }
                 } else {
-<span class="fc" id="L269">                    diff.put(key, DIST_REMOVED);</span>
-<span class="fc" id="L270">                    dist.remove(key);</span>
+<span class="fc" id="L401">                    diff.put(key, DIST_REMOVED);</span>
+<span class="fc" id="L402">                    dist.remove(key);</span>
+<span class="fc" id="L403">                    registeredDistributionRemove(key);</span>
                 }
             } else {
                 // !distIsLocal(key)
-<span class="nc" id="L274">                reject(&quot;remove&quot;, 203, key);</span>
+<span class="nc" id="L407">                reject(&quot;remove&quot;, 203, key);</span>
             }
         } else {
             // !distHasKey(key)
-<span class="nc" id="L278">            reject(&quot;remove&quot;, 201, key);</span>
+<span class="nc" id="L411">            reject(&quot;remove&quot;, 201, key);</span>
         }
-<span class="fc" id="L280">    }</span>
+<span class="fc" id="L413">    }</span>
 
     void setup(Collection&lt;T&gt; keys) {
-<span class="pc bpc" id="L283" title="3 of 4 branches missed.">        assert (keys.isEmpty());</span>
+<span class="pc bpc" id="L416" title="3 of 4 branches missed.">        assert (keys.isEmpty());</span>
         try {
-<span class="pc bpc" id="L285" title="1 of 2 branches missed.">            for (final T k : keys) {</span>
-<span class="nc" id="L286">                add(k);</span>
-<span class="nc" id="L287">            }</span>
-<span class="nc" id="L288">        } catch (final Exception e) {</span>
-<span class="nc" id="L289">            throw new RuntimeException(&quot;[DistManager] Duplicate key in &quot; + keys);</span>
-<span class="fc" id="L290">        }</span>
-<span class="fc" id="L291">    }</span>
+<span class="pc bpc" id="L418" title="1 of 2 branches missed.">            for (final T k : keys) {</span>
+<span class="nc" id="L419">                add(k);</span>
+<span class="nc" id="L420">            }</span>
+<span class="nc" id="L421">        } catch (final Exception e) {</span>
+<span class="nc" id="L422">            throw new RuntimeException(&quot;[DistManager] Duplicate key in &quot; + keys);</span>
+<span class="fc" id="L423">        }</span>
+<span class="fc" id="L424">    }</span>
 
     void systemError(String method, int reason, T key) throws SystemError {
-<span class="nc" id="L294">        final String msg = &quot;[&quot; + here() + &quot;] System Error when calling &quot; + method + &quot; &quot; + key + &quot; on code &quot; + reason;</span>
-<span class="nc" id="L295">        System.err.println(msg);</span>
-<span class="nc bnc" id="L296" title="All 2 branches missed.">        if (reason &gt; 0) {</span>
-<span class="nc" id="L297">            throw new SystemError(reason, msg);</span>
+<span class="nc" id="L427">        final String msg = &quot;[&quot; + here() + &quot;] System Error when calling &quot; + method + &quot; &quot; + key + &quot; on code &quot; + reason;</span>
+<span class="nc" id="L428">        System.err.println(msg);</span>
+<span class="nc bnc" id="L429" title="All 2 branches missed.">        if (reason &gt; 0) {</span>
+<span class="nc" id="L430">            throw new SystemError(reason, msg);</span>
         }
-<span class="nc" id="L299">        throw new SystemError(reason, msg);</span>
+<span class="nc" id="L432">        throw new SystemError(reason, msg);</span>
     }
 
     @Override
     public String toString() {
-<span class="nc" id="L304">        return &quot;[DistManager] + dist: &quot; + dist + &quot;,  diff: &quot; + diff + &quot;, imported: &quot; + importedDiffKeys + &quot;-----&quot;;</span>
+<span class="nc" id="L437">        return &quot;[DistManager] + dist: &quot; + dist + &quot;,  diff: &quot; + diff + &quot;, imported: &quot; + importedDiffKeys + &quot;-----&quot;;</span>
     }
 
     @SuppressWarnings(&quot;unchecked&quot;)
-    void updateDist(TeamedPlaceGroup pg) {
-<span class="fc" id="L309">        final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
-<span class="fc" id="L310">            s.writeObject(diff);</span>
-<span class="fc" id="L311">        };</span>
-<span class="fc" id="L312">        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place from) -&gt; {</span>
-<span class="fc" id="L313">            final Map&lt;T, Integer&gt; importedDiff = (Map&lt;T, Integer&gt;) ds.readObject();</span>
-<span class="fc bfc" id="L314" title="All 2 branches covered.">            for (final Map.Entry&lt;T, Integer&gt; entry : importedDiff.entrySet()) {</span>
-<span class="fc" id="L315">                final T k = entry.getKey();</span>
-<span class="fc" id="L316">                final Integer v = entry.getValue();</span>
-<span class="fc" id="L317">                applyDiff(k, v, from);</span>
-<span class="fc" id="L318">            }</span>
-<span class="fc" id="L319">        };</span>
-<span class="fc" id="L320">        new CollectiveRelocator.Allgather(pg).request(serProcess, desProcess).execute();</span>
-<span class="fc" id="L321">        importedDiffKeys.clear();</span>
-<span class="fc" id="L322">        diff.clear();</span>
-<span class="fc" id="L323">    }</span>
+    void update(TeamedPlaceGroup pg) {
+<span class="fc" id="L442">        final Serializer serProcess = (ObjectOutput s) -&gt; {</span>
+<span class="fc" id="L443">            s.writeObject(diff);</span>
+<span class="fc" id="L444">        };</span>
+<span class="fc" id="L445">        final DeSerializerUsingPlace desProcess = (ObjectInput ds, Place from) -&gt; {</span>
+<span class="fc" id="L446">            final Map&lt;T, Integer&gt; importedDiff = (Map&lt;T, Integer&gt;) ds.readObject();</span>
+<span class="fc bfc" id="L447" title="All 2 branches covered.">            for (final Map.Entry&lt;T, Integer&gt; entry : importedDiff.entrySet()) {</span>
+<span class="fc" id="L448">                final T k = entry.getKey();</span>
+<span class="fc" id="L449">                final Integer v = entry.getValue();</span>
+<span class="fc" id="L450">                applyDiff(k, v, from);</span>
+<span class="fc" id="L451">            }</span>
+<span class="fc" id="L452">        };</span>
+<span class="fc" id="L453">        new CollectiveRelocator.Allgather(pg).request(serProcess, desProcess).execute();</span>
+<span class="fc" id="L454">        importedDiffKeys.clear();</span>
+<span class="fc" id="L455">        diff.clear();</span>
+<span class="fc" id="L456">    }</span>
 
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -12,64 +12,174 @@ package handist.collections.dist;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 import apgas.Place;
+import handist.collections.ChunkedList;
+import handist.collections.ChunkedList.LongRangeOrdering;
 import handist.collections.LongRange;
 
-public class LongRangeDistribution implements RangedDistribution&lt;LongRange&gt; {
+/**
+ * Class tracking the distribution of a collection whose entries are identified
+ * by {@link LongRange}. Currently, this is limited to class {@link DistCol} but
+ * may be extended to other distributed collections in the future.
+ * &lt;p&gt;
+ * This class allows users to inquire about the location of particular entries
+ * of a distributed collection through methods
+ * {@link #rangeLocation(LongRange)}, {@link #location(Long)}, and
+ * {@link #location(LongRange)}. Internally, this information is kept in a
+ * {@link Map}&amp;lt;{@link LongRange},{@link Place}&amp;gt;.
+ * &lt;p&gt;
+ * This class is an {@link UpdatableDistribution}, meaning it can be registered
+ * into a collection so that it is automatically updated when changes in the
+ * distribution occur, i.e. using
+ * {@link DistCol#registerDistribution(UpdatableDistribution)}. It may even be
+ * safely registered into multiple distributed collections provided that the
+ * collections do not share any {@link LongRange} &quot;keys&quot;.
+ * &lt;p&gt;
+ * To maintain the integrity of the distribution with respect to the underlying
+ * distributed collection(s), this object cannot be modified by the user.
+ *
+ * @author Patrick Finnerty
+ *
+ */
+public class LongRangeDistribution extends UpdatableDistribution&lt;LongRange&gt;
+        implements RangedDistribution&lt;LongRange&gt;, Distribution&lt;Long&gt; {
 
-    private final HashMap&lt;LongRange, Place&gt; dist;
+    /** Serial Version UID */
+    private static final long serialVersionUID = 2646369287127470136L;
+    /**
+     * Internal Sorted Map used to keep track of the location of each chunk of the
+     * underlying {@link DistCol}.
+     */
+    private final TreeMap&lt;LongRange, Place&gt; distribution;
 
     /**
-     * Copy constructor
+     * Default constructor. Creates a blank distribution which may be registered
+     * into a distributed collection to track its distribution.
+     */
+<span class="fc" id="L61">    public LongRangeDistribution() {</span>
+<span class="fc" id="L62">        distribution = new TreeMap&lt;&gt;(new ChunkedList.LongRangeOrdering());</span>
+<span class="fc" id="L63">    }</span>
+
+    /**
      *
-     * @param distribution instance to copy
+     * @param map map from {@link LongRange} to {@link Place} describing a
+     *            distribution
      */
-<span class="nc" id="L28">    public LongRangeDistribution(LongRangeDistribution distribution) {</span>
-<span class="nc" id="L29">        dist = new HashMap&lt;&gt;(distribution.dist);</span>
-<span class="nc" id="L30">    }</span>
-
-<span class="nc" id="L32">    public LongRangeDistribution(Map&lt;LongRange, Place&gt; originalHashMap) {</span>
-<span class="nc" id="L33">        dist = new HashMap&lt;&gt;(originalHashMap);</span>
-<span class="nc" id="L34">    }</span>
+<span class="fc" id="L70">    public LongRangeDistribution(Map&lt;LongRange, Place&gt; map) {</span>
+<span class="fc" id="L71">        distribution = new TreeMap&lt;&gt;(new LongRangeOrdering());</span>
+<span class="fc" id="L72">        distribution.putAll(map);</span>
+<span class="fc" id="L73">    }</span>
 
     /**
-     * Returns a copy of this instance using the copy constructor
-     * {@link #LongRangeDistribution(LongRangeDistribution)}.
+     * Constructor for internal use only.
+     *
+     * Creates a new {@link LongRangeDistribution} with the provided
+     * {@link TreeMap}. It is assumed that the provided map uses the
+     * {@link LongRangeOrdering} to sort its keys. If it is not the case, this
+     * constructor will throw an {@link IllegalArgumentException}.
+     *
+     *
+     * @param map the map to use to build this instance
+     * @throws IllegalArgumentException if the provided map does not use the
+     *                                  appropriate ordering
+     * @see #clone()
      */
+<span class="nc" id="L89">    protected LongRangeDistribution(TreeMap&lt;LongRange, Place&gt; map) {</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        if (!(map.comparator() instanceof LongRangeOrdering)) {</span>
+<span class="nc" id="L91">            throw new IllegalArgumentException(</span>
+                    &quot;The provided map should use ChunkedList.LongRangeOrdering to sort its keys&quot;);
+        }
+<span class="nc" id="L94">        distribution = map;</span>
+<span class="nc" id="L95">    }</span>
+
+    /**
+     * Returns a copy of this distribution by allocating a new
+     * {@link LongRangeDistribution} object. Any subsequent changes made to this
+     * object will NOT be reflected into the returned copy and vice-versa.
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
     @Override
     public LongRangeDistribution clone() {
-<span class="nc" id="L42">        return new LongRangeDistribution(this);</span>
+<span class="nc" id="L105">        return new LongRangeDistribution((TreeMap&lt;LongRange, Place&gt;) distribution.clone());</span>
     }
 
-    public HashMap&lt;LongRange, Place&gt; getHashMap() {
-<span class="nc" id="L46">        return dist;</span>
+    /**
+     * Creates a copy of the current distribution and returns it as a map from
+     * {@link LongRange} to {@link Place}. The returned map may be modified freely
+     * without any adverse influence on the integrity of this instance.
+     *
+     * @return a copy of the map used internally to keep track of the distribution
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public Map&lt;LongRange, Place&gt; getDistribution() {
+<span class="fc" id="L117">        return (Map&lt;LongRange, Place&gt;) distribution.clone();</span>
     }
 
     @Override
-    public Map&lt;LongRange, Place&gt; placeRanges(LongRange range) {
-<span class="nc" id="L51">        final Map&lt;LongRange, Place&gt; listPlaceRange = new HashMap&lt;&gt;();</span>
-<span class="nc bnc" id="L52" title="All 2 branches missed.">        for (final LongRange mappedRange : dist.keySet()) {</span>
-<span class="nc" id="L53">            final Place mappedPlace = dist.get(mappedRange);</span>
-<span class="nc bnc" id="L54" title="All 2 branches missed.">            if (mappedRange.from &lt;= range.from) {</span>
-<span class="nc bnc" id="L55" title="All 2 branches missed.">                if (range.from &lt; mappedRange.to) { // if (range.min &lt;= mappedRange.max) {</span>
-<span class="nc bnc" id="L56" title="All 2 branches missed.">                    if (range.to &lt;= mappedRange.to) {</span>
-<span class="nc" id="L57">                        listPlaceRange.put(range, mappedPlace);</span>
+    public Place location(Long key) {
+<span class="fc" id="L122">        final LongRange lr = new LongRange(key);</span>
+<span class="fc" id="L123">        final Map.Entry&lt;LongRange, Place&gt; entry = distribution.floorEntry(lr);</span>
+<span class="pc bpc" id="L124" title="2 of 4 branches missed.">        if (entry == null || !entry.getKey().contains(key)) {</span>
+<span class="nc" id="L125">            throw new IndexOutOfBoundsException(</span>
+                    &quot;LongRangeDistribution (as LongDistribution): &quot; + key + &quot; is not within the range of any chunk&quot;);
+        }
+<span class="fc" id="L128">        return entry.getValue();</span>
+    }
+
+    /**
+     * Provides the location of the specified range. It is assumed that the
+     * specified range is exactly contained in this distribution. If the targeted
+     * range does not exist in the collection, or if it has been split into 2 or
+     * more chunks, this method will return null.
+     * &lt;p&gt;
+     * In cases where a range may have been split into several pieces, consider
+     * using method {@link #rangeLocation(LongRange)} to obtain the location of each
+     * piece.
+     *
+     * @param lr the range whose location needs to be returned
+     * @return the location of the specified range, or null is this exact range is
+     *         not contained in the distributed collection
+     */
+    public Place location(LongRange lr) {
+<span class="fc" id="L146">        return distribution.get(lr);</span>
+    }
+
+    @Override
+    public Map&lt;LongRange, Place&gt; rangeLocation(LongRange range) {
+<span class="fc" id="L151">        final Map&lt;LongRange, Place&gt; listPlaceRange = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L152" title="All 2 branches covered.">        for (final LongRange mappedRange : distribution.keySet()) {</span>
+<span class="fc" id="L153">            final Place mappedPlace = distribution.get(mappedRange);</span>
+<span class="fc bfc" id="L154" title="All 2 branches covered.">            if (mappedRange.from &lt;= range.from) {</span>
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">                if (range.from &lt; mappedRange.to) { // if (range.min &lt;= mappedRange.max) {</span>
+<span class="fc bfc" id="L156" title="All 2 branches covered.">                    if (range.to &lt;= mappedRange.to) {</span>
+<span class="fc" id="L157">                        listPlaceRange.put(range, mappedPlace);</span>
                     } else {
-<span class="nc" id="L59">                        listPlaceRange.put(new LongRange(range.from, mappedRange.to), mappedPlace);</span>
+<span class="fc" id="L159">                        listPlaceRange.put(new LongRange(range.from, mappedRange.to), mappedPlace);</span>
                     }
                 }
             } else {
-<span class="nc bnc" id="L63" title="All 2 branches missed.">                if (mappedRange.from &lt; range.to) { // if (mappedRange.min &lt;= range.max) {</span>
-<span class="nc bnc" id="L64" title="All 2 branches missed.">                    if (range.to &lt;= mappedRange.to) {</span>
-<span class="nc" id="L65">                        listPlaceRange.put(new LongRange(mappedRange.from, range.to), mappedPlace);</span>
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">                if (mappedRange.from &lt; range.to) { // if (mappedRange.min &lt;= range.max) {</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">                    if (range.to &lt;= mappedRange.to) {</span>
+<span class="fc" id="L165">                        listPlaceRange.put(new LongRange(mappedRange.from, range.to), mappedPlace);</span>
                     } else {
-<span class="nc" id="L67">                        listPlaceRange.put(mappedRange, mappedPlace);</span>
+<span class="fc" id="L167">                        listPlaceRange.put(mappedRange, mappedPlace);</span>
                     }
                 }
             }
-<span class="nc" id="L71">        }</span>
-<span class="nc" id="L72">        return listPlaceRange;</span>
+<span class="fc" id="L171">        }</span>
+<span class="fc" id="L172">        return listPlaceRange;</span>
     }
+
+    @Override
+    void removeLocation(LongRange k) {
+<span class="fc" id="L177">        distribution.remove(k);</span>
+<span class="fc" id="L178">    }</span>
+
+    @Override
+    void updateLocation(LongRange k, Place location) {
+<span class="fc" id="L182">        distribution.put(k, location);</span>
+<span class="fc" id="L183">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

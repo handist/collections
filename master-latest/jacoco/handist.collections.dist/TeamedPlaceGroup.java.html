@@ -260,16 +260,29 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
 <span class="fc" id="L260">    }</span>
 
     /**
+     * Gathers one boolean variable from all places, wrapping MPI#Allgather.
+     *
+     * @param val the value to gather.
+     * @return an array storing gathered values to.
+     */
+    public boolean[] allGather1(boolean val) {
+<span class="nc" id="L269">        final boolean[] send = new boolean[] { val };</span>
+<span class="nc" id="L270">        final boolean[] recv = new boolean[size];</span>
+<span class="nc" id="L271">        comm.Allgather(send, 0, 1, MPI.BOOLEAN, recv, 0, 1, MPI.BOOLEAN);</span>
+<span class="nc" id="L272">        return recv;</span>
+    }
+
+    /**
      * Gathers one double variable from all places, wrapping MPI#Allgather.
      *
      * @param val the value to gather.
      * @return an array storing gathered values to.
      */
     public double[] allGather1(double val) {
-<span class="fc" id="L269">        final double[] send = new double[] { val };</span>
-<span class="fc" id="L270">        final double[] recv = new double[size];</span>
-<span class="fc" id="L271">        comm.Allgather(send, 0, 1, MPI.DOUBLE, recv, 0, 1, MPI.DOUBLE);</span>
-<span class="fc" id="L272">        return recv;</span>
+<span class="fc" id="L282">        final double[] send = new double[] { val };</span>
+<span class="fc" id="L283">        final double[] recv = new double[size];</span>
+<span class="fc" id="L284">        comm.Allgather(send, 0, 1, MPI.DOUBLE, recv, 0, 1, MPI.DOUBLE);</span>
+<span class="fc" id="L285">        return recv;</span>
     }
 
     /**
@@ -279,10 +292,10 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return an array storing gathered values to.
      */
     public float[] allGather1(float val) {
-<span class="fc" id="L282">        final float[] send = new float[] { val };</span>
-<span class="fc" id="L283">        final float[] recv = new float[size];</span>
-<span class="fc" id="L284">        comm.Allgather(send, 0, 1, MPI.FLOAT, recv, 0, 1, MPI.FLOAT);</span>
-<span class="fc" id="L285">        return recv;</span>
+<span class="fc" id="L295">        final float[] send = new float[] { val };</span>
+<span class="fc" id="L296">        final float[] recv = new float[size];</span>
+<span class="fc" id="L297">        comm.Allgather(send, 0, 1, MPI.FLOAT, recv, 0, 1, MPI.FLOAT);</span>
+<span class="fc" id="L298">        return recv;</span>
     }
 
     /**
@@ -292,10 +305,10 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return an array storing gathered values to.
      */
     public int[] allGather1(int val) {
-<span class="fc" id="L295">        final int[] send = new int[] { val };</span>
-<span class="fc" id="L296">        final int[] recv = new int[size];</span>
-<span class="fc" id="L297">        comm.Allgather(send, 0, 1, MPI.INT, recv, 0, 1, MPI.INT);</span>
-<span class="fc" id="L298">        return recv;</span>
+<span class="fc" id="L308">        final int[] send = new int[] { val };</span>
+<span class="fc" id="L309">        final int[] recv = new int[size];</span>
+<span class="fc" id="L310">        comm.Allgather(send, 0, 1, MPI.INT, recv, 0, 1, MPI.INT);</span>
+<span class="fc" id="L311">        return recv;</span>
     }
 
     /**
@@ -305,10 +318,10 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return an array storing gathered values to.
      */
     public long[] allGather1(long val) {
-<span class="fc" id="L308">        final long[] send = new long[] { val };</span>
-<span class="fc" id="L309">        final long[] recv = new long[size];</span>
-<span class="fc" id="L310">        comm.Allgather(send, 0, 1, MPI.LONG, recv, 0, 1, MPI.LONG);</span>
-<span class="fc" id="L311">        return recv;</span>
+<span class="fc" id="L321">        final long[] send = new long[] { val };</span>
+<span class="fc" id="L322">        final long[] recv = new long[size];</span>
+<span class="fc" id="L323">        comm.Allgather(send, 0, 1, MPI.LONG, recv, 0, 1, MPI.LONG);</span>
+<span class="fc" id="L324">        return recv;</span>
     }
 
     /**
@@ -318,10 +331,24 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return an array storing gathered values to.
      */
     public short[] allGather1(short val) {
-<span class="fc" id="L321">        final short[] send = new short[] { val };</span>
-<span class="fc" id="L322">        final short[] recv = new short[size];</span>
-<span class="fc" id="L323">        comm.Allgather(send, 0, 1, MPI.SHORT, recv, 0, 1, MPI.SHORT);</span>
-<span class="fc" id="L324">        return recv;</span>
+<span class="fc" id="L334">        final short[] send = new short[] { val };</span>
+<span class="fc" id="L335">        final short[] recv = new short[size];</span>
+<span class="fc" id="L336">        comm.Allgather(send, 0, 1, MPI.SHORT, recv, 0, 1, MPI.SHORT);</span>
+<span class="fc" id="L337">        return recv;</span>
+    }
+
+    /**
+     * Combine one boolean value of each process using the reduce operation, and
+     * return the combined value of the all process.
+     *
+     * @param val send value.
+     * @param op  reduce operation.
+     * @return the combined value.
+     */
+    public boolean allReduce1(boolean val, Op op) {
+<span class="nc" id="L349">        final boolean[] v = new boolean[] { val };</span>
+<span class="nc" id="L350">        comm.Allreduce(v, 0, v, 0, 1, MPI.BOOLEAN, op);</span>
+<span class="nc" id="L351">        return v[0];</span>
     }
 
     /**
@@ -333,9 +360,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return the combined value.
      */
     public double allReduce1(double val, Op op) {
-<span class="fc" id="L336">        final double[] v = new double[] { val };</span>
-<span class="fc" id="L337">        comm.Allreduce(v, 0, v, 0, 1, MPI.DOUBLE, op);</span>
-<span class="fc" id="L338">        return v[0];</span>
+<span class="fc" id="L363">        final double[] v = new double[] { val };</span>
+<span class="fc" id="L364">        comm.Allreduce(v, 0, v, 0, 1, MPI.DOUBLE, op);</span>
+<span class="fc" id="L365">        return v[0];</span>
     }
 
     /**
@@ -347,9 +374,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return the combined value.
      */
     public float allReduce1(float val, Op op) {
-<span class="fc" id="L350">        final float[] v = new float[] { val };</span>
-<span class="fc" id="L351">        comm.Allreduce(v, 0, v, 0, 1, MPI.FLOAT, op);</span>
-<span class="fc" id="L352">        return v[0];</span>
+<span class="fc" id="L377">        final float[] v = new float[] { val };</span>
+<span class="fc" id="L378">        comm.Allreduce(v, 0, v, 0, 1, MPI.FLOAT, op);</span>
+<span class="fc" id="L379">        return v[0];</span>
     }
 
     /**
@@ -361,9 +388,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return the combined value.
      */
     public int allReduce1(int val, Op op) {
-<span class="fc" id="L364">        final int[] v = new int[] { val };</span>
-<span class="fc" id="L365">        comm.Allreduce(v, 0, v, 0, 1, MPI.INT, op);</span>
-<span class="fc" id="L366">        return v[0];</span>
+<span class="fc" id="L391">        final int[] v = new int[] { val };</span>
+<span class="fc" id="L392">        comm.Allreduce(v, 0, v, 0, 1, MPI.INT, op);</span>
+<span class="fc" id="L393">        return v[0];</span>
     }
 
     /**
@@ -375,9 +402,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return the combined value.
      */
     public long allReduce1(long val, Op op) {
-<span class="fc" id="L378">        final long[] v = new long[] { val };</span>
-<span class="fc" id="L379">        comm.Allreduce(v, 0, v, 0, 1, MPI.LONG, op);</span>
-<span class="fc" id="L380">        return v[0];</span>
+<span class="fc" id="L405">        final long[] v = new long[] { val };</span>
+<span class="fc" id="L406">        comm.Allreduce(v, 0, v, 0, 1, MPI.LONG, op);</span>
+<span class="fc" id="L407">        return v[0];</span>
     }
 
     /**
@@ -389,9 +416,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return the combined value.
      */
     public short allReduce1(short val, Op op) {
-<span class="fc" id="L392">        final short[] v = new short[] { val };</span>
-<span class="fc" id="L393">        comm.Allreduce(v, 0, v, 0, 1, MPI.SHORT, op);</span>
-<span class="fc" id="L394">        return v[0];</span>
+<span class="fc" id="L419">        final short[] v = new short[] { val };</span>
+<span class="fc" id="L420">        comm.Allreduce(v, 0, v, 0, 1, MPI.SHORT, op);</span>
+<span class="fc" id="L421">        return v[0];</span>
     }
 
     @SuppressWarnings(&quot;unused&quot;)
@@ -401,21 +428,37 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
             comm.Alltoallv(byteArray, soffset, sendSize, sendOffset, stype, recvbuf, roffset, rcvSize, rcvOffset,
                     rtype);
         } else {
-<span class="fc bfc" id="L404" title="All 2 branches covered.">            for (int rank = 0; rank &lt; rcvSize.length; rank++) {</span>
-<span class="fc" id="L405">                comm.Gatherv(byteArray, soffset + sendOffset[rank], sendSize[rank], stype, recvbuf, roffset, rcvSize,</span>
+<span class="fc bfc" id="L431" title="All 2 branches covered.">            for (int rank = 0; rank &lt; rcvSize.length; rank++) {</span>
+<span class="fc" id="L432">                comm.Gatherv(byteArray, soffset + sendOffset[rank], sendSize[rank], stype, recvbuf, roffset, rcvSize,</span>
                         rcvOffset, rtype, rank);
             }
         }
-<span class="fc" id="L409">    }</span>
+<span class="fc" id="L436">    }</span>
 
     public void barrier() {
         try {
-<span class="nc" id="L413">            comm.Barrier();</span>
-<span class="nc" id="L414">        } catch (final MPIException e) {</span>
-<span class="nc" id="L415">            e.printStackTrace();</span>
-<span class="nc" id="L416">            throw new Error(&quot;[TeamedPlaceGroup] MPI Exception raised.&quot;);</span>
-<span class="nc" id="L417">        }</span>
-<span class="nc" id="L418">    }</span>
+<span class="nc" id="L440">            comm.Barrier();</span>
+<span class="nc" id="L441">        } catch (final MPIException e) {</span>
+<span class="nc" id="L442">            e.printStackTrace();</span>
+<span class="nc" id="L443">            throw new Error(&quot;[TeamedPlaceGroup] MPI Exception raised.&quot;);</span>
+<span class="nc" id="L444">        }</span>
+<span class="nc" id="L445">    }</span>
+
+    /**
+     * Broadcast one boolean value from the root place to all processes of the
+     * group.
+     *
+     * @param val  sent value from the root place. In other places, the value will
+     *             be ignored.
+     * @param root broadcast a value from the place.
+     * @return If the root place, return val and if other places, return recieved
+     *         value.
+     */
+    public boolean bCast1(boolean val, Place root) {
+<span class="nc" id="L458">        final boolean[] v = new boolean[] { val };</span>
+<span class="nc" id="L459">        comm.Bcast(v, 0, 1, MPI.BOOLEAN, rank(root));</span>
+<span class="nc" id="L460">        return v[0];</span>
+    }
 
     /**
      * Broadcast one double value from the root place to all processes of the group.
@@ -427,9 +470,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         value.
      */
     public double bCast1(double val, Place root) {
-<span class="fc" id="L430">        final double[] v = new double[] { val };</span>
-<span class="fc" id="L431">        comm.Bcast(v, 0, 1, MPI.DOUBLE, rank(root));</span>
-<span class="fc" id="L432">        return v[0];</span>
+<span class="fc" id="L473">        final double[] v = new double[] { val };</span>
+<span class="fc" id="L474">        comm.Bcast(v, 0, 1, MPI.DOUBLE, rank(root));</span>
+<span class="fc" id="L475">        return v[0];</span>
     }
 
     /**
@@ -442,9 +485,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         value.
      */
     public float bCast1(float val, Place root) {
-<span class="fc" id="L445">        final float[] v = new float[] { val };</span>
-<span class="fc" id="L446">        comm.Bcast(v, 0, 1, MPI.FLOAT, rank(root));</span>
-<span class="fc" id="L447">        return v[0];</span>
+<span class="fc" id="L488">        final float[] v = new float[] { val };</span>
+<span class="fc" id="L489">        comm.Bcast(v, 0, 1, MPI.FLOAT, rank(root));</span>
+<span class="fc" id="L490">        return v[0];</span>
     }
 
     /**
@@ -457,9 +500,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         value.
      */
     public int bCast1(int val, Place root) {
-<span class="fc" id="L460">        final int[] v = new int[] { val };</span>
-<span class="fc" id="L461">        comm.Bcast(v, 0, 1, MPI.INT, rank(root));</span>
-<span class="fc" id="L462">        return v[0];</span>
+<span class="fc" id="L503">        final int[] v = new int[] { val };</span>
+<span class="fc" id="L504">        comm.Bcast(v, 0, 1, MPI.INT, rank(root));</span>
+<span class="fc" id="L505">        return v[0];</span>
     }
 
     /**
@@ -472,9 +515,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         value.
      */
     public long bCast1(long val, Place root) {
-<span class="fc" id="L475">        final long[] v = new long[] { val };</span>
-<span class="fc" id="L476">        comm.Bcast(v, 0, 1, MPI.LONG, rank(root));</span>
-<span class="fc" id="L477">        return v[0];</span>
+<span class="fc" id="L518">        final long[] v = new long[] { val };</span>
+<span class="fc" id="L519">        comm.Bcast(v, 0, 1, MPI.LONG, rank(root));</span>
+<span class="fc" id="L520">        return v[0];</span>
     }
 
     /**
@@ -487,9 +530,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         value.
      */
     public short bCast1(short val, Place root) {
-<span class="fc" id="L490">        final short[] v = new short[] { val };</span>
-<span class="fc" id="L491">        comm.Bcast(v, 0, 1, MPI.SHORT, rank(root));</span>
-<span class="fc" id="L492">        return v[0];</span>
+<span class="fc" id="L533">        final short[] v = new short[] { val };</span>
+<span class="fc" id="L534">        comm.Bcast(v, 0, 1, MPI.SHORT, rank(root));</span>
+<span class="fc" id="L535">        return v[0];</span>
     }
 
     /**
@@ -500,15 +543,30 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      */
     public void broadcastFlat(SerializableJob job) {
         // TODO
-<span class="fc" id="L503">        finish(() -&gt; {</span>
-<span class="fc bfc" id="L504" title="All 2 branches covered.">            for (final Place p : places()) {</span>
-<span class="fc bfc" id="L505" title="All 2 branches covered.">                if (!p.equals(here())) {</span>
-<span class="fc" id="L506">                    asyncAt(p, job);</span>
+<span class="fc" id="L546">        finish(() -&gt; {</span>
+<span class="fc bfc" id="L547" title="All 2 branches covered.">            for (final Place p : places()) {</span>
+<span class="fc bfc" id="L548" title="All 2 branches covered.">                if (!p.equals(here())) {</span>
+<span class="fc" id="L549">                    asyncAt(p, job);</span>
                 }
-<span class="fc" id="L508">            }</span>
-<span class="fc" id="L509">            job.run();</span>
-<span class="fc" id="L510">        });</span>
-<span class="fc" id="L511">    }</span>
+<span class="fc" id="L551">            }</span>
+<span class="fc" id="L552">            job.run();</span>
+<span class="fc" id="L553">        });</span>
+<span class="fc" id="L554">    }</span>
+
+    /**
+     * Gathers one boolean variable from all places, wrapping MPI#gather.
+     *
+     * @param val  the value to gather.
+     * @param root gather values from all places to the root.
+     * @return If at the root place, return an array storing gathered values to. At
+     *         other places, return null.
+     */
+    public boolean[] gather1(boolean val, Place root) {
+<span class="nc" id="L565">        final boolean[] v = new boolean[] { val };</span>
+<span class="nc" id="L566">        final boolean[] recv = new boolean[size];</span>
+<span class="nc" id="L567">        comm.Gather(v, 0, 1, MPI.BOOLEAN, recv, 0, 1, MPI.BOOLEAN, rank(root));</span>
+<span class="nc bnc" id="L568" title="All 2 branches missed.">        return (root.equals(here())) ? recv : null;</span>
+    }
 
     /**
      * Gathers one double variable from all places, wrapping MPI#gather.
@@ -519,10 +577,10 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         other places, return null.
      */
     public double[] gather1(double val, Place root) {
-<span class="fc" id="L522">        final double[] v = new double[] { val };</span>
-<span class="fc" id="L523">        final double[] recv = new double[size];</span>
-<span class="fc" id="L524">        comm.Gather(v, 0, 1, MPI.DOUBLE, recv, 0, 1, MPI.DOUBLE, rank(root));</span>
-<span class="fc bfc" id="L525" title="All 2 branches covered.">        return (root.equals(here())) ? recv : null;</span>
+<span class="fc" id="L580">        final double[] v = new double[] { val };</span>
+<span class="fc" id="L581">        final double[] recv = new double[size];</span>
+<span class="fc" id="L582">        comm.Gather(v, 0, 1, MPI.DOUBLE, recv, 0, 1, MPI.DOUBLE, rank(root));</span>
+<span class="fc bfc" id="L583" title="All 2 branches covered.">        return (root.equals(here())) ? recv : null;</span>
     }
 
     /**
@@ -534,10 +592,10 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         other places, return null.
      */
     public float[] gather1(float val, Place root) {
-<span class="fc" id="L537">        final float[] v = new float[] { val };</span>
-<span class="fc" id="L538">        final float[] recv = new float[size];</span>
-<span class="fc" id="L539">        comm.Gather(v, 0, 1, MPI.FLOAT, recv, 0, 1, MPI.FLOAT, rank(root));</span>
-<span class="fc bfc" id="L540" title="All 2 branches covered.">        return (root.equals(here())) ? recv : null;</span>
+<span class="fc" id="L595">        final float[] v = new float[] { val };</span>
+<span class="fc" id="L596">        final float[] recv = new float[size];</span>
+<span class="fc" id="L597">        comm.Gather(v, 0, 1, MPI.FLOAT, recv, 0, 1, MPI.FLOAT, rank(root));</span>
+<span class="fc bfc" id="L598" title="All 2 branches covered.">        return (root.equals(here())) ? recv : null;</span>
     }
 
     /**
@@ -549,10 +607,10 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         other places, return null.
      */
     public int[] gather1(int val, Place root) {
-<span class="fc" id="L552">        final int[] v = new int[] { val };</span>
-<span class="fc" id="L553">        final int[] recv = new int[size];</span>
-<span class="fc" id="L554">        comm.Gather(v, 0, 1, MPI.INT, recv, 0, 1, MPI.INT, rank(root));</span>
-<span class="fc bfc" id="L555" title="All 2 branches covered.">        return (root.equals(here())) ? recv : null;</span>
+<span class="fc" id="L610">        final int[] v = new int[] { val };</span>
+<span class="fc" id="L611">        final int[] recv = new int[size];</span>
+<span class="fc" id="L612">        comm.Gather(v, 0, 1, MPI.INT, recv, 0, 1, MPI.INT, rank(root));</span>
+<span class="fc bfc" id="L613" title="All 2 branches covered.">        return (root.equals(here())) ? recv : null;</span>
     }
 
     /**
@@ -564,10 +622,10 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         other places, return null.
      */
     public long[] gather1(long val, Place root) {
-<span class="fc" id="L567">        final long[] v = new long[] { val };</span>
-<span class="fc" id="L568">        final long[] recv = new long[size];</span>
-<span class="fc" id="L569">        comm.Gather(v, 0, 1, MPI.LONG, recv, 0, 1, MPI.LONG, rank(root));</span>
-<span class="fc bfc" id="L570" title="All 2 branches covered.">        return (root.equals(here())) ? recv : null;</span>
+<span class="fc" id="L625">        final long[] v = new long[] { val };</span>
+<span class="fc" id="L626">        final long[] recv = new long[size];</span>
+<span class="fc" id="L627">        comm.Gather(v, 0, 1, MPI.LONG, recv, 0, 1, MPI.LONG, rank(root));</span>
+<span class="fc bfc" id="L628" title="All 2 branches covered.">        return (root.equals(here())) ? recv : null;</span>
     }
 
     /**
@@ -579,14 +637,14 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         other places, return null.
      */
     public short[] gather1(short val, Place root) {
-<span class="fc" id="L582">        final short[] v = new short[] { val };</span>
-<span class="fc" id="L583">        final short[] recv = new short[size];</span>
-<span class="fc" id="L584">        comm.Gather(v, 0, 1, MPI.SHORT, recv, 0, 1, MPI.SHORT, rank(root));</span>
-<span class="fc bfc" id="L585" title="All 2 branches covered.">        return (root.equals(here())) ? recv : null;</span>
+<span class="fc" id="L640">        final short[] v = new short[] { val };</span>
+<span class="fc" id="L641">        final short[] recv = new short[size];</span>
+<span class="fc" id="L642">        comm.Gather(v, 0, 1, MPI.SHORT, recv, 0, 1, MPI.SHORT, rank(root));</span>
+<span class="fc bfc" id="L643" title="All 2 branches covered.">        return (root.equals(here())) ? recv : null;</span>
     }
 
     public Place get(int rank) {
-<span class="fc" id="L589">        return places.get(rank);</span>
+<span class="fc" id="L647">        return places.get(rank);</span>
     }
 
     /**
@@ -596,7 +654,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return the parent of this {@link TeamedPlaceGroup}
      */
     public TeamedPlaceGroup getParent() {
-<span class="nc" id="L599">        return parent;</span>
+<span class="nc" id="L657">        return parent;</span>
     }
 
     /**
@@ -615,11 +673,11 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
         // setup rank2place
         // share the infromation
         // set this to singleton
-<span class="nc" id="L618">        return this;</span>
+<span class="nc" id="L676">        return this;</span>
     }
 
     public List&lt;Place&gt; places() {
-<span class="fc" id="L622">        return places;</span>
+<span class="fc" id="L680">        return places;</span>
     }
 
     /**
@@ -629,7 +687,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return rank of this host within the {@link TeamedPlaceGroup}
      */
     public int rank() {
-<span class="fc" id="L632">        return myrank;</span>
+<span class="fc" id="L690">        return myrank;</span>
     }
 
     /**
@@ -642,11 +700,28 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @throws RuntimeException if the specified place is not a member of this group
      */
     public int rank(Place place) {
-<span class="fc" id="L645">        final int result = places.indexOf(place);</span>
-<span class="pc bpc" id="L646" title="1 of 2 branches missed.">        if (result &lt; 0) {</span>
-<span class="nc" id="L647">            throw new RuntimeException(&quot;[TeamedPlaceGroup] &quot; + place + &quot; is not a member of &quot; + this);</span>
+<span class="fc" id="L703">        final int result = places.indexOf(place);</span>
+<span class="pc bpc" id="L704" title="1 of 2 branches missed.">        if (result &lt; 0) {</span>
+<span class="nc" id="L705">            throw new RuntimeException(&quot;[TeamedPlaceGroup] &quot; + place + &quot; is not a member of &quot; + this);</span>
         }
-<span class="fc" id="L649">        return result;</span>
+<span class="fc" id="L707">        return result;</span>
+    }
+
+    /**
+     *
+     * Combine one int value of each process using the reduce operation, and return
+     * the combined value of the root process.
+     *
+     * @param val  send value.
+     * @param op   reduce operation.
+     * @param root combined value is returned only the root place.
+     * @return at root place, the combined value. at other places, return val as it
+     *         is.
+     */
+    public boolean reduce1(boolean val, Op op, Place root) {
+<span class="nc" id="L722">        final boolean[] v = new boolean[] { val };</span>
+<span class="nc" id="L723">        comm.Reduce(v, 0, v, 0, 1, MPI.BOOLEAN, op, rank(root));</span>
+<span class="nc" id="L724">        return v[0];</span>
     }
 
     /**
@@ -661,9 +736,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         is.
      */
     public double reduce1(double val, Op op, Place root) {
-<span class="fc" id="L664">        final double[] v = new double[] { val };</span>
-<span class="fc" id="L665">        comm.Reduce(v, 0, v, 0, 1, MPI.DOUBLE, op, rank(root));</span>
-<span class="fc" id="L666">        return v[0];</span>
+<span class="fc" id="L739">        final double[] v = new double[] { val };</span>
+<span class="fc" id="L740">        comm.Reduce(v, 0, v, 0, 1, MPI.DOUBLE, op, rank(root));</span>
+<span class="fc" id="L741">        return v[0];</span>
     }
 
     /**
@@ -678,9 +753,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         is.
      */
     public float reduce1(float val, Op op, Place root) {
-<span class="fc" id="L681">        final float[] v = new float[] { val };</span>
-<span class="fc" id="L682">        comm.Reduce(v, 0, v, 0, 1, MPI.FLOAT, op, rank(root));</span>
-<span class="fc" id="L683">        return v[0];</span>
+<span class="fc" id="L756">        final float[] v = new float[] { val };</span>
+<span class="fc" id="L757">        comm.Reduce(v, 0, v, 0, 1, MPI.FLOAT, op, rank(root));</span>
+<span class="fc" id="L758">        return v[0];</span>
     }
 
     /**
@@ -695,9 +770,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         is.
      */
     public int reduce1(int val, Op op, Place root) {
-<span class="fc" id="L698">        final int[] v = new int[] { val };</span>
-<span class="fc" id="L699">        comm.Reduce(v, 0, v, 0, 1, MPI.INT, op, rank(root));</span>
-<span class="fc" id="L700">        return v[0];</span>
+<span class="fc" id="L773">        final int[] v = new int[] { val };</span>
+<span class="fc" id="L774">        comm.Reduce(v, 0, v, 0, 1, MPI.INT, op, rank(root));</span>
+<span class="fc" id="L775">        return v[0];</span>
     }
 
     /**
@@ -712,9 +787,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         is.
      */
     public long reduce1(long val, Op op, Place root) {
-<span class="fc" id="L715">        final long[] v = new long[] { val };</span>
-<span class="fc" id="L716">        comm.Reduce(v, 0, v, 0, 1, MPI.LONG, op, rank(root));</span>
-<span class="fc" id="L717">        return v[0];</span>
+<span class="fc" id="L790">        final long[] v = new long[] { val };</span>
+<span class="fc" id="L791">        comm.Reduce(v, 0, v, 0, 1, MPI.LONG, op, rank(root));</span>
+<span class="fc" id="L792">        return v[0];</span>
     }
 
     /**
@@ -729,9 +804,9 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *         is.
      */
     public short reduce1(short val, Op op, Place root) {
-<span class="fc" id="L732">        final short[] v = new short[] { val };</span>
-<span class="fc" id="L733">        comm.Reduce(v, 0, v, 0, 1, MPI.SHORT, op, rank(root));</span>
-<span class="fc" id="L734">        return v[0];</span>
+<span class="fc" id="L807">        final short[] v = new short[] { val };</span>
+<span class="fc" id="L808">        comm.Reduce(v, 0, v, 0, 1, MPI.SHORT, op, rank(root));</span>
+<span class="fc" id="L809">        return v[0];</span>
     }
 
     // TODO
@@ -739,7 +814,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
     public void remove(GlobalID id) {
         // TODO
 
-<span class="fc" id="L742">    }</span>
+<span class="fc" id="L817">    }</span>
 
     /**
      * Returns the number of hosts that are members of this
@@ -748,60 +823,60 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return number of hosts in the group
      */
     public int size() {
-<span class="fc" id="L751">        return size;</span>
+<span class="fc" id="L826">        return size;</span>
     }
 
     public TeamedPlaceGroup split(SortedMap&lt;Integer, Integer&gt; rank2color) {
         try {
-<span class="fc" id="L756">            final int newColor = rank2color.get(myrank);</span>
-<span class="fc" id="L757">            int newRank = 0;</span>
-<span class="fc" id="L758">            final List&lt;Place&gt; newPlaces = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L759" title="All 2 branches covered.">            for (final Map.Entry&lt;Integer, Integer&gt; entry : rank2color.entrySet()) {</span>
-<span class="fc" id="L760">                final int r = entry.getKey();</span>
-<span class="fc bfc" id="L761" title="All 2 branches covered.">                if (entry.getValue().equals(newColor)) {</span>
-<span class="fc bfc" id="L762" title="All 2 branches covered.">                    if (r == myrank) {</span>
-<span class="fc" id="L763">                        newRank = newPlaces.size();</span>
+<span class="fc" id="L831">            final int newColor = rank2color.get(myrank);</span>
+<span class="fc" id="L832">            int newRank = 0;</span>
+<span class="fc" id="L833">            final List&lt;Place&gt; newPlaces = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L834" title="All 2 branches covered.">            for (final Map.Entry&lt;Integer, Integer&gt; entry : rank2color.entrySet()) {</span>
+<span class="fc" id="L835">                final int r = entry.getKey();</span>
+<span class="fc bfc" id="L836" title="All 2 branches covered.">                if (entry.getValue().equals(newColor)) {</span>
+<span class="fc bfc" id="L837" title="All 2 branches covered.">                    if (r == myrank) {</span>
+<span class="fc" id="L838">                        newRank = newPlaces.size();</span>
                     }
-<span class="fc" id="L765">                    newPlaces.add(places.get(r));</span>
+<span class="fc" id="L840">                    newPlaces.add(places.get(r));</span>
                 }
-<span class="fc" id="L767">            }</span>
-<span class="fc" id="L768">            final Intracomm newComm = comm.Split(newColor, newRank); // MPIException</span>
-<span class="pc bpc" id="L769" title="1 of 2 branches missed.">            if (debugF) {</span>
-<span class="nc" id="L770">                System.out.println(&quot;PlaceGroup split =&quot; + newRank + &quot;, place&quot; + here() + &quot;::&quot; + here().id);</span>
+<span class="fc" id="L842">            }</span>
+<span class="fc" id="L843">            final Intracomm newComm = comm.Split(newColor, newRank); // MPIException</span>
+<span class="pc bpc" id="L844" title="1 of 2 branches missed.">            if (debugF) {</span>
+<span class="nc" id="L845">                System.out.println(&quot;PlaceGroup split =&quot; + newRank + &quot;, place&quot; + here() + &quot;::&quot; + here().id);</span>
             }
             GlobalID id;
-<span class="fc bfc" id="L773" title="All 2 branches covered.">            if (newRank == 0) {</span>
-<span class="fc" id="L774">                id = new GlobalID();</span>
-<span class="fc" id="L775">                final ByteArrayOutputStream out0 = new ByteArrayOutputStream();</span>
-<span class="fc" id="L776">                final ObjectOutput out = new ObjectOutput(out0);</span>
-<span class="fc" id="L777">                out.writeObject(id);</span>
-<span class="fc" id="L778">                out.close();</span>
-<span class="fc" id="L779">                final byte[] buf = out0.toByteArray();</span>
-<span class="fc" id="L780">                final int[] buf0 = new int[1];</span>
-<span class="fc" id="L781">                buf0[0] = buf.length;</span>
-<span class="fc" id="L782">                newComm.Bcast(buf0, 0, 1, MPI.INT, 0);</span>
-<span class="fc" id="L783">                newComm.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);</span>
-<span class="fc" id="L784">            } else {</span>
-<span class="fc" id="L785">                final int[] buf0 = new int[1];</span>
-<span class="fc" id="L786">                newComm.Bcast(buf0, 0, 1, MPI.INT, 0);</span>
-<span class="fc" id="L787">                final byte[] buf = new byte[buf0[0]];</span>
-<span class="fc" id="L788">                newComm.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);</span>
-<span class="fc" id="L789">                final ObjectInput in = new ObjectInput(new ByteArrayInputStream(buf));</span>
+<span class="fc bfc" id="L848" title="All 2 branches covered.">            if (newRank == 0) {</span>
+<span class="fc" id="L849">                id = new GlobalID();</span>
+<span class="fc" id="L850">                final ByteArrayOutputStream out0 = new ByteArrayOutputStream();</span>
+<span class="fc" id="L851">                final ObjectOutput out = new ObjectOutput(out0);</span>
+<span class="fc" id="L852">                out.writeObject(id);</span>
+<span class="fc" id="L853">                out.close();</span>
+<span class="fc" id="L854">                final byte[] buf = out0.toByteArray();</span>
+<span class="fc" id="L855">                final int[] buf0 = new int[1];</span>
+<span class="fc" id="L856">                buf0[0] = buf.length;</span>
+<span class="fc" id="L857">                newComm.Bcast(buf0, 0, 1, MPI.INT, 0);</span>
+<span class="fc" id="L858">                newComm.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);</span>
+<span class="fc" id="L859">            } else {</span>
+<span class="fc" id="L860">                final int[] buf0 = new int[1];</span>
+<span class="fc" id="L861">                newComm.Bcast(buf0, 0, 1, MPI.INT, 0);</span>
+<span class="fc" id="L862">                final byte[] buf = new byte[buf0[0]];</span>
+<span class="fc" id="L863">                newComm.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);</span>
+<span class="fc" id="L864">                final ObjectInput in = new ObjectInput(new ByteArrayInputStream(buf));</span>
                 try {
-<span class="fc" id="L791">                    id = (GlobalID) in.readObject();</span>
-<span class="nc" id="L792">                } catch (final Exception e) {</span>
-<span class="nc" id="L793">                    throw new Error(&quot;[TeamedPlaceGroup] init error at worker&quot;);</span>
+<span class="fc" id="L866">                    id = (GlobalID) in.readObject();</span>
+<span class="nc" id="L867">                } catch (final Exception e) {</span>
+<span class="nc" id="L868">                    throw new Error(&quot;[TeamedPlaceGroup] init error at worker&quot;);</span>
                 } finally {
-<span class="fc" id="L795">                    in.close();</span>
+<span class="fc" id="L870">                    in.close();</span>
                 }
             }
-<span class="fc" id="L798">            return new TeamedPlaceGroup(id, newRank, newPlaces, newComm, this);</span>
+<span class="fc" id="L873">            return new TeamedPlaceGroup(id, newRank, newPlaces, newComm, this);</span>
             /*
              * PlaceLocalObject.make(places(), ()-&gt;{ return new TeamedPlaceGroup().init();
              * });
              */
-<span class="nc" id="L803">        } catch (final MPIException e) {</span>
-<span class="nc" id="L804">            throw new RuntimeException(&quot;[TeamedPlaceGroup] MPIException caught.&quot;);</span>
+<span class="nc" id="L878">        } catch (final MPIException e) {</span>
+<span class="nc" id="L879">            throw new RuntimeException(&quot;[TeamedPlaceGroup] MPIException caught.&quot;);</span>
         }
     }
     /*
@@ -816,28 +891,28 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @return a new TeamedPlaceGroup
      */
     public TeamedPlaceGroup splitHalf() {
-<span class="fc" id="L819">        final TreeMap&lt;Integer, Integer&gt; rank2color = new TreeMap&lt;&gt;();</span>
-<span class="pc bpc" id="L820" title="1 of 2 branches missed.">        if (size() == 1) {</span>
-<span class="nc" id="L821">            throw new RuntimeException(</span>
+<span class="fc" id="L894">        final TreeMap&lt;Integer, Integer&gt; rank2color = new TreeMap&lt;&gt;();</span>
+<span class="pc bpc" id="L895" title="1 of 2 branches missed.">        if (size() == 1) {</span>
+<span class="nc" id="L896">            throw new RuntimeException(</span>
                     &quot;[TeamedPlaceGroup] TeamedPlaceGroup with size == 1 cannnot be split any further&quot;);
         }
-<span class="fc" id="L824">        final int half = size() / 2;</span>
-<span class="fc bfc" id="L825" title="All 2 branches covered.">        for (int i = 0; i &lt; half; i++) {</span>
-<span class="fc" id="L826">            rank2color.put(i, 0);</span>
+<span class="fc" id="L899">        final int half = size() / 2;</span>
+<span class="fc bfc" id="L900" title="All 2 branches covered.">        for (int i = 0; i &lt; half; i++) {</span>
+<span class="fc" id="L901">            rank2color.put(i, 0);</span>
         }
-<span class="fc bfc" id="L828" title="All 2 branches covered.">        for (int i = half; i &lt; size(); i++) {</span>
-<span class="fc" id="L829">            rank2color.put(i, 1);</span>
+<span class="fc bfc" id="L903" title="All 2 branches covered.">        for (int i = half; i &lt; size(); i++) {</span>
+<span class="fc" id="L904">            rank2color.put(i, 1);</span>
         }
-<span class="fc" id="L831">        return split(rank2color);</span>
+<span class="fc" id="L906">        return split(rank2color);</span>
     }
 
     @Override
     public String toString() {
-<span class="nc" id="L836">        return &quot;TeamedPlaceGroup[&quot; + id + &quot;, myrank:&quot; + myrank + &quot;, places:&quot; + places() + &quot;]&quot;;</span>
+<span class="nc" id="L911">        return &quot;TeamedPlaceGroup[&quot; + id + &quot;, myrank:&quot; + myrank + &quot;, places:&quot; + places() + &quot;]&quot;;</span>
     }
 
     public Object writeReplace() throws ObjectStreamException {
-<span class="fc" id="L840">        return new ObjectReference(id);</span>
+<span class="fc" id="L915">        return new ObjectReference(id);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

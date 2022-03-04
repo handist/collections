@@ -19,7 +19,6 @@ import handist.collections.ChunkedList;
 import handist.collections.LongRange;
 import handist.collections.dist.DistBag;
 import handist.collections.dist.DistChunkedList;
-import handist.collections.dist.Reducer;
 import handist.collections.function.SerializableBiConsumer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.SerializableFunction;
@@ -27,6 +26,7 @@ import handist.collections.function.SerializableLongTBiConsumer;
 import handist.collections.function.SerializableSupplier;
 import handist.collections.glb.DistColGlbTask.DistColLambda;
 import handist.collections.glb.GlbComputer.WorkerInfo;
+import handist.collections.reducer.Reducer;
 
 /**
  * This class proposes various operations that operate on all the elements of a

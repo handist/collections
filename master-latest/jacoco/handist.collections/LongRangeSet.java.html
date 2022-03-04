@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LongRangeSet.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">LongRangeSet.java</span></div><h1>LongRangeSet.java</h1><pre class="source lang-java linenums">package handist.collections;
+
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.NavigableSet;
+import java.util.SortedSet;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * Entries in this member will be sorted by increasing {@link LongRange#from}
+ * and &lt;em&gt;increasing&lt;/em&gt; {@link LongRange#to}.
+ *
+ * TODO : handle not for LongRange but for object range.
+ */
+public final class LongRangeSet implements NavigableSet&lt;LongRange&gt;, Serializable {
+
+    private static final long serialVersionUID = 1614965449289258856L;
+
+    private final NavigableSet&lt;LongRange&gt; ranges;
+
+    private final AtomicLong totalSize;
+
+<span class="fc" id="L26">    public LongRangeSet() {</span>
+<span class="fc" id="L27">        ranges = new ConcurrentSkipListSet&lt;&gt;();</span>
+<span class="fc" id="L28">        totalSize = new AtomicLong(0l);</span>
+<span class="fc" id="L29">    }</span>
+
+    public LongRangeSet(Collection&lt;LongRange&gt; col) {
+<span class="fc" id="L32">        this();</span>
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        for (final LongRange r : col) {</span>
+<span class="fc" id="L34">            add(r);</span>
+<span class="fc" id="L35">        }</span>
+<span class="fc" id="L36">    }</span>
+
+    @Override
+    public boolean add(LongRange r) {
+<span class="fc" id="L40">        LongRange range = floor(r);</span>
+<span class="fc bfc" id="L41" title="All 4 branches covered.">        if (range != null &amp;&amp; range.to &gt; r.from) {</span>
+<span class="fc" id="L42">            return false; // or throw exception</span>
+        }
+<span class="fc" id="L44">        range = ceiling(r);</span>
+<span class="fc bfc" id="L45" title="All 4 branches covered.">        if (range != null &amp;&amp; range.from &lt; r.to) {</span>
+<span class="fc" id="L46">            return false; // or throw exception</span>
+        }
+<span class="fc" id="L48">        totalSize.addAndGet(r.size());</span>
+<span class="fc" id="L49">        return ranges.add(r);</span>
+    }
+
+    @Override
+    public boolean addAll(Collection&lt;? extends LongRange&gt; c) {
+<span class="fc" id="L54">        boolean ret = false;</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        for (final LongRange r : c) {</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">            if (add(r)) {</span>
+<span class="fc" id="L57">                ret = true;</span>
+            }
+<span class="fc" id="L59">        }</span>
+<span class="fc" id="L60">        return ret;</span>
+    }
+
+    @Override
+    public LongRange ceiling(LongRange e) {
+<span class="fc" id="L65">        return ranges.ceiling(e);</span>
+    }
+
+    @Override
+    public void clear() {
+<span class="fc" id="L70">        ranges.clear();</span>
+<span class="fc" id="L71">        totalSize.set(0);</span>
+<span class="fc" id="L72">    }</span>
+
+    @Override
+    public Comparator&lt;? super LongRange&gt; comparator() {
+<span class="nc" id="L76">        return ranges.comparator();</span>
+    }
+
+    @Override
+    public boolean contains(Object o) {
+<span class="nc" id="L81">        return ranges.contains(o);</span>
+    }
+
+    @Override
+    public boolean containsAll(Collection&lt;?&gt; c) {
+<span class="nc" id="L86">        return ranges.containsAll(c);</span>
+    }
+
+    /**
+     * @param i an index to check in contains.
+     * @return true if this set contains a range that overlaps the specified index.
+     */
+    public boolean containsIndex(long i) {
+<span class="fc" id="L94">        final LongRange floor = floor(new LongRange(i));</span>
+<span class="fc bfc" id="L95" title="All 4 branches covered.">        if (floor != null &amp;&amp; floor.to &gt; i) {</span>
+<span class="fc" id="L96">            return true;</span>
+        }
+<span class="fc" id="L98">        final LongRange higher = higher(new LongRange(i));</span>
+<span class="fc bfc" id="L99" title="All 4 branches covered.">        if (higher != null &amp;&amp; higher.from &lt;= i) {</span>
+<span class="fc" id="L100">            return true;</span>
+        }
+<span class="fc" id="L102">        return false;</span>
+    }
+
+    @Override
+    public Iterator&lt;LongRange&gt; descendingIterator() {
+<span class="nc" id="L107">        return ranges.descendingIterator();</span>
+    }
+
+    @Override
+    public NavigableSet&lt;LongRange&gt; descendingSet() {
+<span class="nc" id="L112">        return ranges.descendingSet();</span>
+    }
+
+    @Override
+    public LongRange first() {
+<span class="nc" id="L117">        return ranges.first();</span>
+    }
+
+    @Override
+    public LongRange floor(LongRange e) {
+<span class="fc" id="L122">        return ranges.floor(e);</span>
+    }
+
+    /**
+     * Returns a range that overlap a given index, or null if this set contains no
+     * range overlap the index.
+     *
+     * @param i an index to get range.
+     * @return a range that overlap a given index, or null if this set contains no
+     *         range overlap the index.
+     */
+    public LongRange getOverlap(long i) {
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">        if (isEmpty()) {</span>
+<span class="nc" id="L135">            return null;</span>
+        }
+<span class="fc" id="L137">        final LongRange point = new LongRange(i);</span>
+<span class="fc" id="L138">        LongRange range = floor(point);</span>
+<span class="fc bfc" id="L139" title="All 4 branches covered.">        if (range != null &amp;&amp; range.contains(i)) {</span>
+<span class="fc" id="L140">            return range;</span>
+        }
+<span class="fc" id="L142">        range = higher(point);</span>
+<span class="fc bfc" id="L143" title="All 4 branches covered.">        if (range != null &amp;&amp; range.contains(i)) {</span>
+<span class="fc" id="L144">            return range;</span>
+        }
+<span class="fc" id="L146">        return null;</span>
+    }
+
+    /**
+     * Returns a view of the portion of this set whose elements arestrictly less
+     * than to index. The returned set isbacked by this set, so changes in the
+     * returned set arereflected in this set, and vice-versa. The returned
+     * setsupports all optional set operations that this set supports.
+     */
+    public SortedSet&lt;LongRange&gt; headSet(long to, boolean overlap) {
+<span class="fc" id="L156">        final LongRange toElement = floor(new LongRange(to));</span>
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">        if (toElement == null) {</span>
+<span class="nc" id="L158">            return headSet(new LongRange(to), false); // empty set</span>
+        }
+<span class="fc bfc" id="L160" title="All 2 branches covered.">        if (overlap) {</span>
+<span class="fc" id="L161">            return headSet(toElement, true);</span>
+        }
+<span class="fc bfc" id="L163" title="All 2 branches covered.">        return headSet(toElement, (toElement.to &lt;= to));</span>
+    }
+
+    @Override
+    public SortedSet&lt;LongRange&gt; headSet(LongRange toElement) {
+<span class="nc" id="L168">        return ranges.headSet(toElement);</span>
+    }
+
+    @Override
+    public NavigableSet&lt;LongRange&gt; headSet(LongRange toElement, boolean inclusive) {
+<span class="fc" id="L173">        return ranges.headSet(toElement, inclusive);</span>
+    }
+
+    @Override
+    public LongRange higher(LongRange e) {
+<span class="fc" id="L178">        return ranges.higher(e);</span>
+    }
+
+    /**
+     * Returns shallow copy set within a given range. It does not include the range
+     * that overlaps with the given range but extends.
+     *
+     * @param from a from index of subSet
+     * @param to   a to index of subSet
+     * @return LongRange set within a given range
+     */
+    public NavigableSet&lt;LongRange&gt; includeSet(long from, long to) {
+<span class="fc" id="L190">        final LongRangeSet result = new LongRangeSet();</span>
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">        if (isEmpty()) {</span>
+<span class="nc" id="L192">            return result;</span>
+        }
+<span class="fc" id="L194">        LongRange range = ceiling(new LongRange(from));</span>
+
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">        if (range == null) {</span>
+<span class="nc" id="L197">            return result;</span>
+        }
+<span class="fc" id="L199">        final Iterator&lt;LongRange&gt; iter = tailSet(range, true).iterator();</span>
+
+<span class="fc bfc" id="L201" title="All 4 branches covered.">        while (iter.hasNext() &amp;&amp; range.to &lt;= to) {</span>
+<span class="fc" id="L202">            result.add(range);</span>
+<span class="fc" id="L203">            range = iter.next();</span>
+        }
+<span class="fc" id="L205">        return result;</span>
+    }
+
+    @Override
+    public boolean isEmpty() {
+<span class="fc" id="L210">        return ranges.isEmpty();</span>
+    }
+
+    @Override
+    public Iterator&lt;LongRange&gt; iterator() {
+<span class="fc" id="L215">        return ranges.iterator();</span>
+    }
+
+    @Override
+    public LongRange last() {
+<span class="fc" id="L220">        return ranges.last();</span>
+    }
+
+    @Override
+    public LongRange lower(LongRange e) {
+<span class="fc" id="L225">        return ranges.lower(e);</span>
+    }
+
+    /**
+     * Returns shallow copy set overlapping a given range. Includes ranges that
+     * overhang with the given range.
+     *
+     * @param from a from index of subSet
+     * @param to   a to index of subSet
+     * @return LongRange set ovelapping a given range
+     */
+    public NavigableSet&lt;LongRange&gt; overlapSet(long from, long to) {
+<span class="nc" id="L237">        final LongRangeSet result = new LongRangeSet();</span>
+<span class="nc" id="L238">        final LongRange given = new LongRange(from, to);</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">        if (isEmpty()) {</span>
+<span class="nc" id="L240">            return result;</span>
+        }
+<span class="nc" id="L242">        LongRange range = floor(new LongRange(from));</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">        if (range == null) {</span>
+<span class="nc" id="L244">            range = higher(range);</span>
+        }
+<span class="nc" id="L246">        final Iterator&lt;LongRange&gt; iter = tailSet(range, true).iterator();</span>
+<span class="nc bnc" id="L247" title="All 4 branches missed.">        while (iter.hasNext() &amp;&amp; range.from &lt; to) {</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">            if (range.isOverlapped(given)) {</span>
+<span class="nc" id="L249">                result.add(range);</span>
+            }
+<span class="nc" id="L251">            range = iter.next();</span>
+        }
+<span class="nc" id="L253">        return result;</span>
+    }
+
+    @Override
+    public LongRange pollFirst() {
+<span class="nc" id="L258">        return ranges.pollFirst();</span>
+    }
+
+    @Override
+    public LongRange pollLast() {
+<span class="nc" id="L263">        return ranges.pollLast();</span>
+    }
+
+    @Override
+    public boolean remove(Object o) {
+<span class="fc bfc" id="L268" title="All 2 branches covered.">        if (ranges.remove(o)) {</span>
+<span class="fc" id="L269">            totalSize.addAndGet(-((LongRange) o).size());</span>
+<span class="fc" id="L270">            return true;</span>
+        }
+<span class="fc" id="L272">        return false;</span>
+    }
+
+    @Override
+    public boolean removeAll(Collection&lt;?&gt; c) {
+<span class="nc" id="L277">        boolean ret = false;</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">        for (final Object r : c) {</span>
+<span class="nc bnc" id="L279" title="All 2 branches missed.">            if (remove(r)) {</span>
+<span class="nc" id="L280">                ret = true;</span>
+            }
+<span class="nc" id="L282">        }</span>
+<span class="nc" id="L283">        return ret;</span>
+    }
+
+    @Override
+    public boolean retainAll(Collection&lt;?&gt; c) {
+<span class="nc" id="L288">        boolean ret = false;</span>
+<span class="nc bnc" id="L289" title="All 2 branches missed.">        for (final LongRange r : this) {</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">            if (!c.contains(r)) {</span>
+<span class="nc" id="L291">                ret = remove(r);</span>
+            }
+<span class="nc" id="L293">        }</span>
+<span class="nc" id="L294">        return ret;</span>
+    }
+
+    @Override
+    public int size() {
+<span class="fc" id="L299">        return ranges.size();</span>
+    }
+
+    /**
+     * A method to split ranges contained this instance with given range. TODO :not
+     * supported multi threads splitting.
+     *
+     * @return ranges inner given range and newly created as a result of split.
+     */
+    public Collection&lt;LongRange&gt; split(long from, long to) {
+<span class="fc" id="L309">        final LongRange low = getOverlap(from);</span>
+<span class="pc bpc" id="L310" title="1 of 6 branches missed.">        if (low == null || low.from == from || from == low.to) {</span>
+        } else {
+<span class="fc" id="L312">            remove(low);</span>
+<span class="fc" id="L313">            add(new LongRange(low.from, from));</span>
+<span class="fc" id="L314">            add(new LongRange(from, low.to));</span>
+        }
+<span class="fc" id="L316">        final LongRange high = getOverlap(to - 1);</span>
+<span class="pc bpc" id="L317" title="1 of 6 branches missed.">        if (high == null || high.from == to || to == high.to) {</span>
+        } else {
+<span class="fc" id="L319">            remove(high);</span>
+<span class="fc" id="L320">            add(new LongRange(high.from, to));</span>
+<span class="fc" id="L321">            add(new LongRange(to, high.to));</span>
+        }
+<span class="fc" id="L323">        return includeSet(from, to);</span>
+    }
+
+    @Override
+    public NavigableSet&lt;LongRange&gt; subSet(LongRange fromElement, boolean fromInclusive, LongRange toElement,
+            boolean toInclusive) {
+<span class="nc" id="L329">        return ranges.subSet(fromElement, fromInclusive, toElement, toInclusive);</span>
+    }
+
+    @Override
+    public SortedSet&lt;LongRange&gt; subSet(LongRange fromElement, LongRange toElement) {
+<span class="fc" id="L334">        return ranges.subSet(fromElement, toElement);</span>
+    }
+
+    public SortedSet&lt;LongRange&gt; tailSet(long from) {
+<span class="nc" id="L338">        return tailSet(from, true);</span>
+    }
+
+    public SortedSet&lt;LongRange&gt; tailSet(long from, boolean overlap) {
+<span class="fc" id="L342">        final LongRange fromElement = ceiling(new LongRange(from));</span>
+<span class="fc bfc" id="L343" title="All 2 branches covered.">        if (fromElement == null) {</span>
+<span class="fc" id="L344">            return tailSet(last(), overlap);</span>
+        }
+<span class="fc bfc" id="L346" title="All 2 branches covered.">        if (fromElement.from == from) {</span>
+<span class="fc" id="L347">            return tailSet(fromElement, overlap);</span>
+        }
+<span class="fc bfc" id="L349" title="All 2 branches covered.">        if (!overlap) {</span>
+<span class="fc" id="L350">            return tailSet(fromElement, true);</span>
+        }
+<span class="fc" id="L352">        final LongRange low = lower(fromElement);</span>
+<span class="pc bpc" id="L353" title="2 of 4 branches missed.">        if (low != null &amp;&amp; low.to &gt; from) {</span>
+<span class="fc" id="L354">            return tailSet(low, true);</span>
+        }
+<span class="nc" id="L356">        return tailSet(fromElement, true);</span>
+    }
+
+    @Override
+    public SortedSet&lt;LongRange&gt; tailSet(LongRange fromElement) {
+<span class="nc" id="L361">        return ranges.tailSet(fromElement);</span>
+    }
+
+    @Override
+    public NavigableSet&lt;LongRange&gt; tailSet(LongRange fromElement, boolean inclusive) {
+<span class="fc" id="L366">        return ranges.tailSet(fromElement, inclusive);</span>
+    }
+
+    @Override
+    public Object[] toArray() {
+<span class="nc" id="L371">        return ranges.toArray();</span>
+    }
+
+    @Override
+    public &lt;T&gt; T[] toArray(T[] a) {
+<span class="nc" id="L376">        return ranges.toArray(a);</span>
+    }
+
+    @Override
+    public String toString() {
+        // TODO
+<span class="nc" id="L382">        return ranges.toString();</span>
+    }
+
+    public long totalSize() {
+<span class="fc" id="L386">        return totalSize.get();</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

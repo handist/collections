@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Accumulator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.accumulator</a> &gt; <span class="el_source">Accumulator.java</span></div><h1>Accumulator.java</h1><pre class="source lang-java linenums">package handist.collections.accumulator;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.function.Function;
+
+import handist.collections.ChunkedList;
+import handist.collections.LongRange;
+
+/**
+ * Class representing a factory for accumulator instances dedicated to a single
+ * thread.
+ * &lt;p&gt;
+ * This allows for multiple threads to record information in a thread-dedicated
+ * {@link ChunkedList}&amp;lt;A&amp;gt;, with each A object &quot;accumulating&quot; information
+ * with regards to the &quot;T&quot; object at the matching index in the target
+ * collection.
+ * &lt;p&gt;
+ * Computation with an accumulator takes place in 3 phases:
+ * &lt;ol&gt;
+ * &lt;li&gt;An {@link Accumulator} with a certain accumulator-allocation policy is
+ * created. the type A used to accumulate information and how to initialize new
+ * instance of this A type are specified to the constructor.
+ * &lt;li&gt;This accumulator is used in one or multiple accumulation calls where the
+ * information contained in some collection is used as the source to register
+ * information into the accumulator objects contained by the {@link Accumulator}
+ * &lt;li&gt;The information accumulated in the {@link Accumulator} is used to update
+ * some collection's elements using method
+ * {@link ChunkedList#accept(Accumulator, java.util.function.BiConsumer)} or
+ * {@link ChunkedList#parallelAccept(Accumulator, java.util.function.BiConsumer)}.
+ * The function which determines how to update individual T elements of the
+ * target collection based on the information contained in the A accumulators is
+ * specified as parameter to these functions.
+ * &lt;/ol&gt;
+ * &lt;p&gt;
+ * There is currently one implementation of {@link Accumulator}:
+ * &lt;ul&gt;
+ * &lt;li&gt;{@link AccumulatorCompleteRange} which prepares accumulators for all the
+ * ranges it is given at the time of construction. Use this variant if you know
+ * that the elements processed during the accumulation phase will need to record
+ * information about (almost) all indices contained in the target
+ * {@link ChunkedList}&amp;lt;T&amp;gt;.
+ * &lt;/ul&gt;
+ *
+ * @author Kawanishi Yoshiki
+ *
+ * @param &lt;A&gt; the &quot;accumulator&quot; type used to keep information about the
+ *            modification to be performed on the target {@link ChunkedList}
+ */
+public abstract class Accumulator&lt;A&gt; {
+
+    /**
+     * ThreadLocalAccumulator provided as parameter when accumulating information
+     * inside accumulators. This interface provides access to the individual
+     * accumulators of type A.
+     * &lt;p&gt;
+     * Internally, various accumulator allocation strategies can be used (on-demand,
+     * fixed initialization on specific ranges defined in advance) and are
+     * implemented into the specializations of class {@link Accumulator}.
+     *
+     * @author Patrick Finnerty
+     *
+     * @param &lt;A&gt; the type of the accumulator used to collect data
+     */
+    public interface ThreadLocalAccumulator&lt;A&gt; {
+
+        /**
+         * Provides the accumulator instance dedicated to this thread for the specified
+         * index. This method may throw Exceptions if the allocation contract of the
+         * underlying {@link Accumulator} is not respected.
+         *
+         * @param idx index of the accumulator desired
+         * @return the accumulator object for this index
+         */
+        public A acquire(long idx);
+
+        /**
+         * Obtains the accumulators for the range specified by the parameter.
+         * &lt;p&gt;
+         * This method may throw an {@link Exception} if the allocation contract of the
+         * underlying {@link Accumulator} is not respected.
+         *
+         * @param range the range of accumulators to obtain from the thread-local
+         *              accumulator
+         * @return ranged list of accumulators containing the specified range
+         */
+        public ChunkedList&lt;A&gt; acquire(LongRange range);
+
+        /**
+         * Returns the underlying {@link ChunkedList} containing the accumulators
+         * &lt;p&gt;
+         * Internal-use only. Call at your own peril.
+         *
+         * @return the underlying {@link ChunkedList} containing the accumulators of
+         *         this {@link ThreadLocalAccumulator}
+         */
+        public ChunkedList&lt;A&gt; getChunkedList();
+
+        /**
+         * Returns the ranges that the current thread-local accumulator has internally
+         * initialized.
+         *
+         * @return collection of {@link LongRange} present in this accumulator
+         */
+        public Collection&lt;LongRange&gt; ranges();
+    }
+
+    /**
+     * Collection which keeps track of the {@link ChunkedList} created for each
+     * thread participating in the computation.
+     */
+    protected final ArrayList&lt;ThreadLocalAccumulator&lt;A&gt;&gt; threadLocalAccumulators;
+
+    /**
+     * Function used to create the R type based on the index of the corresponding T
+     * type
+     */
+    public final Function&lt;Long, A&gt; initFunc;
+
+    /**
+     * Protected constructor. Initializes members common to all
+     * ThreadLocalAccumulator implementations
+     *
+     * @param initializerFunction function used to initialize a new accumulator A
+     *                            for the T object located at the specified index
+     */
+<span class="fc" id="L128">    protected Accumulator(Function&lt;Long, A&gt; initializerFunction) {</span>
+<span class="fc" id="L129">        initFunc = initializerFunction;</span>
+<span class="fc" id="L130">        threadLocalAccumulators = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L131">    }</span>
+
+    /**
+     * Obtain all currently initialized thread-local accumulators.
+     *
+     * @return all thread accumulators initialized by this instance up until this
+     *         point
+     */
+    public List&lt;ThreadLocalAccumulator&lt;A&gt;&gt; getAllThreadLocalAccumulator() {
+<span class="fc" id="L140">        return threadLocalAccumulators;</span>
+    }
+
+    /**
+     * Factory method which creates a new ThreadLocalAccumulator for an upcoming
+     * thread to use to accumulate information.
+     * &lt;p&gt;
+     * This method is for internal use only. It is used when there are not enough
+     * thread-local accumulators for the level of parallelism desired. Each
+     * {@link Accumulator} implementation should implement this method to return a
+     * {@link ThreadLocalAccumulator} instance fitted with its appropriate
+     * accumulator allocation policy.
+     *
+     * @return a newly created
+     */
+    protected abstract ThreadLocalAccumulator&lt;A&gt; newThreadLocalAccumulator();
+
+    /**
+     * Obtain the specified number of thread-local accumulators. These can then be
+     * used by as many threads to accumulate information without interfering with
+     * each-other.
+     * &lt;p&gt;
+     * Previously allocate thread-local accumulators will be re-used by this class.
+     * Only in a case where more accumulators then previously initialized are
+     * demanded will new TLAs be allocated.
+     *
+     * @param nbAccumulators number of accumulator desired
+     * @return list of accumulators containing as many
+     */
+    public List&lt;ThreadLocalAccumulator&lt;A&gt;&gt; obtainThreadLocalAccumulators(int nbAccumulators) {
+        // Until we have enough local accumulators prepared, allocate some more
+<span class="fc bfc" id="L171" title="All 2 branches covered.">        while (threadLocalAccumulators.size() &lt; nbAccumulators) {</span>
+<span class="fc" id="L172">            threadLocalAccumulators.add(newThreadLocalAccumulator());</span>
+        }
+<span class="fc" id="L174">        return threadLocalAccumulators.subList(0, nbAccumulators);</span>
+    }
+
+    /**
+     * Discards all initialized accumulators prepared up until this point. Call this
+     * method if you plan to re-use this {@link Accumulator} again for a new
+     * computation.
+     */
+    public void reset() {
+<span class="fc" id="L183">        threadLocalAccumulators.clear();</span>
+<span class="fc" id="L184">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

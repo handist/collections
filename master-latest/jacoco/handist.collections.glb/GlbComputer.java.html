@@ -302,10 +302,21 @@ class GlbComputer extends PlaceLocalObject {
             }
 <span class="fc" id="L303">            return workCreated;</span>
         }
+
+        /**
+         * Discards all tracking information kept until that point. Can only be called
+         * safely if there are no ongoing GLB computation.
+         *
+         * @see GlobalLoadBalancer#reset()
+         */
+        public void reset() {
+<span class="nc" id="L313">            allTasks.clear();</span>
+<span class="nc" id="L314">            tasksWithWork.clear();</span>
+<span class="nc" id="L315">        }</span>
     }
 
     /** Singleton, local handle instance */
-<span class="fc" id="L308">    private static GlbComputer computer = null;</span>
+<span class="fc" id="L319">    private static GlbComputer computer = null;</span>
 
     /**
      * Code used in member {@link #lifelineEstablished} to represent the fact that
@@ -327,7 +338,7 @@ class GlbComputer extends PlaceLocalObject {
      * Setting describing if tracing is activated. If so, a number of output
      * messages are made to {@link System#err} as GLB events occur.
      */
-<span class="fc" id="L330">    static boolean TRACE = Boolean.parseBoolean(System.getProperty(Config.ACTIVATE_TRACE, &quot;false&quot;));</span>
+<span class="fc" id="L341">    static boolean TRACE = Boolean.parseBoolean(System.getProperty(Config.ACTIVATE_TRACE, &quot;false&quot;));</span>
 
     /**
      * Destroys the GlbComputer singleton on all places. This method should be
@@ -335,10 +346,10 @@ class GlbComputer extends PlaceLocalObject {
      * {@link #getComputer()}
      */
     static void destroyGlbComputer() {
-<span class="fc" id="L338">        TeamedPlaceGroup.getWorld().broadcastFlat(() -&gt; {</span>
-<span class="fc" id="L339">            computer = null;</span>
-<span class="fc" id="L340">        });</span>
-<span class="fc" id="L341">    }</span>
+<span class="fc" id="L349">        TeamedPlaceGroup.getWorld().broadcastFlat(() -&gt; {</span>
+<span class="fc" id="L350">            computer = null;</span>
+<span class="fc" id="L351">        });</span>
+<span class="fc" id="L352">    }</span>
 
     /**
      * Method returning the local singleton for GlbComputer. May return null if
@@ -360,8 +371,8 @@ class GlbComputer extends PlaceLocalObject {
 //                return c;
 //            });
 //        }
-<span class="fc" id="L363">        assertNotNull(computer);</span>
-<span class="fc" id="L364">        return computer;</span>
+<span class="fc" id="L374">        assertNotNull(computer);</span>
+<span class="fc" id="L375">        return computer;</span>
     }
 
     /**
@@ -373,19 +384,19 @@ class GlbComputer extends PlaceLocalObject {
      * @return the GlbComputer instance created locally
      */
     static GlbComputer initializeComputer(DistLog log) {
-<span class="fc" id="L376">        return PlaceLocalObject.make(TeamedPlaceGroup.getWorld().places(), () -&gt; {</span>
-<span class="fc" id="L377">            final GlbComputer c = new GlbComputer(log);</span>
+<span class="fc" id="L387">        return PlaceLocalObject.make(TeamedPlaceGroup.getWorld().places(), () -&gt; {</span>
+<span class="fc" id="L388">            final GlbComputer c = new GlbComputer(log);</span>
             // Assign the static member of class GlbComputer here
             // Doing so here avoids the need for a second dedicated finish/asyncAt block
-<span class="pc bpc" id="L380" title="1 of 2 branches missed.">            if (computer == null) {</span>
-<span class="fc" id="L381">                GlbComputer.computer = c;</span>
-<span class="pc bpc" id="L382" title="1 of 2 branches missed.">                if (TRACE) {</span>
-<span class="nc" id="L383">                    System.err.println(&quot;GlbComputer on &quot; + here() + &quot; is &quot; + c);</span>
+<span class="pc bpc" id="L391" title="1 of 2 branches missed.">            if (computer == null) {</span>
+<span class="fc" id="L392">                GlbComputer.computer = c;</span>
+<span class="pc bpc" id="L393" title="1 of 2 branches missed.">                if (TRACE) {</span>
+<span class="nc" id="L394">                    System.err.println(&quot;GlbComputer on &quot; + here() + &quot; is &quot; + c);</span>
                 }
             } else {
-<span class="nc" id="L386">                throw new IllegalStateException(&quot;Previous GlbComputer was not destroyed on &quot; + here());</span>
+<span class="nc" id="L397">                throw new IllegalStateException(&quot;Previous GlbComputer was not destroyed on &quot; + here());</span>
             }
-<span class="fc" id="L388">            return c;</span>
+<span class="fc" id="L399">            return c;</span>
         });
     }
 
@@ -515,52 +526,52 @@ class GlbComputer extends PlaceLocalObject {
      * @param log the logger instance into which the events that occur on this host
      *            will be recorded throughout the execution
      */
-<span class="fc" id="L518">    private GlbComputer(DistLog log) {</span>
+<span class="fc" id="L529">    private GlbComputer(DistLog log) {</span>
         // Set the constants related to runtime environment
-<span class="fc" id="L520">        MAX_WORKERS = Config.getMaximumConcurrentWorkers();</span>
-<span class="fc" id="L521">        POOL = (ForkJoinPool) GlobalRuntime.getRuntime().getExecutorService();</span>
+<span class="fc" id="L531">        MAX_WORKERS = Config.getMaximumConcurrentWorkers();</span>
+<span class="fc" id="L532">        POOL = (ForkJoinPool) GlobalRuntime.getRuntime().getExecutorService();</span>
 
         // Initialize the single lock used by workers to actively yield to other
         // activities (lifeline steals / other non-GLB activities)
-<span class="fc" id="L525">        workerYieldLock = new TimeoutBlocker();</span>
-<span class="fc" id="L526">        workerAvailableLocks = new ConcurrentLinkedQueue&lt;&gt;();</span>
-<span class="fc" id="L527">        workerAvailableLocks.add(workerYieldLock);</span>
+<span class="fc" id="L536">        workerYieldLock = new TimeoutBlocker();</span>
+<span class="fc" id="L537">        workerAvailableLocks = new ConcurrentLinkedQueue&lt;&gt;();</span>
+<span class="fc" id="L538">        workerAvailableLocks.add(workerYieldLock);</span>
 
         // Prepare the worker Ids
-<span class="fc" id="L530">        workers = new WorkerInfo[MAX_WORKERS];</span>
-<span class="fc" id="L531">        idleWorkers = new ConcurrentLinkedDeque&lt;&gt;();</span>
-<span class="fc bfc" id="L532" title="All 2 branches covered.">        for (int i = 0; i &lt; MAX_WORKERS; i++) {</span>
-<span class="fc" id="L533">            final WorkerInfo w = new WorkerInfo(i);</span>
-<span class="fc" id="L534">            idleWorkers.add(w);</span>
-<span class="fc" id="L535">            workers[i] = w;</span>
+<span class="fc" id="L541">        workers = new WorkerInfo[MAX_WORKERS];</span>
+<span class="fc" id="L542">        idleWorkers = new ConcurrentLinkedDeque&lt;&gt;();</span>
+<span class="fc bfc" id="L543" title="All 2 branches covered.">        for (int i = 0; i &lt; MAX_WORKERS; i++) {</span>
+<span class="fc" id="L544">            final WorkerInfo w = new WorkerInfo(i);</span>
+<span class="fc" id="L545">            idleWorkers.add(w);</span>
+<span class="fc" id="L546">            workers[i] = w;</span>
         }
 
         // Prepare the atomic array used as flag to signal to workers that the #reserve
         // needs to be fed
-<span class="fc" id="L540">        feedReserveRequested = new AtomicIntegerArray(MAX_WORKERS);</span>
+<span class="fc" id="L551">        feedReserveRequested = new AtomicIntegerArray(MAX_WORKERS);</span>
 
         // Set an initial value for the granularity
-<span class="fc" id="L543">        granularity = Config.getGranularity();</span>
+<span class="fc" id="L554">        granularity = Config.getGranularity();</span>
 
         // Initialize the reserve of assignments for this host
-<span class="fc" id="L546">        reserve = new WorkReserve();</span>
+<span class="fc" id="L557">        reserve = new WorkReserve();</span>
 
         // Initialize the map that will contain the errors that may occur during GLB
         // operation
-<span class="fc" id="L550">        operationErrors = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L561">        operationErrors = new HashMap&lt;&gt;();</span>
 
-<span class="fc" id="L552">        finishes = new ConcurrentHashMap&lt;&gt;();</span>
-<span class="fc" id="L553">        blockers = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L563">        finishes = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L564">        blockers = new HashMap&lt;&gt;();</span>
 
         // Initialize the data structures used to keep track of the lifelines
-<span class="fc" id="L556">        lifelineThieves = new ConcurrentLinkedQueue&lt;&gt;();</span>
-<span class="fc" id="L557">        lifelineEstablished = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L567">        lifelineThieves = new ConcurrentLinkedQueue&lt;&gt;();</span>
+<span class="fc" id="L568">        lifelineEstablished = new ConcurrentHashMap&lt;&gt;();</span>
 
         // Setup the logger instance for this local host
-<span class="fc" id="L560">        logger = log;</span>
-<span class="fc" id="L561">        logger.put(LOGKEY_GLB, LOG_INITIALIZED_WORKERS, Integer.toString(MAX_WORKERS));</span>
-<span class="fc" id="L562">        logger.put(LOGKEY_GLB, LOG_INITIALIZED_AT_NANOTIME, Long.toString(System.nanoTime()));</span>
-<span class="fc" id="L563">    }</span>
+<span class="fc" id="L571">        logger = log;</span>
+<span class="fc" id="L572">        logger.put(LOGKEY_GLB, LOG_INITIALIZED_WORKERS, Integer.toString(MAX_WORKERS));</span>
+<span class="fc" id="L573">        logger.put(LOGKEY_GLB, LOG_INITIALIZED_AT_NANOTIME, Long.toString(System.nanoTime()));</span>
+<span class="fc" id="L574">    }</span>
 
     /**
      * Attempt to spawn a worker (uncounted) with an assignment obtained from the
@@ -575,16 +586,16 @@ class GlbComputer extends PlaceLocalObject {
      * extra one.
      */
     private void attemptToSpawnWorker() {
-<span class="fc" id="L578">        final WorkerInfo worker = idleWorkers.poll();</span>
-<span class="fc bfc" id="L579" title="All 2 branches covered.">        if (worker != null) {</span>
+<span class="fc" id="L589">        final WorkerInfo worker = idleWorkers.poll();</span>
+<span class="fc bfc" id="L590" title="All 2 branches covered.">        if (worker != null) {</span>
             // In case getAssignment was not able to deliver an assignment for our worker,
             // the worker instance is placed back into #ifleWorkers as part of this method
-<span class="fc" id="L582">            final Assignment forSpawn = reserve.getAssignment(worker);</span>
-<span class="fc bfc" id="L583" title="All 2 branches covered.">            if (forSpawn != null) {</span>
-<span class="pc bpc" id="L584" title="1 of 2 branches missed.">                if (TRACE) {</span>
-<span class="nc" id="L585">                    System.err.println(here() + &quot; spawned worker(&quot; + worker.id + &quot;)&quot;);</span>
+<span class="fc" id="L593">            final Assignment forSpawn = reserve.getAssignment(worker);</span>
+<span class="fc bfc" id="L594" title="All 2 branches covered.">            if (forSpawn != null) {</span>
+<span class="pc bpc" id="L595" title="1 of 2 branches missed.">                if (TRACE) {</span>
+<span class="nc" id="L596">                    System.err.println(here() + &quot; spawned worker(&quot; + worker.id + &quot;)&quot;);</span>
                 }
-<span class="fc" id="L587">                uncountedAsyncAt(here(), () -&gt; worker(worker, forSpawn));</span>
+<span class="fc" id="L598">                uncountedAsyncAt(here(), () -&gt; worker(worker, forSpawn));</span>
             } else {
                 // Work could not be taken from the reserve
 
@@ -597,7 +608,7 @@ class GlbComputer extends PlaceLocalObject {
 //                reserveWasEmptied(); FIXME delete this part
             }
         }
-<span class="fc" id="L600">    }</span>
+<span class="fc" id="L611">    }</span>
 
     /**
      * Procedure called by the thread representing the presence of work for a given
@@ -613,31 +624,31 @@ class GlbComputer extends PlaceLocalObject {
      * @param c the collection on which the operation that has terminated operated
      */
     void establishingLifelineOnRemoteHost(@SuppressWarnings(&quot;rawtypes&quot;) DistributedCollection c) {
-<span class="fc" id="L616">        final LifelineToken token = new LifelineToken(c, here());</span>
+<span class="fc" id="L627">        final LifelineToken token = new LifelineToken(c, here());</span>
 
-<span class="fc" id="L618">        final ConcurrentHashMap&lt;Place, AtomicInteger&gt; lifelineStatus = lifelineEstablished.get(c);</span>
+<span class="fc" id="L629">        final ConcurrentHashMap&lt;Place, AtomicInteger&gt; lifelineStatus = lifelineEstablished.get(c);</span>
 
-<span class="fc bfc" id="L620" title="All 2 branches covered.">        for (final Map.Entry&lt;Place, AtomicInteger&gt; pair : lifelineStatus.entrySet()) {</span>
+<span class="fc bfc" id="L631" title="All 2 branches covered.">        for (final Map.Entry&lt;Place, AtomicInteger&gt; pair : lifelineStatus.entrySet()) {</span>
             // An atomic check is made to avoid establishing a lifeline redundantly
-<span class="fc bfc" id="L622" title="All 2 branches covered.">            if (pair.getValue().compareAndSet(LIFELINE_NOT_ESTABLISHED, LIFELINE_ESTABLISHED)) {</span>
+<span class="fc bfc" id="L633" title="All 2 branches covered.">            if (pair.getValue().compareAndSet(LIFELINE_NOT_ESTABLISHED, LIFELINE_ESTABLISHED)) {</span>
                 // This thread set the flag to &quot;established&quot;, it can now make the assynchronous
                 // call that actually establishes the lifeline on the remote host
 
                 // asyncAt(pair.getKey(), () -&gt; {
-<span class="fc" id="L627">                uncountedAsyncAt(pair.getKey(), () -&gt; {</span>
+<span class="fc" id="L638">                uncountedAsyncAt(pair.getKey(), () -&gt; {</span>
                     try {
-<span class="pc bpc" id="L629" title="1 of 2 branches missed.">                        if (TRACE) {</span>
-<span class="nc" id="L630">                            System.err.println(token.place + &quot; established lifeline on &quot; + here() + &quot; for collection &quot;</span>
+<span class="pc bpc" id="L640" title="1 of 2 branches missed.">                        if (TRACE) {</span>
+<span class="nc" id="L641">                            System.err.println(token.place + &quot; established lifeline on &quot; + here() + &quot; for collection &quot;</span>
                                     + token.collection);
                         }
-<span class="fc" id="L633">                        lifelineThieves.add(token);</span>
-<span class="nc" id="L634">                    } catch (final Exception e) {</span>
-<span class="nc" id="L635">                        e.printStackTrace();</span>
-<span class="fc" id="L636">                    }</span>
-<span class="fc" id="L637">                });</span>
+<span class="fc" id="L644">                        lifelineThieves.add(token);</span>
+<span class="nc" id="L645">                    } catch (final Exception e) {</span>
+<span class="nc" id="L646">                        e.printStackTrace();</span>
+<span class="fc" id="L647">                    }</span>
+<span class="fc" id="L648">                });</span>
             }
-<span class="fc" id="L639">        }</span>
-<span class="fc" id="L640">    }</span>
+<span class="fc" id="L650">        }</span>
+<span class="fc" id="L651">    }</span>
 
     /**
      * Procedure called by a remote host when giving some work as part of a lifeline
@@ -653,17 +664,17 @@ class GlbComputer extends PlaceLocalObject {
     void lifelineAnswer(final LifelineToken token, final ArrayList&lt;Assignment&gt; stolen,
             @SuppressWarnings(&quot;rawtypes&quot;) final HashMap&lt;GlbOperation, Integer&gt; numbers,
             @SuppressWarnings(&quot;rawtypes&quot;) final HashMap&lt;GlbOperation, Finish&gt; finish) {
-<span class="pc bpc" id="L656" title="1 of 2 branches missed.">        if (TRACE) {</span>
-<span class="nc" id="L657">            System.err.println(here() + &quot; received &quot; + stolen.size() + &quot; assignments from &quot; + token.place);</span>
+<span class="pc bpc" id="L667" title="1 of 2 branches missed.">        if (TRACE) {</span>
+<span class="nc" id="L668">            System.err.println(here() + &quot; received &quot; + stolen.size() + &quot; assignments from &quot; + token.place);</span>
         }
 
         // The lifeline answer has just been received, we set the lifeline tracker back
         // to &quot;not established&quot;
-<span class="fc" id="L662">        final ConcurrentHashMap&lt;Place, AtomicInteger&gt; lifelinesForCollection = lifelineEstablished</span>
-<span class="fc" id="L663">                .get(token.collection);</span>
-<span class="fc" id="L664">        final AtomicInteger state = lifelinesForCollection.get(token.place);</span>
-<span class="fc" id="L665">        final boolean resetLifeline = state.compareAndSet(LIFELINE_ESTABLISHED, LIFELINE_NOT_ESTABLISHED);</span>
-<span class="fc" id="L666">        assertTrue(resetLifeline); // Check that the previous operation worked properly</span>
+<span class="fc" id="L673">        final ConcurrentHashMap&lt;Place, AtomicInteger&gt; lifelinesForCollection = lifelineEstablished</span>
+<span class="fc" id="L674">                .get(token.collection);</span>
+<span class="fc" id="L675">        final AtomicInteger state = lifelinesForCollection.get(token.place);</span>
+<span class="fc" id="L676">        final boolean resetLifeline = state.compareAndSet(LIFELINE_ESTABLISHED, LIFELINE_NOT_ESTABLISHED);</span>
+<span class="fc" id="L677">        assertTrue(resetLifeline); // Check that the previous operation worked properly</span>
 
         // Verification that the operations contained by the lifeline answer has been
         // initialized on this host.
@@ -674,20 +685,20 @@ class GlbComputer extends PlaceLocalObject {
          * this case, this preparation needs to be done before merging any assignments
          * coming from the lifeline answer
          */
-<span class="fc" id="L677">        final GlbTask glbTask = reserve.allTasks.get(token.collection);</span>
-<span class="fc" id="L678">        synchronized (this) {</span>
+<span class="fc" id="L688">        final GlbTask glbTask = reserve.allTasks.get(token.collection);</span>
+<span class="fc" id="L689">        synchronized (this) {</span>
             for (@SuppressWarnings(&quot;rawtypes&quot;)
-<span class="fc bfc" id="L680" title="All 2 branches covered.">            final GlbOperation op : numbers.keySet()) {</span>
-<span class="pc bpc" id="L681" title="1 of 2 branches missed.">                if (null == finishes.get(op)) {</span>
+<span class="fc bfc" id="L691" title="All 2 branches covered.">            final GlbOperation op : numbers.keySet()) {</span>
+<span class="pc bpc" id="L692" title="1 of 2 branches missed.">                if (null == finishes.get(op)) {</span>
                     // this lifeline answer is the first activity that brings this new operation to
                     // the place.
-<span class="nc" id="L684">                    prepareForNewOperation(op, finish.get(op));</span>
+<span class="nc" id="L695">                    prepareForNewOperation(op, finish.get(op));</span>
                 }
-<span class="fc" id="L686">            }</span>
-<span class="fc" id="L687">        }</span>
+<span class="fc" id="L697">            }</span>
+<span class="fc" id="L698">        }</span>
 
         // Merge the assignments
-<span class="fc" id="L690">        glbTask.mergeAssignments(numbers, stolen);</span>
+<span class="fc" id="L701">        glbTask.mergeAssignments(numbers, stolen);</span>
 
         /*
          * I know, this is weird. But allow me to explain. This guarantees that workers
@@ -702,19 +713,19 @@ class GlbComputer extends PlaceLocalObject {
          * method #operationActivity will find these WorkerInfo instances and be able to
          * spawn them.
          */
-<span class="fc" id="L705">        reserve.lock.writeLock().lock();</span>
-<span class="fc" id="L706">        reserve.lock.writeLock().unlock();</span>
+<span class="fc" id="L716">        reserve.lock.writeLock().lock();</span>
+<span class="fc" id="L717">        reserve.lock.writeLock().unlock();</span>
 
         // For each operation that was transmitted, place an asynchronous task that will
         // wait till operation termination
         for (@SuppressWarnings(&quot;rawtypes&quot;)
-<span class="fc bfc" id="L711" title="All 2 branches covered.">        final GlbOperation op : numbers.keySet()) {</span>
-<span class="fc" id="L712">            final Finish f = finishes.get(op);</span>
-<span class="fc" id="L713">            reserve.tasksWithWork.put(op, glbTask);</span>
-<span class="fc" id="L714">            asyncArbitraryFinish(here(), () -&gt; operationActivity(op), f);</span>
-<span class="fc" id="L715">        }</span>
+<span class="fc bfc" id="L722" title="All 2 branches covered.">        final GlbOperation op : numbers.keySet()) {</span>
+<span class="fc" id="L723">            final Finish f = finishes.get(op);</span>
+<span class="fc" id="L724">            reserve.tasksWithWork.put(op, glbTask);</span>
+<span class="fc" id="L725">            asyncArbitraryFinish(here(), () -&gt; operationActivity(op), f);</span>
+<span class="fc" id="L726">        }</span>
 
-<span class="fc" id="L717">    }</span>
+<span class="fc" id="L728">    }</span>
 
     /**
      * Registers a new operation as available to workers and starts workers if they
@@ -729,52 +740,52 @@ class GlbComputer extends PlaceLocalObject {
         // if it was not already created. A mapping is actually created if the operation
         // given as parameter operates on a distributed collection which has not
         // previously had any operations run on it.
-<span class="fc" id="L732">        lifelineEstablished.computeIfAbsent(op.collection, col -&gt; {</span>
-<span class="fc" id="L733">            final ConcurrentHashMap&lt;Place, AtomicInteger&gt; map = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L743">        lifelineEstablished.computeIfAbsent(op.collection, col -&gt; {</span>
+<span class="fc" id="L744">            final ConcurrentHashMap&lt;Place, AtomicInteger&gt; map = new ConcurrentHashMap&lt;&gt;();</span>
             Lifeline l;
             try {
-<span class="pc bpc" id="L736" title="1 of 2 branches missed.">                if (op.lifelineClass == null) {</span>
-<span class="fc" id="L737">                    l = LifelineFactory.newLifeline(col.placeGroup());</span>
+<span class="pc bpc" id="L747" title="1 of 2 branches missed.">                if (op.lifelineClass == null) {</span>
+<span class="fc" id="L748">                    l = LifelineFactory.newLifeline(col.placeGroup());</span>
                 } else {
-<span class="nc" id="L739">                    l = LifelineFactory.newLifeline(col.placeGroup(), op.lifelineClass);</span>
+<span class="nc" id="L750">                    l = LifelineFactory.newLifeline(col.placeGroup(), op.lifelineClass);</span>
                 }
-<span class="nc" id="L741">            } catch (final Exception e) {</span>
-<span class="nc" id="L742">                e.printStackTrace();</span>
-<span class="nc" id="L743">                System.err.println(&quot;Faced a &quot; + e + &quot; when attempting to initialize a new lifeline strategy. Using &quot;</span>
-<span class="nc" id="L744">                        + Loop.class.getName() + &quot; instead&quot;);</span>
-<span class="nc" id="L745">                l = new Loop(col.placeGroup());</span>
-<span class="fc" id="L746">            }</span>
-<span class="fc bfc" id="L747" title="All 2 branches covered.">            for (final Place p : l.lifeline(here())) {</span>
-<span class="fc" id="L748">                map.put(p, new AtomicInteger(0));</span>
-<span class="fc" id="L749">            }</span>
-<span class="fc" id="L750">            return map;</span>
+<span class="nc" id="L752">            } catch (final Exception e) {</span>
+<span class="nc" id="L753">                e.printStackTrace();</span>
+<span class="nc" id="L754">                System.err.println(&quot;Faced a &quot; + e + &quot; when attempting to initialize a new lifeline strategy. Using &quot;</span>
+<span class="nc" id="L755">                        + Loop.class.getName() + &quot; instead&quot;);</span>
+<span class="nc" id="L756">                l = new Loop(col.placeGroup());</span>
+<span class="fc" id="L757">            }</span>
+<span class="fc bfc" id="L758" title="All 2 branches covered.">            for (final Place p : l.lifeline(here())) {</span>
+<span class="fc" id="L759">                map.put(p, new AtomicInteger(0));</span>
+<span class="fc" id="L760">            }</span>
+<span class="fc" id="L761">            return map;</span>
         });
 
         boolean localWorkCreated;
-<span class="fc" id="L754">        synchronized (this) {</span>
+<span class="fc" id="L765">        synchronized (this) {</span>
             // Check for the rare case in which a lifeline answer might have done all this
             // initialization, in which case this thread is not needed and can return
             // immediately
-<span class="pc bpc" id="L758" title="1 of 2 branches missed.">            if (null != finishes.get(op)) {</span>
-<span class="nc" id="L759">                return;</span>
+<span class="pc bpc" id="L769" title="1 of 2 branches missed.">            if (null != finishes.get(op)) {</span>
+<span class="nc" id="L770">                return;</span>
             }
 
             // Prepare the GlbTask of the relevant distributed collection
-<span class="fc" id="L763">            localWorkCreated = prepareForNewOperation(op, currentFinish());</span>
-<span class="fc" id="L764">        }</span>
+<span class="fc" id="L774">            localWorkCreated = prepareForNewOperation(op, currentFinish());</span>
+<span class="fc" id="L775">        }</span>
 
         // If there was some work created as a result, launch a worker / block until
         // completion
         // There can be cases where a local handle does not hold any element, in which
         // case we simply let this thread return.
-<span class="fc bfc" id="L770" title="All 2 branches covered.">        if (localWorkCreated) {</span>
+<span class="fc bfc" id="L781" title="All 2 branches covered.">        if (localWorkCreated) {</span>
             // Launch workers / block until local termination
-<span class="fc" id="L772">            operationActivity(op);</span>
+<span class="fc" id="L783">            operationActivity(op);</span>
         } else {
             // Go on to work stealing directly.
-<span class="fc" id="L775">            establishingLifelineOnRemoteHost(op.collection);</span>
+<span class="fc" id="L786">            establishingLifelineOnRemoteHost(op.collection);</span>
         }
-<span class="fc" id="L777">    }</span>
+<span class="fc" id="L788">    }</span>
 
     /**
      * Main activity of an operation. This method is called when an operation
@@ -794,45 +805,45 @@ class GlbComputer extends PlaceLocalObject {
      * @param op the operation which is being launched on this host
      */
     void operationActivity(@SuppressWarnings(&quot;rawtypes&quot;) GlbOperation op) {
-<span class="fc" id="L797">        attemptToSpawnWorker();</span>
+<span class="fc" id="L808">        attemptToSpawnWorker();</span>
 
         // As this activity is going to block, it should unblock any potential worker
         // that yielded its execution to allow this activity to run
-<span class="fc" id="L801">        workerYieldLock.unblock();</span>
+<span class="fc" id="L812">        workerYieldLock.unblock();</span>
 
         // Block until operation completes
         try {
             // Take the appropriate SemaphoreBlocker to be waken up by workers
             final OperationBlocker mb;
-<span class="fc" id="L807">            synchronized (blockers) {</span>
-<span class="fc" id="L808">                mb = blockers.get(op);</span>
-<span class="fc" id="L809">            }</span>
+<span class="fc" id="L818">            synchronized (blockers) {</span>
+<span class="fc" id="L819">                mb = blockers.get(op);</span>
+<span class="fc" id="L820">            }</span>
 
-<span class="fc bfc" id="L811" title="All 2 branches covered.">            if (mb.allowedToBlock()) {</span>
-<span class="pc bpc" id="L812" title="1 of 2 branches missed.">                if (TRACE) {</span>
-<span class="nc" id="L813">                    System.err.println(here() + &quot;: thread waiting on operation &quot; + op);</span>
+<span class="fc bfc" id="L822" title="All 2 branches covered.">            if (mb.allowedToBlock()) {</span>
+<span class="pc bpc" id="L823" title="1 of 2 branches missed.">                if (TRACE) {</span>
+<span class="nc" id="L824">                    System.err.println(here() + &quot;: thread waiting on operation &quot; + op);</span>
                 }
-<span class="fc" id="L815">                ForkJoinPool.managedBlock(mb);</span>
-<span class="pc bpc" id="L816" title="1 of 2 branches missed.">                if (TRACE) {</span>
-<span class="nc" id="L817">                    System.out.println(here() + &quot;: resumed after waiting on &quot; + op);</span>
+<span class="fc" id="L826">                ForkJoinPool.managedBlock(mb);</span>
+<span class="pc bpc" id="L827" title="1 of 2 branches missed.">                if (TRACE) {</span>
+<span class="nc" id="L828">                    System.out.println(here() + &quot;: resumed after waiting on &quot; + op);</span>
                 }
             } else {
                 // There is already another thread blocking on this semaphore.
                 // This thread was a lifeline answer and can return safely
-<span class="pc bpc" id="L822" title="1 of 2 branches missed.">                if (TRACE) {</span>
-<span class="nc" id="L823">                    System.err.println(here() + &quot;: thread already waiting on operation &quot; + op);</span>
+<span class="pc bpc" id="L833" title="1 of 2 branches missed.">                if (TRACE) {</span>
+<span class="nc" id="L834">                    System.err.println(here() + &quot;: thread already waiting on operation &quot; + op);</span>
                 }
-<span class="fc" id="L825">                return;</span>
+<span class="fc" id="L836">                return;</span>
             }
-<span class="nc" id="L827">        } catch (final InterruptedException e) {</span>
-<span class="nc" id="L828">            System.err.println(</span>
+<span class="nc" id="L838">        } catch (final InterruptedException e) {</span>
+<span class="nc" id="L839">            System.err.println(</span>
                     &quot;InterruptedException received in operation activity, this should not happen as the managed blocker implementation does not throw this error&quot;);
-<span class="nc" id="L830">            e.printStackTrace();</span>
-<span class="fc" id="L831">        }</span>
+<span class="nc" id="L841">            e.printStackTrace();</span>
+<span class="fc" id="L842">        }</span>
 
         // The operation has completed. Moving on to establishing lifelines.
-<span class="fc" id="L834">        establishingLifelineOnRemoteHost(op.collection);</span>
-<span class="fc" id="L835">    }</span>
+<span class="fc" id="L845">        establishingLifelineOnRemoteHost(op.collection);</span>
+<span class="fc" id="L846">    }</span>
 
     /**
      * Sub-routine which is part of {@link #newOperation(GlbOperation)} and
@@ -848,19 +859,19 @@ class GlbComputer extends PlaceLocalObject {
         // Put members needed for global termination management
         // This part is made synchronized since the underlying collections are not
         // protected against concurrent accesses.
-<span class="fc" id="L851">        synchronized (blockers) {</span>
-<span class="fc" id="L852">            blockers.put(op, new OperationBlocker());</span>
-<span class="fc" id="L853">        }</span>
-<span class="fc" id="L854">        finishes.put(op, f);</span>
+<span class="fc" id="L862">        synchronized (blockers) {</span>
+<span class="fc" id="L863">            blockers.put(op, new OperationBlocker());</span>
+<span class="fc" id="L864">        }</span>
+<span class="fc" id="L865">        finishes.put(op, f);</span>
         // Prepare every worker with the special initialization (if needed)
-<span class="fc bfc" id="L856" title="All 2 branches covered.">        if (op.workerInit != null) {</span>
-<span class="fc bfc" id="L857" title="All 2 branches covered.">            for (final WorkerInfo wi : workers) {</span>
-<span class="fc" id="L858">                op.workerInit.accept(wi);</span>
+<span class="fc bfc" id="L867" title="All 2 branches covered.">        if (op.workerInit != null) {</span>
+<span class="fc bfc" id="L868" title="All 2 branches covered.">            for (final WorkerInfo wi : workers) {</span>
+<span class="fc" id="L869">                op.workerInit.accept(wi);</span>
             }
         }
 
         // Prepare the GlbTask of the relevant distributed collection
-<span class="fc" id="L863">        return reserve.newOperation(op);</span>
+<span class="fc" id="L874">        return reserve.newOperation(op);</span>
     }
 
     /**
@@ -880,10 +891,10 @@ class GlbComputer extends PlaceLocalObject {
      * would actually bring about any benefit.
      */
     private void reserveWasEmptied() {
-<span class="fc bfc" id="L883" title="All 2 branches covered.">        for (int i = 0; i &lt; MAX_WORKERS; i++) {</span>
-<span class="fc" id="L884">            feedReserveRequested.set(i, 1);</span>
+<span class="fc bfc" id="L894" title="All 2 branches covered.">        for (int i = 0; i &lt; MAX_WORKERS; i++) {</span>
+<span class="fc" id="L895">            feedReserveRequested.set(i, 1);</span>
         }
-<span class="fc" id="L886">    }</span>
+<span class="fc" id="L897">    }</span>
 
     /**
      * Sub-routine used to signal to the local work reserve and the local operation
@@ -894,16 +905,16 @@ class GlbComputer extends PlaceLocalObject {
     void signalLocalOperationCompletion(@SuppressWarnings(&quot;rawtypes&quot;) GlbOperation op) {
         // We signal the local reserve instance that this operation has completed
         // locally.
-<span class="fc" id="L897">        reserve.tasksWithWork.remove(op);</span>
+<span class="fc" id="L908">        reserve.tasksWithWork.remove(op);</span>
 
         // We unblock the operation thread that was waiting
         // This part is protected against concurrent accesses as a concurrent
         // GlbComputer#newOperation call may insert a new value into the map, causing
         // some troubles.
-<span class="fc" id="L903">        synchronized (blockers) {</span>
-<span class="fc" id="L904">            blockers.get(op).unblock();</span>
-<span class="fc" id="L905">        }</span>
-<span class="fc" id="L906">    }</span>
+<span class="fc" id="L914">        synchronized (blockers) {</span>
+<span class="fc" id="L915">            blockers.get(op).unblock();</span>
+<span class="fc" id="L916">        }</span>
+<span class="fc" id="L917">    }</span>
 
     /**
      * Main routine of a worker in the distributed collections library global load
@@ -938,41 +949,41 @@ class GlbComputer extends PlaceLocalObject {
      * @param a  initial assignment to be processed by this worker
      */
     private void worker(WorkerInfo worker, Assignment a) {
-<span class="fc" id="L941">        logger.put(LOGKEY_WORKER, LOG_WORKER_STARTED, Long.toString(System.nanoTime()));</span>
+<span class="fc" id="L952">        logger.put(LOGKEY_WORKER, LOG_WORKER_STARTED, Long.toString(System.nanoTime()));</span>
 
         try {
             for (;;) {
-<span class="fc" id="L945">                worker.currentOperation = a.chooseOperationToProgress();</span>
-<span class="fc bfc" id="L946" title="All 2 branches covered.">                while (a.process(granularity, worker, worker.currentOperation)) { // STEP 1: Work is done here</span>
+<span class="fc" id="L956">                worker.currentOperation = a.chooseOperationToProgress();</span>
+<span class="fc bfc" id="L957" title="All 2 branches covered.">                while (a.process(granularity, worker, worker.currentOperation)) { // STEP 1: Work is done here</span>
 
                     // STEP 2: Attempt to spawn a new worker from work present in the reserve
-<span class="fc" id="L949">                    attemptToSpawnWorker();</span>
+<span class="fc" id="L960">                    attemptToSpawnWorker();</span>
 
                     // STEP 3: Load Balance operations
-<span class="fc bfc" id="L952" title="All 2 branches covered.">                    if (feedReserveRequested.get(worker.id) == 1) { // If feeding the reserve is requested</span>
-<span class="fc bfc" id="L953" title="All 2 branches covered.">                        if (a.isSplittable(granularity)) {</span>
-<span class="fc" id="L954">                            a.splitIntoGlbTask();</span>
-<span class="fc" id="L955">                            feedReserveRequested.set(worker.id, 0);</span>
-<span class="fc" id="L956">                            worker.assignmentSplit++; // Log the action</span>
+<span class="fc bfc" id="L963" title="All 2 branches covered.">                    if (feedReserveRequested.get(worker.id) == 1) { // If feeding the reserve is requested</span>
+<span class="fc bfc" id="L964" title="All 2 branches covered.">                        if (a.isSplittable(granularity)) {</span>
+<span class="fc" id="L965">                            a.splitIntoGlbTask();</span>
+<span class="fc" id="L966">                            feedReserveRequested.set(worker.id, 0);</span>
+<span class="fc" id="L967">                            worker.assignmentSplit++; // Log the action</span>
                         } else {
-<span class="fc" id="L958">                            worker.assignmentUnabledToSplit++; // Log</span>
+<span class="fc" id="L969">                            worker.assignmentUnabledToSplit++; // Log</span>
                         }
                     }
 
                     // STEP 4: Yield if need be
                     TimeoutBlocker l;
-<span class="fc bfc" id="L964" title="All 4 branches covered.">                    if (POOL.hasQueuedSubmissions() &amp;&amp; (l = workerAvailableLocks.poll()) != null) {</span>
-<span class="fc" id="L965">                        l.reset();</span>
-<span class="fc" id="L966">                        logger.put(LOGKEY_WORKER, LOG_WORKER_YIELDING, Long.toString(System.nanoTime()));</span>
-<span class="fc" id="L967">                        ForkJoinPool.managedBlock(l);</span>
-<span class="fc" id="L968">                        logger.put(LOGKEY_WORKER, LOG_WORKER_RESUMED, Long.toString(System.nanoTime()));</span>
-<span class="fc" id="L969">                        workerAvailableLocks.add(l);</span>
+<span class="fc bfc" id="L975" title="All 4 branches covered.">                    if (POOL.hasQueuedSubmissions() &amp;&amp; (l = workerAvailableLocks.poll()) != null) {</span>
+<span class="fc" id="L976">                        l.reset();</span>
+<span class="fc" id="L977">                        logger.put(LOGKEY_WORKER, LOG_WORKER_YIELDING, Long.toString(System.nanoTime()));</span>
+<span class="fc" id="L978">                        ForkJoinPool.managedBlock(l);</span>
+<span class="fc" id="L979">                        logger.put(LOGKEY_WORKER, LOG_WORKER_RESUMED, Long.toString(System.nanoTime()));</span>
+<span class="fc" id="L980">                        workerAvailableLocks.add(l);</span>
                     }
 
                     // STEP 5: Answer lifeline thieves if there are any and this host is capable of
                     // doing so
-<span class="fc" id="L974">                    final LifelineToken steal = lifelineThieves.poll();</span>
-<span class="fc bfc" id="L975" title="All 2 branches covered.">                    if (steal != null) {</span>
+<span class="fc" id="L985">                    final LifelineToken steal = lifelineThieves.poll();</span>
+<span class="fc bfc" id="L986" title="All 2 branches covered.">                    if (steal != null) {</span>
                         // Check if the target collection has some assignments left for the target
                         // collection
 
@@ -984,18 +995,18 @@ class GlbComputer extends PlaceLocalObject {
                         // for that edge case where the lifeline answer is actually the first to bring
                         // the information to this place that a new operation is available for
                         // computation.
-<span class="pc bpc" id="L987" title="1 of 4 branches missed.">                        if ((g = reserve.allTasks.get(steal.collection)) != null &amp;&amp; g.answerLifeline(steal)) {</span>
-<span class="fc" id="L988">                            logger.put(LOGKEY_WORKER, LOG_LIFELINE_ANSWERED, Long.toString(System.nanoTime()));</span>
+<span class="pc bpc" id="L998" title="1 of 4 branches missed.">                        if ((g = reserve.allTasks.get(steal.collection)) != null &amp;&amp; g.answerLifeline(steal)) {</span>
+<span class="fc" id="L999">                            logger.put(LOGKEY_WORKER, LOG_LIFELINE_ANSWERED, Long.toString(System.nanoTime()));</span>
                         } else {
-<span class="fc" id="L990">                            logger.put(LOGKEY_WORKER, LOG_LIFELINE_NOT_ANSWERED, Long.toString(System.nanoTime()));</span>
-<span class="fc" id="L991">                            lifelineThieves.add(steal);</span>
+<span class="fc" id="L1001">                            logger.put(LOGKEY_WORKER, LOG_LIFELINE_NOT_ANSWERED, Long.toString(System.nanoTime()));</span>
+<span class="fc" id="L1002">                            lifelineThieves.add(steal);</span>
                         }
                     }
-<span class="fc" id="L994">                }</span>
+<span class="fc" id="L1005">                }</span>
                 // Assignment#process method returned false. This worker needs a new assignment.
 
                 // Trying to obtain a new assignment determines if the worker continue or stop
-<span class="fc bfc" id="L998" title="All 2 branches covered.">                if ((a = reserve.getAssignment(worker)) == null) {</span>
+<span class="fc bfc" id="L1009" title="All 2 branches covered.">                if ((a = reserve.getAssignment(worker)) == null) {</span>
                     // The reserve returned null, this worker will stop
 
                     // FIXME potential problem here where the attempt at taking work from the
@@ -1005,23 +1016,23 @@ class GlbComputer extends PlaceLocalObject {
                     // after workers have failed to take some the operationActivity which attempts
                     // to spawn a worker to make this attempt BEFORE worker's info was placed back
                     // into the collection.
-<span class="fc" id="L1008">                    workerYieldLock.unblock(); // As this worker quits, any waiting worker can resume</span>
+<span class="fc" id="L1019">                    workerYieldLock.unblock(); // As this worker quits, any waiting worker can resume</span>
 //                    if (TRACE) {
 //                        System.err.println(here() + &quot; worker(&quot; + worker.id + &quot;) stopped --- &quot; + idleWorkers.size()
 //                                + &quot; stopped workers&quot;);
 //                    }
-<span class="fc" id="L1013">                    logger.put(LOGKEY_WORKER, LOG_WORKER_STOPPED, Long.toString(System.nanoTime()));</span>
-<span class="fc" id="L1014">                    return;</span>
+<span class="fc" id="L1024">                    logger.put(LOGKEY_WORKER, LOG_WORKER_STOPPED, Long.toString(System.nanoTime()));</span>
+<span class="fc" id="L1025">                    return;</span>
                 } else {
                     // This worker was able to take an assignment from the reserve. It is not
                     // starting the for(;;) loop again.
-<span class="fc" id="L1018">                    worker.tookFromReserve++;</span>
+<span class="fc" id="L1029">                    worker.tookFromReserve++;</span>
                 }
             }
-<span class="nc" id="L1021">        } catch (final Throwable t) {</span>
-<span class="nc" id="L1022">            System.err.println(&quot;Worker number &quot; + worker.id + &quot; on &quot; + here() + &quot; sufferred a &quot; + t);</span>
-<span class="nc" id="L1023">            t.printStackTrace();</span>
+<span class="nc" id="L1032">        } catch (final Throwable t) {</span>
+<span class="nc" id="L1033">            System.err.println(&quot;Worker number &quot; + worker.id + &quot; on &quot; + here() + &quot; sufferred a &quot; + t);</span>
+<span class="nc" id="L1034">            t.printStackTrace();</span>
         }
-<span class="nc" id="L1025">    }</span>
+<span class="nc" id="L1036">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -90,8 +90,8 @@ public class GlobalOperations&lt;T, C extends DistributedCollection&lt;T, C&gt;&
      */
     @SuppressWarnings(&quot;rawtypes&quot;)
     public void getSizeDistribution(final long[] result) {
-<span class="pc bpc" id="L93" title="1 of 2 branches missed.">        if (localHandle instanceof ElementLocationManagable) {</span>
-<span class="nc" id="L94">            ((ElementLocationManagable) localHandle).getSizeDistribution(result);</span>
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">        if (localHandle instanceof ElementLocationManageable) {</span>
+<span class="nc" id="L94">            ((ElementLocationManageable) localHandle).getSizeDistribution(result);</span>
         } else {
 <span class="fc" id="L96">            localHandle.placeGroup().broadcastFlat(() -&gt; {</span>
 <span class="fc" id="L97">                localHandle.team().getSizeDistribution(result);</span>

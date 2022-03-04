@@ -58,8 +58,8 @@ public class TeamOperations&lt;T, C extends DistributedCollection&lt;T, C&gt;&gt
      */
     @SuppressWarnings({ &quot;rawtypes&quot;, &quot;deprecation&quot; })
     public void getSizeDistribution(final long[] result) {
-<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (handle instanceof ElementLocationManagable) {</span>
-<span class="fc" id="L62">            ((ElementLocationManagable) handle).getSizeDistribution(result);</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (handle instanceof ElementLocationManageable) {</span>
+<span class="fc" id="L62">            ((ElementLocationManageable) handle).getSizeDistribution(result);</span>
 <span class="fc" id="L63">            return;</span>
         }
 <span class="fc" id="L65">        final TeamedPlaceGroup pg = handle.placeGroup();</span>
@@ -239,8 +239,8 @@ public class TeamOperations&lt;T, C extends DistributedCollection&lt;T, C&gt;&gt
      */
     @SuppressWarnings(&quot;rawtypes&quot;)
     public void updateDist() {
-<span class="fc bfc" id="L242" title="All 2 branches covered.">        if (handle instanceof ElementLocationManagable) {</span>
-<span class="fc" id="L243">            ((ElementLocationManagable) handle).updateDist();</span>
+<span class="fc bfc" id="L242" title="All 2 branches covered.">        if (handle instanceof ElementLocationManageable) {</span>
+<span class="fc" id="L243">            ((ElementLocationManageable) handle).updateDist();</span>
         }
 <span class="fc" id="L245">    }</span>
 
