@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FutureN.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections</a> &gt; <span class="el_source">FutureN.java</span></div><h1>FutureN.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2021 Handy Tools for Distributed Computing (HanDist) project.
+ *
+ * This program and the accompanying materials are made available to you under
+ * the terms of the Eclipse Public License 1.0 which accompanies this
+ * distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ *
+ * SPDX-License-Identifier: EPL-1.0
+ ******************************************************************************/
+package handist.collections;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
+
+/**
+ * {@link FutureN} receives a list of {@link Future} and waits for the
+ * termination of all the futures. There are four variations of futureN.
+ * &lt;ul&gt;
+ * &lt;li&gt;When a list of &lt;code&gt;Future&amp;lt;?&amp;gt;&lt;/code&gt; is given
+ * &lt;ul&gt;
+ * &lt;li&gt;{@link FutureN.OnlyWait} waits for the termination of the given futures.
+ * &lt;li&gt;{@link FutureN.ReturnGivenResult} receives the result data structure `R
+ * result` and returns the result when all the futures are finished.
+ * &lt;/ul&gt;
+ * &lt;li&gt;When a list of &lt;code&gt;Future&amp;lt;R&amp;gt;&lt;/code&gt; is given
+ * &lt;ul&gt;
+ * &lt;li&gt;{@link FutureN.ListResults} receives a
+ * &lt;code&gt;List&amp;lt;Future&amp;lt;R&amp;gt;&amp;gt;&lt;/code&gt; and returns a
+ * &lt;code&gt;List&amp;lt;R&amp;gt;&lt;/code&gt;.
+ * &lt;li&gt;{@link FutureN.ConsumeResults} receives a
+ * &lt;code&gt;List&amp;lt;Future&amp;lt;R&amp;gt;&amp;gt;&lt;/code&gt; and a
+ * &lt;code&gt;Consumer&amp;lt;R&amp;gt;&lt;/code&gt;. It waits for the termination of the given
+ * futures and processes the result using the provided consumer.
+ * &lt;/ul&gt;
+ * &lt;/ul&gt;
+ *
+ * @param &lt;S&gt; generic type of the group of {@link Future} this class will handle
+ */
+public abstract class FutureN&lt;S&gt; {
+
+    /**
+     * {@link ConsumeResults} receives a &lt;code&gt;List&amp;lt;Future&amp;lt;R&amp;gt;&amp;gt;&lt;/code&gt;
+     * and a &lt;code&gt;Consumer&amp;lt;R&amp;gt;&lt;/code&gt;. It waits for the termination of the
+     * given futures before transmitting the individual results of type
+     * &lt;code&gt;R&lt;/code&gt; to the consumer.
+     *
+     * @param &lt;R&gt; type of the result produced by the individual futures
+     */
+    public static class ConsumeResults&lt;R&gt; extends FutureN&lt;R&gt; implements Future&lt;Void&gt; {
+
+        /** Consumer provided during construction */
+        private final Consumer&lt;R&gt; consumer;
+        /** Flag used to indicate if {@link #processResult()} was previously called */
+<span class="nc" id="L60">        private boolean processed = false;</span>
+
+        /**
+         * Constructor taking a list of futures and a Consumer as parameter
+         *
+         * @param futures  the list of futures this instance will wait on
+         * @param consumer the consumer which will receive the results produced by every
+         *                 future
+         */
+        public ConsumeResults(List&lt;Future&lt;R&gt;&gt; futures, Consumer&lt;R&gt; consumer) {
+<span class="nc" id="L70">            super(futures);</span>
+<span class="nc" id="L71">            this.consumer = consumer;</span>
+<span class="nc" id="L72">        }</span>
+
+        /**
+         * Waits for every future to terminate and gives their individual results to the
+         * consumer provided during construction
+         *
+         * @return nothing
+         * @throws InterruptedException if such an exception is thrown by one of the
+         *                              futures
+         * @throws ExecutionException   if such an exception is thrown by one of the
+         *                              futures
+         */
+        @Override
+        public Void get() throws InterruptedException, ExecutionException {
+<span class="nc" id="L86">            get0();</span>
+<span class="nc" id="L87">            processResult();</span>
+<span class="nc" id="L88">            return null;</span>
+        }
+
+        /**
+         * Waits for every future to terminate and gives their individual results to the
+         * consumer provided during construction
+         *
+         * @return nothing
+         * @throws InterruptedException if such an exception is thrown by one of the
+         *                              futures
+         * @throws ExecutionException   if such an exception is thrown by one of the
+         *                              futures
+         * @throws TimeoutException     if one of the futures handled by this class
+         *                              exhausts the timeout
+         */
+        @Override
+        public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+<span class="nc" id="L105">            get0(timeout, unit);</span>
+<span class="nc" id="L106">            processResult();</span>
+<span class="nc" id="L107">            return null;</span>
+        }
+
+        /**
+         * Helper method which takes the results produced by each future and gives them
+         * to the consumer
+         */
+        private void processResult() {
+<span class="nc" id="L115">            synchronized (this) {</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">                if (processed) {</span>
+<span class="nc" id="L117">                    return;</span>
+                }
+<span class="nc bnc" id="L119" title="All 2 branches missed.">                for (final Future&lt;R&gt; f : futures) {</span>
+                    try {
+<span class="nc" id="L121">                        consumer.accept(f.get());</span>
+<span class="nc" id="L122">                    } catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L123">                        throw new Error(&quot;This should not occur!&quot;);</span>
+<span class="nc" id="L124">                    }</span>
+<span class="nc" id="L125">                }</span>
+<span class="nc" id="L126">                processed = true;</span>
+<span class="nc" id="L127">            }</span>
+<span class="nc" id="L128">        }</span>
+    }
+
+    /**
+     * {@link ListResults} receives a &lt;code&gt;List&amp;lt;Future&amp;lt;R&amp;gt;&amp;gt;&lt;/code&gt; and
+     * returns a &lt;code&gt;List&amp;lt;R&amp;gt;&lt;/code&gt; containing the result of each of the
+     * individual futures.
+     *
+     * @param &lt;R&gt; type of the result of each future
+     */
+    public static class ListResults&lt;R&gt; extends FutureN&lt;R&gt; implements Future&lt;List&lt;R&gt;&gt; {
+        /** List which is going to contain the result of each future */
+<span class="nc" id="L140">        List&lt;R&gt; result = null;</span>
+
+        /**
+         * Constructor with a list of futures.
+         *
+         * @param futures list of futures to wait on
+         */
+        public ListResults(List&lt;Future&lt;R&gt;&gt; futures) {
+<span class="nc" id="L148">            super(futures);</span>
+<span class="nc" id="L149">        }</span>
+
+        /**
+         * Waits for all futures to terminate and return the individual result of each
+         * future in a list.
+         *
+         * @return the result produced by each future, in a list
+         * @throws InterruptedException if such an exception is thrown by one of the
+         *                              futures
+         * @throws ExecutionException   if such an exception is thrown by one of the
+         *                              futures
+         */
+        @Override
+        public List&lt;R&gt; get() throws InterruptedException, ExecutionException {
+<span class="nc" id="L163">            get0();</span>
+<span class="nc" id="L164">            return processResult();</span>
+        }
+
+        /**
+         * Waits for all futures to terminate within the provided timeout and return the
+         * individual result of each future in a list.
+         *
+         * @param timeout the total time allowed for all the futures to complete
+         * @param unit    time unit of the timeout
+         * @return the result produced by each future, in a list
+         * @throws InterruptedException if such an exception is thrown by one of the
+         *                              futures
+         * @throws ExecutionException   if such an exception is thrown by one of the
+         *                              futures
+         * @throws TimeoutException     if one of the futures handled by this class
+         *                              exhausts the timeout
+         */
+        @Override
+        public List&lt;R&gt; get(long timeout, TimeUnit unit)
+                throws InterruptedException, ExecutionException, TimeoutException {
+<span class="nc" id="L184">            get0(timeout, unit);</span>
+<span class="nc" id="L185">            return processResult();</span>
+        }
+
+        /**
+         * Helper method which initializes {@link #result}
+         *
+         * @return the freshly initialized {@link #result}
+         */
+        List&lt;R&gt; processResult() {
+<span class="nc" id="L194">            synchronized (this) {</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">                if (result != null) {</span>
+<span class="nc" id="L196">                    return result;</span>
+                }
+<span class="nc" id="L198">                result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L199" title="All 2 branches missed.">                for (final Future&lt;R&gt; f : futures) {</span>
+                    try {
+<span class="nc" id="L201">                        result.add(f.get());</span>
+<span class="nc" id="L202">                    } catch (InterruptedException | ExecutionException e) {</span>
+<span class="nc" id="L203">                        throw new Error(&quot;This should not occur!&quot;);</span>
+<span class="nc" id="L204">                    }</span>
+<span class="nc" id="L205">                }</span>
+<span class="nc" id="L206">            }</span>
+<span class="nc" id="L207">            return result;</span>
+        }
+    }
+
+    /**
+     * {@link OnlyWait} waits for the termination of all its given futures.
+     */
+    public static class OnlyWait extends FutureN&lt;Void&gt; {
+        /**
+         * Constructor with a list of futures.
+         *
+         * @param futures futures on which to wait for completion
+         */
+        public OnlyWait(List&lt;Future&lt;Void&gt;&gt; futures) {
+<span class="nc" id="L221">            super(futures);</span>
+<span class="nc" id="L222">        }</span>
+
+        /**
+         * Waits for all futures to terminate and returns
+         *
+         * @return {@code null}
+         * @throws InterruptedException if such an exception is thrown by one of the
+         *                              futures
+         * @throws ExecutionException   if such an exception is thrown by one of the
+         *                              futures
+         */
+        public Void get() throws InterruptedException, ExecutionException {
+<span class="nc" id="L234">            get0();</span>
+<span class="nc" id="L235">            return null;</span>
+        }
+
+        /**
+         * Waits for all futures to terminate in the specified allocated time and
+         * returns
+         *
+         * @param timeout the total time allowed for all the futures to complete
+         * @param unit    time unit of the timeout
+         * @return {@code null}
+         * @throws InterruptedException if such an exception is thrown by one of the
+         *                              futures
+         * @throws ExecutionException   if such an exception is thrown by one of the
+         *                              futures
+         * @throws TimeoutException     if one of the futures handled by this class
+         *                              exhausts the timeout
+         */
+        public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+<span class="nc" id="L253">            get0(timeout, unit);</span>
+<span class="nc" id="L254">            return null;</span>
+        }
+    }
+
+    /**
+     * {@link ReturnGivenResult} receives a list of futures and an instance of the
+     * generic type R. This instance is returned in method {@link #get()} after all
+     * the futures have completed.
+     * &lt;p&gt;
+     * This nested class is typically used when the futures operate on the elements
+     * contained in an object and the &quot;result&quot; of this operation is actually the
+     * same object with its contents potentially transformed. Presumably, the object
+     * can be safely manipulated again once all the futures have completed.
+     *
+     * @param &lt;R&gt; the type of the result type (This class implements
+     *            &lt;code&gt;Future&amp;lt;R&amp;gt;&lt;/code&gt;)
+     */
+    @SuppressWarnings(&quot;rawtypes&quot;)
+    public static class ReturnGivenResult&lt;R&gt; extends FutureN implements Future&lt;R&gt; {
+        /** Object to return when all the futures have completed */
+        R result;
+
+        /**
+         * Constructor which takes a list of futures and an object
+         *
+         * @param futures the list of futures whose completion will be waited on
+         * @param r       object to return when all the futures have completed
+         */
+        @SuppressWarnings(&quot;unchecked&quot;)
+        public ReturnGivenResult(List&lt;Future&lt;?&gt;&gt; futures, R r) {
+<span class="fc" id="L284">            super(futures);</span>
+<span class="fc" id="L285">            result = r;</span>
+<span class="fc" id="L286">        }</span>
+
+        /**
+         * Waits for the termination of all the futures and returns the object with
+         * which this {@link FutureN} was constructed.
+         */
+        @Override
+        public R get() throws InterruptedException, ExecutionException {
+<span class="fc" id="L294">            get0();</span>
+<span class="fc" id="L295">            return result;</span>
+        }
+
+        /**
+         * Waits for the termination of all the futures within the specified timeout and
+         * returns the object this instance was initialized with.
+         *
+         * @param timeout total timeout allowed for all the futures to finish
+         * @param unit    time unit of the timeout
+         * @return the object this class was constructed with
+         * @throws InterruptedException if such an exception is thrown by one of the
+         *                              futures
+         * @throws ExecutionException   if such an exception is thrown by one of the
+         *                              futures
+         * @throws TimeoutException     if one of the futures handled by this class
+         *                              exhausts the timeout
+         */
+        @Override
+        public R get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+<span class="nc" id="L314">            get0(timeout, unit);</span>
+<span class="nc" id="L315">            return result;</span>
+        }
+    }
+
+    /** List of futures handled by this class */
+    protected final List&lt;Future&lt;S&gt;&gt; futures;
+
+<span class="fc" id="L322">    boolean isCanceled = false;</span>
+
+<span class="fc" id="L324">    boolean isDone = false;</span>
+
+    /**
+     * Constructor taking a list of futures as argument.
+     *
+     * @param futures the futures which this instance aggreagates
+     */
+<span class="fc" id="L331">    public FutureN(List&lt;Future&lt;S&gt;&gt; futures) {</span>
+<span class="fc" id="L332">        this.futures = futures;</span>
+<span class="fc" id="L333">    }</span>
+
+    /**
+     * Attempts to cancel execution of all the contained tasks. This attempt will
+     * fail if one of the task has already completed, has already been cancelled, or
+     * could not be cancelled for some other reason. If successful, and this task
+     * has not started when cancel is called, none of the contained tasks should
+     * never run. If the task has already started, then the mayInterruptIfRunning
+     * parameter determines whether the thread executing this task should be
+     * interrupted in an attempt to stop the task. After this method returns,
+     * subsequent calls to isDone() will always return true. Subsequent calls to
+     * isCancelled() will always return true if this method returned true.
+     *
+     * @param mayInterruptIfRunning true if the thread executing the tasks should be
+     *                              interrupted; otherwise, in-progress tasks are
+     *                              allowed to complete
+     * @return false if at least one of the tasks could not be cancelled (usually
+     *         because it has already completed normally, true otherwise
+     */
+    public boolean cancel(boolean mayInterruptIfRunning) {
+<span class="nc" id="L353">        boolean result = true;</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">        for (final Future&lt;?&gt; f : futures) {</span>
+<span class="nc" id="L355">            result &amp;= f.cancel(mayInterruptIfRunning);</span>
+<span class="nc" id="L356">        }</span>
+<span class="nc" id="L357">        return result;</span>
+    }
+
+    /**
+     * Helper method for child classes, calls method {@link Future#get()} on each
+     * future handled
+     *
+     * @throws InterruptedException if such an exception is thrown by one of the
+     *                              futures
+     * @throws ExecutionException   if such an exception is thrown by one of the
+     *                              futures
+     */
+    protected void get0() throws InterruptedException, ExecutionException {
+<span class="fc" id="L370">        synchronized (this) {</span>
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">            if (isDone) {</span>
+<span class="nc" id="L372">                return;</span>
+            }
+<span class="fc" id="L374">        }</span>
+<span class="fc bfc" id="L375" title="All 2 branches covered.">        for (final Future&lt;?&gt; f : futures) {</span>
+<span class="fc" id="L376">            f.get();</span>
+<span class="fc" id="L377">        }</span>
+<span class="fc" id="L378">        return;</span>
+    }
+
+    /**
+     * Helper method for child classes, calls method
+     * {@link Future#get(long,TimeUnit)} on each future handled by this class
+     *
+     * @param timeout total timeout allowed for all the futures
+     * @param unit    unit of the timeout
+     * @throws InterruptedException if such an exception is thrown by one of the
+     *                              futures
+     * @throws ExecutionException   if such an exception is thrown by one of the
+     *                              futures
+     * @throws TimeoutException     if one of the futures handled by this class
+     *                              exhausts the timeout
+     */
+    protected void get0(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+<span class="nc" id="L395">        final long start = System.currentTimeMillis();</span>
+<span class="nc" id="L396">        synchronized (this) {</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">            if (isDone) {</span>
+<span class="nc" id="L398">                return;</span>
+            }
+<span class="nc" id="L400">        }</span>
+<span class="nc bnc" id="L401" title="All 2 branches missed.">        for (final Future&lt;?&gt; f : futures) {</span>
+<span class="nc" id="L402">            final long now = System.currentTimeMillis();</span>
+<span class="nc" id="L403">            f.get(timeout - unit.convert(now - start, TimeUnit.MILLISECONDS), unit);</span>
+<span class="nc" id="L404">        }</span>
+<span class="nc" id="L405">        return;</span>
+    }
+
+    /**
+     * Indicates if all the tasks this instnace contains were cancelled before they
+     * could complete normally
+     *
+     * @return true if all the tasks were successfully canceled before they could
+     *         complete
+     */
+    public boolean isCancelled() {
+<span class="nc" id="L416">        boolean result = true;</span>
+<span class="nc bnc" id="L417" title="All 2 branches missed.">        for (final Future&lt;S&gt; f : futures) {</span>
+<span class="nc" id="L418">            result &amp;= f.isCancelled();</span>
+<span class="nc" id="L419">        }</span>
+<span class="nc" id="L420">        return result;</span>
+    }
+
+    /**
+     * Returns true is all the individual tasks this instance contains completed.
+     *
+     * @return true if all the tasks completed
+     */
+    public boolean isDone() {
+<span class="nc" id="L429">        synchronized (this) {</span>
+<span class="nc bnc" id="L430" title="All 2 branches missed.">            if (isDone) {</span>
+<span class="nc" id="L431">                return isDone;</span>
+            }
+<span class="nc" id="L433">        }</span>
+<span class="nc bnc" id="L434" title="All 2 branches missed.">        for (final Future&lt;S&gt; f : futures) {</span>
+<span class="nc bnc" id="L435" title="All 2 branches missed.">            if (!f.isDone()) {</span>
+<span class="nc" id="L436">                return false;</span>
+            }
+<span class="nc" id="L438">        }</span>
+<span class="nc" id="L439">        synchronized (this) {</span>
+<span class="nc" id="L440">            isDone = true;</span>
+<span class="nc" id="L441">        }</span>
+<span class="nc" id="L442">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>
