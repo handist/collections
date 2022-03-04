@@ -25,7 +25,6 @@ import com.esotericsoftware.kryo.KryoSerializable;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
-
 /**
  * Large collection that can contain objects mapped to long indices.
  *
@@ -57,18 +56,18 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      * @throws IllegalArgumentException if a {@link Chunk} cannot be built with the
      *                                  provided range.
      */
-<span class="fc" id="L60">    public Chunk(LongRange range) {</span>
-<span class="fc" id="L61">        final long size = range.to - range.from;</span>
-<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (size &gt; Config.maxChunkSize) {</span>
-<span class="fc" id="L63">            throw new IllegalArgumentException(</span>
+<span class="fc" id="L59">    public Chunk(LongRange range) {</span>
+<span class="fc" id="L60">        final long size = range.to - range.from;</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (size &gt; Config.maxChunkSize) {</span>
+<span class="fc" id="L62">            throw new IllegalArgumentException(</span>
                     &quot;The given range &quot; + range + &quot; exceeds the maximum Chunk size &quot; + Config.maxChunkSize);
-<span class="fc bfc" id="L65" title="All 2 branches covered.">        } else if (size &lt;= 0) {</span>
-<span class="fc" id="L66">            throw new IllegalArgumentException(&quot;Cannot build a Chunk with &quot; + &quot;LongRange &quot; + range</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        } else if (size &lt;= 0) {</span>
+<span class="fc" id="L65">            throw new IllegalArgumentException(&quot;Cannot build a Chunk with &quot; + &quot;LongRange &quot; + range</span>
                     + &quot;, should have a strictly positive&quot; + &quot; size&quot;);
         }
-<span class="fc" id="L69">        a = new Object[(int) size];</span>
-<span class="fc" id="L70">        this.range = range;</span>
-<span class="fc" id="L71">    }</span>
+<span class="fc" id="L68">        a = new Object[(int) size];</span>
+<span class="fc" id="L69">        this.range = range;</span>
+<span class="fc" id="L70">    }</span>
 
     /**
      * Builds a {@link Chunk} with the provided {@link LongRange}. The provided
@@ -87,11 +86,11 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      *                                  provided range.
      */
     public Chunk(LongRange range, Function&lt;Long, T&gt; initializer) {
-<span class="fc" id="L90">        this(range);</span>
-<span class="fc" id="L91">        range.forEach((long index) -&gt; {</span>
-<span class="fc" id="L92">            a[(int) (index - range.from)] = initializer.apply(index);</span>
-<span class="fc" id="L93">        });</span>
-<span class="fc" id="L94">    }</span>
+<span class="fc" id="L89">        this(range);</span>
+<span class="fc" id="L90">        range.forEach((long index) -&gt; {</span>
+<span class="fc" id="L91">            a[(int) (index - range.from)] = initializer.apply(index);</span>
+<span class="fc" id="L92">        });</span>
+<span class="fc" id="L93">    }</span>
 
     /**
      * Builds a {@link Chunk} with the provided {@link LongRange} and an initial
@@ -114,16 +113,16 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      *                                  provided range and object array.
      */
     public Chunk(LongRange range, Object[] a) {
-<span class="fc" id="L117">        this(range);</span>
-<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (a.length != range.size()) {</span>
-<span class="fc" id="L119">            throw new IllegalArgumentException(&quot;The length of the provided &quot; + &quot;array &lt;&quot; + a.length</span>
-<span class="fc" id="L120">                    + &quot;&gt; does not match the size of the &quot; + &quot;LongRange &lt;&quot; + range.size() + &quot;&gt;&quot;);</span>
+<span class="fc" id="L116">        this(range);</span>
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        if (a.length != range.size()) {</span>
+<span class="fc" id="L118">            throw new IllegalArgumentException(&quot;The length of the provided &quot; + &quot;array &lt;&quot; + a.length</span>
+<span class="fc" id="L119">                    + &quot;&gt; does not match the size of the &quot; + &quot;LongRange &lt;&quot; + range.size() + &quot;&gt;&quot;);</span>
         }
         // TODO Do we check for objects in array a that are not of type T?
         // We can leave as is and let the code fail later in methods get and
         // others where a ClassCastException should be thrown.
-<span class="fc" id="L125">        this.a = a;</span>
-<span class="fc" id="L126">    }</span>
+<span class="fc" id="L124">        this.a = a;</span>
+<span class="fc" id="L125">    }</span>
 
     /**
      * Builds a {@link Chunk} with the provided {@link LongRange} with each long in
@@ -142,13 +141,17 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      *                                  provided range.
      */
     public Chunk(LongRange range, T t) {
-<span class="fc" id="L145">        this(range);</span>
-        // TODO Is this what we really want to do?
-        // The mapping will be on the SAME OBJECT for every long in LongRange.
-        // Don't we need a Generator&lt;T&gt; generator as argument and create an
-        // instance for each key with Arrays.setAll(a, generator) ?
-<span class="fc" id="L150">        Arrays.fill(a, t);</span>
-<span class="fc" id="L151">    }</span>
+<span class="fc" id="L144">        this(range);</span>
+<span class="fc" id="L145">        Arrays.fill(a, t);</span>
+<span class="fc" id="L146">    }</span>
+
+    private LongRange calcSubIteratorRange(LongRange range) {
+<span class="fc" id="L149">        range = this.getRange().intersection(range);</span>
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">        if (range == null) {</span>
+<span class="nc" id="L151">            throw new IndexOutOfBoundsException();</span>
+        }
+<span class="fc" id="L153">        return range;</span>
+    }
 
     /**
      * Returns a new Chunk defined on the same {@link LongRange} and with the same
@@ -159,7 +162,7 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
     @Override
     public Chunk&lt;T&gt; clone() {
         // Object[] aClone = a.clone();
-<span class="fc" id="L162">        final Object[] aClone = new Object[a.length];</span>
+<span class="fc" id="L165">        final Object[] aClone = new Object[a.length];</span>
 
         //// FIXME: 2018/09/19 Need deep copy?
         // for (int i = 0; i &lt; a.length; i++) {
@@ -170,30 +173,30 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
         // }
         // }
 
-<span class="fc" id="L173">        Arrays.fill(aClone, a[0]);</span>
-<span class="fc" id="L174">        System.arraycopy(a, 0, aClone, 0, a.length);</span>
+<span class="fc" id="L176">        Arrays.fill(aClone, a[0]);</span>
+<span class="fc" id="L177">        System.arraycopy(a, 0, aClone, 0, a.length);</span>
 
-<span class="fc" id="L176">        return new Chunk&lt;&gt;(this.range, aClone);</span>
+<span class="fc" id="L179">        return new Chunk&lt;&gt;(this.range, aClone);</span>
     }
 
     @Override
     public Chunk&lt;T&gt; cloneRange(LongRange newRange) {
-<span class="fc bfc" id="L181" title="All 2 branches covered.">        return range == newRange ? clone() : toChunk(newRange);</span>
+<span class="fc bfc" id="L184" title="All 2 branches covered.">        return range == newRange ? clone() : toChunk(newRange);</span>
     }
 
     @Override
     public boolean contains(Object v) {
-<span class="fc bfc" id="L186" title="All 2 branches covered.">        for (final Object e : a) {</span>
-<span class="fc bfc" id="L187" title="All 6 branches covered.">            if (v == null ? e == null : v.equals(e)) {</span>
-<span class="fc" id="L188">                return true;</span>
+<span class="fc bfc" id="L189" title="All 2 branches covered.">        for (final Object e : a) {</span>
+<span class="fc bfc" id="L190" title="All 6 branches covered.">            if (v == null ? e == null : v.equals(e)) {</span>
+<span class="fc" id="L191">                return true;</span>
             }
         }
-<span class="fc" id="L191">        return false;</span>
+<span class="fc" id="L194">        return false;</span>
     }
 
     @Override
     public boolean equals(Object o) {
-<span class="fc" id="L196">        return RangedList.equals(this, o);</span>
+<span class="fc" id="L199">        return RangedList.equals(this, o);</span>
     }
 
     /**
@@ -201,10 +204,10 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      */
     @Override
     public T get(long index) {
-<span class="fc bfc" id="L204" title="All 2 branches covered.">        if (!getRange().contains(index)) {</span>
-<span class="fc" id="L205">            throw new IndexOutOfBoundsException(rangeMsg(index));</span>
+<span class="fc bfc" id="L207" title="All 2 branches covered.">        if (!getRange().contains(index)) {</span>
+<span class="fc" id="L208">            throw new IndexOutOfBoundsException(rangeMsg(index));</span>
         }
-<span class="fc" id="L207">        return getUnsafe(index);</span>
+<span class="fc" id="L210">        return getUnsafe(index);</span>
     }
 
     /**
@@ -212,7 +215,7 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      */
     @Override
     public LongRange getRange() {
-<span class="fc" id="L215">        return range;</span>
+<span class="fc" id="L218">        return range;</span>
     }
 
     /**
@@ -224,8 +227,8 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      */
     @SuppressWarnings(&quot;unchecked&quot;)
     final T getUnsafe(long index) { // when range check was done
-<span class="fc" id="L227">        final long offset = index - range.from;</span>
-<span class="fc" id="L228">        return (T) a[(int) offset];</span>
+<span class="fc" id="L230">        final long offset = index - range.from;</span>
+<span class="fc" id="L231">        return (T) a[(int) offset];</span>
     }
 
     /**
@@ -233,7 +236,7 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      */
     @Override
     public int hashCode() {
-<span class="fc" id="L236">        return RangedList.hashCode(this);</span>
+<span class="fc" id="L239">        return RangedList.hashCode(this);</span>
     }
 
     /**
@@ -241,7 +244,7 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      */
     @Override
     public Iterator&lt;T&gt; iterator() {
-<span class="fc" id="L244">        return new ChunkIterator&lt;&gt;(this.range, this.a);</span>
+<span class="fc" id="L247">        return new ChunkIterator&lt;&gt;(this.range, this.a);</span>
     }
 
     /**
@@ -252,7 +255,7 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      */
     @Override
     public RangedListIterator&lt;T&gt; listIterator() {
-<span class="fc" id="L255">        return new ChunkListIterator&lt;&gt;(this.range, this.a);</span>
+<span class="fc" id="L258">        return new ChunkListIterator&lt;&gt;(this.range, this.a);</span>
     }
 
     /**
@@ -263,82 +266,77 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      *              {@link RangedListIterator#next()}
      * @return a new {@link RangedListIterator} starting at the specified index
      */
+    @Override
     public RangedListIterator&lt;T&gt; listIterator(long index) {
-<span class="fc" id="L267">        return new ChunkListIterator&lt;&gt;(this.range, index, this.a);</span>
+<span class="fc" id="L271">        return new ChunkListIterator&lt;&gt;(this.range, index, this.a);</span>
     }
 
     private String rangeMsg(long index) {
-<span class="fc" id="L271">        return &quot;[Chunk] range &quot; + index + &quot; is out of &quot; + getRange();</span>
+<span class="fc" id="L275">        return &quot;[Chunk] range &quot; + index + &quot; is out of &quot; + getRange();</span>
     }
 
     private String rangeMsg(LongRange range) {
-<span class="fc" id="L275">        return &quot;[Chunk] range &quot; + range + &quot; is not contained in &quot; + getRange();</span>
+<span class="fc" id="L279">        return &quot;[Chunk] range &quot; + range + &quot; is not contained in &quot; + getRange();</span>
     }
 
     @Override
     public void read(Kryo kryo, Input input) {
-<span class="fc" id="L280">        this.range = (LongRange) kryo.readClassAndObject(input);</span>
-<span class="fc" id="L281">        this.a = (Object[]) kryo.readClassAndObject(input);</span>
-<span class="fc" id="L282">    }</span>
+<span class="fc" id="L284">        this.range = (LongRange) kryo.readClassAndObject(input);</span>
+<span class="fc" id="L285">        this.a = (Object[]) kryo.readClassAndObject(input);</span>
+<span class="fc" id="L286">    }</span>
 
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-<span class="fc" id="L285">        this.range = (LongRange) in.readObject();</span>
-<span class="fc" id="L286">        this.a = (Object[]) in.readObject();</span>
+<span class="fc" id="L289">        this.range = (LongRange) in.readObject();</span>
+<span class="fc" id="L290">        this.a = (Object[]) in.readObject();</span>
         // System.out.println(&quot;readChunk:&quot;+this);
-<span class="fc" id="L288">    }</span>
+<span class="fc" id="L292">    }</span>
 
     /**
      * {@inheritDoc}
      */
     @Override
     public T set(long index, T value) {
-<span class="fc bfc" id="L295" title="All 2 branches covered.">        if (!getRange().contains(index)) {</span>
-<span class="fc" id="L296">            throw new IndexOutOfBoundsException(rangeMsg(index));</span>
+<span class="fc bfc" id="L299" title="All 2 branches covered.">        if (!getRange().contains(index)) {</span>
+<span class="fc" id="L300">            throw new IndexOutOfBoundsException(rangeMsg(index));</span>
         }
-<span class="fc" id="L298">        return setUnsafe(index, value);</span>
+<span class="fc" id="L302">        return setUnsafe(index, value);</span>
     }
 
     @SuppressWarnings(&quot;unchecked&quot;)
     private final T setUnsafe(long index, T v) { // when range check was done
-<span class="fc" id="L303">        final long offset = index - range.from;</span>
-<span class="fc" id="L304">        final T prev = (T) a[(int) offset];</span>
-<span class="fc" id="L305">        a[(int) offset] = v;</span>
-<span class="fc" id="L306">        return prev;</span>
+<span class="fc" id="L307">        final long offset = index - range.from;</span>
+<span class="fc" id="L308">        final T prev = (T) a[(int) offset];</span>
+<span class="fc" id="L309">        a[(int) offset] = v;</span>
+<span class="fc" id="L310">        return prev;</span>
     }
-    private LongRange calcSubIteratorRange(LongRange range) {
-<span class="fc" id="L309">        range = this.getRange().intersection(range);</span>
-<span class="pc bpc" id="L310" title="1 of 2 branches missed.">        if(range == null) {</span>
-<span class="nc" id="L311">            throw new IndexOutOfBoundsException();</span>
-        }
-<span class="fc" id="L313">        return range;</span>
-    }
+
     @Override
     public Iterator&lt;T&gt; subIterator(LongRange range) {
-<span class="fc" id="L317">        range = calcSubIteratorRange(range);</span>
-<span class="fc" id="L318">        int offset = (int)(range.from-this.getRange().from);</span>
-<span class="fc" id="L319">        return new ChunkIterator(offset, range, this.a);</span>
+<span class="fc" id="L315">        range = calcSubIteratorRange(range);</span>
+<span class="fc" id="L316">        final int offset = (int) (range.from - this.getRange().from);</span>
+<span class="fc" id="L317">        return new ChunkIterator&lt;&gt;(offset, range, this.a);</span>
     }
+
     @Override
     public RangedListIterator&lt;T&gt; subListIterator(LongRange range) {
-<span class="fc" id="L323">        range = calcSubIteratorRange(range);</span>
-<span class="fc" id="L324">        int offset = (int)(range.from-this.getRange().from);</span>
-<span class="fc" id="L325">        return new ChunkListIterator&lt;T&gt;(offset, range, this.a);</span>
+<span class="fc" id="L322">        range = calcSubIteratorRange(range);</span>
+<span class="fc" id="L323">        final int offset = (int) (range.from - this.getRange().from);</span>
+<span class="fc" id="L324">        return new ChunkListIterator&lt;&gt;(offset, range, this.a);</span>
     }
+
     @Override
     public RangedListIterator&lt;T&gt; subListIterator(LongRange range, long i0) {
 <span class="fc" id="L329">        range = calcSubIteratorRange(range);</span>
-<span class="fc" id="L330">        int offset = (int)(range.from-this.getRange().from);</span>
-<span class="fc" id="L331">        return new ChunkListIterator&lt;T&gt;(offset, range, i0, this.a);</span>
+<span class="fc" id="L330">        final int offset = (int) (range.from - this.getRange().from);</span>
+<span class="fc" id="L331">        return new ChunkListIterator&lt;&gt;(offset, range, i0, this.a);</span>
     }
-
-
 
     /**
      * {@inheritDoc}
      */
     @Override
     public Object[] toArray() {
-<span class="fc" id="L341">        return a;</span>
+<span class="fc" id="L339">        return a;</span>
     }
 
     /**
@@ -346,23 +344,23 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      */
     @Override
     public Object[] toArray(LongRange newRange) {
-<span class="fc bfc" id="L349" title="All 2 branches covered.">        if (!range.contains(newRange)) {</span>
-<span class="fc" id="L350">            throw new IndexOutOfBoundsException(rangeMsg(newRange));</span>
+<span class="fc bfc" id="L347" title="All 2 branches covered.">        if (!range.contains(newRange)) {</span>
+<span class="fc" id="L348">            throw new IndexOutOfBoundsException(rangeMsg(newRange));</span>
         }
-<span class="fc bfc" id="L352" title="All 4 branches covered.">        if (newRange.from == range.from &amp;&amp; newRange.to == range.to) {</span>
-<span class="fc" id="L353">            return a;</span>
+<span class="fc bfc" id="L350" title="All 4 branches covered.">        if (newRange.from == range.from &amp;&amp; newRange.to == range.to) {</span>
+<span class="fc" id="L351">            return a;</span>
         }
-<span class="fc bfc" id="L355" title="All 2 branches covered.">        if (newRange.from == newRange.to) {</span>
-<span class="fc" id="L356">            return new Object[0];</span>
+<span class="fc bfc" id="L353" title="All 2 branches covered.">        if (newRange.from == newRange.to) {</span>
+<span class="fc" id="L354">            return new Object[0];</span>
         }
-<span class="fc" id="L358">        final long newSize = (newRange.to - newRange.from);</span>
-<span class="pc bpc" id="L359" title="1 of 2 branches missed.">        if (newSize &gt; Config.maxChunkSize) {</span>
-<span class="nc" id="L360">            throw new IllegalArgumentException(&quot;[Chunk] the size of the result cannot exceed &quot; + Config.maxChunkSize);</span>
+<span class="fc" id="L356">        final long newSize = (newRange.to - newRange.from);</span>
+<span class="pc bpc" id="L357" title="1 of 2 branches missed.">        if (newSize &gt; Config.maxChunkSize) {</span>
+<span class="nc" id="L358">            throw new IllegalArgumentException(&quot;[Chunk] the size of the result cannot exceed &quot; + Config.maxChunkSize);</span>
         }
-<span class="fc" id="L362">        final Object[] newRail = new Object[(int) newSize];</span>
-<span class="fc" id="L363">        Arrays.fill(newRail, a[0]);</span>
-<span class="fc" id="L364">        System.arraycopy(a, (int) (newRange.from - range.from), newRail, 0, (int) newSize);</span>
-<span class="fc" id="L365">        return newRail;</span>
+<span class="fc" id="L360">        final Object[] newRail = new Object[(int) newSize];</span>
+<span class="fc" id="L361">        Arrays.fill(newRail, a[0]);</span>
+<span class="fc" id="L362">        System.arraycopy(a, (int) (newRange.from - range.from), newRail, 0, (int) newSize);</span>
+<span class="fc" id="L363">        return newRail;</span>
     }
 
     /**
@@ -370,14 +368,14 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      */
     @Override
     public Chunk&lt;T&gt; toChunk(LongRange newRange) {
-<span class="fc" id="L373">        final Object[] newRail = toArray(newRange);</span>
-<span class="fc bfc" id="L374" title="All 2 branches covered.">        if (newRail == a) {</span>
-<span class="fc" id="L375">            return this;</span>
+<span class="fc" id="L371">        final Object[] newRail = toArray(newRange);</span>
+<span class="fc bfc" id="L372" title="All 2 branches covered.">        if (newRail == a) {</span>
+<span class="fc" id="L373">            return this;</span>
         }
-<span class="fc bfc" id="L377" title="All 2 branches covered.">        if (newRail.length == 0) {</span>
-<span class="fc" id="L378">            throw new IllegalArgumentException(&quot;[Chunk] toChunk(emptyRange) is not permitted.&quot;);</span>
+<span class="fc bfc" id="L375" title="All 2 branches covered.">        if (newRail.length == 0) {</span>
+<span class="fc" id="L376">            throw new IllegalArgumentException(&quot;[Chunk] toChunk(emptyRange) is not permitted.&quot;);</span>
         }
-<span class="fc" id="L380">        return new Chunk&lt;&gt;(newRange, newRail);</span>
+<span class="fc" id="L378">        return new Chunk&lt;&gt;(newRange, newRail);</span>
     }
 
     /**
@@ -385,9 +383,9 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      */
     @Override
     public List&lt;T&gt; toList(LongRange r) {
-<span class="fc" id="L388">        final ArrayList&lt;T&gt; list = new ArrayList&lt;&gt;((int) r.size());</span>
-<span class="fc" id="L389">        forEach(r, (t) -&gt; list.add(t));</span>
-<span class="fc" id="L390">        return list;</span>
+<span class="fc" id="L386">        final ArrayList&lt;T&gt; list = new ArrayList&lt;&gt;((int) r.size());</span>
+<span class="fc" id="L387">        forEach(r, (t) -&gt; list.add(t));</span>
+<span class="fc" id="L388">        return list;</span>
     }
 
     /**
@@ -395,39 +393,39 @@ public class Chunk&lt;T&gt; extends RangedList&lt;T&gt; implements Serializable,
      */
     @Override
     public String toString() {
-<span class="pc bpc" id="L398" title="1 of 2 branches missed.">        if (range == null) {</span>
-<span class="nc" id="L399">            return &quot;[Chunk] in Construction&quot;;</span>
+<span class="pc bpc" id="L396" title="1 of 2 branches missed.">        if (range == null) {</span>
+<span class="nc" id="L397">            return &quot;[Chunk] in Construction&quot;;</span>
         }
-<span class="fc" id="L401">        final StringBuilder sb = new StringBuilder();</span>
-<span class="fc" id="L402">        sb.append(&quot;[&quot; + range + &quot;]:&quot;);</span>
-<span class="fc" id="L403">        final long sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();</span>
+<span class="fc" id="L399">        final StringBuilder sb = new StringBuilder();</span>
+<span class="fc" id="L400">        sb.append(&quot;[&quot; + range + &quot;]:&quot;);</span>
+<span class="fc" id="L401">        final long sz = Config.omitElementsToString ? Math.min(size(), Config.maxNumElementsToString) : size();</span>
 
-<span class="fc bfc" id="L405" title="All 4 branches covered.">        for (long i = range.from, c = 0; i &lt; range.to &amp;&amp; c &lt; sz; i++, c++) {</span>
-<span class="fc bfc" id="L406" title="All 2 branches covered.">            if (c &gt; 0) {</span>
-<span class="fc" id="L407">                sb.append(&quot;,&quot;);</span>
+<span class="fc bfc" id="L403" title="All 4 branches covered.">        for (long i = range.from, c = 0; i &lt; range.to &amp;&amp; c &lt; sz; i++, c++) {</span>
+<span class="fc bfc" id="L404" title="All 2 branches covered.">            if (c &gt; 0) {</span>
+<span class="fc" id="L405">                sb.append(&quot;,&quot;);</span>
             }
-<span class="fc" id="L409">            sb.append(&quot;&quot; + get(i));</span>
+<span class="fc" id="L407">            sb.append(&quot;&quot; + get(i));</span>
             // if (c == sz) {
             // break;
             // }
         }
-<span class="fc bfc" id="L414" title="All 2 branches covered.">        if (sz &lt; size()) {</span>
-<span class="fc" id="L415">            sb.append(&quot;...(omitted &quot; + (size() - sz) + &quot; elements)&quot;);</span>
+<span class="fc bfc" id="L412" title="All 2 branches covered.">        if (sz &lt; size()) {</span>
+<span class="fc" id="L413">            sb.append(&quot;...(omitted &quot; + (size() - sz) + &quot; elements)&quot;);</span>
         }
-<span class="fc" id="L417">        return sb.toString();</span>
+<span class="fc" id="L415">        return sb.toString();</span>
     }
 
     @Override
     public void write(Kryo kryo, Output output) {
-<span class="fc" id="L422">        kryo.writeClassAndObject(output, range);</span>
-<span class="fc" id="L423">        kryo.writeClassAndObject(output, a);</span>
-<span class="fc" id="L424">    }</span>
+<span class="fc" id="L420">        kryo.writeClassAndObject(output, range);</span>
+<span class="fc" id="L421">        kryo.writeClassAndObject(output, a);</span>
+<span class="fc" id="L422">    }</span>
 
     private void writeObject(ObjectOutputStream out) throws IOException {
         // System.out.println(&quot;writeChunk:&quot;+this);
-<span class="fc" id="L428">        out.writeObject(range);</span>
-<span class="fc" id="L429">        out.writeObject(a);</span>
-<span class="fc" id="L430">    }</span>
+<span class="fc" id="L426">        out.writeObject(range);</span>
+<span class="fc" id="L427">        out.writeObject(a);</span>
+<span class="fc" id="L428">    }</span>
 
     /*
      * public static void main(String[] args) { long i = 5; Chunk&lt;Integer&gt; c = new

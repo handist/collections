@@ -3,31 +3,34 @@
 import java.util.List;
 
 public class Splitter {
-    private final int from;
-    private final int total;
-    private final int attendance;
-    private final int div;
-    private final int rem;
+    public final int from;
+    public final int total;
+    public final int attendance;
+    public final int div;
+    public final int rem;
 
 <span class="fc" id="L12">    public Splitter(int total, int attendance) {</span>
-<span class="fc" id="L13">        this.from =0;</span>
+<span class="fc" id="L13">        this.from = 0;</span>
 <span class="fc" id="L14">        this.total = total;</span>
 <span class="fc" id="L15">        this.attendance = attendance;</span>
 <span class="fc" id="L16">        this.div = total / attendance;</span>
 <span class="fc" id="L17">        this.rem = total % attendance;</span>
 <span class="fc" id="L18">    }</span>
-<span class="nc" id="L19">    public Splitter(int from, int to, int attendance) {</span>
-<span class="nc" id="L20">        this.from = from;</span>
-<span class="nc" id="L21">        this.total = to-from;</span>
-<span class="nc" id="L22">        this.attendance = attendance;</span>
-<span class="nc" id="L23">        this.div = total / attendance;</span>
-<span class="nc" id="L24">        this.rem = total % attendance;</span>
-<span class="nc" id="L25">    }</span>
-    public int ith(int i){
-<span class="fc" id="L27">        return from + div * i + Math.min(i, rem);</span>
-    }
+
+<span class="fc" id="L20">    public Splitter(int from, int to, int attendance) {</span>
+<span class="fc" id="L21">        this.from = from;</span>
+<span class="fc" id="L22">        this.total = to - from;</span>
+<span class="fc" id="L23">        this.attendance = attendance;</span>
+<span class="fc" id="L24">        this.div = total / attendance;</span>
+<span class="fc" id="L25">        this.rem = total % attendance;</span>
+<span class="fc" id="L26">    }</span>
+
     public &lt;E&gt; List&lt;E&gt; getIth(int i, List&lt;E&gt; src) {
-<span class="fc" id="L30">        return src.subList(ith(i), ith(i+1));</span>
+<span class="fc" id="L29">        return src.subList(ith(i), ith(i + 1));</span>
+    }
+
+    public int ith(int i) {
+<span class="fc" id="L33">        return from + div * i + Math.min(i, rem);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

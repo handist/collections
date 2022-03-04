@@ -7,7 +7,7 @@ public class ColumnListIterator&lt;T&gt; implements RangedListIterator&lt;T&gt; 
     private final int stride;
     private int i; // = index - range.from
     private final int size;
-<span class="pc" id="L10">    private int lastReturnedShift = -1;</span>
+<span class="nc" id="L10">    private int lastReturnedShift = -1;</span>
 
 <span class="nc" id="L12">    public ColumnListIterator() {</span>
 <span class="nc" id="L13">        this.a = null;</span>
@@ -36,14 +36,14 @@ public class ColumnListIterator&lt;T&gt; implements RangedListIterator&lt;T&gt; 
 <span class="nc" id="L36">        this.i = (int)(i0-range.from) - 1;</span>
 <span class="nc" id="L37">        this.stride = stride;</span>
 <span class="nc" id="L38">    }</span>
-<span class="fc" id="L39">    public ColumnListIterator(int offset, LongRange range, Object[] a, int stride) {</span>
-<span class="fc" id="L40">        this.a = a;</span>
-<span class="fc" id="L41">        this.offset = offset;</span>
-<span class="fc" id="L42">        this.range = range;</span>
-<span class="fc" id="L43">        this.size = (int)range.size();</span>
-<span class="fc" id="L44">        this.i = - 1;</span>
-<span class="fc" id="L45">        this.stride = stride;</span>
-<span class="fc" id="L46">    }</span>
+<span class="nc" id="L39">    public ColumnListIterator(int offset, LongRange range, Object[] a, int stride) {</span>
+<span class="nc" id="L40">        this.a = a;</span>
+<span class="nc" id="L41">        this.offset = offset;</span>
+<span class="nc" id="L42">        this.range = range;</span>
+<span class="nc" id="L43">        this.size = (int)range.size();</span>
+<span class="nc" id="L44">        this.i = - 1;</span>
+<span class="nc" id="L45">        this.stride = stride;</span>
+<span class="nc" id="L46">    }</span>
 
     public ColumnListIterator(LongRange range, Object[] a, int stride) {
 <span class="nc" id="L49">        this(0, range, a, stride);</span>
@@ -58,7 +58,7 @@ public class ColumnListIterator&lt;T&gt; implements RangedListIterator&lt;T&gt; 
 
     @Override
     public boolean hasNext() {
-<span class="fc bfc" id="L61" title="All 2 branches covered.">        return i + 1 &lt; size;</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        return i + 1 &lt; size;</span>
     }
 
     @Override
@@ -69,10 +69,10 @@ public class ColumnListIterator&lt;T&gt; implements RangedListIterator&lt;T&gt; 
     @Override
     @SuppressWarnings(&quot;unchecked&quot;)
     public T next() {
-<span class="pc bpc" id="L72" title="1 of 2 branches missed.">        if(!hasNext())</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        if(!hasNext())</span>
 <span class="nc" id="L73">            throw new IndexOutOfBoundsException(&quot;[Chunk.It] range mismatch: &quot; + iterRange() + &quot; does not include &quot; + i);</span>
-<span class="fc" id="L74">        lastReturnedShift = 0;</span>
-<span class="fc" id="L75">        return (T) a[offset + (++i)*stride];</span>
+<span class="nc" id="L74">        lastReturnedShift = 0;</span>
+<span class="nc" id="L75">        return (T) a[offset + (++i)*stride];</span>
     }
 
     @Override
@@ -96,11 +96,11 @@ public class ColumnListIterator&lt;T&gt; implements RangedListIterator&lt;T&gt; 
 
     @Override
     public void set(T e) {
-<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        if (lastReturnedShift == -1) {</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        if (lastReturnedShift == -1) {</span>
 <span class="nc" id="L100">            throw new IllegalStateException(&quot;[Chunk.It] Either method &quot;</span>
                     + &quot;previous or next needs to be called before method set&quot; + &quot; can be used&quot;);
         }
-<span class="fc" id="L103">        a[offset + (i + lastReturnedShift)*stride] = e; // FIXME THIS IS NOT CORRECT !!!</span>
-<span class="fc" id="L104">    }</span>
+<span class="nc" id="L103">        a[offset + (i + lastReturnedShift)*stride] = e; // FIXME THIS IS NOT CORRECT !!!</span>
+<span class="nc" id="L104">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

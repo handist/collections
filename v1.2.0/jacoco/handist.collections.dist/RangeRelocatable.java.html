@@ -92,7 +92,7 @@ public interface RangeRelocatable&lt;R&gt; {
      * @param manager     the manager in charge of the transfer
      */
     public default void moveRangeAtSync(R range, RangedDistribution&lt;R&gt; destination, MoveManager manager) {
-<span class="nc bnc" id="L95" title="All 2 branches missed.">        for (final Entry&lt;R, Place&gt; mappings : destination.placeRanges(range).entrySet()) {</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        for (final Entry&lt;R, Place&gt; mappings : destination.rangeLocation(range).entrySet()) {</span>
 <span class="nc" id="L96">            moveRangeAtSync(mappings.getKey(), mappings.getValue(), manager);</span>
 <span class="nc" id="L97">        }</span>
 <span class="nc" id="L98">    }</span>

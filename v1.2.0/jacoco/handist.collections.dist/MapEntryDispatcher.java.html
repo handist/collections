@@ -67,14 +67,14 @@ public class MapEntryDispatcher&lt;K, V&gt; implements KryoSerializable, Seriali
 <span class="fc" id="L67">            final byte[] buf = CollectiveRelocator.exchangeBytesWithinGroup(placeGroup, out.toByteArray(), sendOffset,</span>
                     sendSize, rcvOffset, rcvSize);
 <span class="fc" id="L69">            handle.executeDeserialize(buf, rcvOffset, rcvSize);</span>
-<span class="fc" id="L70">            clearOutputs();</span>
+<span class="fc" id="L70">            clear();</span>
 <span class="fc" id="L71">        }</span>
     }
 
-    private static final long serialVersionUID = 6002859058320904125L;
+    private static final long serialVersionUID = -8298092935400058332L;
 
     protected TeamedPlaceGroup placeGroup;
-    protected DistMap&lt;K, V&gt; base;
+    protected Map&lt;K, V&gt; base;
     public TeamOperations TEAM;
 
     protected Map&lt;Place, Map&lt;Thread, ObjectOutput&gt;&gt; outputMap;
@@ -83,99 +83,86 @@ public class MapEntryDispatcher&lt;K, V&gt; implements KryoSerializable, Seriali
 
     /**
      * @param distMap
-     * @param dist
-     */
-    MapEntryDispatcher(DistMap&lt;K, V&gt; distMap, Distribution&lt;K&gt; dist) {
-<span class="fc" id="L89">        this(distMap, distMap.placeGroup(), dist);</span>
-<span class="fc" id="L90">    }</span>
-
-    /**
-     * @param distMap
      * @param pg
      * @param dist
      */
-<span class="fc" id="L97">    MapEntryDispatcher(DistMap&lt;K, V&gt; distMap, TeamedPlaceGroup pg, Distribution&lt;K&gt; dist) {</span>
-<span class="fc" id="L98">        base = distMap;</span>
-<span class="fc" id="L99">        placeGroup = pg;</span>
-<span class="fc" id="L100">        TEAM = new TeamOperations(this);</span>
-<span class="fc" id="L101">        outputMap = new HashMap&lt;&gt;(placeGroup.size());</span>
-<span class="fc bfc" id="L102" title="All 2 branches covered.">        for (final Place pl : placeGroup.places()) {</span>
-<span class="fc" id="L103">            final int nThreads = Runtime.getRuntime().availableProcessors();</span>
-<span class="fc" id="L104">            outputMap.put(pl, new ConcurrentHashMap&lt;&gt;(nThreads));</span>
-<span class="fc" id="L105">        }</span>
-<span class="fc" id="L106">        distribution = dist;</span>
-<span class="fc" id="L107">    }</span>
+<span class="fc" id="L89">    MapEntryDispatcher(Map&lt;K, V&gt; distMap, TeamedPlaceGroup pg, Distribution&lt;K&gt; dist) {</span>
+<span class="fc" id="L90">        base = distMap;</span>
+<span class="fc" id="L91">        placeGroup = pg;</span>
+<span class="fc" id="L92">        TEAM = new TeamOperations(this);</span>
+<span class="fc" id="L93">        outputMap = new HashMap&lt;&gt;(placeGroup.size());</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        for (final Place pl : placeGroup.places()) {</span>
+<span class="fc" id="L95">            final int nThreads = Runtime.getRuntime().availableProcessors();</span>
+<span class="fc" id="L96">            outputMap.put(pl, new ConcurrentHashMap&lt;&gt;(nThreads));</span>
+<span class="fc" id="L97">        }</span>
+<span class="fc" id="L98">        distribution = dist;</span>
+<span class="fc" id="L99">    }</span>
 
     /**
-     * Remove the all local entries.
+     * Remove the all local entries that was put dispatcher.
      */
     public void clear() {
-<span class="nc" id="L113">        clearOutputs();</span>
-<span class="nc" id="L114">        base.clear();</span>
-<span class="nc" id="L115">    }</span>
-
-    protected void clearOutputs() {
-<span class="fc bfc" id="L118" title="All 2 branches covered.">        for (final Place place : outputMap.keySet()) {</span>
-<span class="fc bfc" id="L119" title="All 2 branches covered.">            for (final ObjectOutput output : outputMap.get(place).values()) {</span>
-<span class="fc" id="L120">                output.clear();</span>
-<span class="fc" id="L121">            }</span>
-<span class="fc" id="L122">        }</span>
-<span class="fc" id="L123">    }</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        for (final Place place : outputMap.keySet()) {</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">            for (final ObjectOutput output : outputMap.get(place).values()) {</span>
+<span class="fc" id="L107">                output.clear();</span>
+<span class="fc" id="L108">            }</span>
+<span class="fc" id="L109">        }</span>
+<span class="fc" id="L110">    }</span>
 
     @SuppressWarnings(&quot;unchecked&quot;)
     protected void executeDeserialize(byte[] buf, int[] offsets, int[] sizes) throws Exception {
-<span class="fc" id="L127">        int current = 0;</span>
-<span class="fc bfc" id="L128" title="All 2 branches covered.">        for (final Place p : placeGroup.places()) {</span>
-<span class="fc" id="L129">            final int size = sizes[current];</span>
-<span class="fc" id="L130">            final int offset = offsets[current];</span>
-<span class="fc" id="L131">            current++;</span>
-<span class="pc bpc" id="L132" title="1 of 4 branches missed.">            if (p.equals(here()) || size == 0) {</span>
-<span class="nc" id="L133">                continue;</span>
+<span class="fc" id="L114">        int current = 0;</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        for (final Place p : placeGroup.places()) {</span>
+<span class="fc" id="L116">            final int size = sizes[current];</span>
+<span class="fc" id="L117">            final int offset = offsets[current];</span>
+<span class="fc" id="L118">            current++;</span>
+<span class="pc bpc" id="L119" title="1 of 4 branches missed.">            if (p.equals(here()) || size == 0) {</span>
+<span class="nc" id="L120">                continue;</span>
             }
-<span class="fc" id="L135">            final ObjectInput ds = new ObjectInput(new ByteArrayInputStream(buf, offset, size), false);</span>
-<span class="fc" id="L136">            final int nThreads = ds.readInt();</span>
-<span class="fc bfc" id="L137" title="All 2 branches covered.">            for (int i = 0; i &lt; nThreads; i++) {</span>
-<span class="fc" id="L138">                final int count = ds.readInt();</span>
-<span class="fc bfc" id="L139" title="All 2 branches covered.">                for (int j = 0; j &lt; count; j += 2) { // NOTE: convert key and value(two object), so &quot;J+=2&quot;.</span>
-<span class="fc" id="L140">                    final K key = (K) ds.readObject();</span>
-<span class="fc" id="L141">                    final V value = (V) ds.readObject();</span>
-<span class="fc" id="L142">                    putLocal(key, value);</span>
+<span class="fc" id="L122">            final ObjectInput ds = new ObjectInput(new ByteArrayInputStream(buf, offset, size), false);</span>
+<span class="fc" id="L123">            final int nThreads = ds.readInt();</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">            for (int i = 0; i &lt; nThreads; i++) {</span>
+<span class="fc" id="L125">                final int count = ds.readInt();</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">                for (int j = 0; j &lt; count; j += 2) { // NOTE: convert key and value(two object), so &quot;J+=2&quot;.</span>
+<span class="fc" id="L127">                    final K key = (K) ds.readObject();</span>
+<span class="fc" id="L128">                    final V value = (V) ds.readObject();</span>
+<span class="fc" id="L129">                    putLocal(key, value);</span>
                 }
-<span class="fc" id="L144">                ds.reset();</span>
+<span class="fc" id="L131">                ds.reset();</span>
             }
-<span class="fc" id="L146">            ds.close();</span>
-<span class="fc" id="L147">        }</span>
-<span class="fc" id="L148">    }</span>
+<span class="fc" id="L133">            ds.close();</span>
+<span class="fc" id="L134">        }</span>
+<span class="fc" id="L135">    }</span>
 
     private void executeSummerizeOutput(ByteArrayOutputStream out, int[] offsets, int[] sizes) throws IOException {
-<span class="fc bfc" id="L151" title="All 2 branches covered.">        for (int i = 0; i &lt; placeGroup.size(); i++) {</span>
-<span class="fc" id="L152">            final Place place = placeGroup.get(i);</span>
-<span class="fc bfc" id="L153" title="All 2 branches covered.">            if (place.equals(here())) {</span>
-<span class="fc" id="L154">                continue;</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        for (int i = 0; i &lt; placeGroup.size(); i++) {</span>
+<span class="fc" id="L139">            final Place place = placeGroup.get(i);</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">            if (place.equals(here())) {</span>
+<span class="fc" id="L141">                continue;</span>
             }
-<span class="fc" id="L156">            offsets[i] = out.size();</span>
-<span class="fc" id="L157">            Output output = new Output(out);</span>
-<span class="fc" id="L158">            output.writeInt(outputMap.get(place).size());</span>
-<span class="fc" id="L159">            output.close();</span>
-<span class="fc bfc" id="L160" title="All 2 branches covered.">            for (final ObjectOutput o : outputMap.get(place).values()) {</span>
-<span class="fc" id="L161">                output = new Output(out);</span>
-<span class="fc" id="L162">                output.writeInt(o.getCount());</span>
-<span class="fc" id="L163">                output.close();</span>
-<span class="fc" id="L164">                out.write(o.toByteArray());</span>
-<span class="fc" id="L165">            }</span>
-<span class="fc" id="L166">            out.flush();</span>
-<span class="fc" id="L167">            sizes[i] = out.size() - offsets[i];</span>
+<span class="fc" id="L143">            offsets[i] = out.size();</span>
+<span class="fc" id="L144">            Output output = new Output(out);</span>
+<span class="fc" id="L145">            output.writeInt(outputMap.get(place).size());</span>
+<span class="fc" id="L146">            output.close();</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">            for (final ObjectOutput o : outputMap.get(place).values()) {</span>
+<span class="fc" id="L148">                output = new Output(out);</span>
+<span class="fc" id="L149">                output.writeInt(o.getCount());</span>
+<span class="fc" id="L150">                output.close();</span>
+<span class="fc" id="L151">                out.write(o.toByteArray());</span>
+<span class="fc" id="L152">            }</span>
+<span class="fc" id="L153">            out.flush();</span>
+<span class="fc" id="L154">            sizes[i] = out.size() - offsets[i];</span>
         }
-<span class="fc" id="L169">    }</span>
+<span class="fc" id="L156">    }</span>
 
     protected ObjectOutput getOutput(Place place) {
-<span class="fc" id="L172">        final Thread thread = Thread.currentThread();</span>
-<span class="fc" id="L173">        ObjectOutput out = outputMap.get(place).get(thread);</span>
-<span class="fc bfc" id="L174" title="All 2 branches covered.">        if (out == null) {</span>
-<span class="fc" id="L175">            out = new ObjectOutput(new ByteArrayOutputStream(), false);</span>
-<span class="fc" id="L176">            outputMap.get(place).put(thread, out);</span>
+<span class="fc" id="L159">        final Thread thread = Thread.currentThread();</span>
+<span class="fc" id="L160">        ObjectOutput out = outputMap.get(place).get(thread);</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        if (out == null) {</span>
+<span class="fc" id="L162">            out = new ObjectOutput(new ByteArrayOutputStream(), false);</span>
+<span class="fc" id="L163">            outputMap.get(place).put(thread, out);</span>
         }
-<span class="fc" id="L178">        return out;</span>
+<span class="fc" id="L165">        return out;</span>
     }
 
     /**
@@ -187,62 +174,62 @@ public class MapEntryDispatcher&lt;K, V&gt; implements KryoSerializable, Seriali
      *         If not, return null.
      */
     public V put(K key, V value) {
-<span class="fc" id="L190">        final Place next = distribution.place(key);</span>
-<span class="fc bfc" id="L191" title="All 2 branches covered.">        if (next.equals(here())) {</span>
-<span class="fc" id="L192">            return putLocal(key, value);</span>
+<span class="fc" id="L177">        final Place next = distribution.location(key);</span>
+<span class="fc bfc" id="L178" title="All 2 branches covered.">        if (next.equals(here())) {</span>
+<span class="fc" id="L179">            return putLocal(key, value);</span>
         }
-<span class="fc" id="L194">        final ObjectOutput out = getOutput(next);</span>
-<span class="fc" id="L195">        out.writeObject(key);</span>
-<span class="fc" id="L196">        out.writeObject(value);</span>
-<span class="fc" id="L197">        out.flush();</span>
-<span class="fc" id="L198">        return null;</span>
+<span class="fc" id="L181">        final ObjectOutput out = getOutput(next);</span>
+<span class="fc" id="L182">        out.writeObject(key);</span>
+<span class="fc" id="L183">        out.writeObject(value);</span>
+<span class="fc" id="L184">        out.flush();</span>
+<span class="fc" id="L185">        return null;</span>
     }
 
     /**
      * Adds all the mappings contained in the specified map.
      */
     public void putAll(Map&lt;? extends K, ? extends V&gt; m) {
-<span class="nc bnc" id="L205" title="All 2 branches missed.">        for (final Entry&lt;? extends K, ? extends V&gt; e : m.entrySet()) {</span>
-<span class="nc" id="L206">            put(e.getKey(), e.getValue());</span>
-<span class="nc" id="L207">        }</span>
-<span class="nc" id="L208">    }</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        for (final Entry&lt;? extends K, ? extends V&gt; e : m.entrySet()) {</span>
+<span class="nc" id="L193">            put(e.getKey(), e.getValue());</span>
+<span class="nc" id="L194">        }</span>
+<span class="nc" id="L195">    }</span>
 
     private V putLocal(K key, V value) {
-<span class="pc bpc" id="L211" title="1 of 2 branches missed.">        if (base.containsKey(key)) {</span>
-<span class="nc" id="L212">            throw new IllegalStateException(&quot;RelocationMap cannot override existing entry: &quot; + key);</span>
+<span class="pc bpc" id="L198" title="1 of 2 branches missed.">        if (base.containsKey(key)) {</span>
+<span class="nc" id="L199">            throw new IllegalStateException(&quot;RelocationMap cannot override existing entry: &quot; + key);</span>
         }
-<span class="fc" id="L214">        return base.put(key, value);</span>
+<span class="fc" id="L201">        return base.put(key, value);</span>
     }
 
     @Deprecated
     @SuppressWarnings(&quot;unchecked&quot;)
     @Override
     public void read(Kryo kryo, Input input) {
-<span class="fc" id="L221">        this.base = (DistMap&lt;K, V&gt;) kryo.readClassAndObject(input);</span>
-<span class="fc" id="L222">        this.placeGroup = (TeamedPlaceGroup) kryo.readClassAndObject(input);</span>
-<span class="fc" id="L223">        this.distribution = (Distribution&lt;K&gt;) kryo.readClassAndObject(input);</span>
-<span class="fc" id="L224">        this.TEAM = new TeamOperations(this);</span>
-<span class="fc" id="L225">        this.outputMap = new HashMap&lt;&gt;(placeGroup.size());</span>
-<span class="fc bfc" id="L226" title="All 2 branches covered.">        for (final Place pl : placeGroup.places()) {</span>
-<span class="fc" id="L227">            final int nThreads = Runtime.getRuntime().availableProcessors();</span>
-<span class="fc" id="L228">            outputMap.put(pl, new ConcurrentHashMap&lt;&gt;(nThreads));</span>
-<span class="fc" id="L229">        }</span>
-<span class="fc" id="L230">    }</span>
+<span class="fc" id="L208">        this.base = (DistMap&lt;K, V&gt;) kryo.readClassAndObject(input);</span>
+<span class="fc" id="L209">        this.placeGroup = (TeamedPlaceGroup) kryo.readClassAndObject(input);</span>
+<span class="fc" id="L210">        this.distribution = (Distribution&lt;K&gt;) kryo.readClassAndObject(input);</span>
+<span class="fc" id="L211">        this.TEAM = new TeamOperations(this);</span>
+<span class="fc" id="L212">        this.outputMap = new HashMap&lt;&gt;(placeGroup.size());</span>
+<span class="fc bfc" id="L213" title="All 2 branches covered.">        for (final Place pl : placeGroup.places()) {</span>
+<span class="fc" id="L214">            final int nThreads = Runtime.getRuntime().availableProcessors();</span>
+<span class="fc" id="L215">            outputMap.put(pl, new ConcurrentHashMap&lt;&gt;(nThreads));</span>
+<span class="fc" id="L216">        }</span>
+<span class="fc" id="L217">    }</span>
 
     /**
      * Set the rule that defines destination in relocation for entries. The
      * destination of entries that have already been added is not changed.
      */
     public void setDistribution(Distribution&lt;K&gt; dist) {
-<span class="fc" id="L237">        distribution = dist;</span>
-<span class="fc" id="L238">    }</span>
+<span class="nc" id="L224">        distribution = dist;</span>
+<span class="nc" id="L225">    }</span>
 
     @Deprecated
     @Override
     public void write(Kryo kryo, Output output) {
-<span class="fc" id="L243">        kryo.writeClassAndObject(output, base);</span>
-<span class="fc" id="L244">        kryo.writeClassAndObject(output, placeGroup);</span>
-<span class="fc" id="L245">        kryo.writeClassAndObject(output, distribution);</span>
-<span class="fc" id="L246">    }</span>
+<span class="fc" id="L230">        kryo.writeClassAndObject(output, base);</span>
+<span class="fc" id="L231">        kryo.writeClassAndObject(output, placeGroup);</span>
+<span class="fc" id="L232">        kryo.writeClassAndObject(output, distribution);</span>
+<span class="fc" id="L233">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

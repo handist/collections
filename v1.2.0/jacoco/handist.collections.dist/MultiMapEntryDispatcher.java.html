@@ -13,20 +13,20 @@ package handist.collections.dist;
 import static apgas.Constructs.*;
 
 import java.io.ByteArrayInputStream;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 
 import apgas.Place;
+import handist.collections.MultiMap;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 
 /**
  *
- * {@link DistMultiMap} has this class in order to dispatch entris to places
- * defined by {@link Distribution}. Relocate entries between places by calling
+ * {@link MultiMap} has this class in order to dispatch entris to places defined
+ * by {@link Distribution}. Relocate entries between places by calling
  * {@link MapEntryDispatcher.TeamOperations#dispatch} The dispatched entries are
- * added to original {@link DistMultiMap}.
+ * added to original {@link MultiMap}.
  *
  * Please be careful that reference relationships like multiple references to
  * one object are not maintained.
@@ -38,54 +38,43 @@ import handist.collections.dist.util.ObjectOutput;
  */
 public class MultiMapEntryDispatcher&lt;K, V&gt; extends MapEntryDispatcher&lt;K, Collection&lt;V&gt;&gt; {
 
-    /**
-     *
-     */
-    private static final long serialVersionUID = 2555479516784942235L;
-
-    /**
-     * @param distMap
-     * @param dist
-     */
-    MultiMapEntryDispatcher(DistMultiMap&lt;K, V&gt; distMap, Distribution&lt;K&gt; dist) {
-<span class="fc" id="L51">        this(distMap, distMap.placeGroup(), dist);</span>
-<span class="fc" id="L52">    }</span>
+    private static final long serialVersionUID = -8897691961652214931L;
 
     /**
      * @param distMap
      * @param pg
      * @param dist
      */
-    MultiMapEntryDispatcher(DistMultiMap&lt;K, V&gt; distMap, TeamedPlaceGroup pg, Distribution&lt;K&gt; dist) {
-<span class="fc" id="L60">        super(distMap, pg, dist);</span>
-<span class="fc" id="L61">    }</span>
+    MultiMapEntryDispatcher(MultiMap&lt;K, V&gt; multiMap, TeamedPlaceGroup pg, Distribution&lt;K&gt; dist) {
+<span class="fc" id="L49">        super(multiMap, pg, dist);</span>
+<span class="fc" id="L50">    }</span>
 
     @Override
     @SuppressWarnings(&quot;unchecked&quot;)
     protected void executeDeserialize(byte[] buf, int[] offsets, int[] sizes) throws Exception {
-<span class="fc" id="L66">        int current = 0;</span>
-<span class="fc bfc" id="L67" title="All 2 branches covered.">        for (final Place p : placeGroup.places()) {</span>
-<span class="fc" id="L68">            final int size = sizes[current];</span>
-<span class="fc" id="L69">            final int offset = offsets[current];</span>
-<span class="fc" id="L70">            current++;</span>
-<span class="pc bpc" id="L71" title="1 of 4 branches missed.">            if (p.equals(here()) || size == 0) {</span>
-<span class="nc" id="L72">                continue;</span>
+<span class="fc" id="L55">        int current = 0;</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        for (final Place p : placeGroup.places()) {</span>
+<span class="fc" id="L57">            final int size = sizes[current];</span>
+<span class="fc" id="L58">            final int offset = offsets[current];</span>
+<span class="fc" id="L59">            current++;</span>
+<span class="pc bpc" id="L60" title="1 of 4 branches missed.">            if (p.equals(here()) || size == 0) {</span>
+<span class="nc" id="L61">                continue;</span>
             }
-<span class="fc" id="L74">            final ObjectInput ds = new ObjectInput(new ByteArrayInputStream(buf, offset, size), false);</span>
-<span class="fc" id="L75">            final int nThreads = ds.readInt();</span>
-<span class="fc bfc" id="L76" title="All 2 branches covered.">            for (int i = 0; i &lt; nThreads; i++) {</span>
-<span class="fc" id="L77">                final int count = ds.readInt();</span>
-<span class="fc bfc" id="L78" title="All 2 branches covered.">                for (int j = 0; j &lt; count; j += 2) { // NOTE: convert key and value(two object), so &quot;J+=2&quot;.</span>
-<span class="fc" id="L79">                    final K key = (K) ds.readObject();</span>
-<span class="fc" id="L80">                    final V value = (V) ds.readObject();</span>
-<span class="fc" id="L81">                    put1Local(key, value); // NOTE : If put1 of MultiMap becomes put, it is not necessary to prepare</span>
+<span class="fc" id="L63">            final ObjectInput ds = new ObjectInput(new ByteArrayInputStream(buf, offset, size), false);</span>
+<span class="fc" id="L64">            final int nThreads = ds.readInt();</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">            for (int i = 0; i &lt; nThreads; i++) {</span>
+<span class="fc" id="L66">                final int count = ds.readInt();</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">                for (int j = 0; j &lt; count; j += 2) { // NOTE: convert key and value(two object), so &quot;J+=2&quot;.</span>
+<span class="fc" id="L68">                    final K key = (K) ds.readObject();</span>
+<span class="fc" id="L69">                    final V value = (V) ds.readObject();</span>
+<span class="fc" id="L70">                    put1Local(key, value); // NOTE : If put1 of MultiMap becomes put, it is not necessary to prepare</span>
                                            // this class.
                 }
-<span class="fc" id="L84">                ds.reset();</span>
+<span class="fc" id="L73">                ds.reset();</span>
             }
-<span class="fc" id="L86">            ds.close();</span>
-<span class="fc" id="L87">        }</span>
-<span class="fc" id="L88">    }</span>
+<span class="fc" id="L75">            ds.close();</span>
+<span class="fc" id="L76">        }</span>
+<span class="fc" id="L77">    }</span>
 
     /**
      * Unsupported.
@@ -93,7 +82,7 @@ public class MultiMapEntryDispatcher&lt;K, V&gt; extends MapEntryDispatcher&lt;K
     @Override
     @Deprecated
     public Collection&lt;V&gt; put(K key, Collection&lt;V&gt; values) {
-<span class="nc" id="L96">        throw new UnsupportedOperationException();</span>
+<span class="nc" id="L85">        throw new UnsupportedOperationException();</span>
     }
 
     /**
@@ -105,24 +94,19 @@ public class MultiMapEntryDispatcher&lt;K, V&gt; extends MapEntryDispatcher&lt;K
      *         If not, return null.
      */
     public boolean put1(K key, V value) {
-<span class="fc" id="L108">        final Place next = distribution.place(key);</span>
-<span class="fc bfc" id="L109" title="All 2 branches covered.">        if (next.equals(here())) {</span>
-<span class="fc" id="L110">            return put1Local(key, value);</span>
+<span class="fc" id="L97">        final Place next = distribution.location(key);</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        if (next.equals(here())) {</span>
+<span class="fc" id="L99">            return put1Local(key, value);</span>
         }
-<span class="fc" id="L112">        final ObjectOutput out = getOutput(next);</span>
-<span class="fc" id="L113">        out.writeObject(key);</span>
-<span class="fc" id="L114">        out.writeObject(value);</span>
-<span class="fc" id="L115">        out.flush();</span>
-<span class="fc" id="L116">        return false;</span>
+<span class="fc" id="L101">        final ObjectOutput out = getOutput(next);</span>
+<span class="fc" id="L102">        out.writeObject(key);</span>
+<span class="fc" id="L103">        out.writeObject(value);</span>
+<span class="fc" id="L104">        out.flush();</span>
+<span class="fc" id="L105">        return false;</span>
     }
 
     private boolean put1Local(K key, V value) {
-<span class="fc" id="L120">        Collection&lt;V&gt; list = base.get(key);</span>
-<span class="pc bpc" id="L121" title="1 of 2 branches missed.">        if (list == null) {</span>
-<span class="fc" id="L122">            list = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L123">            base.put(key, list);</span>
-        }
-<span class="fc" id="L125">        return list.add(value);</span>
+<span class="fc" id="L109">        return ((MultiMap&lt;K, V&gt;) base).put1(key, value);</span>
     }
 
     /**
@@ -131,7 +115,7 @@ public class MultiMapEntryDispatcher&lt;K, V&gt; extends MapEntryDispatcher&lt;K
     @Override
     @Deprecated
     public void putAll(Map&lt;? extends K, ? extends Collection&lt;V&gt;&gt; m) {
-<span class="nc" id="L134">        throw new UnsupportedOperationException();</span>
+<span class="nc" id="L118">        throw new UnsupportedOperationException();</span>
     }
 
 }

@@ -34,8 +34,8 @@ import mpi.MPIException;
  *
  */
 @SuppressWarnings(&quot;deprecation&quot;)
-<span class="nc" id="L37">class CollectiveRelocator {</span>
-    static class Allgather {
+<span class="nc" id="L37">public class CollectiveRelocator {</span>
+    public static class Allgather {
         TeamedPlaceGroup pg;
 <span class="fc" id="L40">        final List&lt;Serializer&gt; sers = new LinkedList&lt;&gt;();</span>
 <span class="fc" id="L41">        final List&lt;DeSerializerUsingPlace&gt; desers = new LinkedList&lt;&gt;();</span>
@@ -111,7 +111,7 @@ import mpi.MPIException;
         }
     }
 
-    static class Bcast {
+    public static class Bcast {
         TeamedPlaceGroup pg;
         Place root;
 <span class="fc" id="L117">        List&lt;Serializer&gt; sers = new LinkedList&lt;&gt;();</span>
@@ -165,7 +165,7 @@ import mpi.MPIException;
         }
     }
 
-    static class Gather {
+    public static class Gather {
         TeamedPlaceGroup pg;
         Place root;
 <span class="fc" id="L171">        List&lt;Serializer&gt; sers = new LinkedList&lt;&gt;();</span>

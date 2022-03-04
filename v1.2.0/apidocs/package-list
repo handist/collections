@@ -1,4 +1,5 @@
 handist.collections
+handist.collections.accumulator
 handist.collections.dist
 handist.collections.dist.util
 handist.collections.function
@@ -6,4 +7,5 @@ handist.collections.glb
 handist.collections.glb.lifeline
 handist.collections.glb.util
 handist.collections.launcher
+handist.collections.reducer
 handist.collections.util

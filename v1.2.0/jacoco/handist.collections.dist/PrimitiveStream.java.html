@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PrimitiveStream.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">PrimitiveStream.java</span></div><h1>PrimitiveStream.java</h1><pre class="source lang-java linenums">package handist.collections.dist;
+
+import handist.collections.function.PrimitiveInput;
+import handist.collections.function.PrimitiveOutput;
+
+/**
+ * Internal class used to accumulate raw types into arrays to leverage the more
+ * efficient MPI &quot;raw type&quot; reductions.
+ *
+ * @author Yoshiki Kawanishi
+ */
+class PrimitiveStream implements PrimitiveOutput, PrimitiveInput {
+
+    double[] doubleArray;
+    int[] intArray;
+    long[] longArray;
+
+    private int doubleNow;
+    private int intNow;
+    private int longNow;
+
+<span class="fc" id="L22">    PrimitiveStream(int initialCapacity) {</span>
+<span class="fc" id="L23">        doubleArray = new double[initialCapacity];</span>
+<span class="fc" id="L24">        intArray = new int[initialCapacity];</span>
+<span class="fc" id="L25">        longArray = new long[initialCapacity];</span>
+
+<span class="fc" id="L27">        doubleNow = 0;</span>
+<span class="fc" id="L28">        intNow = 0;</span>
+<span class="fc" id="L29">        longNow = 0;</span>
+<span class="fc" id="L30">    }</span>
+
+    /**
+     * If the previous writing will be repeated n-1 more times, call this in
+     * advance. Resize each array to &lt;em&gt;n&lt;/em&gt; times the previous writing count.
+     *
+     * @param n Multiply array size by n
+     */
+    void adjustSize(int n) {
+<span class="fc" id="L39">        resizeDoubleArray(doubleNow * n);</span>
+<span class="fc" id="L40">        resizeIntArray(intNow * n);</span>
+<span class="fc" id="L41">        resizeLongArray(longNow * n);</span>
+<span class="fc" id="L42">    }</span>
+
+    /**
+     * Checks that all arrays have been completely filled. Throws an
+     * {@link IllegalStateException} if all the prepared arrays are not full.
+     */
+    void checkIsFull() {
+<span class="pc bpc" id="L49" title="3 of 6 branches missed.">        if (doubleNow != doubleArray.length || intNow != intArray.length || longNow != longArray.length) {</span>
+<span class="nc" id="L50">            throw new IllegalStateException(</span>
+                    &quot;In CachableChunkedList#allreduce pack operations must apply to all elements&quot;);
+        }
+<span class="fc" id="L53">    }</span>
+
+    @Override
+    public double readDouble() {
+<span class="nc" id="L57">        return doubleArray[doubleNow++];</span>
+    }
+
+    @Override
+    public int readInt() {
+<span class="fc" id="L62">        return intArray[intNow++];</span>
+    }
+
+    @Override
+    public long readLong() {
+<span class="fc" id="L67">        return longArray[longNow++];</span>
+    }
+
+    /**
+     * Discards all recorded content in this instance. This effectively returns this
+     * instance to the state it was in when created.
+     */
+    void reset() {
+<span class="fc" id="L75">        intNow = 0;</span>
+<span class="fc" id="L76">        doubleNow = 0;</span>
+<span class="fc" id="L77">        longNow = 0;</span>
+<span class="fc" id="L78">    }</span>
+
+    private void resizeDoubleArray(int size) {
+<span class="fc" id="L81">        final double[] newArray = new double[size];</span>
+<span class="fc" id="L82">        System.arraycopy(doubleArray, 0, newArray, 0, doubleNow);</span>
+<span class="fc" id="L83">        doubleArray = newArray;</span>
+<span class="fc" id="L84">    }</span>
+
+    private void resizeIntArray(int size) {
+<span class="fc" id="L87">        final int[] newArray = new int[size];</span>
+<span class="fc" id="L88">        System.arraycopy(intArray, 0, newArray, 0, intNow);</span>
+<span class="fc" id="L89">        intArray = newArray;</span>
+<span class="fc" id="L90">    }</span>
+
+    private void resizeLongArray(int size) {
+<span class="fc" id="L93">        final long[] newArray = new long[size];</span>
+<span class="fc" id="L94">        System.arraycopy(longArray, 0, newArray, 0, longNow);</span>
+<span class="fc" id="L95">        longArray = newArray;</span>
+<span class="fc" id="L96">    }</span>
+
+    @Override
+    public void writeDouble(double d) {
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (doubleNow == doubleArray.length) {</span>
+<span class="nc" id="L101">            resizeDoubleArray(doubleNow * 2);</span>
+        }
+<span class="nc" id="L103">        doubleArray[doubleNow] = d;</span>
+<span class="nc" id="L104">        doubleNow++;</span>
+<span class="nc" id="L105">    }</span>
+
+    @Override
+    public void writeInt(int i) {
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">        if (intNow == intArray.length) {</span>
+<span class="nc" id="L110">            resizeIntArray(intNow * 2);</span>
+        }
+<span class="fc" id="L112">        intArray[intNow] = i;</span>
+<span class="fc" id="L113">        intNow++;</span>
+<span class="fc" id="L114">    }</span>
+
+    @Override
+    public void writeLong(long l) {
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">        if (longNow == longArray.length) {</span>
+<span class="nc" id="L119">            resizeLongArray(longNow * 2);</span>
+        }
+<span class="fc" id="L121">        longArray[longNow] = l;</span>
+<span class="fc" id="L122">        longNow++;</span>
+<span class="fc" id="L123">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

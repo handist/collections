@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DistSortedMultiMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">handistCollections</a> &gt; <a href="index.source.html" class="el_package">handist.collections.dist</a> &gt; <span class="el_source">DistSortedMultiMap.java</span></div><h1>DistSortedMultiMap.java</h1><pre class="source lang-java linenums">package handist.collections.dist;
+
+import java.io.ObjectStreamException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.function.BiConsumer;
+
+import apgas.util.GlobalID;
+import handist.collections.MultiMap;
+import handist.collections.dist.util.LazyObjectReference;
+import mpjbuf.IllegalArgumentException;
+
+public class DistSortedMultiMap&lt;K, V&gt; extends DistSortedMap&lt;K, Collection&lt;V&gt;&gt; implements MultiMap&lt;K, V&gt; {
+
+    /**
+     * Construct a DistSortedMultiMap.
+     */
+    public DistSortedMultiMap() {
+<span class="nc" id="L19">        this(TeamedPlaceGroup.getWorld());</span>
+<span class="nc" id="L20">    }</span>
+
+    /**
+     * Construct a DistSortedMultiMap with given argument.
+     *
+     * @param placeGroup PlaceGroup.
+     */
+    public DistSortedMultiMap(TeamedPlaceGroup placeGroup) {
+<span class="fc" id="L28">        this(placeGroup, new GlobalID());</span>
+<span class="fc" id="L29">    }</span>
+
+    /**
+     * Construct a DistSortedMultiMap with given arguments.
+     *
+     * @param placeGroup PlaceGroup
+     * @param id         the global ID used to identify this instance
+     */
+    public DistSortedMultiMap(TeamedPlaceGroup placeGroup, GlobalID id) {
+<span class="fc" id="L38">        super(placeGroup, id);</span>
+<span class="fc" id="L39">        super.GLOBAL = new GlobalOperations&lt;&gt;(this,</span>
+<span class="nc" id="L40">                (TeamedPlaceGroup pg0, GlobalID gid) -&gt; new DistSortedMultiMap&lt;&gt;(pg0, gid));</span>
+<span class="fc" id="L41">    }</span>
+
+    /**
+     * create an empty collection to hold values for a key. Please define the
+     * adequate container for the class.
+     *
+     * @return the created collection.
+     */
+    protected Collection&lt;V&gt; createEmptyCollection() {
+<span class="fc" id="L50">        return new ArrayList&lt;&gt;();</span>
+    }
+
+    @Override
+    public void forEach1(BiConsumer&lt;K, V&gt; op) {
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        for (final Entry&lt;K, Collection&lt;V&gt;&gt; entry : data.entrySet()) {</span>
+<span class="nc" id="L56">            final K key = entry.getKey();</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">            for (final V value : entry.getValue()) {</span>
+<span class="nc" id="L58">                op.accept(key, value);</span>
+<span class="nc" id="L59">            }</span>
+<span class="nc" id="L60">        }</span>
+<span class="nc" id="L61">    }</span>
+
+    /**
+     * Return new {@link MultiMapEntryDispatcher} instance that enable fast
+     * relocation between places than normal.
+     *
+     * @param rule Determines the dispatch destination.
+     * @return :
+     */
+    @Override
+    public MultiMapEntryDispatcher&lt;K, V&gt; getObjectDispatcher(Distribution&lt;K&gt; rule) {
+<span class="fc" id="L72">        return new MultiMapEntryDispatcher&lt;&gt;(this, placeGroup(), rule);</span>
+    }
+
+    /**
+     * Return new {@link MapEntryDispatcher} instance that enable fast relocation
+     * between places than normal.
+     *
+     * @param rule Determines the dispatch destination.
+     * @param pg   Relocate in this placegroup.
+     * @return :
+     * @throws IllegalArgumentException :
+     */
+    @Override
+    public MultiMapEntryDispatcher&lt;K, V&gt; getObjectDispatcher(Distribution&lt;K&gt; rule, TeamedPlaceGroup pg)
+            throws IllegalArgumentException {
+<span class="nc" id="L87">        return new MultiMapEntryDispatcher&lt;&gt;(this, pg, rule);</span>
+    }
+
+    @Override
+    public Collection&lt;V&gt; put(K key, Collection&lt;V&gt; values) {
+<span class="fc" id="L92">        Collection&lt;V&gt; list = data.get(key);</span>
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">        if (list == null) {</span>
+<span class="fc" id="L94">            list = createEmptyCollection();</span>
+<span class="fc" id="L95">            data.put(key, list);</span>
+        }
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">        if (values != null) {</span>
+<span class="fc" id="L98">            list.addAll(values);</span>
+        }
+<span class="fc" id="L100">        return list;</span>
+    }
+
+    @Override
+    public boolean put1(K key, V value) {
+<span class="fc" id="L105">        Collection&lt;V&gt; list = data.get(key);</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">        if (list == null) {</span>
+<span class="fc" id="L107">            list = createEmptyCollection();</span>
+<span class="fc" id="L108">            data.put(key, list);</span>
+        }
+<span class="fc" id="L110">        return list.add(value);</span>
+    }
+
+    @Override
+    public Collection&lt;V&gt; putForMove(K key, Collection&lt;V&gt; values) {
+<span class="nc" id="L115">        Collection&lt;V&gt; list = data.get(key);</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        if (list == null) {</span>
+<span class="nc" id="L117">            list = createEmptyCollection();</span>
+<span class="nc" id="L118">            data.put(key, list);</span>
+        }
+        // TODO we should check values!=null before transportation
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (values != null) {</span>
+<span class="nc" id="L122">            list.addAll(values);</span>
+        }
+<span class="nc" id="L124">        return list;</span>
+    }
+
+    @Override
+    public Object writeReplace() throws ObjectStreamException {
+<span class="fc" id="L129">        final TeamedPlaceGroup pg1 = placeGroup;</span>
+<span class="fc" id="L130">        final GlobalID id1 = id;</span>
+<span class="fc" id="L131">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L132">            return new DistSortedMultiMap&lt;&gt;(pg1, id1);</span>
+        });
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

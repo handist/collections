@@ -11,6 +11,7 @@
 package handist.collections.dist;
 
 import java.util.Collection;
+import java.util.function.Function;
 
 import apgas.Place;
 
@@ -45,10 +46,10 @@ public interface KeyRelocatable&lt;K&gt; {
      */
     public default &lt;D extends Distribution&lt;K&gt;&gt; void moveAtSync(Collection&lt;K&gt; keys, D distribution,
             MoveManager manager) {
-<span class="nc bnc" id="L48" title="All 2 branches missed.">        for (final K key : keys) {</span>
-<span class="nc" id="L49">            moveAtSync(key, distribution.place(key), manager);</span>
-<span class="nc" id="L50">        }</span>
-<span class="nc" id="L51">    }</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">        for (final K key : keys) {</span>
+<span class="nc" id="L50">            moveAtSync(key, distribution.location(key), manager);</span>
+<span class="nc" id="L51">        }</span>
+<span class="nc" id="L52">    }</span>
 
     /**
      * Marks all the keys in the provided collection for relocation over to the
@@ -59,11 +60,7 @@ public interface KeyRelocatable&lt;K&gt; {
      * @param destination the place to which these keys should be relocated
      * @param manager     the manager in charge of performing the relocation
      */
-    public default void moveAtSync(Collection&lt;K&gt; keys, Place destination, MoveManager manager) {
-<span class="nc bnc" id="L63" title="All 2 branches missed.">        for (final K key : keys) {</span>
-<span class="nc" id="L64">            moveAtSync(key, destination, manager);</span>
-<span class="nc" id="L65">        }</span>
-<span class="nc" id="L66">    }</span>
+    public void moveAtSync(Collection&lt;K&gt; keys, Place destination, MoveManager manager);
 
     /**
      * Marks all the keys of this local handle for relocation using the provided
@@ -76,8 +73,23 @@ public interface KeyRelocatable&lt;K&gt; {
      * @param manager      the move manager in charge of the transfer
      */
     public default void moveAtSync(Distribution&lt;K&gt; distribution, MoveManager manager) {
-<span class="nc" id="L79">        moveAtSync(getAllKeys(), distribution, manager);</span>
+<span class="nc" id="L76">        final Function&lt;K, Place&gt; rule = (K key) -&gt; {</span>
+<span class="nc" id="L77">            return distribution.location(key);</span>
+        };
+<span class="nc" id="L79">        moveAtSync(rule, manager);</span>
 <span class="nc" id="L80">    }</span>
+
+    /**
+     * Marks all the keys of this local handle for relocation using the provided
+     * distribution to determine where each individual keys should go. The transfer
+     * is actually performed the next the specified manager's
+     * {@link CollectiveMoveManager#sync()} method is called.
+     *
+     * @param rule    the function that determines where each individual key should
+     *                be relocated to
+     * @param manager the move manager in charge of the transfer
+     */
+    public void moveAtSync(Function&lt;K, Place&gt; rule, MoveManager manager);
 
     /**
      * Marks the specified key for relocation over to the specified place. The
@@ -89,5 +101,13 @@ public interface KeyRelocatable&lt;K&gt; {
      * @param manager     manager in charge of the transfer
      */
     public void moveAtSync(K key, Place destination, MoveManager manager);
+
+    public void relocate(Distribution&lt;K&gt; rule) throws Exception;
+
+    public void relocate(Distribution&lt;K&gt; rule, CollectiveMoveManager mm) throws Exception;
+
+    public void relocate(Function&lt;K, Place&gt; rule) throws Exception;
+
+    public void relocate(Function&lt;K, Place&gt; rule, CollectiveMoveManager mm) throws Exception;
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

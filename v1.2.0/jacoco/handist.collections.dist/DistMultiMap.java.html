@@ -22,6 +22,7 @@ import java.util.function.BiFunction;
 
 import apgas.Place;
 import apgas.util.GlobalID;
+import handist.collections.MultiMap;
 import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
@@ -36,14 +37,14 @@ import mpjbuf.IllegalArgumentException;
  * @param &lt;K&gt; type of the key used in the {@link DistMultiMap}
  * @param &lt;V&gt; type of the elements contained in the lists to which the keys map
  */
-public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&gt; {
+public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&gt; implements MultiMap&lt;K, V&gt; {
 
     /**
      * Construct a DistMultiMap.
      */
     public DistMultiMap() {
-<span class="nc" id="L45">        this(TeamedPlaceGroup.getWorld());</span>
-<span class="nc" id="L46">    }</span>
+<span class="nc" id="L46">        this(TeamedPlaceGroup.getWorld());</span>
+<span class="nc" id="L47">    }</span>
 
     /**
      * Construct a DistMultiMap with given argument.
@@ -51,8 +52,8 @@ public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&
      * @param placeGroup PlaceGroup.
      */
     public DistMultiMap(TeamedPlaceGroup placeGroup) {
-<span class="fc" id="L54">        super(placeGroup);</span>
-<span class="fc" id="L55">    }</span>
+<span class="fc" id="L55">        super(placeGroup);</span>
+<span class="fc" id="L56">    }</span>
 
     /**
      * Construct a DistMultiMap with given arguments.
@@ -61,8 +62,8 @@ public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&
      * @param id         the global ID used to identify this instance
      */
     public DistMultiMap(TeamedPlaceGroup placeGroup, GlobalID id) {
-<span class="fc" id="L64">        this(placeGroup, id, new HashMap&lt;&gt;());</span>
-<span class="fc" id="L65">    }</span>
+<span class="fc" id="L65">        this(placeGroup, id, new HashMap&lt;&gt;());</span>
+<span class="fc" id="L66">    }</span>
 
     /**
      * Construct a DistMultiMap with given arguments.
@@ -72,10 +73,10 @@ public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&
      * @param data       the container to be used
      */
     protected DistMultiMap(TeamedPlaceGroup placeGroup, GlobalID id, Map&lt;K, Collection&lt;V&gt;&gt; data) {
-<span class="fc" id="L75">        super(placeGroup, id, data);</span>
-<span class="fc" id="L76">        super.GLOBAL = new GlobalOperations&lt;&gt;(this,</span>
-<span class="nc" id="L77">                (TeamedPlaceGroup pg0, GlobalID gid) -&gt; new DistMultiMap&lt;&gt;(pg0, gid));</span>
-<span class="fc" id="L78">    }</span>
+<span class="fc" id="L76">        super(placeGroup, id, data);</span>
+<span class="fc" id="L77">        super.GLOBAL = new GlobalOperations&lt;&gt;(this,</span>
+<span class="nc" id="L78">                (TeamedPlaceGroup pg0, GlobalID gid) -&gt; new DistMultiMap&lt;&gt;(pg0, gid));</span>
+<span class="fc" id="L79">    }</span>
 
     /**
      * create an empty collection to hold values for a key. Please define the
@@ -84,7 +85,7 @@ public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&
      * @return the created collection.
      */
     protected Collection&lt;V&gt; createEmptyCollection() {
-<span class="fc" id="L87">        return new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L88">        return new ArrayList&lt;&gt;();</span>
     }
 
     // TODO ...
@@ -95,30 +96,31 @@ public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&
      *
      * @param op the operation.
      */
+    @Override
     public void forEach1(BiConsumer&lt;K, V&gt; op) {
-<span class="fc bfc" id="L99" title="All 2 branches covered.">        for (final Entry&lt;K, Collection&lt;V&gt;&gt; entry : data.entrySet()) {</span>
-<span class="fc" id="L100">            final K key = entry.getKey();</span>
-<span class="fc bfc" id="L101" title="All 2 branches covered.">            for (final V value : entry.getValue()) {</span>
-<span class="fc" id="L102">                op.accept(key, value);</span>
-<span class="fc" id="L103">            }</span>
-<span class="fc" id="L104">        }</span>
-<span class="fc" id="L105">    }</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        for (final Entry&lt;K, Collection&lt;V&gt;&gt; entry : data.entrySet()) {</span>
+<span class="fc" id="L102">            final K key = entry.getKey();</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">            for (final V value : entry.getValue()) {</span>
+<span class="fc" id="L104">                op.accept(key, value);</span>
+<span class="fc" id="L105">            }</span>
+<span class="fc" id="L106">        }</span>
+<span class="fc" id="L107">    }</span>
 
     /**
-     * Return {@link MultiMapEntryDispatcher} instance that enable fast relocation
-     * between places than normal. One {@link DistMultiMap} has one dispatcher.
+     * Return new {@link MultiMapEntryDispatcher} instance that enable fast
+     * relocation between places than normal.
      *
      * @param rule Determines the dispatch destination.
      * @return :
      */
     @Override
     public MultiMapEntryDispatcher&lt;K, V&gt; getObjectDispatcher(Distribution&lt;K&gt; rule) {
-<span class="fc" id="L116">        return new MultiMapEntryDispatcher&lt;&gt;(this, rule);</span>
+<span class="fc" id="L118">        return new MultiMapEntryDispatcher&lt;&gt;(this, placeGroup(), rule);</span>
     }
 
     /**
-     * Return {@link MapEntryDispatcher} instance that enable fast relocation
-     * between places than normal. One {@link DistMap} has one dispatcher.
+     * Return new {@link MapEntryDispatcher} instance that enable fast relocation
+     * between places than normal.
      *
      * @param rule Determines the dispatch destination.
      * @param pg   Relocate in this placegroup.
@@ -128,7 +130,7 @@ public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&
     @Override
     public MultiMapEntryDispatcher&lt;K, V&gt; getObjectDispatcher(Distribution&lt;K&gt; rule, TeamedPlaceGroup pg)
             throws IllegalArgumentException {
-<span class="nc" id="L131">        return new MultiMapEntryDispatcher&lt;&gt;(this, pg, rule);</span>
+<span class="nc" id="L133">        return new MultiMapEntryDispatcher&lt;&gt;(this, pg, rule);</span>
     }
 
     /**
@@ -142,7 +144,7 @@ public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&
      */
     public &lt;W&gt; DistMultiMap&lt;K, W&gt; map(BiFunction&lt;K, V, W&gt; op) {
         // TODO
-<span class="nc" id="L145">        throw new Error(&quot;not implemented yet&quot;);</span>
+<span class="nc" id="L147">        throw new Error(&quot;not implemented yet&quot;);</span>
         /*
          * return new DistMultiMap[T,S](placeGroup, team, () =&gt; { val dst = new
          * HashMap[T,List[S]](); for (entry in data.entries()) { val key =
@@ -155,54 +157,67 @@ public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&
     @Override
     @SuppressWarnings(&quot;unchecked&quot;)
     public void moveAtSync(Collection&lt;K&gt; keys, Place pl, MoveManager mm) {
-<span class="nc bnc" id="L158" title="All 2 branches missed.">        if (pl.equals(here())) {</span>
-<span class="nc" id="L159">            return;</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        if (pl.equals(here())) {</span>
+<span class="nc" id="L161">            return;</span>
         }
-<span class="nc" id="L161">        final DistMultiMap&lt;K, V&gt; collection = this;</span>
-<span class="nc" id="L162">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
-<span class="nc" id="L163">            final int size = keys.size();</span>
-<span class="nc" id="L164">            s.writeInt(size);</span>
-<span class="nc bnc" id="L165" title="All 2 branches missed.">            for (final K key : keys) {</span>
-<span class="nc" id="L166">                final Collection&lt;V&gt; value = collection.remove(key);</span>
-<span class="nc" id="L167">                s.writeObject(key);</span>
-<span class="nc" id="L168">                s.writeObject(value);</span>
-<span class="nc" id="L169">            }</span>
-<span class="nc" id="L170">        };</span>
-<span class="nc" id="L171">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
-<span class="nc" id="L172">            final int size = ds.readInt();</span>
-<span class="nc bnc" id="L173" title="All 2 branches missed.">            for (int i = 1; i &lt;= size; i++) {</span>
-<span class="nc" id="L174">                final K key = (K) ds.readObject();</span>
-<span class="nc" id="L175">                final Collection&lt;V&gt; value = (Collection&lt;V&gt;) ds.readObject();</span>
-<span class="nc" id="L176">                collection.putForMove(key, value);</span>
+<span class="nc" id="L163">        final DistMultiMap&lt;K, V&gt; collection = this;</span>
+<span class="nc" id="L164">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="nc" id="L165">            final int size = keys.size();</span>
+<span class="nc" id="L166">            s.writeInt(size);</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">            for (final K key : keys) {</span>
+<span class="nc" id="L168">                final Collection&lt;V&gt; value = collection.remove(key);</span>
+<span class="nc" id="L169">                s.writeObject(key);</span>
+<span class="nc" id="L170">                s.writeObject(value);</span>
+<span class="nc" id="L171">            }</span>
+<span class="nc" id="L172">        };</span>
+<span class="nc" id="L173">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="nc" id="L174">            final int size = ds.readInt();</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">            for (int i = 1; i &lt;= size; i++) {</span>
+<span class="nc" id="L176">                final K key = (K) ds.readObject();</span>
+<span class="nc" id="L177">                final Collection&lt;V&gt; value = (Collection&lt;V&gt;) ds.readObject();</span>
+<span class="nc" id="L178">                collection.putForMove(key, value);</span>
             }
-<span class="nc" id="L178">        };</span>
-<span class="nc" id="L179">        mm.request(pl, serialize, deserialize);</span>
-<span class="nc" id="L180">    }</span>
+<span class="nc" id="L180">        };</span>
+<span class="nc" id="L181">        mm.request(pl, serialize, deserialize);</span>
+<span class="nc" id="L182">    }</span>
 
     @Override
     @SuppressWarnings(&quot;unchecked&quot;)
     public void moveAtSync(K key, Place pl, MoveManager mm) {
-<span class="fc bfc" id="L185" title="All 2 branches covered.">        if (pl.equals(here())) {</span>
-<span class="fc" id="L186">            return;</span>
+<span class="fc bfc" id="L187" title="All 2 branches covered.">        if (pl.equals(here())) {</span>
+<span class="fc" id="L188">            return;</span>
         }
-<span class="pc bpc" id="L188" title="1 of 2 branches missed.">        if (!containsKey(key)) {</span>
-<span class="nc" id="L189">            throw new RuntimeException(&quot;DistMultiMap cannot move uncontained entry: &quot; + key);</span>
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">        if (!containsKey(key)) {</span>
+<span class="nc" id="L191">            throw new RuntimeException(&quot;DistMultiMap cannot move uncontained entry: &quot; + key);</span>
         }
-<span class="fc" id="L191">        final DistMultiMap&lt;K, V&gt; toBranch = this; // using plh@AbstractCol</span>
-<span class="fc" id="L192">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
-<span class="fc" id="L193">            final Collection&lt;V&gt; value = this.removeForMove(key);</span>
+<span class="fc" id="L193">        final DistMultiMap&lt;K, V&gt; toBranch = this; // using plh@AbstractCol</span>
+<span class="fc" id="L194">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="fc" id="L195">            final Collection&lt;V&gt; value = this.removeForMove(key);</span>
             // TODO we should check values!=null before transportation
-<span class="fc" id="L195">            s.writeObject(key);</span>
-<span class="fc" id="L196">            s.writeObject(value);</span>
-<span class="fc" id="L197">        };</span>
-<span class="fc" id="L198">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
-<span class="fc" id="L199">            final K k = (K) ds.readObject();</span>
+<span class="fc" id="L197">            s.writeObject(key);</span>
+<span class="fc" id="L198">            s.writeObject(value);</span>
+<span class="fc" id="L199">        };</span>
+<span class="fc" id="L200">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="fc" id="L201">            final K k = (K) ds.readObject();</span>
             // TODO we should check values!=null before transportation
-<span class="fc" id="L201">            final Collection&lt;V&gt; v = (Collection&lt;V&gt;) ds.readObject();</span>
-<span class="fc" id="L202">            toBranch.putForMove(k, v);</span>
-<span class="fc" id="L203">        };</span>
-<span class="fc" id="L204">        mm.request(pl, serialize, deserialize);</span>
-<span class="fc" id="L205">    }</span>
+<span class="fc" id="L203">            final Collection&lt;V&gt; v = (Collection&lt;V&gt;) ds.readObject();</span>
+<span class="fc" id="L204">            toBranch.putForMove(k, v);</span>
+<span class="fc" id="L205">        };</span>
+<span class="fc" id="L206">        mm.request(pl, serialize, deserialize);</span>
+<span class="fc" id="L207">    }</span>
+
+    @Override
+    public Collection&lt;V&gt; put(K key, Collection&lt;V&gt; values) {
+<span class="fc" id="L211">        Collection&lt;V&gt; list = data.get(key);</span>
+<span class="pc bpc" id="L212" title="1 of 2 branches missed.">        if (list == null) {</span>
+<span class="fc" id="L213">            list = createEmptyCollection();</span>
+<span class="fc" id="L214">            data.put(key, list);</span>
+        }
+<span class="pc bpc" id="L216" title="1 of 2 branches missed.">        if (values != null) {</span>
+<span class="fc" id="L217">            list.addAll(values);</span>
+        }
+<span class="fc" id="L219">        return list;</span>
+    }
 
     /**
      * Puts a new value to the list of specified entry.
@@ -212,13 +227,14 @@ public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&
      * @return {@code true} as the collection is modified as a result (as specified
      *         by {@link Collection#add(Object)}.
      */
+    @Override
     public boolean put1(K key, V value) {
-<span class="fc" id="L216">        Collection&lt;V&gt; list = data.get(key);</span>
-<span class="fc bfc" id="L217" title="All 2 branches covered.">        if (list == null) {</span>
-<span class="fc" id="L218">            list = createEmptyCollection();</span>
-<span class="fc" id="L219">            data.put(key, list);</span>
+<span class="fc" id="L232">        Collection&lt;V&gt; list = data.get(key);</span>
+<span class="fc bfc" id="L233" title="All 2 branches covered.">        if (list == null) {</span>
+<span class="fc" id="L234">            list = createEmptyCollection();</span>
+<span class="fc" id="L235">            data.put(key, list);</span>
         }
-<span class="fc" id="L221">        return list.add(value);</span>
+<span class="fc" id="L237">        return list.add(value);</span>
     }
 
     /**
@@ -233,30 +249,31 @@ public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&
      */
     @SuppressWarnings(&quot;unchecked&quot;)
     public void putAtSync(K key, V value, Place pl, CollectiveMoveManager mm) {
-<span class="nc" id="L236">        final DistMultiMap&lt;K, V&gt; toBranch = this; // using plh@AbstractCol</span>
-<span class="nc" id="L237">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
-<span class="nc" id="L238">            s.writeObject(key);</span>
-<span class="nc" id="L239">            s.writeObject(value);</span>
-<span class="nc" id="L240">        };</span>
-<span class="nc" id="L241">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
-<span class="nc" id="L242">            final K k = (K) ds.readObject();</span>
-<span class="nc" id="L243">            final V v = (V) ds.readObject();</span>
-<span class="nc" id="L244">            toBranch.put1(k, v);</span>
-<span class="nc" id="L245">        };</span>
-<span class="nc" id="L246">        mm.request(pl, serialize, deserialize);</span>
-<span class="nc" id="L247">    }</span>
+<span class="nc" id="L252">        final DistMultiMap&lt;K, V&gt; toBranch = this; // using plh@AbstractCol</span>
+<span class="nc" id="L253">        final Serializer serialize = (ObjectOutput s) -&gt; {</span>
+<span class="nc" id="L254">            s.writeObject(key);</span>
+<span class="nc" id="L255">            s.writeObject(value);</span>
+<span class="nc" id="L256">        };</span>
+<span class="nc" id="L257">        final DeSerializer deserialize = (ObjectInput ds) -&gt; {</span>
+<span class="nc" id="L258">            final K k = (K) ds.readObject();</span>
+<span class="nc" id="L259">            final V v = (V) ds.readObject();</span>
+<span class="nc" id="L260">            toBranch.put1(k, v);</span>
+<span class="nc" id="L261">        };</span>
+<span class="nc" id="L262">        mm.request(pl, serialize, deserialize);</span>
+<span class="nc" id="L263">    }</span>
 
-    public boolean putForMove(K key, Collection&lt;V&gt; values) {
-<span class="fc" id="L250">        Collection&lt;V&gt; list = data.get(key);</span>
-<span class="fc bfc" id="L251" title="All 2 branches covered.">        if (list == null) {</span>
-<span class="fc" id="L252">            list = createEmptyCollection();</span>
-<span class="fc" id="L253">            data.put(key, list);</span>
+    @Override
+    protected Collection&lt;V&gt; putForMove(K key, Collection&lt;V&gt; values) {
+<span class="fc" id="L267">        Collection&lt;V&gt; list = data.get(key);</span>
+<span class="fc bfc" id="L268" title="All 2 branches covered.">        if (list == null) {</span>
+<span class="fc" id="L269">            list = createEmptyCollection();</span>
+<span class="fc" id="L270">            data.put(key, list);</span>
         }
         // TODO we should check values!=null before transportation
-<span class="fc bfc" id="L256" title="All 2 branches covered.">        if (values != null) {</span>
-<span class="fc" id="L257">            list.addAll(values);</span>
+<span class="fc bfc" id="L273" title="All 2 branches covered.">        if (values != null) {</span>
+<span class="fc" id="L274">            list.addAll(values);</span>
         }
-<span class="fc" id="L259">        return false;</span>
+<span class="fc" id="L276">        return list;</span>
     }
 
     /**
@@ -265,17 +282,17 @@ public class DistMultiMap&lt;K, V&gt; extends DistMap&lt;K, Collection&lt;V&gt;&
      * @param key the key whose mapping need to be removed from this instance
      * @return the list of all the mappings to the specified key.
      */
-    public Collection&lt;V&gt; removeForMove(K key) {
-<span class="fc" id="L269">        final Collection&lt;V&gt; list = data.remove(key);</span>
-<span class="fc" id="L270">        return list;</span>
+    Collection&lt;V&gt; removeForMove(K key) {
+<span class="fc" id="L286">        final Collection&lt;V&gt; list = data.remove(key);</span>
+<span class="fc" id="L287">        return list;</span>
     }
 
     @Override
     public Object writeReplace() throws ObjectStreamException {
-<span class="fc" id="L275">        final TeamedPlaceGroup pg1 = placeGroup;</span>
-<span class="fc" id="L276">        final GlobalID id1 = id;</span>
-<span class="fc" id="L277">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
-<span class="fc" id="L278">            return new DistMultiMap&lt;&gt;(pg1, id1);</span>
+<span class="fc" id="L292">        final TeamedPlaceGroup pg1 = placeGroup;</span>
+<span class="fc" id="L293">        final GlobalID id1 = id;</span>
+<span class="fc" id="L294">        return new LazyObjectReference&lt;&gt;(pg1, id1, () -&gt; {</span>
+<span class="fc" id="L295">            return new DistMultiMap&lt;&gt;(pg1, id1);</span>
         });
     }
 
