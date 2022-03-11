@@ -280,7 +280,7 @@ public class GlobalLoadBalancer {
      *
      * @param operation operation to perform on a distributed collection
      */
-    void submit(@SuppressWarnings("rawtypes") GlbOperation operation) {
+    synchronized void submit(@SuppressWarnings("rawtypes") GlbOperation operation) {
         operationsStaged.add(operation);
     }
 }

@@ -15,9 +15,9 @@ import static org.junit.Assert.*;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.LinkedList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Queue;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
@@ -217,7 +217,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
      * this member is made empty as a result, that hook will start this instance's
      * computation.
      */
-    private final transient Queue<GlbOperation<?, ?, ?, ?, ?, ?>> dependencies;
+    private final transient Set<GlbOperation> dependencies;
 
     /**
      * List of all the errors that were thrown during this operation's execution.
@@ -316,7 +316,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
         future = f; // We need a 2-way link between the GlbOperation and the
         future.operation = this; // DistFuture
         hooks = new ArrayList<>();
-        dependencies = new LinkedList<>();
+        dependencies = new HashSet<>();
         initializerOfGlbTask = glbTaskInit;
         workerInit = workerInitialization;
         state = s;
