@@ -155,10 +155,16 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
             if (before.state == State.TERMINATED) {
                 return; // Nothing to install as the dependency is already satisfied
             } else {
+                boolean newDependencyEstablished = false;
                 synchronized (after) {
-                    after.dependencies.add(before); // protected against concurrent after#dependencySatisfied
+                    newDependencyEstablished = after.dependencies.add(before); // protected against concurrent
+                                                                               // after#dependencySatisfied
                 }
-                before.addHook(() -> after.dependencySatisfied(before));
+                // It is possible a the dependency was previously established, in which case no
+                // new hook needs to be installed
+                if (newDependencyEstablished) {
+                    before.addHook(() -> after.dependencySatisfied(before));
+                }
             }
         }
     }

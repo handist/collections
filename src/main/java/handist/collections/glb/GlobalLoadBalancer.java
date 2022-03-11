@@ -13,11 +13,14 @@ package handist.collections.glb;
 import static apgas.Constructs.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.concurrent.ForkJoinPool;
 
 import apgas.SerializableJob;
 import handist.collections.dist.DistLog;
+import handist.collections.dist.DistributedCollection;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.glb.GlbOperation.OperationCompletionManagedBlocker;
 import handist.collections.glb.GlbOperation.State;
@@ -257,10 +260,20 @@ public class GlobalLoadBalancer {
     private final LinkedList<GlbOperation> operationsStaged;
 
     /**
+     * This maps keeps track of the last operation submitted about the latest
+     * collection. This is used in the {@link #submit(GlbOperation)} method to
+     * establish completion dependencies that guarantee that no two operations on
+     * the same collection are computed concurrently
+     */
+    @SuppressWarnings("rawtypes")
+    private final Map<DistributedCollection, GlbOperation> lastOperationForCollection;
+
+    /**
      * Private constructor to preserve the singleton pattern
      */
     private GlobalLoadBalancer() {
         operationsStaged = new LinkedList<>();
+        lastOperationForCollection = new HashMap<>();
     }
 
     /**
@@ -280,7 +293,14 @@ public class GlobalLoadBalancer {
      *
      * @param operation operation to perform on a distributed collection
      */
-    synchronized void submit(@SuppressWarnings("rawtypes") GlbOperation operation) {
+    @SuppressWarnings("rawtypes")
+    synchronized void submit(GlbOperation operation) {
+        final DistributedCollection col = operation.collection;
+        final GlbOperation prevOperation = lastOperationForCollection.get(col);
+        if (prevOperation != null) {
+            GlbOperation.makeDependency(prevOperation, operation);
+        }
+        lastOperationForCollection.put(col, operation); // This is the new "last operation submitted"
         operationsStaged.add(operation);
     }
 }
