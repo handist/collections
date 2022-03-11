@@ -69,15 +69,22 @@ class GlbComputer extends PlaceLocalObject {
         Place place;
 
         /**
+         * Unique Long Identifier of the operation source of this lifeline steal final
+         */
+        long gid;
+
+        /**
          * Constructor for a lifeline token. The target collection and the source of the
          * steal are specified as parameters
          *
          * @param c distributed collection from which work is desired
          * @param p place which is trying to steal some work
          */
-        private LifelineToken(@SuppressWarnings("rawtypes") DistributedCollection c, Place p) {
-            collection = c;
+        @SuppressWarnings("rawtypes")
+        private LifelineToken(GlbOperation op, Place p) {
+            collection = op.collection;
             place = p;
+            gid = op.id.gid();
         }
 
         @Override
@@ -412,6 +419,12 @@ class GlbComputer extends PlaceLocalObject {
     private final Map<GlbOperation, OperationBlocker> blockers;
 
     /**
+     * Lock used to guarantee proper handling of lifeline tokens when new operations
+     * are started on the host
+     */
+    private transient final ReadWriteLock newOperationRWlock;
+
+    /**
      * Atomic array used to signal to workers that they need to place some work back
      * into the {@link #reserve}. Each worker is identified with a unique index.
      * They use this identifier to access this array which is initialized with an
@@ -441,6 +454,15 @@ class GlbComputer extends PlaceLocalObject {
      */
     @SuppressWarnings("rawtypes")
     final ConcurrentHashMap<GlbOperation, Finish> finishes;
+
+    /**
+     * Long used to keep track of the ongoing operation with respect to each
+     * distributed collection. This information is updated each time a new operation
+     * is started in method {@link #newOperation(GlbOperation)} and used by the
+     * workers to determine if the lifeline tokens present in
+     * {@link #lifelineThieves} are relevant or not.
+     */
+    final ConcurrentHashMap<DistributedCollection, Long> currentOperation;
 
     /**
      * Number of elements processed by workers in one gulp before they check the
@@ -561,7 +583,9 @@ class GlbComputer extends PlaceLocalObject {
         operationErrors = new HashMap<>();
 
         finishes = new ConcurrentHashMap<>();
+        currentOperation = new ConcurrentHashMap<>();
         blockers = new HashMap<>();
+        newOperationRWlock = new ReentrantReadWriteLock();
 
         // Initialize the data structures used to keep track of the lifelines
         lifelineThieves = new ConcurrentLinkedQueue<>();
@@ -589,23 +613,13 @@ class GlbComputer extends PlaceLocalObject {
         final WorkerInfo worker = idleWorkers.poll();
         if (worker != null) {
             // In case getAssignment was not able to deliver an assignment for our worker,
-            // the worker instance is placed back into #ifleWorkers as part of this method
+            // the worker instance is placed back into #idleWorkers as part of this method
             final Assignment forSpawn = reserve.getAssignment(worker);
             if (forSpawn != null) {
                 if (TRACE) {
                     System.err.println(here() + " spawned worker(" + worker.id + ")");
                 }
                 uncountedAsyncAt(here(), () -> worker(worker, forSpawn));
-            } else {
-                // Work could not be taken from the reserve
-
-                // We place the workerInfo back into the #workers collection so that it gets
-                // another chance to be spawned later
-                // idleWorkers.add(worker); FIXME delete this part
-
-                // We signal all the workers that the #reserve is empty and that every worker
-                // needs to place some work back into the reserve
-//                reserveWasEmptied(); FIXME delete this part
             }
         }
     }
@@ -623,8 +637,9 @@ class GlbComputer extends PlaceLocalObject {
      *
      * @param c the collection on which the operation that has terminated operated
      */
-    void establishingLifelineOnRemoteHost(@SuppressWarnings("rawtypes") DistributedCollection c) {
-        final LifelineToken token = new LifelineToken(c, here());
+    void establishingLifelineOnRemoteHost(GlbOperation op) {
+        final DistributedCollection c = op.collection;
+        final LifelineToken token = new LifelineToken(op, here());
 
         final ConcurrentHashMap<Place, AtomicInteger> lifelineStatus = lifelineEstablished.get(c);
 
@@ -736,6 +751,13 @@ class GlbComputer extends PlaceLocalObject {
      */
     @SuppressWarnings("rawtypes")
     void newOperation(GlbOperation op) {
+        // We have now moved on to a new operation for the underlying collection
+        currentOperation.put(op.collection, op.id.gid());
+        // RW lock to make sure all workers making ongoing lifeline answers
+        // complete
+        newOperationRWlock.writeLock().lock();
+        newOperationRWlock.writeLock().unlock();
+
         // Prepare the data structure for tracking the state of the outgoing lifelines
         // if it was not already created. A mapping is actually created if the operation
         // given as parameter operates on a distributed collection which has not
@@ -756,14 +778,14 @@ class GlbComputer extends PlaceLocalObject {
                 l = new Loop(col.placeGroup());
             }
             for (final Place p : l.lifeline(here())) {
-                map.put(p, new AtomicInteger(0));
+                map.put(p, new AtomicInteger());
             }
             return map;
         });
 
         // Reset the atomic flags to 0 for all the lifelines (in case it was previously
         // initialized and not created in the previous call)
-        colLifelines.forEach((place, lifelineStatus) -> lifelineStatus.set(0));
+        colLifelines.forEach((place, lifelineStatus) -> lifelineStatus.set(LIFELINE_NOT_ESTABLISHED));
 
         // Synchronize with the other hosts before launching work / establishing new
         // lifelines
@@ -796,10 +818,9 @@ class GlbComputer extends PlaceLocalObject {
         if (localWorkCreated) {
             // Launch workers / block until local termination
             operationActivity(op);
-        } else {
-            // Go on to work stealing directly.
-            establishingLifelineOnRemoteHost(op.collection);
         }
+        // Go on to work stealing procedures
+        establishingLifelineOnRemoteHost(op);
     }
 
     /**
@@ -855,9 +876,6 @@ class GlbComputer extends PlaceLocalObject {
                     "InterruptedException received in operation activity, this should not happen as the managed blocker implementation does not throw this error");
             e.printStackTrace();
         }
-
-        // The operation has completed. Moving on to establishing lifelines.
-        establishingLifelineOnRemoteHost(op.collection);
     }
 
     /**
@@ -997,24 +1015,24 @@ class GlbComputer extends PlaceLocalObject {
 
                     // STEP 5: Answer lifeline thieves if there are any and this host is capable of
                     // doing so
-                    final LifelineToken steal = lifelineThieves.poll();
-                    if (steal != null) {
-                        // Check if the target collection has some assignments left for the target
-                        // collection
+                    if (newOperationRWlock.readLock().tryLock()) {
+                        try {
+                            final LifelineToken steal = lifelineThieves.poll();
+                            if (steal != null && steal.gid >= currentOperation.get(steal.collection)) {
+                                // Check if the target collection has some assignments left for the target
+                                // collection
 
-                        GlbTask g;
-                        // FIXME when using some "After" dependencies, it is possible for a lifeline
-                        // request to be received at a time the corresponding operation has not yet gone
-                        // through method #newOperation. In this case,
-                        // reserve.allTasks.get(steal.collection) will return null. We need to account
-                        // for that edge case where the lifeline answer is actually the first to bring
-                        // the information to this place that a new operation is available for
-                        // computation.
-                        if ((g = reserve.allTasks.get(steal.collection)) != null && g.answerLifeline(steal)) {
-                            logger.put(LOGKEY_WORKER, LOG_LIFELINE_ANSWERED, Long.toString(System.nanoTime()));
-                        } else {
-                            logger.put(LOGKEY_WORKER, LOG_LIFELINE_NOT_ANSWERED, Long.toString(System.nanoTime()));
-                            lifelineThieves.add(steal);
+                                GlbTask g;
+                                if ((g = reserve.allTasks.get(steal.collection)) != null && g.answerLifeline(steal)) {
+                                    logger.put(LOGKEY_WORKER, LOG_LIFELINE_ANSWERED, Long.toString(System.nanoTime()));
+                                } else {
+                                    logger.put(LOGKEY_WORKER, LOG_LIFELINE_NOT_ANSWERED,
+                                            Long.toString(System.nanoTime()));
+                                    lifelineThieves.add(steal);
+                                }
+                            }
+                        } finally {
+                            newOperationRWlock.readLock().unlock();
                         }
                     }
                 }

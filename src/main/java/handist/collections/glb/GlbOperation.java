@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import apgas.MultipleException;
 import apgas.Place;
@@ -123,6 +124,8 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
          */
         TERMINATED
     }
+
+    static AtomicInteger idGenerator = new AtomicInteger();
 
     static int nextPriority = 0;
 

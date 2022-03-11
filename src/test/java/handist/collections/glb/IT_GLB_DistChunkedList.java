@@ -272,9 +272,7 @@ public class IT_GLB_DistChunkedList implements Serializable {
     @After
     public void tearDown() throws Exception {
         distChunkedList.destroy();
-        TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
-            GlbComputer.destroyGlbComputer();
-        });
+        GlbComputer.destroyGlbComputer();
     }
 
     /**

@@ -113,6 +113,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     @After
     public void tearDown() {
         col.destroy();
+        GlbComputer.destroyGlbComputer();
     }
 
     @Test(expected = IllegalStateException.class, timeout = 1000)
