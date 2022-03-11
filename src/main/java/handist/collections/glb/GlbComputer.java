@@ -634,8 +634,8 @@ class GlbComputer extends PlaceLocalObject {
                 // This thread set the flag to "established", it can now make the assynchronous
                 // call that actually establishes the lifeline on the remote host
 
-                // asyncAt(pair.getKey(), () -> {
-                uncountedAsyncAt(pair.getKey(), () -> {
+                asyncAt(pair.getKey(), () -> {
+//                uncountedAsyncAt(pair.getKey(), () -> {
                     try {
                         if (TRACE) {
                             System.err.println(token.place + " established lifeline on " + here() + " for collection "
@@ -740,7 +740,7 @@ class GlbComputer extends PlaceLocalObject {
         // if it was not already created. A mapping is actually created if the operation
         // given as parameter operates on a distributed collection which has not
         // previously had any operations run on it.
-        lifelineEstablished.computeIfAbsent(op.collection, col -> {
+        final Map<Place, AtomicInteger> colLifelines = lifelineEstablished.computeIfAbsent(op.collection, col -> {
             final ConcurrentHashMap<Place, AtomicInteger> map = new ConcurrentHashMap<>();
             Lifeline l;
             try {
@@ -760,6 +760,21 @@ class GlbComputer extends PlaceLocalObject {
             }
             return map;
         });
+
+        // Reset the atomic flags to 0 for all the lifelines (in case it was previously
+        // initialized and not created in the previous call)
+        colLifelines.forEach((place, lifelineStatus) -> lifelineStatus.set(0));
+
+        // Synchronize with the other hosts before launching work / establishing new
+        // lifelines
+        // FIXME 11th March 2022 This barrier call may connect with other operations
+        // being concurrently launched.
+        // A fix would be to only allow one operation at a time to clear its lifelines,
+        // with every host clearing the lifelines of the same collection at the same
+        // time.
+        // Another fix would be to use a collection-operation specific id to
+        // synchronize across hosts
+        op.collection.placeGroup().barrier();
 
         boolean localWorkCreated;
         synchronized (this) {
