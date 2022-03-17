@@ -24,9 +24,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import apgas.Place;
 import apgas.impl.Finish;
@@ -189,20 +186,21 @@ public class DistColGlbTask implements GlbTask {
                 // place it the appropriate collection of the parent DistColGlbTask
 
                 // This part is protected using a read/write lock against newOperation.
-                parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
+                // 2022/03/17 Removed as this case should not present itself anymore
+//                parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
                 if (!progress.isEmpty()) {
                     // There are other operations left
                     // Update the priority before placing it back into the availableAssignments
                     // collection
                     updatePriority();
-                    parent.assignedAssignments.remove(this);
                     parent.availableAssignments.add(this);
                 } else {
                     // No other operations left
-                    parent.assignedAssignments.remove(this);
-                    parent.completedAssignments.add(this);
+                    // 2022/03/17 we discard completed assignments
+//                    parent.completedAssignments.add(this);
                 }
-                parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
+                // 2022/03/17 Removed as this case should not present itself anymore
+//                parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
             }
             return !operationCompletedForThisAssignment;
         }
@@ -228,7 +226,8 @@ public class DistColGlbTask implements GlbTask {
          */
         @Override
         public void splitIntoGlbTask() {
-            parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
+            // 2022/03/17 this case should not present itself anymore
+//            parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
             // First determine the splitting point
             long minimumProgress = Long.MAX_VALUE;
             for (final Progress operationProgress : progress.values()) {
@@ -258,7 +257,7 @@ public class DistColGlbTask implements GlbTask {
 
                     // There is an extra Assignment with work on this operation
                     // We increment the assignmentsLeftToProcess counter
-                    parent.assignmentsLeftToProcess.get(op).incrementAndGet();
+                    parent.assignmentsLeftToProcess.incrementAndGet();
                 } else {
                     // The current progress is out of range for "thisRange", we remove the tracker
                     // as if it had completed for this assignment (in effect, this has the same
@@ -287,10 +286,11 @@ public class DistColGlbTask implements GlbTask {
             // the underlying collection.
             // NOTE: The counter for the total number of assignments needs to be incremented
             // BEFORE the assignment is placed in the "available" queue.
-            parent.totalAssignments.incrementAndGet();
+//            parent.totalAssignments.incrementAndGet();
             parent.availableAssignments.add(split);
 
-            parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
+            // 2022/03/17 this case should not present itself anymore
+//            parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
         }
 
         @Override
@@ -350,11 +350,6 @@ public class DistColGlbTask implements GlbTask {
     private static final int MAX_NUMBER_STOLEN_ASSIGNMENTS = 10;
 
     /**
-     * Contains the list of all the assignments that are being processed by a worker
-     */
-    ConcurrentLinkedQueue<DistColAssignment> assignedAssignments;
-
-    /**
      * Map which associates the number of assignments left to process to each
      * operation in progress.
      * <p>
@@ -365,8 +360,7 @@ public class DistColGlbTask implements GlbTask {
      * the stealing process by releasing the operation thread which is currently
      * blocking on a {@link OperationBlocker}.
      */
-    @SuppressWarnings("rawtypes")
-    Map<GlbOperation, AtomicInteger> assignmentsLeftToProcess;
+    AtomicInteger assignmentsLeftToProcess;
 
     /** Contains the list of all the assignments that are available to workers */
     ConcurrentLinkedQueue<DistColAssignment> availableAssignments;
@@ -377,7 +371,7 @@ public class DistColGlbTask implements GlbTask {
      * The assignments in this collection have all of the current operations
      * completed.
      */
-    ConcurrentLinkedQueue<DistColAssignment> completedAssignments;
+//    ConcurrentLinkedQueue<DistColAssignment> completedAssignments;
 
     /**
      * This lock is used to maintain consistency of the total assignment counter and
@@ -390,12 +384,14 @@ public class DistColGlbTask implements GlbTask {
      * modifications to several members of this class need to be made atomically to
      * preserve consistency.
      */
-    transient final ReadWriteLock lockForWorkAssignmentSplittingAndNewOperation;
+    // 2022/03/17 removed as we should not be able to start new operations on a
+    // collection with ongoing computation
+    // transient final ReadWriteLock lockForWorkAssignmentSplittingAndNewOperation;
 
     /**
      * Total number of assignments located on this place
      */
-    AtomicInteger totalAssignments;
+//    AtomicInteger totalAssignments;
 
     /**
      * Underlying collection on which the assignments operate
@@ -413,20 +409,11 @@ public class DistColGlbTask implements GlbTask {
     DistColGlbTask(DistChunkedList localHandle) {
         collection = localHandle;
         availableAssignments = new ConcurrentLinkedQueue<>();
-        assignedAssignments = new ConcurrentLinkedQueue<>();
-        completedAssignments = new ConcurrentLinkedQueue<>();
-        assignmentsLeftToProcess = new HashMap<>();
-        lockForWorkAssignmentSplittingAndNewOperation = new ReentrantReadWriteLock();
+        assignmentsLeftToProcess = new AtomicInteger(0);
+//        lockForWorkAssignmentSplittingAndNewOperation = new ReentrantReadWriteLock();
 
         // Initialize assignments with each LongRange of the local handle
-        final Collection<LongRange> ranges = localHandle.getAllRanges();
-        totalAssignments = new AtomicInteger(ranges.size());
-        ranges.forEach((l) -> {
-            final LongRange lr = l;
-            final LongRange copyForAssignment = new LongRange(lr.from, lr.to);
-            final DistColAssignment a = new DistColAssignment(copyForAssignment, this);
-            availableAssignments.add(a);
-        });
+//        totalAssignments = new AtomicInteger(ranges.size());
     }
 
     @SuppressWarnings("rawtypes")
@@ -435,7 +422,9 @@ public class DistColGlbTask implements GlbTask {
         final Place thief = token.place;
 
         // START OF THE R/W LOCK PROTECTION
-        lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
+        // 2022/03/17 this is removed since we no longer need this kind of protection
+//        lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
+
         // Obtain some Assignments from the work reserve
         // TODO we may need a better way to decide how much work a thief should be able
         // to take.
@@ -445,9 +434,10 @@ public class DistColGlbTask implements GlbTask {
             stolen.add(a);
         }
         // Decrement the total number of assignments contained locally
-        totalAssignments.getAndAdd(-stolen.size());
+//        totalAssignments.getAndAdd(-stolen.size());
         // END OF THE R/W LOCK PROTECTION
-        lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
+        // 2022/03/17 this is removed since we no longer need this kind of protection
+//        lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
 
         if (stolen.isEmpty()) {
             // If no assignment could be taken, there is nothing more to do and the method
@@ -544,8 +534,7 @@ public class DistColGlbTask implements GlbTask {
             final GlbOperation operation = entry.getKey();
             final Integer removedAssignments = entry.getValue();
 
-            final AtomicInteger remainder = assignmentsLeftToProcess.get(operation);
-            if (remainder.addAndGet(-removedAssignments) == 0) { // Decrements the counter
+            if (assignmentsLeftToProcess.addAndGet(-removedAssignments) == 0) { // Decrements the counter
                 // All assignments for this operation have completed locally
                 GlbComputer.getComputer().signalLocalOperationCompletion(operation);
             }
@@ -556,13 +545,7 @@ public class DistColGlbTask implements GlbTask {
 
     @Override
     public Assignment assignWorkToWorker() {
-        lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
-        final DistColAssignment a = availableAssignments.poll();
-        if (a != null) {
-            assignedAssignments.add(a);
-        }
-        lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
-        return a;
+        return availableAssignments.poll();
     }
 
     /**
@@ -582,19 +565,24 @@ public class DistColGlbTask implements GlbTask {
         // As the first part and before placing assignments into the queues, we
         // increment the counters for the number of assignments left to process for each
         // operation. This can be done without any particular protections.
-        for (final Map.Entry<GlbOperation, Integer> entry : quantities.entrySet()) {
-            final AtomicInteger i = assignmentsLeftToProcess.get(entry.getKey());
-            assertNotNull(i);
-            i.addAndGet(entry.getValue());
-        }
+
+//        for (final Map.Entry<GlbOperation, Integer> entry : quantities.entrySet()) {
+//            final AtomicInteger i = assignmentsLeftToProcess.get(entry.getKey());
+//            assertNotNull(i);
+//            i.addAndGet(entry.getValue());
+//        }
+        // 2022/03/17 Since we now only allow one operation at a time, the unique
+        // assignmentsLeftToProcess counter needs to be incremented
+        assignmentsLeftToProcess.addAndGet(assignments.size());
 
         // We need to increment the counter for the number of assignments contained
         // locally, as well as placing all the assignment in the "availableAssignments"
         // queue. This needs to be done under STRONG protection: we use the writeLock
-        lockForWorkAssignmentSplittingAndNewOperation.writeLock().lock();
+        // 2022/03/17 this is removed since we no longer need this kind of protection
+//        lockForWorkAssignmentSplittingAndNewOperation.writeLock().lock();
 
-        totalAssignments.addAndGet(assignments.size()); // Increment counter for the total number of assignments handled
-                                                        // by this instance
+//        totalAssignments.addAndGet(assignments.size()); // Increment counter for the total number of assignments handled
+        // by this instance
 
         // All all assignments to the "availableAssignments" collection
         for (final Assignment a : assignments) {
@@ -609,7 +597,8 @@ public class DistColGlbTask implements GlbTask {
                 Long.toString(System.nanoTime()));
 
         // The critical step has ended, we release the writeLock
-        lockForWorkAssignmentSplittingAndNewOperation.writeLock().unlock();
+        // 2022/03/17 this is removed since we no longer need this kind of protection
+//        lockForWorkAssignmentSplittingAndNewOperation.writeLock().unlock();
     }
 
     /**
@@ -631,45 +620,54 @@ public class DistColGlbTask implements GlbTask {
      */
     @Override
     public boolean newOperation(@SuppressWarnings("rawtypes") GlbOperation op) {
-        lockForWorkAssignmentSplittingAndNewOperation.writeLock().lock();
+        // 2022/03/17 this is removed since we no longer need this kind of protection
+//        lockForWorkAssignmentSplittingAndNewOperation.writeLock().lock();
 
         // We allocate an extra counter for completed assignments
         // This counter is used in #operationTerminatedOnAssignment(GlbOperation)
         // to check if all assignments of the DistColGlbTask have been performed
-        assignmentsLeftToProcess.put(op, new AtomicInteger(totalAssignments.get()));
+        // 2022/03/17 A single counter is used now
+//        assignmentsLeftToProcess.put(op, new AtomicInteger(totalAssignments.get()));
+        assertEquals(0, assignmentsLeftToProcess.get());
+        assertTrue(availableAssignments.isEmpty());
+        assignmentsLeftToProcess.set(collection.ranges().size());
 
-        final int expected = totalAssignments.get();
-        int prepared = 0;
+        // Create new assignments
+        final Collection<LongRange> ranges = collection.getAllRanges();
+        ranges.forEach((lr) -> {
+            final DistColAssignment a = new DistColAssignment(lr, this);
+            availableAssignments.add(a);
+        });
+
+//        final int expected = totalAssignments.get();
+//        int prepared = 0;
         // Add a progress tracker for each assignment contained locally
         boolean toReturn = false;
-        for (final DistColAssignment a : availableAssignments) {
+        for (final DistColAssignment a : availableAssignments) { // FIXME merge with creation loop just above
             a.progress.put(op, new Progress(a.range.from));
             a.updatePriority();
             toReturn = true;
-            prepared++;
         }
-
-        for (final DistColAssignment a : assignedAssignments) {
-            a.progress.put(op, new Progress(a.range.from));
-            a.updatePriority();
-            toReturn = true;
-            prepared++;
-        }
-
-        for (final DistColAssignment a : completedAssignments) {
-            a.progress.put(op, new Progress(a.range.from));
-            a.updatePriority();
-            toReturn = true;
-            prepared++;
-        }
-        assertEquals(expected, prepared); // The number of assignments prepared should be the same as the number of
-                                          // assignments known to be held by this instance
+//        for (final DistColAssignment a : assignedAssignments) {
+//            a.progress.put(op, new Progress(a.range.from));
+//            a.updatePriority();
+//            toReturn = true;
+//            prepared++;
+//        }
+//        for (final DistColAssignment a : completedAssignments) {
+//            a.progress.put(op, new Progress(a.range.from));
+//            a.updatePriority();
+//            toReturn = true;
+//            prepared++;
+//        }
+//        assertEquals(expected, prepared); // The number of assignments prepared should be the same as the number of
+        // assignments known to be held by this instance
 
         // The formerly completed assignments now have work in them
-        availableAssignments.addAll(completedAssignments);
-        completedAssignments.clear();
-
-        lockForWorkAssignmentSplittingAndNewOperation.writeLock().unlock();
+//        availableAssignments.addAll(completedAssignments);
+//        completedAssignments.clear();
+        // 2022/03/17 this is removed since we no longer need this kind of protection
+//        lockForWorkAssignmentSplittingAndNewOperation.writeLock().unlock();
 
         return toReturn;
     }
@@ -682,7 +680,9 @@ public class DistColGlbTask implements GlbTask {
      * @param op operation on which an assignment has completed
      */
     void operationTerminatedOnAssignment(@SuppressWarnings("rawtypes") GlbOperation op) {
-        final AtomicInteger ai = assignmentsLeftToProcess.get(op);
+        // 2022/03/17 Now a single counter involved
+//        final AtomicInteger ai = assignmentsLeftToProcess.get(op);
+        final AtomicInteger ai = assignmentsLeftToProcess;
         final int completedAssignments = ai.decrementAndGet();
 
         if (completedAssignments == 0) {
