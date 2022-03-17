@@ -365,19 +365,6 @@ class GlbComputer extends PlaceLocalObject {
      * @return GlbComputer local handle
      */
     static GlbComputer getComputer() {
-//        if (computer == null) {
-//            final DistLog log = new DistLog();
-//            computer = PlaceLocalObject.make(TeamedPlaceGroup.getWorld().places(), () -> {
-//                final GlbComputer c = new GlbComputer(log);
-//                // Assign the static member of class GlbComputer here
-//                // Doing so here avoids the need for a second finish/asyncAt block
-//                GlbComputer.computer = c;
-//                if (TRACE) {
-//                    System.err.println("GlbComputer on " + here() + " is " + c);
-//                }
-//                return c;
-//            });
-//        }
         assertNotNull(computer);
         return computer;
     }
@@ -650,7 +637,6 @@ class GlbComputer extends PlaceLocalObject {
                 // call that actually establishes the lifeline on the remote host
 
                 asyncAt(pair.getKey(), () -> {
-//                uncountedAsyncAt(pair.getKey(), () -> {
                     try {
                         if (TRACE) {
                             System.err.println(token.place + " established lifeline on " + here() + " for collection "
@@ -691,26 +677,25 @@ class GlbComputer extends PlaceLocalObject {
         final boolean resetLifeline = state.compareAndSet(LIFELINE_ESTABLISHED, LIFELINE_NOT_ESTABLISHED);
         assertTrue(resetLifeline); // Check that the previous operation worked properly
 
-        // Verification that the operations contained by the lifeline answer has been
-        // initialized on this host.
-        /*
-         * Sometimes a lifeline answer will bring assignments that have the progress
-         * tracking mechanisms for a newly avaialble operation whose #newOperation call
-         * was made on the remote host but it has not been done yet on this host. In
-         * this case, this preparation needs to be done before merging any assignments
-         * coming from the lifeline answer
-         */
         final GlbTask glbTask = reserve.allTasks.get(token.collection);
-        synchronized (this) {
-            for (@SuppressWarnings("rawtypes")
-            final GlbOperation op : numbers.keySet()) {
-                if (null == finishes.get(op)) {
-                    // this lifeline answer is the first activity that brings this new operation to
-                    // the place.
-                    prepareForNewOperation(op, finish.get(op));
-                }
-            }
-        }
+
+        // Verification that the operations contained by the lifeline answer has been
+        // initialized on this host
+        // This check is no longer needed as this situation should no longer occur
+        // 2022/03/17
+//        synchronized (this) {
+//            for (@SuppressWarnings("rawtypes")
+//            final GlbOperation op : numbers.keySet()) {
+//                if (null == finishes.get(op)) {
+//                    // this lifeline answer is the first activity that brings this new operation to
+//                    // the place.
+//                    System.out.println(
+//                            "Problem in GlbComputer: lifeline answer was the first to bring the information about a new operation");
+//                    Thread.dumpStack();
+//                    prepareForNewOperation(op, finish.get(op));
+//                }
+//            }
+//        }
 
         // Merge the assignments
         glbTask.mergeAssignments(numbers, stolen);
@@ -1042,18 +1027,7 @@ class GlbComputer extends PlaceLocalObject {
                 if ((a = reserve.getAssignment(worker)) == null) {
                     // The reserve returned null, this worker will stop
 
-                    // FIXME potential problem here where the attempt at taking work from the
-                    // reserve and placing the worker info back into the idleWorker collection
-                    // should be done atomically to protect against concurrent #lifleineAnswer made.
-                    // In the current state it is possible (though unlikely) for work to be merged
-                    // after workers have failed to take some the operationActivity which attempts
-                    // to spawn a worker to make this attempt BEFORE worker's info was placed back
-                    // into the collection.
                     workerYieldLock.unblock(); // As this worker quits, any waiting worker can resume
-//                    if (TRACE) {
-//                        System.err.println(here() + " worker(" + worker.id + ") stopped --- " + idleWorkers.size()
-//                                + " stopped workers");
-//                    }
                     logger.put(LOGKEY_WORKER, LOG_WORKER_STOPPED, Long.toString(System.nanoTime()));
                     return;
                 } else {
