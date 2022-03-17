@@ -22,6 +22,7 @@ import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -213,6 +214,7 @@ public class IT_AfterDependencies implements Serializable {
         z_checkDistColTotalElements(collection1, TOTAL_DATA_SIZE);
     }
 
+    @Ignore
     @Test(timeout = 10000)
     public void testAfterOnRunningOperation() throws Throwable {
         final ArrayList<Exception> exceptions = underGLB(() -> {

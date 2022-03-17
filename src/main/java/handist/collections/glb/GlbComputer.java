@@ -449,6 +449,7 @@ class GlbComputer extends PlaceLocalObject {
      * workers to determine if the lifeline tokens present in
      * {@link #lifelineThieves} are relevant or not.
      */
+    @SuppressWarnings("rawtypes")
     final ConcurrentHashMap<DistributedCollection, Long> currentOperation;
 
     /**

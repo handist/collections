@@ -21,6 +21,7 @@ import java.util.ArrayList;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -561,6 +562,7 @@ public class IT_GLB_DistChunkedList implements Serializable {
         otherCol.destroy();
     }
 
+    @Ignore
     @Test(timeout = 15000)
     public void testTwoForEachAfterOneAnother() throws Throwable {
         try {
