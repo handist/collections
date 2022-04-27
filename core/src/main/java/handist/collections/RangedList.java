@@ -78,6 +78,10 @@ public abstract class RangedList<T> implements Iterable<T> {
      */
     public abstract RangedList<T> cloneRange(LongRange range);
 
+    public RangedProduct<T, T> combination() {
+        return RangedProduct.newProdTri(this, this);
+    }
+
     /**
      * Indicates if this list contains the provided object. More formally if the
      * list contains at least one object {@code a} such that
@@ -323,6 +327,10 @@ public abstract class RangedList<T> implements Iterable<T> {
         target.rangeCheck(range);
         result.setupFrom(range, this, target, func);
         return result;
+    }
+
+    public <T2> RangedProduct<T, T2> product(RangedList<T2> list) {
+        return RangedProduct.newProd(this, list);
     }
 
     /**

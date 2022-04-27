@@ -43,6 +43,7 @@ import handist.collections.reducer.DoubleReducer;
 import handist.collections.reducer.FloatReducer;
 import handist.collections.reducer.IntReducer;
 import handist.collections.reducer.LongReducer;
+import handist.collections.reducer.Reducible;
 import handist.collections.reducer.Reducer;
 import handist.collections.reducer.ShortReducer;
 
@@ -57,7 +58,7 @@ import handist.collections.reducer.ShortReducer;
  *            {@link ChunkedList} contains, and by extension, the type of
  *            elements handled by the {@link ChunkedList}
  */
-public class ChunkedList<T> implements Iterable<T>, Serializable {
+public class ChunkedList<T> implements Iterable<T>, Serializable, Reducible<T> {
 
     /**
      * Iterator class for {@link ChunkedList}. Iterates on two levels between the
@@ -437,41 +438,6 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
         @Override
         public Collection<LongRange> ranges() {
             return base.ranges();
-        }
-
-        @Override
-        public boolean reduce(BoolReducer.Op op, Function<S, Boolean> extractFunc) {
-            return base.reduce(op, extractFunc);
-        }
-
-        @Override
-        public double reduce(DoubleReducer.Op op, Function<S, Double> extractFunc) {
-            return base.reduce(op, extractFunc);
-        }
-
-        @Override
-        public float reduce(FloatReducer.Op op, Function<S, Float> extractFunc) {
-            return base.reduce(op, extractFunc);
-        }
-
-        @Override
-        public int reduce(IntReducer.Op op, Function<S, Integer> extractFunc) {
-            return base.reduce(op, extractFunc);
-        }
-
-        @Override
-        public long reduce(LongReducer.Op op, Function<S, Long> extractFunc) {
-            return base.reduce(op, extractFunc);
-        }
-
-        @Override
-        public <R extends Reducer<R, S>> R reduce(R reducer) {
-            return base.reduce(reducer);
-        }
-
-        @Override
-        public short reduce(ShortReducer.Op op, Function<S, Short> extractFunc) {
-            return base.reduce(op, extractFunc);
         }
 
         @Override
@@ -2157,107 +2123,6 @@ public class ChunkedList<T> implements Iterable<T>, Serializable {
      */
     public Collection<LongRange> ranges() {
         return chunks.keySet();
-    }
-
-    /**
-     * Sequentially reduces all the elements contained in this {@link ChunkedList},
-     * using an operation provided by default
-     *
-     * @param op          specifies the type of reduction operation
-     * @param extractFunc defines the value to be reduced
-     * @return the value after the reduction has completed
-     */
-    public boolean reduce(BoolReducer.Op op, Function<T, Boolean> extractFunc) {
-        final BoolReducer reducer = new BoolReducer(op);
-        forEach((t) -> {
-            if (reducer.reduce(extractFunc.apply(t))) { // the result is determined in the middle.
-                return;
-            }
-        });
-        return reducer.value();
-    }
-
-    /**
-     * Sequentially reduces all the elements contained in this {@link ChunkedList},
-     * using an operation provided by default
-     *
-     * @param op          specifies the type of reduction operation
-     * @param extractFunc defines the value to be reduced
-     * @return the value after the reduction has completed
-     */
-    public double reduce(DoubleReducer.Op op, Function<T, Double> extractFunc) {
-        final DoubleReducer reducer = new DoubleReducer(op);
-        forEach(t -> reducer.reduce(extractFunc.apply(t)));
-        return reducer.value();
-    }
-
-    /**
-     * Sequentially reduces all the elements contained in this {@link ChunkedList},
-     * using an operation provided by default
-     *
-     * @param op          specifies the type of reduction operation
-     * @param extractFunc defines the value to be reduced
-     * @return the value after the reduction has completed
-     */
-    public float reduce(FloatReducer.Op op, Function<T, Float> extractFunc) {
-        final FloatReducer reducer = new FloatReducer(op);
-        forEach(t -> reducer.reduce(extractFunc.apply(t)));
-        return reducer.value();
-    }
-
-    /**
-     * Sequentially reduces all the elements contained in this {@link ChunkedList},
-     * using an operation provided by default
-     *
-     * @param op          specifies the type of reduction operation
-     * @param extractFunc defines the value to be reduced
-     * @return the value after the reduction has completed
-     */
-    public int reduce(IntReducer.Op op, Function<T, Integer> extractFunc) {
-        final IntReducer reducer = new IntReducer(op);
-        forEach(t -> reducer.reduce(extractFunc.apply(t)));
-        return reducer.value();
-    }
-
-    /**
-     * Sequentially reduces all the elements contained in this {@link ChunkedList},
-     * using an operation provided by default
-     *
-     * @param op          specifies the type of reduction operation
-     * @param extractFunc defines the value to be reduced
-     * @return the value after the reduction has completed
-     */
-    public long reduce(LongReducer.Op op, Function<T, Long> extractFunc) {
-        final LongReducer reducer = new LongReducer(op);
-        forEach(t -> reducer.reduce(extractFunc.apply(t)));
-        return reducer.value();
-    }
-
-    /**
-     * Sequentially reduces all the elements contained in this {@link ChunkedList}
-     * using the reducer provided as parameter
-     *
-     * @param <R>     type of the reducer
-     * @param reducer reducer to be used to reduce this parameter
-     * @return the reducer provided as parameter after the reduction has completed
-     */
-    public <R extends Reducer<R, T>> R reduce(R reducer) {
-        forEach(t -> reducer.reduce(t));
-        return reducer;
-    }
-
-    /**
-     * Sequentially reduces all the elements contained in this {@link ChunkedList},
-     * using an operation provided by default
-     *
-     * @param op          specifies the type of reduction operation
-     * @param extractFunc defines the value to be reduced
-     * @return the value after the reduction has completed
-     */
-    public short reduce(ShortReducer.Op op, Function<T, Short> extractFunc) {
-        final ShortReducer reducer = new ShortReducer(op);
-        forEach(t -> reducer.reduce(extractFunc.apply(t)));
-        return reducer.value();
     }
 
     /**

@@ -13,8 +13,6 @@ package handist.collections;
 import static apgas.Constructs.*;
 import static org.junit.Assert.*;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.Test;
@@ -34,7 +32,7 @@ public class TestProduct {
     @Test
     public void test0() {
         final Chunk<Element> chunk = new Chunk<>(new LongRange(10, 20), (Long index) -> new Element(index));
-        final SimpleRangedListProduct<Element, Element> pro = new SimpleRangedListProduct<>(chunk, chunk);
+        final SimpleRangedProduct<Element, Element> pro = new SimpleRangedProduct<>(chunk, chunk);
 
         pro.forEach((Pair<Element, Element> pair) -> {
             pair.second.sum.addAndGet(pair.first.index);
@@ -63,13 +61,11 @@ public class TestProduct {
             e.sum.set(0);
         });
 
-        final List<RangedListProduct<Element, Element>> split = pro.split(2, 2);
-        split.forEach((sub) -> {
+        final RangedProductList<Element, Element> split = pro.split(2, 2);
+        split.forEach((Pair<Element, Element> pair) -> {
 //            System.out.println("Range" + sub.getRange());
-            sub.forEach((Pair<Element, Element> pair) -> {
-                pair.second.sum.addAndGet(pair.first.index);
-                pair.first.sum.addAndGet(pair.second.index);
-            });
+            pair.second.sum.addAndGet(pair.first.index);
+            pair.first.sum.addAndGet(pair.second.index);
         });
 
         chunk.forEach((long index, Element e) -> {
@@ -77,7 +73,7 @@ public class TestProduct {
             e.sum.set(0);
         });
 
-        final SimpleRangedListProduct<Element, Element> proH = new SimpleRangedListProduct<>(chunk, chunk, true);
+        final SimpleRangedProduct<Element, Element> proH = new SimpleRangedProduct<>(chunk, chunk, true);
         proH.forEach((Pair<Element, Element> pair) -> {
             pair.second.sum.addAndGet(pair.first.index);
             pair.first.sum.addAndGet(pair.second.index);
@@ -87,36 +83,32 @@ public class TestProduct {
             assertEquals(result3 - index, e.sum.get());
             e.sum.set(0);
         });
-        final Collection<RangedListProduct<Element, Element>> split3 = proH.split(3, 3);
-        for (final RangedListProduct<Element, Element> pro3 : split3) {
-            pro3.forEach((Pair<Element, Element> pair) -> {
-                pair.second.sum.addAndGet(pair.first.index);
-                pair.first.sum.addAndGet(pair.second.index);
-            });
-        }
+        final RangedProductList<Element, Element> split3 = proH.split(3, 3);
+        split3.forEach((Pair<Element, Element> pair) -> {
+            pair.second.sum.addAndGet(pair.first.index);
+            pair.first.sum.addAndGet(pair.second.index);
+        });
+
         chunk.forEach((long index, Element e) -> {
             assertEquals(result3 - index, e.sum.get());
             e.sum.set(0);
         });
-        final Collection<RangedListProduct<Element, Element>> split4 = proH.split(3, 5);
-        for (final RangedListProduct<Element, Element> pro4 : split4) {
-            pro4.forEach((Pair<Element, Element> pair) -> {
-                pair.second.sum.addAndGet(pair.first.index);
-                pair.first.sum.addAndGet(pair.second.index);
-            });
-        }
+        final RangedProductList<Element, Element> split4 = proH.split(3, 5);
+        split4.forEach((Pair<Element, Element> pair) -> {
+            pair.second.sum.addAndGet(pair.first.index);
+            pair.first.sum.addAndGet(pair.second.index);
+        });
+
         chunk.forEach((long index, Element e) -> {
             assertEquals(result3 - index, e.sum.get());
             e.sum.set(0);
         });
-        final List<List<RangedListProduct<Element, Element>>> ss = proH.splitN(3, 7, 4, true);
+        final RangedProductList<Element, Element> ss = proH.split(3, 7);
         finish(() -> {
-            ss.forEach((ones) -> {
-                ones.forEach((one) -> {
-                    one.forEach((pair) -> {
-                        pair.second.sum.addAndGet(pair.first.index);
-                        pair.first.sum.addAndGet(pair.second.index);
-                    });
+            ss.parallelForEachProd(4, (prod) -> {
+                prod.forEach((pair) -> {
+                    pair.second.sum.addAndGet(pair.first.index);
+                    pair.first.sum.addAndGet(pair.second.index);
                 });
             });
         });
