@@ -13,7 +13,6 @@ package handist.collections;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentSkipListMap;
 
 import handist.collections.function.SquareIndexConsumer;
 
@@ -59,7 +58,6 @@ public class SquareRange implements Serializable {
     /** the range of the second dimension */
     public final LongRange inner;
 
-    // TODO more variations...
     /**
      * the shape formed by inner and outer becomes uppertriangle
      */
@@ -79,6 +77,7 @@ public class SquareRange implements Serializable {
         this.outer = outer;
         this.inner = inner;
         this.isUpperTriangle = false;
+        this.triangleDiff = 0l;
     }
 
     /**
@@ -96,7 +95,7 @@ public class SquareRange implements Serializable {
         this.outer = outer;
         this.inner = inner;
         this.isUpperTriangle = isUpperTriangle;
-        this.triangleDiff = inner.from - outer.from;
+        this.triangleDiff = 0l;
     }
 
     /**
@@ -107,11 +106,11 @@ public class SquareRange implements Serializable {
      * @param isUpperTriangle iif true, the shape formed by inner and outer becomes
      *                        uppertriangle. the same index value of inner and outer
      *                        is not included.
-     * @param tri             aa
+     * @param tri             move the upper triangle down by tri.
      * @throws IllegalArgumentException if the range of the first or the second
      *                                  dimension is null
      */
-    private SquareRange(LongRange outer, LongRange inner, boolean isUpperTriangle, long tri) {
+    public SquareRange(LongRange outer, LongRange inner, boolean isUpperTriangle, long tri) {
         this.outer = outer;
         this.inner = inner;
         this.isUpperTriangle = isUpperTriangle;
@@ -137,7 +136,7 @@ public class SquareRange implements Serializable {
      *         {@link SquareRange}, {@code false} otherwise
      */
     public boolean contains(long outer0, long inner0) {
-        return outer.contains(outer0) && columnRange(outer0).contains(inner0);
+        return rowRange(inner0).contains(outer0) && columnRange(outer0).contains(inner0);
     }
 
     /**
@@ -152,10 +151,15 @@ public class SquareRange implements Serializable {
      *         this instance.
      */
     public boolean contains(SquareRange range) {
-        if (range.isUpperTriangle || this.isUpperTriangle) {
-            throw new UnsupportedOperationException("not implemented yet");
+        final long minRow = range.outer.from;
+        final long maxRow = range.endRow(range.inner.to - 1) - 1; // care upper triangle
+        final long minColumn = range.inner.from;
+        final long maxColumn = range.inner.to - 1;
+        if (range.isUpperTriangle) {
+            return contains(minRow, minColumn) && contains(maxRow, maxColumn);
+        } else {
+            return contains(maxRow, minColumn) && contains(minRow, maxColumn);
         }
-        return outer.contains(range.outer) && inner.contains(range.inner);
     }
 
     /**
@@ -201,74 +205,23 @@ public class SquareRange implements Serializable {
      *                                   within this range
      */
     public void containsColumnCheck(long column) {
-        if (this.isUpperTriangle) {
-            throw new UnsupportedOperationException("not implemented yet");
-        }
         final boolean result = inner.contains(column);
         if (!result) {
             throw new IndexOutOfBoundsException("ContainsColumnCheck: " + this + " does not contains column " + column);
         }
     }
 
-//    /**
-//     * TK: needless??
-//     * Compares the provided instance to this instance and returns an integer
-//     * indicating if the provided instance is less than, equal to, or greater than
-//     * this instance.
-//     * <p>
-//     * The implementation relies on ordering the lower bounds first before using the
-//     * ordering of the upper bounds. The implemented ordering of {@link SquareRange}
-//     * is consistent with equals. To illustrate the ordering, consider the following
-//     * examples:
-//     * <ul>
-//     * <li>[0,0) &lt; [0,100) &lt; [1,1) &lt; [1,20) &lt; [1,21)
-//     * <li>[0,0) == [0,0)
-//     * <li>[0,10) == [0,10)
-//     * </ul>
-//     * <p>
-//     *
-//     * @param r the object to be compared
-//     * @return a negative integer, zero, or a positive integer as this object is
-//     *         less than, equal to, or greater than the specified object
-//     * @throws NullPointerException if the instance given as parameter is null
-//     */
-//    @Override
-//    public int compareTo(SquareRange r) {
-//        if (to <= r.from && from != to ) {
-//          return -1;
-//        } else if (r.to <= from && from != to) {
-//          return 1;
-//        }
-//        // The LongRange instances overlap,
-//        // We order them based on "from" first and "to" second
-//        final int fromComparison = Long.compare(from, r.from);
-//        return (fromComparison == 0) ? Long.compare(to, r.to) : fromComparison;
-//    }
-
-//    /**
-//     * Checks if all the indices in this range are included in one of the keys
-//     * contained by the provided {@code ConcurrentSkipListMap}.
-//     *
-//     * @param rmap the ConcurrentSkipListMap instance to check
-//     * @return a LongRange key of the provided ConcurrentSkipListMap instance that
-//     *         intersects this instance, or {@code null} if there are so such key.
-//     */
-//    public boolean contained(ConcurrentSkipListMap<SquareRange, ?> rmap) {
-//        throws new UnsupportedOperationException("not implmented yet");
-//    }
-
     /**
-     * <<<<<<< HEAD Checks if the specified row is present in this square range
      *
      * @param row the index of the row to check
      * @throws IndexOutOfBoundsException if the specified row is not contained
      *                                   within this square range
      */
     public void containsRowCheck(long row) {
-        if (this.isUpperTriangle) {
-            throw new UnsupportedOperationException("not implemented yet");
+        boolean result = outer.contains(row);
+        if (result && isUpperTriangle && startColumn(row) == endColumn(row)) {
+            result = false;
         }
-        final boolean result = outer.contains(row);
         if (!result) {
             throw new IndexOutOfBoundsException("ContainsRowCheck: " + this + " does not contains row " + row);
         }
@@ -294,7 +247,13 @@ public class SquareRange implements Serializable {
      */
     public long endRow(long column) {
         if (isUpperTriangle) {
-            return Math.min(column - triangleDiff, outer.to);
+            final long row = column + triangleDiff;
+            if (row < outer.from) {
+                return outer.from;
+            } else if (row > outer.to) {
+                return outer.to;
+            }
+            return row;
         }
         return outer.to;
     }
@@ -316,36 +275,6 @@ public class SquareRange implements Serializable {
                 && isUpperTriangle == sqrange2.isUpperTriangle && triangleDiff == sqrange2.triangleDiff;
     }
 
-    // TODO
-    // I cannot find a way to convert ConcurrentSkipListMap to TreeSet (or something
-    // having
-    // floor/ceiling).
-    // (I think TreeSet used ConcurrentSkipListMap in its implementation.)
-    // prepare TreeSet version of the following methods
-    // OR
-    // prepare LongRangeSet having such facilities
-    /**
-     * Checks if this instance intersects with one of the keys contained by the
-     * provided {@code ConcurrentSkipListMap<LongRange, S> rmap}. Returns the
-     * smallest of the intersecting keys, or {@code null} if there are no such
-     * intersecting key.
-     *
-     * @param rmap the ConcurrentSkipListMap instance to check
-     * @return a LongRange key of the provided ConcurrentSkipListMap instance that
-     *         intersects this instance, or {@code null} if there are so such key.
-     */
-    public SquareRange findOverlap(ConcurrentSkipListMap<SquareRange, ?> rmap) {
-        final SquareRange floorKey = rmap.floorKey(this);
-        if (floorKey != null && floorKey.isOverlapped(this)) {
-            return floorKey;
-        }
-        final SquareRange nextKey = rmap.higherKey(this);
-        if (nextKey != null && nextKey.isOverlapped(this)) {
-            return nextKey;
-        }
-        return null;
-    }
-
     /**
      * Calls the provided function with every {@code long} index contained in this
      * instance.
@@ -356,7 +285,7 @@ public class SquareRange implements Serializable {
      * @param func the function to apply with every index of this instance
      */
     public void forEach(SquareIndexConsumer func) {
-        outer.forEach((long i) -> {
+        rowRange(inner.to - 1).forEach((long i) -> {
             columnRange(i).forEach((long j) -> {
                 func.accept(i, j);
             });
@@ -394,11 +323,8 @@ public class SquareRange implements Serializable {
         if (!isUpper) {
             return new SquareRange(interOut, interInn, false);
         }
-        final long triDiff = isUpperTriangle
-                ? (range.isUpperTriangle ? Math.max(triangleDiff, range.triangleDiff) : triangleDiff)
-                : // TODO min will be used for lowerTriangle
-                range.triangleDiff;
-        return new SquareRange(interOut, interInn, isUpper, triDiff).normalizeTriangle();
+        final long triDiff = Math.min(this.triangleDiff, range.triangleDiff);
+        return new SquareRange(interOut, interInn, true, triDiff);
     }
 
     public SquareRange intersectionCheck(SquareRange subrange) {
@@ -434,17 +360,18 @@ public class SquareRange implements Serializable {
         if (equals(range)) {
             return true;
         }
-        return (inner.isOverlapped(range.inner) && outer.isOverlapped(range.outer));
-    }
-
-    private SquareRange normalizeTriangle() {
-        if (startColumn(outer.from) >= inner.to) {
-            return null;
+        if (!this.inner.isOverlapped(range.inner) || !this.outer.isOverlapped(range.outer)) {
+            return false;
         }
-        if (startColumn(outer.to) < inner.from) {
-            return new SquareRange(inner, outer); // normal rec
+        // if the provided range locates the lower triangle of this range
+        if (this.isUpperTriangle && this.endRow(range.inner.to - 1) <= range.startRow(range.inner.to - 1)) {
+            return false;
         }
-        return new SquareRange(rowRange(inner.to), columnRange(outer.from - 1), true, triangleDiff);
+        // if this range locates the lower triangle of provided range
+        if (range.isUpperTriangle && range.endRow(this.inner.to - 1) <= this.startRow(this.inner.to - 1)) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -465,33 +392,16 @@ public class SquareRange implements Serializable {
      * @return size of the {@link SquareRange}
      */
     public long size() {
-        // TODO : uppertriangle
-        return inner.size() * outer.size();
+        if (isUpperTriangle) {
+            if (outer.size() < inner.size()) {
+                return outer.size() * (inner.size() + (inner.size() - outer.size() + 1)) / 2;
+            } else {
+                return inner.size() * (inner.size() + 1) / 2;
+            }
+        } else {
+            return inner.size() * outer.size();
+        }
     }
-
-//    /**
-//     * Returns true if the provided {@link SquareRange} and this instance are
-//     * overlapped. This operation is symmetric, meaning that calling this method
-//     * with two instances a and b, the result produced by {@code a.isOverlapped(b)}
-//     * is the same as {@code b.isOverlapped(a)}.
-//     * <p>
-//     * Two {@link SquareRange} a and b are overlapped if they share some indices, that
-//     * is if there exist a {@code long} l such that a.contains(l) and b.contains(l)
-//     * return true.
-//     * <p>
-//     * In cases where an empty {@link SquareRange} and a non-empty {@link SquareRange}
-//     * are considered, this method returns true if the lower bound (or upper bound
-//     * as it has the same value) of the empty instance is between the lower bound
-//     * (included) and the upper bound (excluded) of the other instance.
-//     * <p>
-//     * If both considered {@link SquareRange} are empty, returns true if they have the
-//     * same bounds.
-//     *
-//     * @return a {@link LongStream} of every index contained in this instance
-//     */
-//    public LongStream stream() {
-//        return LongStream.range(from, to);
-//    }
 
     /**
      * Splits this range into a grid with the specified number of
@@ -527,52 +437,16 @@ public class SquareRange implements Serializable {
      */
     public long startColumn(long row) {
         if (isUpperTriangle) {
-            return Math.max(row + triangleDiff + 1, inner.from);
+            final long column = row + 1 - triangleDiff;
+            if (column > inner.to) {
+                return inner.to;
+            } else if (column < inner.from) {
+                return inner.from;
+            }
+            return column;
         }
         return inner.from;
     }
-
-//    /**
-//    TODO
-//     * Returns an iterator on the {@code long} indices contained in this instance
-//     *
-//     * @return a new iterator starting at {@link #from} and whose last value is the
-//     *         long preceding {@link #to}
-//     */
-//    @Override
-//    public Iterator<Long> iterator() {
-//        return new It();
-//    }
-
-//    /**
-//     * Splits the LongRange into <em>n</em> LongRange instances of equal size (or
-//     * near equal size if the size of this instance is not divisible by <em>n</em>.
-//     *
-//     * @param n the number of LongRange instance in which to split this instance
-//     * @return a list of <em>n</em> consecutive LongRange instances
-//     */
-//    public List<SquareRange> split(int n) {
-//        final ArrayList<SquareRange> result = new ArrayList<>();
-//        final long rem = size() % n;
-//        final long quo = size() / n;
-//        long c = from;
-//
-//        for (int i = 0; i < n; i++) {
-//            final long given = quo + ((i < rem) ? 1 : 0);
-//            result.add(new SquareRange(c, c + given));
-//            c += given;
-//        }
-//        return result;
-//    }
-
-//    /**
-//     * Streams every {@code long} index contained in this instance.
-//     *
-//     * @return a {@link LongStream} of every index contained in this instance
-//     */
-//    public LongStream stream() {
-//        return LongStream.range(from, to);
-//    }
 
     /**
      * Returns the index of the first row with values for the specified column
@@ -593,7 +467,7 @@ public class SquareRange implements Serializable {
      */
     @Override
     public String toString() {
-        return "[" + outer + "," + inner + "]";
+        return "[" + outer + "," + inner + "]" + (isUpperTriangle ? "triangle(" + triangleDiff + ")" : "square");
     }
 
     /**

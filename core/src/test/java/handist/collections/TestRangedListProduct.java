@@ -8,8 +8,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import handist.collections.dist.util.Pair;
-
 public class TestRangedListProduct implements Serializable {
 
     /**
@@ -49,10 +47,10 @@ public class TestRangedListProduct implements Serializable {
     private static final long serialVersionUID = -7848690131967719062L;
 
     /** product of listFirst[1,10), listSecond[2,10) */
-    private SimpleRangedListProduct<First, Second> prod;
+    private SimpleRangedProduct<First, Second> prod;
     /** triangle product of listFirst[1,10), listSecond[2,10) */
     @SuppressWarnings("unused")
-    private SimpleRangedListProduct<First, Second> triangle;
+    private SimpleRangedProduct<First, Second> triangle;
 
     /** [1,10) range list, value is "10 + index" */
     private RangedList<First> listFirst;
@@ -70,40 +68,12 @@ public class TestRangedListProduct implements Serializable {
         listSecond = new Chunk<>(rangeSecond, (index) -> {
             return new Second(20 + index);
         });
-        prod = new SimpleRangedListProduct<>(listFirst, listSecond);
-        triangle = new SimpleRangedListProduct<>(listFirst, listSecond, true);
+        prod = new SimpleRangedProduct<>(listFirst, listSecond);
+        triangle = new SimpleRangedProduct<>(listFirst, listSecond, true);
     }
 
     @After
     public void tearDown() {
-    }
-
-    @Test
-    public void testAsColumnList() {
-        final RangedList<RangedList<Pair<First, Second>>> columnList = prod.asColumnList();
-        assertEquals(rangeSecond, columnList.getRange());
-
-        columnList.forEach((long cIndex, RangedList<Pair<First, Second>> column) -> {
-            assertEquals(rangeFirst, column.getRange());
-            column.forEach((long rIndex, Pair<First, Second> pair) -> {
-                assertEquals(10 + rIndex, pair.first.value);
-                assertEquals(20 + cIndex, pair.second.value);
-            });
-        });
-    }
-
-    @Test
-    public void testAsRowList() {
-        final RangedList<RangedList<Pair<First, Second>>> rowList = prod.asRowList();
-        assertEquals(rangeFirst, rowList.getRange());
-
-        rowList.forEach((long rIndex, RangedList<Pair<First, Second>> row) -> {
-            assertEquals(rangeSecond, row.getRange());
-            row.forEach((long cIndex, Pair<First, Second> pair) -> {
-                assertEquals(10 + rIndex, pair.first.value);
-                assertEquals(20 + cIndex, pair.second.value);
-            });
-        });
     }
 
     @Test

@@ -1,13 +1,10 @@
 package handist.collections;
 
-import static apgas.Constructs.*;
-
-import java.util.List;
+import static org.junit.Assert.*;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import apgas.Place;
 import apgas.SerializableJob;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.mpijunit.MpiConfig;
@@ -16,7 +13,7 @@ import handist.mpijunit.launcher.TestLauncher;
 
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 2, launcher = TestLauncher.class)
-public class IT_RangedListProduct {
+public class IT_RangedProduct {
 
     final static TeamedPlaceGroup world = TeamedPlaceGroup.getWorld();
     final static int numThreads = 1;
@@ -29,22 +26,12 @@ public class IT_RangedListProduct {
             final LongRange secondRange = new LongRange(0, 200);
             final Chunk<Long> first = new Chunk<>(firstRange, l -> l);
             final Chunk<Long> second = new Chunk<>(secondRange, l -> l);
-            final RangedListProduct<Long, Long> product = RangedListProduct.newProduct(first, second);
-            final List<List<RangedListProduct<Long, Long>>> split = product.teamedSplitNM(2, 2, world, numThreads,
-                    seed);
-            for (int i = 0; i < split.size(); i++) {
-                final List<RangedListProduct<Long, Long>> list = split.get(i);
-                System.err.print("List " + i);
-                for (int j = 0; j < list.size(); j++) {
-                    System.err.print(" " + list.get(j).getRange());
-                }
-                System.err.println();
-            }
+            final RangedProduct<Long, Long> product = RangedProduct.newProd(first, second);
+            final RangedProductList<Long, Long> split = product.teamedSplit(2, 2, world, seed);
+            split.forEachProd((prod) -> {
+                assertEquals(firstRange.size() / 2, prod.getRange().outer.size());
+                assertEquals(secondRange.size() / 2, prod.getRange().inner.size());
+            });
         };
-
-        for (final Place p : places()) {
-            System.err.println("Product on " + p);
-            at(p, () -> printProduct.run());
-        }
     }
 }
