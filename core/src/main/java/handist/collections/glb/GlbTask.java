@@ -67,5 +67,5 @@ interface GlbTask extends Serializable {
      * @return true if initializing the operation resulted in any work being made
      *         available to workers, false otherwise
      */
-    boolean newOperation(@SuppressWarnings("rawtypes") GlbOperation op);
+    boolean newOperations(@SuppressWarnings("rawtypes") GlbOperation... op);
 }

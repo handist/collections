@@ -113,6 +113,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     @After
     public void tearDown() {
         col.destroy();
+        GlbComputer.destroyGlbComputer();
     }
 
     @Test(expected = IllegalStateException.class, timeout = 1000)
@@ -121,7 +122,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     }
 
     /**
-     * Checks that the {@link DistFuture#result()} method works as intended.
+     * Checks that the {@link GlbFuture#result()} method works as intended.
      *
      * @throws Throwable if thrown during the test
      */
@@ -185,7 +186,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     public void testPriority() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final DistFuture<DistChunkedList<Element>> future = col.GLB.forEach(makePrefixTest);
+                final GlbFuture<DistChunkedList<Element>> future = col.GLB.forEach(makePrefixTest);
                 assertEquals(0, future.getPriority());
                 future.setPriority(42);
                 assertEquals(42, future.getPriority());
@@ -259,7 +260,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     }
 
     /**
-     * Checks that the {@link DistFuture#waitGlobalTermination()} method correctly
+     * Checks that the {@link GlbFuture#waitGlobalTermination()} method correctly
      * triggers the computation of a single operation program. The GLB program being
      * tested here is equivalent to the one presented in
      * {@link #testSingleOperationGlbProgram()}.
@@ -333,7 +334,7 @@ public class IT_GlbProgramTest1 implements Serializable {
     public void testWaitGlobalTerminationRedundantCall() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final DistFuture<DistChunkedList<Element>> future = col.GLB.forEach(addZToPrefix);
+                final GlbFuture<DistChunkedList<Element>> future = col.GLB.forEach(addZToPrefix);
                 future.waitGlobalTermination();
                 future.waitGlobalTermination(); // This second call should not do anything
                 final DistChunkedList<Element> result = future.result(); // Result should already be available

@@ -15,16 +15,22 @@ import static org.junit.Assert.*;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.LinkedList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Queue;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import apgas.ExtendedConstructs;
+import apgas.Job;
 import apgas.MultipleException;
 import apgas.Place;
 import apgas.SerializableJob;
+import apgas.impl.Finish;
 import apgas.util.GlobalID;
 import handist.collections.dist.DistributedCollection;
 import handist.collections.function.SerializableConsumer;
@@ -103,13 +109,23 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
      * Enumerator used to describe the state of the current operation.
      *
      */
-    enum State {
+    static enum State {
         /**
          * Value used to describe an operation as "staged", i.e. the operation has been
          * submitted to the GLB but the next blocking operation inside the GLB program
          * has not been reached yet
          */
         STAGED,
+        /**
+         * Values indicating that the program inside the GlobalLoadBalancer#underGLB
+         * method has reached a method call which triggers the start of all staged
+         * computation up until that point. Additional completion dependencies cannot be
+         * imposed to operations in this stage. Depending on whether other operations on
+         * the same collection are ongoing, this operation may remain in this state for
+         * a while until running operations complete and the batch this operation
+         * belongs to is started.
+         */
+        READY,
         /**
          * Value used to describe this operation as running, i.e. either being processed
          * by workers in the GLB or waiting on some dependencies to complete to start
@@ -123,6 +139,8 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
          */
         TERMINATED
     }
+
+    static AtomicInteger idGenerator = new AtomicInteger();
 
     static int nextPriority = 0;
 
@@ -151,13 +169,13 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
                     "Attempted to add a completion dependency on an operation which may have already started");
         }
 
-        synchronized (before) {
-            if (before.state == State.TERMINATED) {
-                return; // Nothing to install as the dependency is already satisfied
-            } else {
-                synchronized (after) {
-                    after.dependencies.add(before); // protected against concurrent after#dependencySatisfied
-                }
+        if (before.state == State.TERMINATED) {
+            return; // Nothing to install as the dependency is already satisfied
+        } else {
+            final boolean newDependencyEstablished = after.dependencies.add(before);
+            // It is possible a the dependency was previously established, in which case no
+            // new hook needs to be installed
+            if (newDependencyEstablished) {
                 before.addHook(() -> after.dependencySatisfied(before));
             }
         }
@@ -193,6 +211,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
      * following values in order:
      * <ol>
      * <li>{@link #OPERATION_STAGED}
+     * <li>{@link #OPERATION_READY}
      * <li>{@link #OPERATION_RUNNING}
      * <li>{@link #OPERATION_TERMINATED}
      * </ol>
@@ -217,7 +236,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
      * this member is made empty as a result, that hook will start this instance's
      * computation.
      */
-    private final transient Queue<GlbOperation<?, ?, ?, ?, ?, ?>> dependencies;
+    private final transient Set<GlbOperation> dependencies;
 
     /**
      * List of all the errors that were thrown during this operation's execution.
@@ -232,10 +251,10 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
      * Handle provided to the programmer inside a glb program to manipulate the
      * result of this operation or setup dependencies.
      */
-    DistFuture<R> future;
+    GlbFuture<R> future;
 
     /** Jobs to do after completion */
-    private transient final List<SerializableJob> hooks;
+    transient final ArrayList<Job> hooks;
 
     /**
      * Initializer which will be called on every host if the GlbTask for the
@@ -260,6 +279,14 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
      * Class that should be used as the lifeline for a collection
      */
     final Class lifelineClass;
+
+    /**
+     * This semaphore is used by the activity which opens the {@link Finish} used to
+     * implement the termination detection of this operation.
+     *
+     * @see #openFinish()
+     */
+    transient Semaphore openingThreadCanTerminate;
 
     /**
      * Constructor for GLB operation. The distributed collection under consideration
@@ -288,7 +315,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
      *                             submitted to the GLB is kept throughout a GLB
      *                             program
      */
-    GlbOperation(C c, L op, DistFuture<R> f, SerializableSupplier<GlbTask> glbTaskInit,
+    GlbOperation(C c, L op, GlbFuture<R> f, SerializableSupplier<GlbTask> glbTaskInit,
             SerializableConsumer<WorkerService> workerInitialization, Class lifeline) {
         this(c, op, f, glbTaskInit, workerInitialization, State.STAGED, new GlobalID(), priority(), lifeline);
     }
@@ -308,7 +335,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
      *                             terminated)
      * @param gid                  global id
      */
-    private GlbOperation(C c, L op, DistFuture<R> f, SerializableSupplier<GlbTask> glbTaskInit,
+    private GlbOperation(C c, L op, GlbFuture<R> f, SerializableSupplier<GlbTask> glbTaskInit,
             SerializableConsumer<WorkerService> workerInitialization, State s, GlobalID gid, int priorityLevel,
             Class lifeline) {
         collection = c;
@@ -316,7 +343,7 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
         future = f; // We need a 2-way link between the GlbOperation and the
         future.operation = this; // DistFuture
         hooks = new ArrayList<>();
-        dependencies = new LinkedList<>();
+        dependencies = new HashSet<>();
         initializerOfGlbTask = glbTaskInit;
         workerInit = workerInitialization;
         state = s;
@@ -347,51 +374,6 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
     }
 
     /**
-     * Starts this computation and executes the various hooks once it had completed.
-     * If an exception occurs during the computation, it will be caught by this
-     * method and thrown after all the hooks for this computation are given a chance
-     * to be executed. If a hook throws an exception, it will be printed to
-     * {@link System#err} but not thrown.
-     *
-     * @throws MultipleException if an exception was thrown as part of the
-     *                           computation
-     */
-    void compute() {
-        // The state "running" needs to be set before calling this method
-        assertEquals(State.RUNNING, state);
-        MultipleException me = null;
-        try {
-            collection.placeGroup().broadcastFlat(() -> {
-                // The GLB routine for this operation is called from here
-                final GlbComputer glb = GlbComputer.getComputer();
-                glb.newOperation(this);
-            });
-        } catch (final MultipleException e) {
-            me = e;
-        }
-
-        synchronized (this) {
-            state = State.TERMINATED;
-        }
-        // The operation has completed, we execute the various hooks it may have
-        for (final SerializableJob h : hooks) {
-            try {
-                h.run();
-            } catch (final Exception e) {
-                System.err.println("Exception was thrown as part of operation" + this);
-                e.printStackTrace();
-            }
-        }
-
-        // finished = true;
-
-        // If a MultipleException was caught, throw it
-        if (me != null) {
-            throw me;
-        }
-    }
-
-    /**
      * Method called by a GlbOperation when it has completed and needs to notify
      * this instance which is waiting for that dependency to complete. If all the
      * dependencies of this instance are satisfied as a result, launches the
@@ -412,12 +394,13 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
      * (enable assertions) that such a case would throw an assertion exception in
      * this method
      */
-    private synchronized void dependencySatisfied(GlbOperation<?, ?, ?, ?, ?, ?> dep) {
+    private void dependencySatisfied(GlbOperation<?, ?, ?, ?, ?, ?> dep) {
         final boolean removed = dependencies.remove(dep);
         assertTrue(dep + " was not a dependency of " + this + " attempted to unblock " + this + " anyway.", removed);
 
-        if (state == State.RUNNING && dependencies.isEmpty()) {
-            async(() -> this.compute());
+        if (state == State.READY && dependencies.isEmpty()) {
+            // place the operation back into the batch of operation to launch
+            GlobalLoadBalancer.glb.operationsReady.get(collection).add(this);
         }
     }
 
@@ -487,5 +470,32 @@ class GlbOperation<C extends DistributedCollection<T, C>, T, K, D, R, L extends 
     @Override
     public int hashCode() {
         return (int) id.gid();
+    }
+
+    /**
+     * This method opens the finish which will be used to implement the termination
+     * detection for this operation. The actual computation is launched in another
+     *
+     * @param finishCollector
+     */
+    void openFinish(BlockingQueue<Finish> finishCollector) {
+        MultipleException me = null;
+        try {
+            finish(() -> {
+                final Finish currentFinish = ExtendedConstructs.currentFinish();
+                finishCollector.put(currentFinish);
+                openingThreadCanTerminate.acquire();
+            });
+
+        } catch (final MultipleException e) {
+            me = e;
+        }
+
+        GlobalLoadBalancer.glb.terminateComputation(this);
+
+        // If a MultipleException was caught, throw it
+        if (me != null) {
+            throw me;
+        }
     }
 }

@@ -54,7 +54,7 @@ public class DistMapGlb<K, V> extends AbstractGlbHandle implements Serializable 
      *                               {@link GlobalLoadBalancer#underGLB(apgas.SerializableJob)}
      *                               method
      */
-    public DistFuture<DistMap<K, V>> forEach(SerializableConsumer<V> action) {
+    public GlbFuture<DistMap<K, V>> forEach(SerializableConsumer<V> action) {
 //		final GlobalLoadBalancer glb = getGlb();
 //
 //		// Submit the operation to the GLB

@@ -24,7 +24,7 @@ import javax.naming.OperationNotSupportedException;
  *            taking place
  *
  */
-public class DistFuture<R> implements Serializable {
+public class GlbFuture<R> implements Serializable {
 
     /** Serial Version UID */
     private static final long serialVersionUID = -3891000966480486556L;
@@ -40,7 +40,7 @@ public class DistFuture<R> implements Serializable {
      *
      * @param r distributed collection handle
      */
-    DistFuture(R r) {
+    GlbFuture(R r) {
         result = r;
     }
 
@@ -54,7 +54,7 @@ public class DistFuture<R> implements Serializable {
      * @return this instance
      * @throws OperationNotSupportedException is still in development
      */
-    public DistFuture<R> after(DistFuture<?> dependency) throws OperationNotSupportedException {
+    public GlbFuture<R> after(GlbFuture<?> dependency) throws OperationNotSupportedException {
         GlobalLoadBalancer.glb.scheduleOperationAfter(dependency.operation, this.operation);
         return this;
     }
@@ -133,7 +133,7 @@ public class DistFuture<R> implements Serializable {
      *                               or has completed
      */
     @SuppressWarnings("unchecked")
-    public DistFuture<R> setPriority(int priority) {
+    public GlbFuture<R> setPriority(int priority) {
         if (operation.state != GlbOperation.State.STAGED) {
             throw new IllegalStateException("Cannot change the priority of an operation which is already running");
         }

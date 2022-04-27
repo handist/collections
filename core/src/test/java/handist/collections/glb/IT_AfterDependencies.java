@@ -191,7 +191,7 @@ public class IT_AfterDependencies implements Serializable {
     @Test(timeout = 10000)
     public void testAfter() throws Throwable {
         final ArrayList<Exception> ex = underGLB(() -> {
-            final DistFuture<DistChunkedList<Element>> test = collection1.GLB.forEach(makePrefixTest);
+            final GlbFuture<DistChunkedList<Element>> test = collection1.GLB.forEach(makePrefixTest);
             collection1.GLB.forEach((e) -> assertTrue(e.s.startsWith("Test"))).after(test);
         });
         if (!ex.isEmpty()) {
@@ -203,7 +203,7 @@ public class IT_AfterDependencies implements Serializable {
     @Test(timeout = 10000)
     public void testAfterOnCompletedOperation() throws Throwable {
         final ArrayList<Exception> exceptions = underGLB(() -> {
-            final DistFuture<DistChunkedList<Element>> future = collection1.GLB.forEach(makePrefixTest);
+            final GlbFuture<DistChunkedList<Element>> future = collection1.GLB.forEach(makePrefixTest);
             future.waitGlobalTermination();
             collection1.GLB.forEach(makeSuffixTest).after(future);
         });
@@ -216,8 +216,8 @@ public class IT_AfterDependencies implements Serializable {
     @Test(timeout = 10000)
     public void testAfterOnRunningOperation() throws Throwable {
         final ArrayList<Exception> exceptions = underGLB(() -> {
-            final DistFuture<DistChunkedList<Element>> earlyFuture = collection2.GLB.forEach(makePrefixTest);
-            final DistFuture<DistChunkedList<Element>> laterFuture = collection1.GLB.forEach(makePrefixTest);
+            final GlbFuture<DistChunkedList<Element>> earlyFuture = collection2.GLB.forEach(makePrefixTest);
+            final GlbFuture<DistChunkedList<Element>> laterFuture = collection1.GLB.forEach(makePrefixTest);
             earlyFuture.waitGlobalTermination();
             final List<Throwable> errors = collection1.GLB.forEach(e -> {
                 assertTrue(e.s.startsWith("Test"));
@@ -244,8 +244,8 @@ public class IT_AfterDependencies implements Serializable {
     public void testAfterTwo() throws Throwable {
         final ArrayList<Exception> ex = underGLB(() -> {
             //
-            final DistFuture<DistChunkedList<Element>> test = collection1.GLB.forEach(makePrefixTest);
-            final DistFuture<DistChunkedList<Element>> addZ = collection1.GLB.forEach(addZToPrefix).after(test);
+            final GlbFuture<DistChunkedList<Element>> test = collection1.GLB.forEach(makePrefixTest);
+            final GlbFuture<DistChunkedList<Element>> addZ = collection1.GLB.forEach(addZToPrefix).after(test);
             collection1.GLB.forEach((e) -> assertTrue(e.s.startsWith("ZTest"))).after(addZ);
         });
         if (!ex.isEmpty()) {
@@ -267,8 +267,8 @@ public class IT_AfterDependencies implements Serializable {
     @Test(timeout = 10000)
     public void testAfterTwo_Alternative() throws Throwable {
         final ArrayList<Exception> ex = underGLB(() -> {
-            final DistFuture<DistChunkedList<Element>> test = collection1.GLB.forEach(makePrefixTest);
-            final DistFuture<DistChunkedList<Element>> addZ = collection1.GLB.forEach(addZToPrefix).after(test);
+            final GlbFuture<DistChunkedList<Element>> test = collection1.GLB.forEach(makePrefixTest);
+            final GlbFuture<DistChunkedList<Element>> addZ = collection1.GLB.forEach(addZToPrefix).after(test);
             collection1.GLB.forEach((e) -> assertTrue(e.s.startsWith("ZTest"))).after(test).after(addZ);
         });
         if (!ex.isEmpty()) {

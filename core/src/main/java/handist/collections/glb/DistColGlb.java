@@ -101,12 +101,12 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
      * @return future representing this "forEach" operation which will return the
      *         underlying {@link DistChunkedList} collection upon termination
      */
-    public DistFuture<DistChunkedList<T>> forEach(SerializableConsumer<T> action) {
+    public GlbFuture<DistChunkedList<T>> forEach(SerializableConsumer<T> action) {
         final GlobalLoadBalancer glb = getGlb();
 
         // Initialize the future returned to the programmer in the underGLB method
         // In this operation, the collection involved is the handle itself
-        final DistFuture<DistChunkedList<T>> future = new DistFuture<>(col);
+        final GlbFuture<DistChunkedList<T>> future = new GlbFuture<>(col);
 
         final SerializableSupplier<GlbTask> initGlbTask = () -> {
             return new DistColGlbTask(col);
@@ -145,12 +145,12 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
      * @return future representing this "forEach" operation which will return the
      *         underlying {@link DistChunkedList} collection upon termination
      */
-    public DistFuture<DistChunkedList<T>> forEach(SerializableLongTBiConsumer<T> action) {
+    public GlbFuture<DistChunkedList<T>> forEach(SerializableLongTBiConsumer<T> action) {
         final GlobalLoadBalancer glb = getGlb();
 
         // Initialize the future returned to the programmer in the underGLB method
         // In this operation, the collection involved is the handle itself
-        final DistFuture<DistChunkedList<T>> future = new DistFuture<>(col);
+        final GlbFuture<DistChunkedList<T>> future = new GlbFuture<>(col);
 
         final SerializableSupplier<GlbTask> initGlbTask = () -> {
             return new DistColGlbTask(col);
@@ -192,9 +192,9 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
      * @param <U> type of the result of the map function provided as parameter
      * @param map function which takes an object T as input and returns a instance
      *            of type U
-     * @return a {@link DistFuture}
+     * @return a {@link GlbFuture}
      */
-    public <U> DistFuture<DistChunkedList<U>> map(SerializableFunction<T, U> map) {
+    public <U> GlbFuture<DistChunkedList<U>> map(SerializableFunction<T, U> map) {
         final GlobalLoadBalancer glb = getGlb();
 
         // Create new collection to contain the result
@@ -224,7 +224,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
         // Initialize the future returned to the programmer in the underGLB method
         // In this operation, the collection involved is the handle itself
-        final DistFuture<DistChunkedList<U>> future = new DistFuture<>(resultCollection);
+        final GlbFuture<DistChunkedList<U>> future = new GlbFuture<>(resultCollection);
 
         final SerializableSupplier<GlbTask> initGlbTask = () -> {
             return new DistColGlbTask(col);
@@ -242,7 +242,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
     }
 
     @SuppressWarnings("unchecked")
-    public <R extends Reducer<R, T>> DistFuture<R> reduce(final R reducer) {
+    public <R extends Reducer<R, T>> GlbFuture<R> reduce(final R reducer) {
         final GlobalLoadBalancer glb = getGlb();
         final GlobalID gid = new GlobalID();
         final R globalReducer = reducer;
@@ -262,7 +262,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
             }
         };
 
-        final DistFuture<R> future = new DistFuture<>(globalReducer);
+        final GlbFuture<R> future = new GlbFuture<>(globalReducer);
 
         final SerializableSupplier<GlbTask> initGlbTask = () -> {
             return new DistColGlbTask(col);
@@ -307,10 +307,10 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
      *                         bag directly.
      * @param resultCollection {@link DistBag} instance into which the various U
      *                         elements are placed
-     * @return {@link DistFuture} waiting on the completion of this operation and
+     * @return {@link GlbFuture} waiting on the completion of this operation and
      *         returning the {@link DistBag} provided as parameter as the result
      */
-    public <U> DistFuture<DistBag<U>> toBag(SerializableBiConsumer<T, Consumer<U>> action,
+    public <U> GlbFuture<DistBag<U>> toBag(SerializableBiConsumer<T, Consumer<U>> action,
             DistBag<U> resultCollection) {
         final GlobalLoadBalancer glb = getGlb();
 
@@ -349,7 +349,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
         // Initialize the future returned to the programmer in the underGLB method
         // The result of this operation is the DistBag "resultCollection"
-        final DistFuture<DistBag<U>> future = new DistFuture<>(resultCollection);
+        final GlbFuture<DistBag<U>> future = new GlbFuture<>(resultCollection);
 
         // Initializer for GlbTask of this DistCol in case it is not yet initialized
         final SerializableSupplier<GlbTask> initGlbTask = () -> {
@@ -374,9 +374,9 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
      * @param <U>      type of the objects produced by the function given as
      *                 parameter
      * @param function function taking type T as input and returning U
-     * @return a {@link DistFuture} producing a DistBag as a result
+     * @return a {@link GlbFuture} producing a DistBag as a result
      */
-    public <U> DistFuture<DistBag<U>> toBag(SerializableFunction<T, U> function) {
+    public <U> GlbFuture<DistBag<U>> toBag(SerializableFunction<T, U> function) {
         final GlobalLoadBalancer glb = getGlb();
 
         // Create new collection to contain the result
@@ -411,7 +411,7 @@ public class DistColGlb<T> extends AbstractGlbHandle implements Serializable {
 
         // Initialize the future returned to the programmer in the underGLB method
         // The result of this operation is the DistBag "resultCollection"
-        final DistFuture<DistBag<U>> future = new DistFuture<>(resultCollection);
+        final GlbFuture<DistBag<U>> future = new GlbFuture<>(resultCollection);
 
         // Initializer for GlbTask of this DistCol in case it is not yet initialized
         final SerializableSupplier<GlbTask> initGlbTask = () -> {

@@ -43,7 +43,7 @@ interface WorkerService {
      * Method called to store any throwable that was thrown from the
      * lambda-expression provided by the user as parameter to a GLB operation. This
      * method is in charge of keeping the Throwable until the user calls
-     * {@link DistFuture#getErrors()} which will return any Throwable that was
+     * {@link GlbFuture#getErrors()} which will return any Throwable that was
      * thrown by the user-specified lambda-expression during the GLB operation.
      *
      * @param t The Throwable that was thrown

@@ -113,7 +113,7 @@ public class IT_ObjectsUsedAsMapKeys implements Serializable {
     public void testGlbOperationAsKey() throws Exception {
         final DistChunkedList<Element> collection = new DistChunkedList<>();
         final GlbOperation<DistChunkedList<Element>, Element, LongRange, LongRange, DistChunkedList<Element>, DistColLambda<Element>> operationKey = new GlbOperation(
-                collection, null, new DistFuture(collection), () -> {
+                collection, null, new GlbFuture(collection), () -> {
                     return null;
                 }, null, null);
         glbOperationMap.put(operationKey, new Integer(43));

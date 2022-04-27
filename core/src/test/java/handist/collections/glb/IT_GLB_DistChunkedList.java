@@ -272,9 +272,7 @@ public class IT_GLB_DistChunkedList implements Serializable {
     @After
     public void tearDown() throws Exception {
         distChunkedList.destroy();
-        TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
-            GlbComputer.destroyGlbComputer();
-        });
+        GlbComputer.destroyGlbComputer();
     }
 
     /**
@@ -567,7 +565,7 @@ public class IT_GLB_DistChunkedList implements Serializable {
     public void testTwoForEachAfterOneAnother() throws Throwable {
         try {
             final ArrayList<Exception> ex = underGLB(() -> {
-                final DistFuture<?> prefixFuture = distChunkedList.GLB.forEach(makePrefixTest);
+                final GlbFuture<?> prefixFuture = distChunkedList.GLB.forEach(makePrefixTest);
                 distChunkedList.GLB.forEach(makeSuffixTest).after(prefixFuture);
             });
             if (!ex.isEmpty()) {
