@@ -41,7 +41,7 @@
 		<dependency>
 			<groupId>com.github.handist</groupId>
 			<artifactId>apgas</artifactId>
-			<version>v1.2.1</version>
+			<version>v1.2.2</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.handist</groupId>
@@ -90,7 +90,6 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-<!-- <version>3.0.0-M5</version> -->
 				<configuration>
 					<forkNode
 						implementation="org.apache.maven.plugin.surefire.extensions.SurefireForkNodeFactory" />
