@@ -11,7 +11,7 @@ import java.util.function.Consumer;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.GnuParser;
+import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
@@ -70,7 +70,7 @@ public class ProgramStatistics {
         // Now that the input file has been successfully parsed,
         // check which program outputs are desired
         final Options programOptions = commandOptions();
-        final CommandLineParser parser = new GnuParser();
+        final CommandLineParser parser = new DefaultParser();
         CommandLine cmd = null;
         final String[] optionArray = Arrays.copyOf(args, args.length - 1); // remove the input file from the options
         try {

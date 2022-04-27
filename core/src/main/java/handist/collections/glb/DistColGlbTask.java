@@ -24,9 +24,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import apgas.Place;
 import apgas.impl.Finish;
@@ -127,13 +124,13 @@ public class DistColGlbTask implements GlbTask {
          */
         @Override
         public boolean isSplittable(int qtt) {
-            // First condition, range greater than minimum
+            // First condition to meet: range greater than minimum
             if (range.size() <= qtt) {
                 return false;
             }
 
-            // Second condition, at least one operation has greater than minimum elements
-            // left to process
+            // Second condition to meet: at least one operation has greater than the
+            // "minimum" elements left to process
             for (final Progress operationProgress : progress.values()) {
                 if (range.to - operationProgress.next >= qtt) {
                     return true;
@@ -185,24 +182,12 @@ public class DistColGlbTask implements GlbTask {
                 // We remove the tracker for the current operation
                 progress.remove(op);
 
-                // Depending if there are other operations on this assignment, we
-                // place it the appropriate collection of the parent DistColGlbTask
-
-                // This part is protected using a read/write lock against newOperation.
-                parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
+                // If there are other operations contained in this assignment we place it back
+                // into the queue after updating its "priority".
                 if (!progress.isEmpty()) {
-                    // There are other operations left
-                    // Update the priority before placing it back into the availableAssignments
-                    // collection
                     updatePriority();
-                    parent.assignedAssignments.remove(this);
                     parent.availableAssignments.add(this);
-                } else {
-                    // No other operations left
-                    parent.assignedAssignments.remove(this);
-                    parent.completedAssignments.add(this);
                 }
-                parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
             }
             return !operationCompletedForThisAssignment;
         }
@@ -228,7 +213,6 @@ public class DistColGlbTask implements GlbTask {
          */
         @Override
         public void splitIntoGlbTask() {
-            parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
             // First determine the splitting point
             long minimumProgress = Long.MAX_VALUE;
             for (final Progress operationProgress : progress.values()) {
@@ -285,12 +269,7 @@ public class DistColGlbTask implements GlbTask {
 
             // Add the "splitAssignment" to the DistColGlbTask handling the assignment for
             // the underlying collection.
-            // NOTE: The counter for the total number of assignments needs to be incremented
-            // BEFORE the assignment is placed in the "available" queue.
-            parent.totalAssignments.incrementAndGet();
             parent.availableAssignments.add(split);
-
-            parent.lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
         }
 
         @Override
@@ -315,8 +294,20 @@ public class DistColGlbTask implements GlbTask {
      * Interface used to avoid packing and unpacking of types in the method called
      * by workers.
      *
+     * @param <T> type of the entries on which the closure operates
      */
     static interface DistColLambda<T> extends Serializable {
+        /**
+         * Applies some closure on a range of entries
+         *
+         * @param chunk      the actual part of the
+         * @param startIndex index of the first entry on which this closure should
+         *                   operate
+         * @param endIndex   index of the entry on which this closure should stop
+         *                   (exclusive bound)
+         * @param ws         context to retrieve worker-specific information necessary
+         *                   for the computation
+         */
         public void process(RangedList<T> chunk, long startIndex, long endIndex, WorkerService ws);
     }
 
@@ -328,8 +319,16 @@ public class DistColGlbTask implements GlbTask {
     final static class Progress implements Serializable {
         /** Serial Version UID */
         private static final long serialVersionUID = -5134838227313756599L;
+        /**
+         * Index of the next entry to process for the operation tracked by this instance
+         */
         long next;
 
+        /**
+         * Private constructor to avoid creation from outside the library
+         *
+         * @param initialValue
+         */
         private Progress(long initialValue) {
             next = initialValue;
         }
@@ -350,11 +349,6 @@ public class DistColGlbTask implements GlbTask {
     private static final int MAX_NUMBER_STOLEN_ASSIGNMENTS = 10;
 
     /**
-     * Contains the list of all the assignments that are being processed by a worker
-     */
-    ConcurrentLinkedQueue<DistColAssignment> assignedAssignments;
-
-    /**
      * Map which associates the number of assignments left to process to each
      * operation in progress.
      * <p>
@@ -366,36 +360,10 @@ public class DistColGlbTask implements GlbTask {
      * blocking on a {@link OperationBlocker}.
      */
     @SuppressWarnings("rawtypes")
-    Map<GlbOperation, AtomicInteger> assignmentsLeftToProcess;
+    HashMap<GlbOperation, AtomicInteger> assignmentsLeftToProcess;
 
     /** Contains the list of all the assignments that are available to workers */
     ConcurrentLinkedQueue<DistColAssignment> availableAssignments;
-
-    /**
-     * Contains all the assignments that have been completely processed by a worker.
-     * <p>
-     * The assignments in this collection have all of the current operations
-     * completed.
-     */
-    ConcurrentLinkedQueue<DistColAssignment> completedAssignments;
-
-    /**
-     * This lock is used to maintain consistency of the total assignment counter and
-     * the presence of {@link AtomicLong} in {@link DistColAssignment#progress}.
-     * <p>
-     * "Readers" are threads that perform the {@link #splitIntoGlbTask()} method
-     * while "Writers" are threads that call the {@link #newOperation(GlbOperation)}
-     * method. There can be many concurrent calls to the {@link #splitIntoGlbTask()}
-     * method but not when a new operation becomes available and a number of
-     * modifications to several members of this class need to be made atomically to
-     * preserve consistency.
-     */
-    transient final ReadWriteLock lockForWorkAssignmentSplittingAndNewOperation;
-
-    /**
-     * Total number of assignments located on this place
-     */
-    AtomicInteger totalAssignments;
 
     /**
      * Underlying collection on which the assignments operate
@@ -409,24 +377,10 @@ public class DistColGlbTask implements GlbTask {
      * @param localHandle the local handle of the collection which is going to
      *                    undergo some operations under this class' supervision
      */
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    DistColGlbTask(DistChunkedList localHandle) {
+    DistColGlbTask(DistChunkedList<?> localHandle) {
         collection = localHandle;
         availableAssignments = new ConcurrentLinkedQueue<>();
-        assignedAssignments = new ConcurrentLinkedQueue<>();
-        completedAssignments = new ConcurrentLinkedQueue<>();
         assignmentsLeftToProcess = new HashMap<>();
-        lockForWorkAssignmentSplittingAndNewOperation = new ReentrantReadWriteLock();
-
-        // Initialize assignments with each LongRange of the local handle
-        final Collection<LongRange> ranges = localHandle.getAllRanges();
-        totalAssignments = new AtomicInteger(ranges.size());
-        ranges.forEach((l) -> {
-            final LongRange lr = l;
-            final LongRange copyForAssignment = new LongRange(lr.from, lr.to);
-            final DistColAssignment a = new DistColAssignment(copyForAssignment, this);
-            availableAssignments.add(a);
-        });
     }
 
     @SuppressWarnings("rawtypes")
@@ -434,8 +388,6 @@ public class DistColGlbTask implements GlbTask {
     public boolean answerLifeline(final LifelineToken token) {
         final Place thief = token.place;
 
-        // START OF THE R/W LOCK PROTECTION
-        lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
         // Obtain some Assignments from the work reserve
         // TODO we may need a better way to decide how much work a thief should be able
         // to take.
@@ -444,10 +396,6 @@ public class DistColGlbTask implements GlbTask {
         while (stolen.size() < MAX_NUMBER_STOLEN_ASSIGNMENTS && (a = availableAssignments.poll()) != null) {
             stolen.add(a);
         }
-        // Decrement the total number of assignments contained locally
-        totalAssignments.getAndAdd(-stolen.size());
-        // END OF THE R/W LOCK PROTECTION
-        lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
 
         if (stolen.isEmpty()) {
             // If no assignment could be taken, there is nothing more to do and the method
@@ -544,8 +492,7 @@ public class DistColGlbTask implements GlbTask {
             final GlbOperation operation = entry.getKey();
             final Integer removedAssignments = entry.getValue();
 
-            final AtomicInteger remainder = assignmentsLeftToProcess.get(operation);
-            if (remainder.addAndGet(-removedAssignments) == 0) { // Decrements the counter
+            if (assignmentsLeftToProcess.get(operation).addAndGet(-removedAssignments) == 0) { // Decrements the counter
                 // All assignments for this operation have completed locally
                 GlbComputer.getComputer().signalLocalOperationCompletion(operation);
             }
@@ -556,13 +503,7 @@ public class DistColGlbTask implements GlbTask {
 
     @Override
     public Assignment assignWorkToWorker() {
-        lockForWorkAssignmentSplittingAndNewOperation.readLock().lock();
-        final DistColAssignment a = availableAssignments.poll();
-        if (a != null) {
-            assignedAssignments.add(a);
-        }
-        lockForWorkAssignmentSplittingAndNewOperation.readLock().unlock();
-        return a;
+        return availableAssignments.poll();
     }
 
     /**
@@ -588,14 +529,6 @@ public class DistColGlbTask implements GlbTask {
             i.addAndGet(entry.getValue());
         }
 
-        // We need to increment the counter for the number of assignments contained
-        // locally, as well as placing all the assignment in the "availableAssignments"
-        // queue. This needs to be done under STRONG protection: we use the writeLock
-        lockForWorkAssignmentSplittingAndNewOperation.writeLock().lock();
-
-        totalAssignments.addAndGet(assignments.size()); // Increment counter for the total number of assignments handled
-                                                        // by this instance
-
         // All all assignments to the "availableAssignments" collection
         for (final Assignment a : assignments) {
             final DistColAssignment dca = (DistColAssignment) a; // Cast to the proper type
@@ -607,9 +540,6 @@ public class DistColGlbTask implements GlbTask {
         // We log the number of objects received
         GlbComputer.getComputer().logger.put(LOGKEY_GLB, "DistCol#LifelineReceived;" + totalReceivedObjects,
                 Long.toString(System.nanoTime()));
-
-        // The critical step has ended, we release the writeLock
-        lockForWorkAssignmentSplittingAndNewOperation.writeLock().unlock();
     }
 
     /**
@@ -623,55 +553,37 @@ public class DistColGlbTask implements GlbTask {
      * <li>DistColAssignment method used to split assignment
      * </ul>
      *
-     * @param op the new operation available for processing
+     * @param ops the new operations to process.
      * @return true if some new work is available on the local host as a result of
      *         this new operation. A case where this method would return false is if
      *         there were no elements in the local handle of
      *         {@link DistChunkedList}.
      */
     @Override
-    public boolean newOperation(@SuppressWarnings("rawtypes") GlbOperation op) {
-        lockForWorkAssignmentSplittingAndNewOperation.writeLock().lock();
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public boolean newOperations(GlbOperation... ops) {
+        assertTrue(availableAssignments.isEmpty());
+        assignmentsLeftToProcess.clear();
 
-        // We allocate an extra counter for completed assignments
-        // This counter is used in #operationTerminatedOnAssignment(GlbOperation)
-        // to check if all assignments of the DistColGlbTask have been performed
-        assignmentsLeftToProcess.put(op, new AtomicInteger(totalAssignments.get()));
-
-        final int expected = totalAssignments.get();
-        int prepared = 0;
-        // Add a progress tracker for each assignment contained locally
-        boolean toReturn = false;
-        for (final DistColAssignment a : availableAssignments) {
-            a.progress.put(op, new Progress(a.range.from));
-            a.updatePriority();
-            toReturn = true;
-            prepared++;
+        // Create an atomic counter for each operation in the batch
+        final int numberOfAssignments = collection.ranges().size();
+        for (final GlbOperation op : ops) {
+            assignmentsLeftToProcess.put(op, new AtomicInteger(numberOfAssignments));
         }
 
-        for (final DistColAssignment a : assignedAssignments) {
-            a.progress.put(op, new Progress(a.range.from));
+        // Create a new assignment for each range of the underlying collection
+        final Collection<LongRange> ranges = collection.getAllRanges();
+        ranges.forEach((lr) -> {
+            final DistColAssignment a = new DistColAssignment(lr, this);
+            // Add a tracker in the assignment for each operation in the batch
+            for (final GlbOperation op : ops) {
+                a.progress.put(op, new Progress(a.range.from));
+            }
             a.updatePriority();
-            toReturn = true;
-            prepared++;
-        }
+            availableAssignments.add(a);
+        });
 
-        for (final DistColAssignment a : completedAssignments) {
-            a.progress.put(op, new Progress(a.range.from));
-            a.updatePriority();
-            toReturn = true;
-            prepared++;
-        }
-        assertEquals(expected, prepared); // The number of assignments prepared should be the same as the number of
-                                          // assignments known to be held by this instance
-
-        // The formerly completed assignments now have work in them
-        availableAssignments.addAll(completedAssignments);
-        completedAssignments.clear();
-
-        lockForWorkAssignmentSplittingAndNewOperation.writeLock().unlock();
-
-        return toReturn;
+        return !ranges.isEmpty();
     }
 
     /**

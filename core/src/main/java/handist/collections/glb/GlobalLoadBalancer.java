@@ -11,13 +11,23 @@
 package handist.collections.glb;
 
 import static apgas.Constructs.*;
+import static org.junit.Assert.*;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 
+import apgas.ExtendedConstructs;
+import apgas.Job;
+import apgas.Place;
 import apgas.SerializableJob;
+import apgas.impl.Finish;
 import handist.collections.dist.DistLog;
+import handist.collections.dist.DistributedCollection;
 import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.glb.GlbOperation.OperationCompletionManagedBlocker;
 import handist.collections.glb.GlbOperation.State;
@@ -130,30 +140,36 @@ public class GlobalLoadBalancer {
 
     /**
      * Helper method used to launch the computations staged into the global load
-     * balancer. Is not blocking.
+     * balancer. Is non-blocking and allows progress within the
+     * {@link #underGLB(SerializableJob)} method to continue after this method is
+     * called.
      * <p>
      * You would only need to call this method if you have some tasks other than the
      * GLB computations that should be executed concurrently. In such a situation,
      * stage the various GLB operations by calling their
      * <em>collection.GLB.method()</em> and setup the potential
-     * {@link DistFuture#after(DistFuture)} completion dependencies. Then, call this
-     * method. In the remainder of the ongoing block, you lay out the other
-     * activities that should run while the GLB computations previously staged are
-     * being computed.
+     * {@link GlbFuture#after(GlbFuture)} completion dependencies between them.
+     * Then, call this method. In the remainder of the ongoing block, you may lay
+     * out the other activities that should run while the GLB computations
+     * previously staged are being computed in the background.
      */
     public static void start() {
-        while (!glb.operationsStaged.isEmpty()) {
-            final GlbOperation<?, ?, ?, ?, ?, ?> op = glb.operationsStaged.poll();
-            boolean needsToBeLaunched;
-            synchronized (op) {
-                op.state = GlbOperation.State.RUNNING;
-                needsToBeLaunched = !op.hasDependencies();
-            }
-
-            if (needsToBeLaunched) {
-                async(() -> op.compute());
-            }
-        }
+        glb.startComputation();
+//        synchronized (glb) { // Synchronize on the GlobalLoadBalancer singleton
+//
+//            while (!glb.operationsStaged.isEmpty()) {
+//                final GlbOperation<?, ?, ?, ?, ?, ?> op = glb.operationsStaged.poll();
+//                boolean needsToBeLaunched;
+//                synchronized (op) {
+//                    op.state = GlbOperation.State.RUNNING;
+//                    needsToBeLaunched = !op.hasDependencies();
+//                }
+//
+//                if (needsToBeLaunched) {
+//                    async(() -> op.compute());
+//                }
+//            }
+//        }
     }
 
     /**
@@ -250,17 +266,90 @@ public class GlobalLoadBalancer {
     }
 
     /**
+     * Member used to collect the finish of each individual operations when a batch
+     * is launched
+     */
+    private final BlockingQueue<Finish> finishCollector;
+
+    /**
      * Collection containing the operation that have been submitted to the GLB as
      * part of a program given to {@link #underGLB(SerializableJob)}.
      */
     @SuppressWarnings("rawtypes")
-    private final LinkedList<GlbOperation> operationsStaged;
+    final HashMap<DistributedCollection, HashSet<GlbOperation<?, ?, ?, ?, ?, ?>>> operationsStaged;
+
+    /**
+     * Contains the batches of operations which are "ready" to be started and are
+     * waiting for ongoing operations on the same collection to complete before
+     * starting.
+     */
+    @SuppressWarnings("rawtypes")
+    final HashMap<DistributedCollection, HashSet<GlbOperation<?, ?, ?, ?, ?, ?>>> operationsReady;
+
+    /**
+     * This map keeps track of the operation currently being computed for each
+     * distributed collection.
+     */
+    @SuppressWarnings("rawtypes")
+    final HashMap<DistributedCollection, HashSet<GlbOperation<?, ?, ?, ?, ?, ?>>> operationsInComputation;
 
     /**
      * Private constructor to preserve the singleton pattern
      */
     private GlobalLoadBalancer() {
-        operationsStaged = new LinkedList<>();
+        operationsStaged = new HashMap<>();
+        operationsReady = new HashMap<>();
+        operationsInComputation = new HashMap<>();
+        finishCollector = new LinkedBlockingQueue<>();
+    }
+
+    /**
+     * Launches the batch of "ready" computation
+     * <p>
+     * This helper method should be called from within a synchronized block whose
+     * provider is the GlobalLoadBalancer singleton {@link #glb}
+     *
+     * @param col the collection whose "ready" computation needs to be launched
+     */
+    @SuppressWarnings("rawtypes")
+    private void launchReadyComputationForCollection(DistributedCollection col) throws InterruptedException {
+        // First, obtain the group of operations to launch
+        final HashSet<GlbOperation<?, ?, ?, ?, ?, ?>> opsToLaunch = operationsReady.get(col);
+        final HashSet<GlbOperation<?, ?, ?, ?, ?, ?>> opsRunning = operationsInComputation.get(col);
+
+        assertTrue(opsRunning.isEmpty());
+
+        final int nbOps = opsToLaunch.size();
+        final Finish[] finishArray = new Finish[nbOps];
+        final GlbOperation[] operationArray = new GlbOperation[nbOps];
+        int index = 0;
+
+        for (final GlbOperation<?, ?, ?, ?, ?, ?> op : opsToLaunch) {
+            op.openingThreadCanTerminate = new Semaphore(0);
+            async(() -> op.openFinish(finishCollector));
+
+            // Record the Operation and the Finish at matching indices in the array
+            operationArray[index] = op;
+            finishArray[index++] = finishCollector.take();
+        }
+
+        // Transfer the operations object from the "ready" to "running" collection
+        opsRunning.addAll(opsToLaunch);
+        opsToLaunch.clear();
+
+        // Structure finish which starts the whole operation batch
+        finish(() -> {
+            for (final Place p : places()) {
+                ExtendedConstructs.asyncAtWithCoFinish(p, () -> {
+                    GlbComputer.getComputer().newOperationBatch(operationArray, finishArray); // TODO adapt this method
+                }, finishArray);
+            }
+        });
+
+        // Unblock the thread which opened the finish block for the operation
+        for (final GlbOperation op : opsRunning) {
+            op.openingThreadCanTerminate.release();
+        }
     }
 
     /**
@@ -270,8 +359,45 @@ public class GlobalLoadBalancer {
      * @param before operation to terminate before the second argument can start
      * @param then   operation to start after the first argument has completed
      */
-    void scheduleOperationAfter(GlbOperation<?, ?, ?, ?, ?, ?> before, GlbOperation<?, ?, ?, ?, ?, ?> then) {
+    @SuppressWarnings("rawtypes")
+    synchronized void scheduleOperationAfter(GlbOperation before, GlbOperation then) {
         GlbOperation.makeDependency(before, then);
+    }
+
+    /**
+     * This helper method does multiple things:
+     * <ol>
+     * <li>Change all the "staged" operations into the "ready" state,
+     * <li>Discard the operation that have some pending completion dependencies,
+     * they will be placed back into the "ready" batch when their dependencies are
+     * completed.
+     * <li>If there is no ongoing computation on the collection involved
+     * </ol>
+     */
+    private synchronized void startComputation() {
+        for (final DistributedCollection<?, ?> collection : operationsStaged.keySet()) {
+            final HashSet<GlbOperation<?, ?, ?, ?, ?, ?>> stagedOperations = operationsStaged.get(collection);
+
+            // Turn all operations to state "ready"
+            stagedOperations.forEach(op -> op.state = State.READY);
+
+            // Remove the operations which have dependencies
+            stagedOperations.removeIf(op -> op.hasDependencies());
+            final HashSet<GlbOperation<?, ?, ?, ?, ?, ?>> readyOperations = operationsReady.get(collection);
+            readyOperations.addAll(stagedOperations);
+            stagedOperations.clear();
+
+            // All "staged" operations have been placed in "ready" stage
+            // Now we launch the batch of operation iff there are no running operations for
+            // the involved collection
+            if (operationsInComputation.get(collection).isEmpty() && !readyOperations.isEmpty()) {
+                try {
+                    launchReadyComputationForCollection(collection);
+                } catch (final InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
     /**
@@ -280,7 +406,69 @@ public class GlobalLoadBalancer {
      *
      * @param operation operation to perform on a distributed collection
      */
-    void submit(@SuppressWarnings("rawtypes") GlbOperation operation) {
-        operationsStaged.add(operation);
+    @SuppressWarnings("rawtypes")
+    synchronized void submit(GlbOperation operation) {
+        // Prepare the various sets of operations necessary
+        final DistributedCollection col = operation.collection;
+        final HashSet<GlbOperation<?, ?, ?, ?, ?, ?>> stagedOps = operationsStaged.computeIfAbsent(col,
+                k -> new HashSet<>());
+        operationsReady.computeIfAbsent(col, k -> new HashSet<>());
+        operationsInComputation.computeIfAbsent(col, k -> new HashSet<>());
+
+        stagedOps.add(operation);
+    }
+
+    /**
+     * Method called by the operations as they complete. The terminating hooks are
+     * executed and the operation state is switched to "Terminated"
+     *
+     * @param op operation which has just completed execution
+     */
+    @SuppressWarnings("rawtypes")
+    synchronized void terminateComputation(GlbOperation<?, ?, ?, ?, ?, ?> op) {
+        // Remove the operation from the set of running operations
+        final DistributedCollection col = op.collection;
+        final boolean opRemoved = operationsInComputation.get(col).remove(op);
+        // Sanity check
+        assertTrue("terminateComputation was called with operation not registered in running ops", opRemoved);
+
+        // The operation has completed, we execute the various hooks it may have
+        for (final Job h : op.hooks) {
+            try {
+                h.run();
+            } catch (final Exception e) {
+                System.err.println("Exception was thrown as part of operation" + this);
+                e.printStackTrace();
+            }
+        }
+
+        op.state = State.TERMINATED;
+
+        // Check if a batch of "ready" operations can be launched as a result of this
+        // operation completing.
+        // This could be the case for two reasons:
+        // 1. Some other operations on the same collection where staged. If `op` was the
+        // last running operation on this collection, the next batch can be launched
+        // 2. `op` was dependency for an operation. As this dependency is now cleared,
+        // an operation may have been added back to the batch of operations to launch.
+        for (final DistributedCollection c : operationsReady.keySet()) {
+            if (!operationsReady.get(c).isEmpty() && operationsInComputation.get(c).isEmpty()) {
+                try {
+                    launchReadyComputationForCollection(c);
+                } catch (final InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+//        if (runningOperations.isEmpty() && !operationsReady.get(col).isEmpty()) {
+//            // If there are no more operations running for that collection and some
+//            // operations for that collection are "ready", launch that batch of "ready"
+//            // computation
+//            try {
+//                launchReadyComputationForCollection(col);
+//            } catch (final InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }
     }
 }
