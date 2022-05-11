@@ -7,9 +7,10 @@ A Java distributed collections library.
 | Version                                                              |                                                                                                                                                                                   |
 |-|-|
 | master head                                                          | [Javadoc](master-latest/apidocs/index.html)<br>[Test Coverage Report](master-latest/jacoco/index.html)                                                                            |
-| [v1.2.0](https://github.com/handist/collections/releases/tag/v1.2.0) | March 4th 2022: Third release of the library<br>[Javadoc](v1.2.0/apidocs/index.html)<br>[Test Coverage Report](v1.2.0/jacoco/index.html)<br>[Maven Report](v1.2.0/index.html)     |
-| [v1.1.0](https://github.com/handist/collections/releases/tag/v1.1.0) | October 16th 2021: Second release of the library<br>[Javadoc](v1.1.0/apidocs/index.html)<br>[Test Coverage Report](v1.1.0/jacoco/index.html)<br>[Maven Report](v1.1.0/index.html) |
-| [v1.0.0](https://github.com/handist/collections/releases/tag/v1.0.0) | March 27th 2021: First release of the library<br>[Javadoc](v1.0.0/apidocs/index.html)<br>[Test Coverage Report](v1.0.0/jacoco/index.html)<br>[Maven Report](v1.0.0/index.html)    |
+| [v1.3.0](https://github.com/handist/collections/releases/tag/v1.3.0) | May 11th 2022: Fourth release of the library<br>[Javadoc](https://handist.github.io/collections/v1.3.0/apidocs/index.html)<br>[Test Coverage Report](https://handist.github.io/collections/v1.3.0/jacoco/index.html)<br>[Maven Report](https://handist.github.io/collections/v1.3.0/index.html)     |
+| [v1.2.0](https://github.com/handist/collections/releases/tag/v1.2.0) | March 4th 2022: Third release of the library<br>[Javadoc](https://handist.github.io/collections/v1.2.0/apidocs/index.html)<br>[Test Coverage Report](https://handist.github.io/collections/v1.2.0/jacoco/index.html)<br>[Maven Report](https://handist.github.io/collections/v1.2.0/index.html)     |
+| [v1.1.0](https://github.com/handist/collections/releases/tag/v1.1.0) | October 16th 2021: Second release of the library<br>[Javadoc](https://handist.github.io/collections/v1.1.0/apidocs/index.html)<br>[Test Coverage Report](https://handist.github.io/collections/v1.1.0/jacoco/index.html)<br>[Maven Report](https://handist.github.io/collections/v1.1.0/index.html) |
+| [v1.0.0](https://github.com/handist/collections/releases/tag/v1.0.0) | March 27th 2021: First release of the library<br>[Javadoc](https://handist.github.io/collections/v1.0.0/apidocs/index.html)<br>[Test Coverage Report](https://handist.github.io/collections/v1.0.0/jacoco/index.html)<br>[Maven Report](https://handist.github.io/collections/v1.0.0/index.html)    |
 
 ## Compiling projects with this library as a dependency
 
@@ -32,7 +33,7 @@ To launch a program written with our library, follow this general pattern:
 
 ```bash
 mpirun -np 4 --hostfile ${HOSTFILE} \\ 
-	java -cp collections-v1.2.0.jar:program.jar \\
+	java -cp collections-v1.3.0.jar:program.jar \\
 	-Djava.library.path=${MPJ_HOME}/lib \\ 
 	handist.collection.launcher.Launcher \\
 	${MAIN_CLASS} firstArgument secondArgument
@@ -48,11 +49,14 @@ mpirun -np 4 --hostfile ${HOSTFILE} \\
 ### Compiling the project
 
 We use Maven to compile and test the library.
-You can compile the library from source by checking it out with github and running command `mvn package`.
-This will create two java archives under folder `target/`: 
+As of version `v1.3.0`, we use a Maven multi-module project.
+The core of our library which you will want to import into your project is in module "**core**".
 
-- `collections-v1.2.0.jar` which contains only the source files of our library
-- `collections-v1.2.0-jar-with-dependencies.jar` which also contains the dependencies our library depends on
+You can compile the library from source by checking it out with github and running command `mvn package`.
+This will create two java archives under folder `core/target/`: 
+
+- `collections-v1.3.0.jar` which contains only the source files of our library
+- `collections-v1.3.0-jar-with-dependencies.jar` which also contains the dependencies our library depends on
 
 ### Running the tests
 
