@@ -432,6 +432,9 @@ public class GlobalLoadBalancer {
         // Sanity check
         assertTrue("terminateComputation was called with operation not registered in running ops", opRemoved);
 
+        // State is updated before performing the hooks
+        op.state = State.TERMINATED;
+
         // The operation has completed, we execute the various hooks it may have
         for (final Job h : op.hooks) {
             try {
@@ -441,8 +444,6 @@ public class GlobalLoadBalancer {
                 e.printStackTrace();
             }
         }
-
-        op.state = State.TERMINATED;
 
         // Check if a batch of "ready" operations can be launched as a result of this
         // operation completing.
