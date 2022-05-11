@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	
+
 	<groupId>com.github.handist.collections</groupId>
 	<artifactId>configuration</artifactId>
 	<version>v1.3.0</version>
- 	<packaging>pom</packaging>
+	<packaging>pom</packaging>
 
 	<name>collections-configuration</name>
-  <description>Common configurations for the distributed collections library project</description>
+	<description>Common configurations for the distributed collections library project</description>
 	<url>https://handist.github.io/collections/</url>
 
 	<properties>
@@ -39,20 +41,22 @@
 				</dependency>
 			</dependencies>
 			<build>
-				<plugins>
-					<plugin>
-						<artifactId>maven-failsafe-plugin</artifactId>
-						<configuration>
-							<systemPropertyVariables>
-								<mpirunner.mpiImpl>mpj-multicore</mpirunner.mpiImpl>
-								<mpirunner.dryRun>true</mpirunner.dryRun>
-								<mpirunner.actionOnError>ignore</mpirunner.actionOnError>
-								<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
-								<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
-							</systemPropertyVariables>
-						</configuration>
-					</plugin>
-				</plugins>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<artifactId>maven-failsafe-plugin</artifactId>
+							<configuration>
+								<systemPropertyVariables>
+									<mpirunner.mpiImpl>mpj-multicore</mpirunner.mpiImpl>
+									<mpirunner.dryRun>true</mpirunner.dryRun>
+									<mpirunner.actionOnError>ignore</mpirunner.actionOnError>
+									<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
+									<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
+								</systemPropertyVariables>
+							</configuration>
+						</plugin>
+					</plugins>
+				</pluginManagement>
 			</build>
 		</profile>
 		<profile>
@@ -66,20 +70,22 @@
 				</dependency>
 			</dependencies>
 			<build>
-				<plugins>
-					<plugin>
-						<artifactId>maven-failsafe-plugin</artifactId>
-						<configuration>
-							<systemPropertyVariables>
-								<mpirunner.mpiImpl>mpj-native</mpirunner.mpiImpl>
-								<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
-								<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
-								<mpirunner.mpirunOptions>--oversubscribe</mpirunner.mpirunOptions>
-								<mpirunner.parseNotifications>0</mpirunner.parseNotifications>
-							</systemPropertyVariables>
-						</configuration>
-					</plugin>
-				</plugins>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<artifactId>maven-failsafe-plugin</artifactId>
+							<configuration>
+								<systemPropertyVariables>
+									<mpirunner.mpiImpl>mpj-native</mpirunner.mpiImpl>
+									<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
+									<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
+									<mpirunner.mpirunOptions>--oversubscribe</mpirunner.mpirunOptions>
+									<mpirunner.parseNotifications>0</mpirunner.parseNotifications>
+								</systemPropertyVariables>
+							</configuration>
+						</plugin>
+					</plugins>
+				</pluginManagement>
 			</build>
 		</profile>
 		<profile>
@@ -93,47 +99,52 @@
 				</dependency>
 			</dependencies>
 			<build>
-				<plugins>
-					<plugin>
-						<artifactId>maven-failsafe-plugin</artifactId>
-						<configuration>
-							<systemPropertyVariables>
-								<mpirunner.mpiImpl>native</mpirunner.mpiImpl>
-								<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
-								<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
-								<mpirunner.javaLibraryPath>${env.MPIJAVA_LIB}</mpirunner.javaLibraryPath>
-								<mpirunner.mpirunOptions>--oversubscribe</mpirunner.mpirunOptions>
-								<mpirunner.parseNotifications>0</mpirunner.parseNotifications>
-							</systemPropertyVariables>
-						</configuration>
-					</plugin>
-				</plugins>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<artifactId>maven-failsafe-plugin</artifactId>
+							<configuration>
+								<systemPropertyVariables>
+									<mpirunner.mpiImpl>native</mpirunner.mpiImpl>
+									<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
+									<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
+									<mpirunner.javaLibraryPath>${env.MPIJAVA_LIB}</mpirunner.javaLibraryPath>
+									<mpirunner.mpirunOptions>--oversubscribe</mpirunner.mpirunOptions>
+									<mpirunner.parseNotifications>0</mpirunner.parseNotifications>
+								</systemPropertyVariables>
+							</configuration>
+						</plugin>
+					</plugins>
+				</pluginManagement>
 			</build>
 		</profile>
 		<profile>
-			<!-- Profile activated when file HOSTFILE is present in the root directory. This makes the test use that hostfile to execute. -->
+			<!-- Profile activated when file HOSTFILE is present in the root directory. 
+				This makes the test use that hostfile to execute. -->
 			<id>hostfile-file-present</id>
 			<activation>
 				<file>
-					<exists>HOSTFILE</exists>
+					<exists>../HOSTFILE</exists>
 				</file>
 			</activation>
 			<build>
-				<plugins>
-					<plugin>
-						<artifactId>maven-failsafe-plugin</artifactId>
-						<configuration>
-							<systemPropertyVariables>
-								<mpirunner.mpirunOptions>--hostfile HOSTFILE</mpirunner.mpirunOptions>
-							</systemPropertyVariables>
-						</configuration>
-					</plugin>
-				</plugins>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<artifactId>maven-failsafe-plugin</artifactId>
+							<configuration>
+								<systemPropertyVariables>
+									<mpirunner.mpirunOptions>--hostfile ../HOSTFILE</mpirunner.mpirunOptions>
+								</systemPropertyVariables>
+							</configuration>
+						</plugin>
+					</plugins>
+				</pluginManagement>
 			</build>
 		</profile>
 		<profile>
-			<!-- Profile activated when the property "hostfile" is specified 
-				(mvn -Dhostfile=/path/to/hostfile) -->
+			<!-- Profile activated when the property "hostfile" is specified (mvn 
+				-Dhostfile=/path/to/hostfile) -->
 			<id>explicit-hostfile</id>
 			<activation>
 				<property>
@@ -141,21 +152,23 @@
 				</property>
 			</activation>
 			<build>
-				<plugins>
-					<plugin>
-						<artifactId>maven-failsafe-plugin</artifactId>
-						<configuration>
-							<systemPropertyVariables>
-								<!-- override the default and specify the hostfile -->
-								<mpirunner.mpirunOptions>--hostfile ${hostfile}</mpirunner.mpirunOptions>
-							</systemPropertyVariables>
-						</configuration>
-					</plugin>
-				</plugins>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<artifactId>maven-failsafe-plugin</artifactId>
+							<configuration>
+								<systemPropertyVariables>
+									<!-- override the default and specify the hostfile -->
+									<mpirunner.mpirunOptions>--hostfile ${hostfile}</mpirunner.mpirunOptions>
+								</systemPropertyVariables>
+							</configuration>
+						</plugin>
+					</plugins>
+				</pluginManagement>
 			</build>
 		</profile>
 	</profiles>
-	
+
 	<build>
 		<plugins>
 
