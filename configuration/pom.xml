@@ -28,38 +28,6 @@
 
 	<profiles>
 		<profile>
-			<!-- Profile "mpj" activated by default -->
-			<id>mpj</id>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-			</activation>
-			<dependencies>
-				<dependency>
-					<groupId>com.github.handist</groupId>
-					<artifactId>MPJ</artifactId>
-					<version>v1.0.1</version>
-				</dependency>
-			</dependencies>
-			<build>
-				<pluginManagement>
-					<plugins>
-						<plugin>
-							<artifactId>maven-failsafe-plugin</artifactId>
-							<configuration>
-								<systemPropertyVariables>
-									<mpirunner.mpiImpl>mpj-multicore</mpirunner.mpiImpl>
-									<mpirunner.dryRun>true</mpirunner.dryRun>
-									<mpirunner.actionOnError>ignore</mpirunner.actionOnError>
-									<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
-									<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
-								</systemPropertyVariables>
-							</configuration>
-						</plugin>
-					</plugins>
-				</pluginManagement>
-			</build>
-		</profile>
-		<profile>
 			<!-- Profile mpj native can be activated via the command line -->
 			<id>mpjnative</id>
 			<dependencies>
