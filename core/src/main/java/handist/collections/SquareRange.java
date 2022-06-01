@@ -57,12 +57,15 @@ public class SquareRange implements Serializable {
 
     /** the range of the second dimension */
     public final LongRange inner;
-
     /**
      * the shape formed by inner and outer becomes uppertriangle
      */
     boolean isUpperTriangle;
-    /** */
+    /**
+     * the difference of triangle border index. the default is 0, the border is the
+     * same index of outer as inner(the border is not included). Increasing the
+     * value lowers the border
+     */
     long triangleDiff;
 
     /**
@@ -156,9 +159,11 @@ public class SquareRange implements Serializable {
         final long minColumn = range.inner.from;
         final long maxColumn = range.inner.to - 1;
         if (range.isUpperTriangle) {
-            return contains(minRow, minColumn) && contains(maxRow, maxColumn);
+            return contains(minRow, minColumn) && contains(maxRow, maxColumn); // check if contains upperLeft and
+                                                                               // lowerRight of upperTriangle
         } else {
-            return contains(maxRow, minColumn) && contains(minRow, maxColumn);
+            return contains(maxRow, minColumn) && contains(minRow, maxColumn); // check if contains upperRight and
+                                                                               // lowerLeft of square
         }
     }
 
@@ -324,7 +329,8 @@ public class SquareRange implements Serializable {
             return new SquareRange(interOut, interInn, false);
         }
         final long triDiff = Math.min(this.triangleDiff, range.triangleDiff);
-        return new SquareRange(interOut, interInn, true, triDiff);
+        final SquareRange inter = new SquareRange(interOut, interInn, true, triDiff);
+        return (inter.size() == 0) ? null : inter;
     }
 
     public SquareRange intersectionCheck(SquareRange subrange) {
@@ -393,11 +399,13 @@ public class SquareRange implements Serializable {
      */
     public long size() {
         if (isUpperTriangle) {
-            if (outer.size() < inner.size()) {
-                return outer.size() * (inner.size() + (inner.size() - outer.size() + 1)) / 2;
-            } else {
-                return inner.size() * (inner.size() + 1) / 2;
-            }
+            // Calculate the area of the trapezoid
+            final long upper = columnRange(outer.from).size();
+            final long lower = columnRange(endRow(inner.to - 1) - 1).size();
+            // depending on the range, squares and triangles are combined.
+            final long height_triangle = upper - lower + 1;
+            final long height_square = (rowRange(inner.to - 1).size()) - height_triangle;
+            return (height_triangle * (upper + lower) / 2) + (height_square * upper);
         } else {
             return inner.size() * outer.size();
         }
