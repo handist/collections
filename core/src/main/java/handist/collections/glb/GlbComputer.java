@@ -72,7 +72,7 @@ class GlbComputer extends PlaceLocalObject {
         /**
          * Unique Long Identifier of the operation source of this lifeline steal final
          */
-        long gid;
+        long batchId;
 
         /**
          * Constructor for a lifeline token. The target collection and the source of the
@@ -82,10 +82,11 @@ class GlbComputer extends PlaceLocalObject {
          * @param p place which is trying to steal some work
          */
         @SuppressWarnings("rawtypes")
-        private LifelineToken(GlbOperation op, Place p) {
+        private LifelineToken(GlbOperation op, Place p, long batchNumber) {
             collection = op.collection;
             place = p;
-            gid = op.id.gid();
+            batchId = batchNumber;
+
         }
 
         @Override
@@ -653,7 +654,7 @@ class GlbComputer extends PlaceLocalObject {
      */
     void establishingLifelineOnRemoteHost(GlbOperation<?, ?, ?, ?, ?, ?> op) {
         final DistributedCollection<?, ?> c = op.collection;
-        final LifelineToken token = new LifelineToken(op, here());
+        final LifelineToken token = new LifelineToken(op, here(), currentBatch.get(c).longValue());
 
         final ConcurrentHashMap<Place, AtomicInteger> lifelineStatus = lifelineEstablished.get(c);
 
@@ -880,7 +881,7 @@ class GlbComputer extends PlaceLocalObject {
         // that yielded its execution to allow this activity to run
         workerYieldLock.unblock();
 
-        // Block until operation completes
+        // Block until operation completes on the local host
         try {
             // Take the appropriate SemaphoreBlocker to be waken up by workers
             final OperationBlocker mb;
@@ -909,6 +910,8 @@ class GlbComputer extends PlaceLocalObject {
                     "InterruptedException received in operation activity, this should not happen as the managed blocker implementation does not throw this error");
             e.printStackTrace();
         }
+        // Establish lifelines before returning
+        establishingLifelineOnRemoteHost(op);
     }
 
     /**
@@ -980,7 +983,7 @@ class GlbComputer extends PlaceLocalObject {
                     if (newOperationRWlock.readLock().tryLock()) {
                         try {
                             final LifelineToken steal = lifelineThieves.poll();
-                            if (steal != null && steal.gid >= currentBatch.get(steal.collection)) {
+                            if (steal != null && steal.batchId >= currentBatch.get(steal.collection)) {
                                 // Check if the target collection has some assignments left for the target
                                 // collection
 
