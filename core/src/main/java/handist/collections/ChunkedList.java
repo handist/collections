@@ -43,8 +43,8 @@ import handist.collections.reducer.DoubleReducer;
 import handist.collections.reducer.FloatReducer;
 import handist.collections.reducer.IntReducer;
 import handist.collections.reducer.LongReducer;
-import handist.collections.reducer.Reducible;
 import handist.collections.reducer.Reducer;
+import handist.collections.reducer.Reducible;
 import handist.collections.reducer.ShortReducer;
 
 /**

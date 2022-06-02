@@ -270,6 +270,40 @@ public class IT_DistCol2 implements Serializable {
         assertEquals(place(1), distribution.location(range0To100));
         assertEquals(place(1), distribution.location(52l));
 
+        // Move a specific range from place(0) to place(1)
+        final LongRange movedRange = new LongRange(70, 80);
+        world.broadcastFlat(() -> {
+            final CollectiveMoveManager mm = new CollectiveMoveManager(world);
+            distCol.moveRangeAtSync(movedRange, place(0), mm);
+            mm.sync();
+
+            if (here() == place(0)) {
+                System.err.println("About to call update procedure");
+            }
+            world.barrier();
+
+            distCol.updateDist();
+        });
+
+        for (final Place p : world.places) {
+            if (p == here()) {
+                for (final long l : range0To100) {
+                    final Place expected = movedRange.contains(l) ? place(0) : place(1);
+
+                    assertEquals("Index " + l + " is mislocated on " + p, expected, distribution.location(l));
+                }
+            } else {
+                at(p, () -> {
+                    // Check that every single element's location can be accessed
+                    final LongRangeDistribution remotedistrib = distCol.getDistribution();
+                    for (final long l : range0To100) {
+                        final Place expected = movedRange.contains(l) ? place(0) : place(1);
+                        assertEquals("Index " + l + " is mislocated on " + p, expected, remotedistrib.location(l));
+                    }
+                });
+            }
+        }
+
         distCol.clear();
 
         // After clearing the local contents, remote status should remain known.
@@ -278,7 +312,7 @@ public class IT_DistCol2 implements Serializable {
         assertEquals(place(0), at(place(1), () -> {
             return distCol.getDistribution().location(range100To200);
         }));
-        assertEquals(place(1), distribution.location(range0To100));
+        assertNull(distribution.location(range0To100)); // this range was split, hence no mapping
 
         world.broadcastFlat(() -> distCol.updateDist());
 
@@ -287,7 +321,8 @@ public class IT_DistCol2 implements Serializable {
         // After the update, getting a snapshot of the distribution on place(1) to check
         at(place(1), () -> {
             final LongRangeDistribution distSnapshot = distCol.getDistribution();
-            assertEquals(place(1), distSnapshot.location(range0To100));
+            assertNull(distSnapshot.location(range0To100));
+            assertEquals(place(1), distSnapshot.location(new LongRange(0, 70)));
             assertNull(distSnapshot.location(range100To200));
         });
     }
@@ -382,6 +417,36 @@ public class IT_DistCol2 implements Serializable {
             assertEquals(place(2), lrd.location(range100To200));
             assertEquals(place(3), lrd.location(range200To250));
         });
+    }
+
+    @Test
+    public void testDistributionSubscribed4() {
+        final LongRangeDistribution distrib = distCol.getDistribution();
+        distCol.registerDistribution(distrib);
+
+        at(place(1), () -> distCol.add(chunk0To100));
+        at(place(2), () -> distCol.add(chunk100To200));
+        at(place(3), () -> distCol.add(chunk200To250));
+
+        world.broadcastFlat(() -> distCol.updateDist());
+
+        assertEquals(place(1), distrib.location(range0To100));
+        assertEquals(place(2), distrib.location(range100To200));
+        assertEquals(place(3), distrib.location(range200To250));
+
+        at(place(1), () -> {
+            final OneSidedMoveManager osmm = new OneSidedMoveManager(place(2));
+            distCol.moveRangeAtSync(new LongRange(50, 70), place(2), osmm);
+            osmm.asyncSend();
+        });
+
+        world.broadcastFlat(() -> distCol.updateDist());
+
+        assertEquals(place(1), distrib.location(new LongRange(0, 50)));
+        assertEquals(place(1), distrib.location(new LongRange(70, 100)));
+        assertEquals(place(2), distrib.location(range100To200));
+        assertEquals(place(2), distrib.location(new LongRange(50, 70)));
+        assertEquals(place(3), distrib.location(range200To250));
     }
 
     /**
