@@ -40,7 +40,7 @@ public class ObjectInput {
         kryo.setReferences(references);
     }
 
-    public int avairable() throws IOException {
+    public int available() throws IOException {
         return input.available();
     }
 

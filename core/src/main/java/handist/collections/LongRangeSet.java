@@ -35,18 +35,29 @@ public final class LongRangeSet implements NavigableSet<LongRange>, Serializable
         }
     }
 
+    /**
+     * Adds the specified element to this set if it does not overlap existing. It's
+     * not a thread safe operation.
+     *
+     * @return true if this set did not overlap the specified element
+     */
     @Override
     public boolean add(LongRange r) {
         LongRange range = floor(r);
         if (range != null && range.to > r.from) {
-            return false; // or throw exception
+            return false;
         }
         range = ceiling(r);
         if (range != null && range.from < r.to) {
-            return false; // or throw exception
+            return false;
         }
         totalSize.addAndGet(r.size());
         return ranges.add(r);
+    }
+
+    private void add_unchecked(LongRange r) {
+        totalSize.addAndGet(r.size());
+        ranges.add(r);
     }
 
     @Override
@@ -58,6 +69,29 @@ public final class LongRangeSet implements NavigableSet<LongRange>, Serializable
             }
         }
         return ret;
+    }
+
+    /**
+     * Adds the specified element to this set. If it is overlapping exsistings,
+     * combine them. It's not a thread safe operation.
+     */
+    public void addCombine(LongRange r) {
+        long from = r.from;
+        long to = r.to;
+        LongRange range = floor(r);
+        if (range != null && range.isOverlapped(r)) {
+            r = r.getCombined(range);
+            remove(range);
+            from = range.from;
+            to = Math.max(r.to, range.to);
+        }
+        range = ceiling(r);
+        if (range != null && range.from < r.to) {
+            r = r.getCombined(range);
+            remove(range);
+            to = Math.max(r.to, range.to);
+        }
+        add_unchecked(new LongRange(from, to));
     }
 
     @Override
@@ -204,10 +238,47 @@ public final class LongRangeSet implements NavigableSet<LongRange>, Serializable
         }
         return result;
     }
+    
+    public LongRangeSet intersections(LongRange r) {
+        final LongRangeSet result = new LongRangeSet();
+        if (isEmpty()) {
+            return result;
+        }
+        LongRange range = floor(r);
+        if (range == null) {
+            range = higher(r);
+        }
+        final Iterator<LongRange> iter = tailSet(range, true).iterator();
+        while (iter.hasNext() && range.from < r.to) {
+            range = iter.next();
+            if (range.isOverlapped(r)) {
+                result.add(range.intersection(r));
+            }
+        }
+        return result;
+    }
 
     @Override
     public boolean isEmpty() {
         return ranges.isEmpty();
+    }
+
+    public boolean isOverlapped(LongRange r) {
+        if (isEmpty()) {
+            return false;
+        }
+        LongRange range = floor(r);
+        if (range == null) {
+            range = higher(r);
+        }
+        final Iterator<LongRange> iter = tailSet(range, true).iterator();
+        while (iter.hasNext() && range.from < r.to) {
+            if (range.isOverlapped(r)) {
+                return true;
+            }
+            range = iter.next();
+        }
+        return false;
     }
 
     @Override
@@ -239,18 +310,28 @@ public final class LongRangeSet implements NavigableSet<LongRange>, Serializable
         if (isEmpty()) {
             return result;
         }
-        LongRange range = floor(new LongRange(from));
+        LongRange range = floor(given);
         if (range == null) {
-            range = higher(range);
+            range = higher(given);
         }
         final Iterator<LongRange> iter = tailSet(range, true).iterator();
         while (iter.hasNext() && range.from < to) {
+            range = iter.next();
             if (range.isOverlapped(given)) {
                 result.add(range);
             }
-            range = iter.next();
         }
         return result;
+    }
+
+    /**
+     * Returns shallow copy set overlapping a given range. Includes ranges that
+     * overhang with the given range.
+     *
+     * @return LongRange set ovelapping a given range
+     */
+    public NavigableSet<LongRange> overlapSet(LongRange range) {
+        return overlapSet(range.from, range.to);
     }
 
     @Override

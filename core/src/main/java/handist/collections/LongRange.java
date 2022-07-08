@@ -289,6 +289,20 @@ public class LongRange implements Comparable<LongRange>, Iterable<Long>, Seriali
     }
 
     /**
+     * Returns a {@link LongRange} combined with specified range.
+     *
+     * @param r range to be combined to this range
+     * @return a {@link LongRange} combined with the specified range, or this range
+     *         if no overlaps.
+     */
+    LongRange getCombined(LongRange r) {
+        if (!isOverlapped(r)) {
+            return this;
+        }
+        return new LongRange(Math.min(from, r.from), Math.max(to, r.to));
+    }
+
+    /**
      * Returns a hash code for the {@link LongRange}. The hash-code is generated
      * based on some bit shift operations on the {@link #from lower} and {@link #to
      * upper bound} of the {@link LongRange}.
