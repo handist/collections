@@ -21,40 +21,6 @@
 
 	<profiles>
 		<profile>
-			<!-- Profile OpenMPI active by default -->
-			<id>openmpi</id>
-			<activation>
-				<activeByDefault>true</activeByDefault>
-			</activation>
-			<dependencies>
-				<dependency>
-					<groupId>openmpi</groupId>
-					<artifactId>java-bindings</artifactId>
-					<version>any</version>
-					<scope>system</scope>
-					<systemPath>${env.OPENMPI_LIB}/mpi.jar</systemPath>
-				</dependency>
-			</dependencies>
-			<build>
-				<pluginManagement>
-					<plugins>
-						<plugin>
-							<artifactId>maven-failsafe-plugin</artifactId>
-							<configuration>
-								<systemPropertyVariables>
-									<mpirunner.mpiImpl>openmpi</mpirunner.mpiImpl>
-									<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
-									<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
-									<mpirunner.mpirunOptions>--oversubscribe --mca mpi_java_eager 256k</mpirunner.mpirunOptions>
-									<mpirunner.parseNotifications>0</mpirunner.parseNotifications>
-								</systemPropertyVariables>
-							</configuration>
-						</plugin>
-					</plugins>
-				</pluginManagement>
-			</build>
-		</profile>
-		<profile>
 			<!-- Profile activated when file HOSTFILE is present in the root directory. 
 				This makes the test use that hostfile to execute. -->
 			<id>hostfile-file-present</id>
@@ -105,9 +71,18 @@
 		</profile>
 	</profiles>
 
+	<dependencies>
+		<dependency>
+			<groupId>openmpi</groupId>
+			<artifactId>java-bindings</artifactId>
+			<version>any</version>
+			<scope>system</scope>
+			<systemPath>${env.OPENMPI_LIB}/mpi.jar</systemPath>
+		</dependency>
+	</dependencies>
+
 	<build>
 		<plugins>
-
 		</plugins>
 		<pluginManagement><!-- lock down plugins versions to avoid using Maven 
 				defaults (may be moved to parent pom) -->
@@ -144,6 +119,15 @@
 				<plugin>
 					<artifactId>maven-failsafe-plugin</artifactId>
 					<version>3.0.0-M5</version>
+					<configuration>
+						<systemPropertyVariables>
+							<mpirunner.mpiImpl>openmpi</mpirunner.mpiImpl>
+							<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
+							<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
+							<mpirunner.mpirunOptions>--oversubscribe --mca mpi_java_eager 256k</mpirunner.mpirunOptions>
+							<mpirunner.parseNotifications>0</mpirunner.parseNotifications>
+						</systemPropertyVariables>
+					</configuration>
 				</plugin>
 				<plugin>
 					<artifactId>maven-install-plugin</artifactId>
