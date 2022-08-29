@@ -138,7 +138,7 @@ abstract class LoadBalancer {
         Arrays.fill(tmpOverCounts, localSize());
         final long[] overCounts = new long[np];
         // team.alltoall(tmpOverCounts, 0, overCounts, 0, 1);
-        pg.comm.Alltoall(tmpOverCounts, 0, 1, MPI.LONG, overCounts, 0, 1, MPI.LONG);
+        pg.comm.allToAll(tmpOverCounts, 1, MPI.LONG, overCounts, 1, MPI.LONG);
         long total = 0;
         for (int i = 0; i < np; i++) {
             total = total + overCounts[i];
@@ -202,7 +202,7 @@ abstract class LoadBalancer {
             }
         }
         // team.bcast(tmpRoot, matrix, 0, matrix, 0, np * np);
-        pg.comm.Bcast(matrix, 0, np * np, MPI.INT, pg.rank(root));
+        pg.comm.bcast(matrix, np * np, MPI.INT, pg.rank(root));
         final BiFunction<Integer, Integer, Integer> func = (Integer i0, Integer j0) -> {
             return matrix[np * i0 + j0];
         };
@@ -242,7 +242,7 @@ abstract class LoadBalancer {
                 }
             }
 
-            pg.comm.Alltoall(scounts, 0, 1, MPI.INT, rcounts, 0, 1, MPI.INT);
+            pg.comm.allToAll(scounts, 1, MPI.INT, rcounts, 1, MPI.INT);
             final byte[] sendbuf = s0.toByteArray();
 
             final int[] rdispls = new int[np];
@@ -252,7 +252,7 @@ abstract class LoadBalancer {
                 rused += rcounts[i];
             }
             final byte[] recvbuf = new byte[rused];
-            pg.Alltoallv(sendbuf, 0, scounts, sdispls, MPI.BYTE, recvbuf, 0, rcounts, rdispls, MPI.BYTE);
+            pg.Alltoallv(sendbuf, scounts, sdispls, MPI.BYTE, recvbuf, rcounts, rdispls, MPI.BYTE);
 
             for (int i = 0; i < np; i++) {
                 if (rcounts[i] == 0) {

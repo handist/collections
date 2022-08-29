@@ -10,6 +10,7 @@
  ******************************************************************************/
 package handist.collections.glb;
 
+import static apgas.Constructs.*;
 import static apgas.ExtendedConstructs.*;
 
 import java.io.ByteArrayInputStream;
@@ -105,11 +106,9 @@ class CustomOneSidedMoveManager extends OneSidedMoveManager {
         final int myRank = TeamedPlaceGroup.getWorld().rank();
         final int tag = nextTag();
 
-        TeamedPlaceGroup.getWorld().comm.Isend(bytesToSend, 0, nbOfBytes, MPI.BYTE, destinationRank, tag);
-
         asyncArbitraryFinish(destination, () -> {
             // Receive the array of bytes
-            TeamedPlaceGroup.getWorld().comm.Recv(new byte[nbOfBytes], 0, nbOfBytes, MPI.BYTE, myRank, tag);
+            TeamedPlaceGroup.getWorld().comm.recv(new byte[nbOfBytes], nbOfBytes, MPI.BYTE, myRank, tag);
             final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);
             final ObjectInput oInput = new ObjectInput(inStream);
 
@@ -126,6 +125,8 @@ class CustomOneSidedMoveManager extends OneSidedMoveManager {
             // Reception is over, launch the job that was given as parameter
             j.run();
         }, finishs);
+
+        async(() -> TeamedPlaceGroup.getWorld().comm.send(bytesToSend, nbOfBytes, MPI.BYTE, destinationRank, tag));
     }
 
     /**

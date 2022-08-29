@@ -18,7 +18,6 @@ import apgas.Place;
 import apgas.SerializableJob;
 import apgas.util.GlobalID;
 import mpi.Datatype;
-import mpi.MPIException;
 
 /**
  * SinglePlaceGroup is a place group consisting of a single place.
@@ -39,8 +38,8 @@ public class SinglePlaceGroup extends TeamedPlaceGroup {
     }
 
     @Override
-    public void Alltoallv(Object byteArray, int soffset, int[] sendSize, int[] sendOffset, Datatype stype,
-            Object recvbuf, int roffset, int[] rcvSize, int[] rcvOffset, Datatype rtype) throws MPIException {
+    public void Alltoallv(Object byteArray, int[] sendSize, int[] sendOffset, Datatype stype, Object recvbuf,
+            int[] rcvSize, int[] rcvOffset, Datatype rtype) {
         /* do nothing */
     }
 

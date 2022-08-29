@@ -17,6 +17,7 @@ project_compile:
   stage: build
   script:
     - source /home/gitlab-runner/.profile
+    - ./install-dependencies.sh
     - mvn $MAVEN_CLI_OPTS -U clean compile
 
 junit_tests:
@@ -37,7 +38,7 @@ mpjnative_it_tests:
   stage: integration
   script:
     - source /home/gitlab-runner/.profile
-    - mvn $MAVEN_CLI_OPTS -Pmpjnative verify -Dhostfile=${HOSTFILE}
+    - mvn $MAVEN_CLI_OPTS -Popenmpi verify -Dhostfile=${HOSTFILE}
     - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
   artifacts:
     when: always

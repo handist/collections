@@ -98,11 +98,9 @@ public class OneSidedMoveManager implements MoveManager {
         final int myRank = TeamedPlaceGroup.world.rank();
         final int tag = nextTag();
 
-        TeamedPlaceGroup.world.comm.Isend(bytesToSend, 0, nbOfBytes, MPI.BYTE, destinationRank, tag);
-
         asyncAt(destination, () -> {
             // Receive the array of bytes
-            TeamedPlaceGroup.world.comm.Recv(new byte[nbOfBytes], 0, nbOfBytes, MPI.BYTE, myRank, tag);
+            TeamedPlaceGroup.world.comm.recv(new byte[nbOfBytes], nbOfBytes, MPI.BYTE, myRank, tag);
             final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);
             final ObjectInput oInput = new ObjectInput(inStream);
 
@@ -116,6 +114,8 @@ public class OneSidedMoveManager implements MoveManager {
             }
             oInput.close();
         });
+
+        async(() -> TeamedPlaceGroup.world.comm.send(bytesToSend, nbOfBytes, MPI.BYTE, destinationRank, tag));
     }
 
     /**
@@ -166,11 +166,11 @@ public class OneSidedMoveManager implements MoveManager {
         final int myRank = TeamedPlaceGroup.world.rank();
         final int tag = nextTag();
 
-        TeamedPlaceGroup.world.comm.Isend(bytesToSend, 0, nbOfBytes, MPI.BYTE, destinationRank, tag);
+        async(() -> TeamedPlaceGroup.world.comm.send(bytesToSend, nbOfBytes, MPI.BYTE, destinationRank, tag));
 
         at(destination, () -> {
             // Receive the array of bytes
-            TeamedPlaceGroup.world.comm.Recv(new byte[nbOfBytes], 0, nbOfBytes, MPI.BYTE, myRank, tag);
+            TeamedPlaceGroup.world.comm.recv(new byte[nbOfBytes], nbOfBytes, MPI.BYTE, myRank, tag);
             final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);
             final ObjectInput oInput = new ObjectInput(inStream);
 
@@ -184,5 +184,6 @@ public class OneSidedMoveManager implements MoveManager {
             }
             oInput.close();
         });
+
     }
 }

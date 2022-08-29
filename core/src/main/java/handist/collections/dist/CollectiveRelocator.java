@@ -66,7 +66,7 @@ public class CollectiveRelocator {
             final int[] recvCounts = new int[numPlaces];
             final int[] recvDispls = new int[numPlaces];
             try {
-                pg.comm.Allgather(tmpCounts, 0, 1, MPI.INT, recvCounts, 0, 1, MPI.INT);
+                pg.comm.allGather(tmpCounts, 1, MPI.INT, recvCounts, 1, MPI.INT);
             } catch (final MPIException e) {
                 e.printStackTrace();
                 throw new Error("[CollectiveRelocator] MPIException");
@@ -79,7 +79,7 @@ public class CollectiveRelocator {
             }
             final byte[] rbuf = new byte[total];
             try {
-                pg.comm.Allgatherv(buf, 0, size, MPI.BYTE, rbuf, 0, recvCounts, recvDispls, MPI.BYTE);
+                pg.comm.allGatherv(buf, size, MPI.BYTE, rbuf, recvCounts, recvDispls, MPI.BYTE);
             } catch (final MPIException e) {
                 e.printStackTrace();
                 throw new Error("[CollectiveRelocator] MPIException");
@@ -138,12 +138,28 @@ public class CollectiveRelocator {
                     out.close();
                 }
                 tmpBuf[0] = out0.size();
-                pg.comm.Bcast(tmpBuf, 0, 1, MPI.INT, pg.rank(root));
-                pg.comm.Bcast(out0.toByteArray(), 0, out0.size(), MPI.BYTE, pg.rank(root));
+                try {
+                    pg.comm.bcast(tmpBuf, 1, MPI.INT, pg.rank(root));
+                } catch (final MPIException e) {
+                    throw new RuntimeException(e);
+                }
+                try {
+                    pg.comm.bcast(out0.toByteArray(), out0.size(), MPI.BYTE, pg.rank(root));
+                } catch (final MPIException e) {
+                    throw new RuntimeException(e);
+                }
             } else {
-                pg.comm.Bcast(tmpBuf, 0, 1, MPI.INT, pg.rank(root));
+                try {
+                    pg.comm.bcast(tmpBuf, 1, MPI.INT, pg.rank(root));
+                } catch (final MPIException e) {
+                    throw new RuntimeException(e);
+                }
                 final byte[] buf = new byte[tmpBuf[0]];
-                pg.comm.Bcast(buf, 0, buf.length, MPI.BYTE, pg.rank(root));
+                try {
+                    pg.comm.bcast(buf, buf.length, MPI.BYTE, pg.rank(root));
+                } catch (final MPIException e) {
+                    throw new RuntimeException(e);
+                }
                 final ObjectInput in = new ObjectInput(new ByteArrayInputStream(buf));
                 try {
                     for (final DeSerializer des : desers) {
@@ -196,7 +212,7 @@ public class CollectiveRelocator {
             final int[] recvCounts = new int[numPlaces];
             final int[] recvDispls = new int[numPlaces];
             try {
-                pg.comm.Gather(tmpCounts, 0, 1, MPI.INT, recvCounts, 0, 1, MPI.INT, pg.rank(root));
+                pg.comm.gather(tmpCounts, 1, MPI.INT, recvCounts, 1, MPI.INT, pg.rank(root));
             } catch (final MPIException e) {
                 e.printStackTrace();
                 throw new Error("[CollectiveRelocator] MPIException");
@@ -209,7 +225,7 @@ public class CollectiveRelocator {
             }
             final byte[] rbuf = Constructs.here().equals(root) ? new byte[total] : null;
             try {
-                pg.comm.Gatherv(buf, 0, size, MPI.BYTE, rbuf, 0, recvCounts, recvDispls, MPI.BYTE, pg.rank(root));
+                pg.comm.gatherv(buf, size, MPI.BYTE, rbuf, recvCounts, recvDispls, MPI.BYTE, pg.rank(root));
             } catch (final MPIException e) {
                 e.printStackTrace();
                 throw new Error("[CollectiveRelocator] MPIException");
@@ -275,7 +291,7 @@ public class CollectiveRelocator {
      */
     static byte[] exchangeBytesWithinGroup(TeamedPlaceGroup placeGroup, byte[] byteArray, int[] sendOffset,
             int[] sendSize, int[] rcvOffset, int[] rcvSize) throws MPIException {
-        placeGroup.comm.Alltoall(sendSize, 0, 1, MPI.INT, rcvSize, 0, 1, MPI.INT);
+        placeGroup.comm.allToAll(sendSize, 1, MPI.INT, rcvSize, 1, MPI.INT);
         if (DEBUG) {
             final StringBuffer buf = new StringBuffer();
             buf.append(Constructs.here() + "::");
@@ -295,7 +311,7 @@ public class CollectiveRelocator {
         final byte[] recvbuf = new byte[current];
 
         // Do the transfer
-        placeGroup.Alltoallv(byteArray, 0, sendSize, sendOffset, MPI.BYTE, recvbuf, 0, rcvSize, rcvOffset, MPI.BYTE);
+        placeGroup.Alltoallv(byteArray, sendSize, sendOffset, MPI.BYTE, recvbuf, rcvSize, rcvOffset, MPI.BYTE);
 
         // Return the initialized receiver array which now contains the received bytes.
         return recvbuf;

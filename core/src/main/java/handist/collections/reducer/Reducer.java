@@ -10,15 +10,17 @@
  ******************************************************************************/
 package handist.collections.reducer;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.Serializable;
-import java.util.HashMap;
 
+import apgas.Place;
 import apgas.util.GlobalID;
 import handist.collections.dist.TeamedPlaceGroup;
-import mpi.Datatype;
+import handist.collections.dist.util.ObjectInput;
+import handist.collections.dist.util.ObjectOutput;
 import mpi.MPI;
-import mpi.Op;
-import mpi.User_function;
+import mpi.MPIException;
 
 /**
  * Reducer object. This object provides an abstract reduction operation on some
@@ -53,43 +55,10 @@ import mpi.User_function;
  *            itself)
  * @param <T> the type from which data is acquired to compute the reduction
  */
-public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function implements Serializable {
+public abstract class Reducer<R extends Reducer<R, T>, T> implements Serializable {
 
     /** Serial Version UID */
     private static final long serialVersionUID = 956660189595987110L;
-
-    /**
-     * The reduction operations which have been registered for use with the MPI
-     * reduce calls. The canonical name of the class implementing the reduction
-     * operation is used as key in this map. As calls to methods
-     * {@link #globalReduction(TeamedPlaceGroup, GlobalID)} and
-     * {@link #teamReduction(TeamedPlaceGroup)} are made, new entries are
-     * initialized and added to this map to be reused when a new reduction using the
-     * same Reducer implementation is made.
-     */
-    private static transient HashMap<String, Op> registeredUserOperations = new HashMap<>();
-
-    /**
-     * This method is called by the MPI runtime to make the reduction happen between
-     * objects. You do not need to override this method, and do so at your own
-     * peril.
-     */
-    @SuppressWarnings("unchecked")
-    @Override
-    public void Call(Object firstOperandArray, int firstOperandArrayOffset, Object secondOperandAndResultArray,
-            int secondOperandArrayOffset, int count, Datatype datatype) {
-        // The argument casts are somewhat tedious but Java.lang.ClassCastException
-        // are thrown if we try to perform then in one go.
-        final Object[] ov = (Object[]) secondOperandAndResultArray;
-        final Object[] iv = (Object[]) firstOperandArray;
-
-        for (int i = secondOperandArrayOffset,
-                j = firstOperandArrayOffset; i < count + secondOperandArrayOffset; i++, j++) {
-            final R result = (R) ov[i];
-            final R operand = (R) iv[j];
-            result.merge(operand);
-        }
-    }
 
     /**
      * Performs the global reduction of this instance. This method needs to be
@@ -116,7 +85,7 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
      * to be performed manually by the programmer, which does not satisfactorily
      * provides the global reduction features.
      */
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({ "deprecation", "unchecked" })
     public void globalReduction(TeamedPlaceGroup placeGroup, GlobalID gid) {
         if (placeGroup == null || gid == null) {
             throw new IllegalArgumentException("Method Reducer#globalReduction does not tolerate null parameters");
@@ -126,29 +95,61 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
 
         placeGroup.broadcastFlat(() -> {
             // Retrieve the local object through the global id
-            @SuppressWarnings("unchecked")
             final Reducer<R, T> local = (Reducer<R, T>) gid.getHere();
 
-            // Prepare the reduction through the MPI reduceAll call
-            // 1. We need to make sure that the reducer instance was registered in the
-            // operations
-            Op mpiOperation;
-            final String s = local.getClass().getCanonicalName();
-            synchronized (registeredUserOperations) {
-                if (!registeredUserOperations.containsKey(s)) {
-                    mpiOperation = new Op(local.newReducer(), true);
-                    registeredUserOperations.put(s, mpiOperation);
-                } else {
-                    mpiOperation = registeredUserOperations.get(s);
-                }
-            }
-            // 2. Prepare the local instances into an Object Array
-            final Object[] buffer = new Object[1];
-            buffer[0] = local;
+            final boolean isRoot = reductionRank == placeGroup.rank();
+            final Place rootPlace = placeGroup.get(reductionRank);
 
-            // 3. Make the MPI AllReduce call
-            placeGroup.comm.Reduce(buffer, 0, buffer, 0, 1, MPI.OBJECT, mpiOperation, reductionRank);
+            // 1. Serialize my local reducer
+            final ByteArrayOutputStream out = new ByteArrayOutputStream();
+            final ObjectOutput output = new ObjectOutput(out);
+            output.writeObject(local);
+            output.close();
+            final byte[] localBuffer = out.toByteArray();
+
+            // 2. Make a gather to tell the root how many bytes it will receive from
+            // everyone
+            final int nbBytesToSend = localBuffer.length;
+            final int[] rcvSize = placeGroup.gather1(nbBytesToSend, rootPlace);
+
+            if (isRoot) {
+                // Compute the offsets and the total number of bites sent
+                final int[] rcvOffset = new int[placeGroup.size()];
+                int totalBytes = 0;
+                for (int i = 0; i < rcvSize.length; i++) {
+                    rcvOffset[i] = totalBytes; // Set the receiver offsets
+                    totalBytes += rcvSize[i]; // Count the total number of bytes which this place is going to receive
+                }
+                final byte[] receiverbuffer = new byte[totalBytes];
+
+                // Receive the bytes from the other hosts
+                placeGroup.comm.gatherv(localBuffer, nbBytesToSend, MPI.BYTE, receiverbuffer, rcvSize, rcvOffset,
+                        MPI.BYTE, reductionRank);
+
+                // 3. Proceed to deserialize the object from each place
+                final Reducer<R, T>[] reducers = new Reducer[placeGroup.size()];
+
+                for (int i = 0; i < placeGroup.size(); i++) {
+                    final ByteArrayInputStream inStream = new ByteArrayInputStream(receiverbuffer, rcvOffset[i],
+                            rcvSize[i]);
+                    final ObjectInput inObject = new ObjectInput(inStream);
+
+                    reducers[i] = (Reducer<R, T>) inObject.readObject();
+                    inObject.close();
+                }
+
+                // 4. Apply the merge method so that everything is computed
+                for (int i = 1; i < placeGroup.size(); i++) {
+                    if (i != reductionRank) {
+                        local.merge((R) reducers[i]);
+                    }
+                }
+            } else {
+                // Send the bytes to the root of the reduction
+                placeGroup.comm.gatherv(localBuffer, nbBytesToSend, MPI.BYTE, reductionRank);
+            }
         });
+
     }
 
     /**
@@ -195,27 +196,59 @@ public abstract class Reducer<R extends Reducer<R, T>, T> extends User_function 
             throw new IllegalStateException("This Reducer is not allowed to perform any global reduction");
         }
 
-        // 1. We need to make sure that the reducer instance was registered in the
-        // operations that MPI can handle
-        Op mpiOperation;
-        // The getCanonicalName method returns the name of the implementing class, not
-        // "handist.collections.dist.Reducer".
-        final String s = this.getClass().getCanonicalName();
-        synchronized (registeredUserOperations) {
-            if (!registeredUserOperations.containsKey(s)) {
-                mpiOperation = new Op(this.newReducer(), true);
-                registeredUserOperations.put(s, mpiOperation);
-            } else {
-                mpiOperation = registeredUserOperations.get(s);
-            }
+        // With OpenMPI Java bindings, the Object datatype disappeared.
+        // As a result, we need to:
+        // 1. Serialize our object
+        // 2. Make an allgather with the obtained bytes
+        // 3. Deserialize the objects
+        // 4. Apply the merge function on the reducer instances coming from each host to
+        // compute the result
+
+        // 1. Serialization
+        final ByteArrayOutputStream out = new ByteArrayOutputStream();
+        final ObjectOutput output = new ObjectOutput(out); // TODO do we need to set boolean argument to true?
+        output.writeObject(this);
+        output.close();
+
+        // 2. Make an allgather with the obtained bytes
+        final byte[] localBuffer = out.toByteArray();
+
+        // Obtain the number of bytes sent by each host
+        final int[] rcvSize = placeGroup.allGather1(localBuffer.length);
+
+        // Compute the offsets and the total number of bites sent
+        final int[] rcvOffset = new int[placeGroup.size()];
+        int totalBytes = 0;
+        for (int i = 0; i < rcvSize.length; i++) {
+            rcvOffset[i] = totalBytes; // Set the receiver offsets
+            totalBytes += rcvSize[i]; // Count the total number of bytes which this place is going to receive
         }
-        // 2. Prepare the local instances into an Object Array
-        final Object[] buffer = new Object[1];
-        buffer[0] = this;
+        final byte[] receiverbuffer = new byte[totalBytes];
 
-        // Make the MPI AllReduce call
-        placeGroup.comm.Allreduce(buffer, 0, buffer, 0, 1, MPI.OBJECT, mpiOperation);
+        // Transfer all the bytes to all the hosts
+        try {
+            placeGroup.comm.allGatherv(localBuffer, localBuffer.length, MPI.BYTE, receiverbuffer, rcvSize, rcvOffset,
+                    MPI.BYTE);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
 
-        return (R) buffer[0];
+        // 3. Proceed to deserialize the object from each place
+        final Reducer<R, T>[] reducers = new Reducer[placeGroup.size()];
+
+        for (int i = 0; i < placeGroup.size(); i++) {
+            final ByteArrayInputStream inStream = new ByteArrayInputStream(receiverbuffer, rcvOffset[i], rcvSize[i]);
+            final ObjectInput inObject = new ObjectInput(inStream);
+
+            reducers[i] = (Reducer<R, T>) inObject.readObject();
+            inObject.close();
+        }
+
+        // 4. Apply the merge method so that everything is computed
+        for (int i = 1; i < placeGroup.size(); i++) {
+            reducers[0].merge((R) reducers[i]);
+        }
+
+        return (R) reducers[0];
     }
 }

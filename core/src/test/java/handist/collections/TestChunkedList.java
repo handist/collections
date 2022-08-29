@@ -86,6 +86,14 @@ public class TestChunkedList {
         public void reduce(T input) {
             counter++;
         }
+
+        /**
+         * Prints the number of elements counted
+         */
+        @Override
+        public String toString() {
+            return "Counted:" + counter;
+        }
     }
 
     /**

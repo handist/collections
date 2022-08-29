@@ -6,7 +6,7 @@
 
 	<groupId>com.github.handist.collections</groupId>
 	<artifactId>configuration</artifactId>
-	<version>v1.3.0</version>
+	<version>v1.4.0</version>
 	<packaging>pom</packaging>
 
 	<name>collections-configuration</name>
@@ -19,22 +19,20 @@
 		<maven.compiler.target>1.8</maven.compiler.target>
 	</properties>
 
-	<repositories>
-		<repository>
-			<id>jitpack.io</id>
-			<url>https://jitpack.io</url>
-		</repository>
-	</repositories>
-
 	<profiles>
 		<profile>
-			<!-- Profile mpj native can be activated via the command line -->
-			<id>mpjnative</id>
+			<!-- Profile OpenMPI active by default -->
+			<id>openmpi</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
 			<dependencies>
 				<dependency>
-					<groupId>com.github.handist</groupId>
-					<artifactId>MPJ</artifactId>
-					<version>v1.0.1</version>
+					<groupId>openmpi</groupId>
+					<artifactId>java-bindings</artifactId>
+					<version>any</version>
+					<scope>system</scope>
+					<systemPath>${env.OPENMPI_LIB}/mpi.jar</systemPath>
 				</dependency>
 			</dependencies>
 			<build>
@@ -44,40 +42,10 @@
 							<artifactId>maven-failsafe-plugin</artifactId>
 							<configuration>
 								<systemPropertyVariables>
-									<mpirunner.mpiImpl>mpj-native</mpirunner.mpiImpl>
+									<mpirunner.mpiImpl>openmpi</mpirunner.mpiImpl>
 									<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
 									<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
-									<mpirunner.mpirunOptions>--oversubscribe</mpirunner.mpirunOptions>
-									<mpirunner.parseNotifications>0</mpirunner.parseNotifications>
-								</systemPropertyVariables>
-							</configuration>
-						</plugin>
-					</plugins>
-				</pluginManagement>
-			</build>
-		</profile>
-		<profile>
-			<!-- Profile mpijava can be activated via the command line -->
-			<id>mpijava</id>
-			<dependencies>
-				<dependency>
-					<groupId>com.github.handist</groupId>
-					<artifactId>mpijava</artifactId>
-					<version>v1.2.7</version>
-				</dependency>
-			</dependencies>
-			<build>
-				<pluginManagement>
-					<plugins>
-						<plugin>
-							<artifactId>maven-failsafe-plugin</artifactId>
-							<configuration>
-								<systemPropertyVariables>
-									<mpirunner.mpiImpl>native</mpirunner.mpiImpl>
-									<mpirunner.notificationsPath>target/mpi-junit</mpirunner.notificationsPath>
-									<mpirunner.keepNotifications>true</mpirunner.keepNotifications>
-									<mpirunner.javaLibraryPath>${env.MPIJAVA_LIB}</mpirunner.javaLibraryPath>
-									<mpirunner.mpirunOptions>--oversubscribe</mpirunner.mpirunOptions>
+									<mpirunner.mpirunOptions>--oversubscribe --mca mpi_java_eager 256k</mpirunner.mpirunOptions>
 									<mpirunner.parseNotifications>0</mpirunner.parseNotifications>
 								</systemPropertyVariables>
 							</configuration>
@@ -102,7 +70,7 @@
 							<artifactId>maven-failsafe-plugin</artifactId>
 							<configuration>
 								<systemPropertyVariables>
-									<mpirunner.mpirunOptions>--hostfile ../HOSTFILE</mpirunner.mpirunOptions>
+									<mpirunner.mpirunOptions>--hostfile ../HOSTFILE --mca mpi_java_eager 256k</mpirunner.mpirunOptions>
 								</systemPropertyVariables>
 							</configuration>
 						</plugin>
@@ -127,7 +95,7 @@
 							<configuration>
 								<systemPropertyVariables>
 									<!-- override the default and specify the hostfile -->
-									<mpirunner.mpirunOptions>--hostfile ${hostfile}</mpirunner.mpirunOptions>
+									<mpirunner.mpirunOptions>--hostfile ${hostfile} --mca mpi_java_eager 256k</mpirunner.mpirunOptions>
 								</systemPropertyVariables>
 							</configuration>
 						</plugin>
