@@ -63,11 +63,11 @@ public class TeamOperations<T, C extends DistributedCollection<T, C>> {
             return;
         }
         final TeamedPlaceGroup pg = handle.placeGroup();
-        result[pg.myrank] = handle.longSize();
+        result[0] = handle.longSize();
         try {
             // THIS WORKS FOR MPJ-NATIVE implementation
             // There appears to be a bug in the mpiJava implementation
-            pg.comm.Allgather(result, pg.myrank, 1, MPI.LONG, result, 0, 1, MPI.LONG);
+            pg.comm.allGather(result, 1, MPI.LONG, result, 1, MPI.LONG);
         } catch (final MPIException e) {
             e.printStackTrace();
             throw new Error("[DistMap] network error in team().size()");

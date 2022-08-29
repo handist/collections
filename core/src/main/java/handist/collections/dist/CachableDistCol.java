@@ -30,10 +30,18 @@ import handist.collections.function.DeSerializerUsingPlace;
 import handist.collections.function.LongTBiConsumer;
 import handist.collections.function.Serializer;
 
+/**
+ * {@link DistChunkedList} with additional features allowing it to replicate
+ * some range of values held by a process to another process
+ *
+ * @param <T> type contained by this collection
+ */
+/*
+ * Implementation note: This class does not extend DistCol because shared chunks
+ * from other places should not register to ldist.
+ */
 public class CachableDistCol<T> extends DistChunkedList<T>
-        implements RangeCachable<LongRange>, ElementLocationManageable<LongRange> { // Not extends DistCol because
-                                                                                    // shared chunks from other places
-                                                                                    // should not register to ldist.
+        implements RangeCachable<LongRange>, ElementLocationManageable<LongRange> {
 
     /**
      * Internal class that handles distribution-related operations.
@@ -48,8 +56,10 @@ public class CachableDistCol<T> extends DistChunkedList<T>
      * Map keeping track of the "owner" of each range in the collection. Registerd
      * even when added locally.
      */
-    protected final transient HashMap<RangedList<T>, Place> owner; // NOTE: can reduce this? only need to change
-                                                                   // getOwner using ldist.
+    /*
+     * TODO Can we remove this? We can obtain the owner Owner using member #ldist.
+     */
+    protected final transient HashMap<RangedList<T>, Place> owner;
     /**
      * Map having ranges that were sent to each remote branch
      */
@@ -518,10 +528,10 @@ public class CachableDistCol<T> extends DistChunkedList<T>
         final CachableDistCol<T> toBranch = this;
         @SuppressWarnings("unchecked")
         final DeSerializer desProcess = (ObjectInput ds) -> {
-            int size = ds.readInt();
+            final int size = ds.readInt();
             for (int i = 0; i < size; i++) {
-                RangedList<T> chunk = (RangedList<T>) ds.readObject();
-                Place owner = (Place) ds.readObject();
+                final RangedList<T> chunk = (RangedList<T>) ds.readObject();
+                final Place owner = (Place) ds.readObject();
                 toBranch.sharedFrom(owner, chunk);
             }
         };
@@ -545,10 +555,10 @@ public class CachableDistCol<T> extends DistChunkedList<T>
         final CachableDistCol<T> toBranch = this;
         @SuppressWarnings("unchecked")
         final DeSerializer desProcess = (ObjectInput ds) -> {
-            int size = ds.readInt();
+            final int size = ds.readInt();
             for (int i = 0; i < size; i++) {
-                RangedList<T> chunk = (RangedList<T>) ds.readObject();
-                Place owner = (Place) ds.readObject();
+                final RangedList<T> chunk = (RangedList<T>) ds.readObject();
+                final Place owner = (Place) ds.readObject();
                 toBranch.sharedFrom(owner, chunk);
             }
         };
@@ -573,18 +583,17 @@ public class CachableDistCol<T> extends DistChunkedList<T>
                 continue;
             }
             final Serializer ser = (s) -> {
-                Collection<LongRange> ranges = findReceivedFrom(place).ranges();
+                final Collection<LongRange> ranges = findReceivedFrom(place).ranges();
                 s.writeInt(ranges.size());
-                for (LongRange r : ranges) {
+                for (final LongRange r : ranges) {
                     s.writeObject(r);
                 }
             };
             final Place sender = here();
             final DeSerializer des = (ds) -> {
-                int size = ds.readInt();
+                final int size = ds.readInt();
                 for (int i = 0; i < size; i++) {
-                    @SuppressWarnings("unchecked")
-                    LongRange r = (LongRange) ds.readObject();
+                    final LongRange r = (LongRange) ds.readObject();
                     sentRanges.get(sender).add(r);
                     allSentRanges.add(r);
                 }

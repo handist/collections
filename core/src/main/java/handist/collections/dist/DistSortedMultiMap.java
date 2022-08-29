@@ -8,7 +8,6 @@ import java.util.function.BiConsumer;
 import apgas.util.GlobalID;
 import handist.collections.MultiMap;
 import handist.collections.dist.util.LazyObjectReference;
-import mpjbuf.IllegalArgumentException;
 
 public class DistSortedMultiMap<K, V> extends DistSortedMap<K, Collection<V>> implements MultiMap<K, V> {
 

@@ -1,4 +1,4 @@
-activeProfiles=mpjnative
+activeProfiles=openmpi
 eclipse.preferences.version=1
-resolveWorkspaceProjects=true
+resolveWorkspaceProjects=false
 version=1

@@ -21,6 +21,7 @@ import java.util.ArrayList;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -385,6 +386,7 @@ public class IT_GLB_DistChunkedList implements Serializable {
         }
     }
 
+    @Ignore
     @Test(timeout = 10000)
     public void testReduction() throws Throwable {
         try {

@@ -28,7 +28,6 @@ import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.Serializer;
-import mpjbuf.IllegalArgumentException;
 
 /**
  * A Map data structure spread over the multiple places. This class allows

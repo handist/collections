@@ -123,7 +123,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
             }
 
             @Override
-            public void init(int rank, Comm comm) throws MPIException {
+            public void init(int rank, Comm comm) {
                 worldSetup();
             }
         });
@@ -136,55 +136,59 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *
      * @throws MPIException if such an exception is thrown during setup
      */
-    private static void worldSetup() throws MPIException {
-        final int myrank = MPI.COMM_WORLD.Rank();
-        final int size = MPI.COMM_WORLD.Size();
-        final int[] rank2place = new int[size];
-        final Place here = here();
-        if (debugF) {
-            System.out.println("world setup: rank=" + myrank + ", place" + here + "::" + here.id);
-        }
-        rank2place[myrank] = here.id;
-        MPI.COMM_WORLD.Allgather(rank2place, myrank, 1, MPI.INT, rank2place, 0, 1, MPI.INT);
-        for (int i = 0; i < rank2place.length; i++) {
+    private static void worldSetup() {
+        try {
+            final int myrank = MPI.COMM_WORLD.getRank();
+            final int size = MPI.COMM_WORLD.getSize();
+            final int[] rank2place = new int[size];
+            final Place here = here();
             if (debugF) {
-                System.out.println("ws: " + i + ":" + rank2place[i] + "@" + myrank);
+                System.out.println("world setup: rank=" + myrank + ", place" + here + "::" + here.id);
             }
-        }
-        GlobalID id;
-        if (myrank == 0) { // we could use here() as an alternative
-            id = new GlobalID();
-            final ByteArrayOutputStream out0 = new ByteArrayOutputStream();
-            final ObjectOutput out = new ObjectOutput(out0);
-            out.writeObject(id);
-            out.close();
-            final byte[] buf = out0.toByteArray();
-            final int[] buf0 = new int[1];
-            buf0[0] = buf.length;
+            rank2place[0] = here.id;
+            MPI.COMM_WORLD.allGather(rank2place, 1, MPI.INT, rank2place, 1, MPI.INT);
+            for (int i = 0; i < rank2place.length; i++) {
+                if (debugF) {
+                    System.out.println("ws: " + i + ":" + rank2place[i] + "@" + myrank);
+                }
+            }
+            GlobalID id;
+            if (myrank == 0) { // we could use here() as an alternative
+                id = new GlobalID();
+                final ByteArrayOutputStream out0 = new ByteArrayOutputStream();
+                final ObjectOutput out = new ObjectOutput(out0);
+                out.writeObject(id);
+                out.close();
+                final byte[] buf = out0.toByteArray();
+                final int[] buf0 = new int[1];
+                buf0[0] = buf.length;
 
-            MPI.COMM_WORLD.Bcast(buf0, 0, 1, MPI.INT, 0);
-            readyToCloseWorld = new CountDownLatch(1);
-            MPI.COMM_WORLD.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
-        } else {
-            final int[] buf0 = new int[1];
-            MPI.COMM_WORLD.Bcast(buf0, 0, 1, MPI.INT, 0);
-            final byte[] buf = new byte[buf0[0]];
-            readyToCloseWorld = new CountDownLatch(1);
-            MPI.COMM_WORLD.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
-            final ObjectInput in = new ObjectInput(new ByteArrayInputStream(buf));
-            try {
-                id = (GlobalID) in.readObject();
-            } catch (final Exception e) {
-                throw new Error("[TeamedPlaceGroup] init error at worker", e);
-            } finally {
-                in.close();
+                MPI.COMM_WORLD.bcast(buf0, 1, MPI.INT, 0);
+                readyToCloseWorld = new CountDownLatch(1);
+                MPI.COMM_WORLD.bcast(buf, buf0[0], MPI.BYTE, 0);
+            } else {
+                final int[] buf0 = new int[1];
+                MPI.COMM_WORLD.bcast(buf0, 1, MPI.INT, 0);
+                final byte[] buf = new byte[buf0[0]];
+                readyToCloseWorld = new CountDownLatch(1);
+                MPI.COMM_WORLD.bcast(buf, buf0[0], MPI.BYTE, 0);
+                final ObjectInput in = new ObjectInput(new ByteArrayInputStream(buf));
+                try {
+                    id = (GlobalID) in.readObject();
+                } catch (final Exception e) {
+                    throw new Error("[TeamedPlaceGroup] init error at worker", e);
+                } finally {
+                    in.close();
+                }
             }
+            world = new TeamedPlaceGroup(id, myrank, size, rank2place);
+            /*
+             * PlaceLocalObject.make(places(), ()->{ return new TeamedPlaceGroup().init();
+             * });
+             */
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
         }
-        world = new TeamedPlaceGroup(id, myrank, size, rank2place);
-        /*
-         * PlaceLocalObject.make(places(), ()->{ return new TeamedPlaceGroup().init();
-         * });
-         */
     }
 
     /**
@@ -264,11 +268,16 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *
      * @param val the value to gather.
      * @return an array storing gathered values to.
+     *
      */
     public boolean[] allGather1(boolean val) {
         final boolean[] send = new boolean[] { val };
         final boolean[] recv = new boolean[size];
-        comm.Allgather(send, 0, 1, MPI.BOOLEAN, recv, 0, 1, MPI.BOOLEAN);
+        try {
+            comm.allGather(send, 1, MPI.BOOLEAN, recv, 1, MPI.BOOLEAN);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return recv;
     }
 
@@ -277,11 +286,16 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *
      * @param val the value to gather.
      * @return an array storing gathered values to.
+     *
      */
     public double[] allGather1(double val) {
         final double[] send = new double[] { val };
         final double[] recv = new double[size];
-        comm.Allgather(send, 0, 1, MPI.DOUBLE, recv, 0, 1, MPI.DOUBLE);
+        try {
+            comm.allGather(send, 1, MPI.DOUBLE, recv, 1, MPI.DOUBLE);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return recv;
     }
 
@@ -290,24 +304,34 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *
      * @param val the value to gather.
      * @return an array storing gathered values to.
+     *
      */
     public float[] allGather1(float val) {
         final float[] send = new float[] { val };
         final float[] recv = new float[size];
-        comm.Allgather(send, 0, 1, MPI.FLOAT, recv, 0, 1, MPI.FLOAT);
+        try {
+            comm.allGather(send, 1, MPI.FLOAT, recv, 1, MPI.FLOAT);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return recv;
     }
 
     /**
-     * Gathers one int variable from all places, wrapping MPI#Allgather.
+     * Gathers one int variable from all places, wrapping MPI#allGather.
      *
      * @param val the value to gather.
      * @return an array storing gathered values to.
+     *
      */
     public int[] allGather1(int val) {
         final int[] send = new int[] { val };
         final int[] recv = new int[size];
-        comm.Allgather(send, 0, 1, MPI.INT, recv, 0, 1, MPI.INT);
+        try {
+            comm.allGather(send, 1, MPI.INT, recv, 1, MPI.INT);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return recv;
     }
 
@@ -316,11 +340,16 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *
      * @param val the value to gather.
      * @return an array storing gathered values to.
+     *
      */
     public long[] allGather1(long val) {
         final long[] send = new long[] { val };
         final long[] recv = new long[size];
-        comm.Allgather(send, 0, 1, MPI.LONG, recv, 0, 1, MPI.LONG);
+        try {
+            comm.allGather(send, 1, MPI.LONG, recv, 1, MPI.LONG);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return recv;
     }
 
@@ -329,11 +358,17 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      *
      * @param val tha value to gather.
      * @return an array storing gathered values to.
+     *
      */
     public short[] allGather1(short val) {
         final short[] send = new short[] { val };
         final short[] recv = new short[size];
-        comm.Allgather(send, 0, 1, MPI.SHORT, recv, 0, 1, MPI.SHORT);
+        ;
+        try {
+            comm.allGather(send, 1, MPI.SHORT, recv, 1, MPI.SHORT);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return recv;
     }
 
@@ -347,7 +382,11 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      */
     public boolean allReduce1(boolean val, Op op) {
         final boolean[] v = new boolean[] { val };
-        comm.Allreduce(v, 0, v, 0, 1, MPI.BOOLEAN, op);
+        try {
+            comm.allReduce(v, 1, MPI.BOOLEAN, op);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -358,10 +397,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param val send value.
      * @param op  reduce operation.
      * @return the combined value.
+     *
      */
     public double allReduce1(double val, Op op) {
         final double[] v = new double[] { val };
-        comm.Allreduce(v, 0, v, 0, 1, MPI.DOUBLE, op);
+        try {
+            comm.allReduce(v, 1, MPI.DOUBLE, op);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -375,7 +419,11 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      */
     public float allReduce1(float val, Op op) {
         final float[] v = new float[] { val };
-        comm.Allreduce(v, 0, v, 0, 1, MPI.FLOAT, op);
+        try {
+            comm.allReduce(v, 1, MPI.FLOAT, op);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -389,7 +437,11 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      */
     public int allReduce1(int val, Op op) {
         final int[] v = new int[] { val };
-        comm.Allreduce(v, 0, v, 0, 1, MPI.INT, op);
+        try {
+            comm.allReduce(v, 1, MPI.INT, op);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -403,7 +455,11 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      */
     public long allReduce1(long val, Op op) {
         final long[] v = new long[] { val };
-        comm.Allreduce(v, 0, v, 0, 1, MPI.LONG, op);
+        try {
+            comm.allReduce(v, 1, MPI.LONG, op);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -414,30 +470,38 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param val send value.
      * @param op  reduce operation.
      * @return the combined value.
+     *
      */
     public short allReduce1(short val, Op op) {
         final short[] v = new short[] { val };
-        comm.Allreduce(v, 0, v, 0, 1, MPI.SHORT, op);
+        try {
+            comm.allReduce(v, 1, MPI.SHORT, op);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
-    @SuppressWarnings("unused")
-    public void Alltoallv(Object byteArray, int soffset, int[] sendSize, int[] sendOffset, Datatype stype,
-            Object recvbuf, int roffset, int[] rcvSize, int[] rcvOffset, Datatype rtype) throws MPIException {
-        if (false) {
-            comm.Alltoallv(byteArray, soffset, sendSize, sendOffset, stype, recvbuf, roffset, rcvSize, rcvOffset,
-                    rtype);
-        } else {
-            for (int rank = 0; rank < rcvSize.length; rank++) {
-                comm.Gatherv(byteArray, soffset + sendOffset[rank], sendSize[rank], stype, recvbuf, roffset, rcvSize,
-                        rcvOffset, rtype, rank);
-            }
+    public void Alltoallv(Object byteArray, int[] sendSize, int[] sendOffset, Datatype stype, Object recvbuf,
+            int[] rcvSize, int[] rcvOffset, Datatype rtype) {
+//        if (false) {
+        try {
+            comm.allToAllv(byteArray, sendSize, sendOffset, stype, recvbuf, rcvSize, rcvOffset, rtype);
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
         }
+//        }
+//        else {
+//        for (int rank = 0; rank < rcvSize.length; rank++) {
+//            comm.gatherv(byteArray, soffset + sendOffset[rank], sendSize[rank], stype, recvbuf, roffset, rcvSize,
+//                    rcvOffset, rtype, rank);
+//        }
+//        }
     }
 
     public void barrier() {
         try {
-            comm.Barrier();
+            comm.barrier();
         } catch (final MPIException e) {
             e.printStackTrace();
             throw new Error("[TeamedPlaceGroup] MPI Exception raised.");
@@ -453,10 +517,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root broadcast a value from the place.
      * @return If the root place, return val and if other places, return recieved
      *         value.
+     *
      */
     public boolean bCast1(boolean val, Place root) {
         final boolean[] v = new boolean[] { val };
-        comm.Bcast(v, 0, 1, MPI.BOOLEAN, rank(root));
+        try {
+            comm.bcast(v, 1, MPI.BOOLEAN, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -468,10 +537,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root broadcast a value from the place.
      * @return If the root place, return val and if other places, return recieved
      *         value.
+     *
      */
     public double bCast1(double val, Place root) {
         final double[] v = new double[] { val };
-        comm.Bcast(v, 0, 1, MPI.DOUBLE, rank(root));
+        try {
+            comm.bcast(v, 1, MPI.DOUBLE, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -483,10 +557,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root broadcast a value from the place.
      * @return If the root place, return val and if other places, return recieved
      *         value.
+     *
      */
     public float bCast1(float val, Place root) {
         final float[] v = new float[] { val };
-        comm.Bcast(v, 0, 1, MPI.FLOAT, rank(root));
+        try {
+            comm.bcast(v, 1, MPI.FLOAT, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -498,10 +577,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root broadcast a value from the place.
      * @return If the root place, return val and if other places, return recieved
      *         value.
+     *
      */
     public int bCast1(int val, Place root) {
         final int[] v = new int[] { val };
-        comm.Bcast(v, 0, 1, MPI.INT, rank(root));
+        try {
+            comm.bcast(v, 1, MPI.INT, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -513,10 +597,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root broadcast a value from the place.
      * @return If the root place, return val and if other places, return recieved
      *         value.
+     *
      */
     public long bCast1(long val, Place root) {
         final long[] v = new long[] { val };
-        comm.Bcast(v, 0, 1, MPI.LONG, rank(root));
+        try {
+            comm.bcast(v, 1, MPI.LONG, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -528,10 +617,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root broadcast a value from the place.
      * @return If the root place, return val and if other places, return recieved
      *         value.
+     *
      */
     public short bCast1(short val, Place root) {
         final short[] v = new short[] { val };
-        comm.Bcast(v, 0, 1, MPI.SHORT, rank(root));
+        try {
+            comm.bcast(v, 1, MPI.SHORT, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -560,11 +654,16 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root gather values from all places to the root.
      * @return If at the root place, return an array storing gathered values to. At
      *         other places, return null.
+     *
      */
     public boolean[] gather1(boolean val, Place root) {
         final boolean[] v = new boolean[] { val };
         final boolean[] recv = new boolean[size];
-        comm.Gather(v, 0, 1, MPI.BOOLEAN, recv, 0, 1, MPI.BOOLEAN, rank(root));
+        try {
+            comm.gather(v, 1, MPI.BOOLEAN, recv, 1, MPI.BOOLEAN, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return (root.equals(here())) ? recv : null;
     }
 
@@ -575,11 +674,16 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root gather values from all places to the root.
      * @return If at the root place, return an array storing gathered values to. At
      *         other places, return null.
+     *
      */
     public double[] gather1(double val, Place root) {
         final double[] v = new double[] { val };
         final double[] recv = new double[size];
-        comm.Gather(v, 0, 1, MPI.DOUBLE, recv, 0, 1, MPI.DOUBLE, rank(root));
+        try {
+            comm.gather(v, 1, MPI.DOUBLE, recv, 1, MPI.DOUBLE, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return (root.equals(here())) ? recv : null;
     }
 
@@ -590,11 +694,16 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root gather values from all places to the root.
      * @return If at the root place, return an array storing gathered values to. At
      *         other places, return null.
+     *
      */
     public float[] gather1(float val, Place root) {
         final float[] v = new float[] { val };
         final float[] recv = new float[size];
-        comm.Gather(v, 0, 1, MPI.FLOAT, recv, 0, 1, MPI.FLOAT, rank(root));
+        try {
+            comm.gather(v, 1, MPI.FLOAT, recv, 1, MPI.FLOAT, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return (root.equals(here())) ? recv : null;
     }
 
@@ -605,11 +714,16 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root gather values from all places to the root.
      * @return If at the root place, return an array storing gathered values to. At
      *         other places, return null.
+     *
      */
     public int[] gather1(int val, Place root) {
         final int[] v = new int[] { val };
         final int[] recv = new int[size];
-        comm.Gather(v, 0, 1, MPI.INT, recv, 0, 1, MPI.INT, rank(root));
+        try {
+            comm.gather(v, 1, MPI.INT, recv, 1, MPI.INT, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return (root.equals(here())) ? recv : null;
     }
 
@@ -620,11 +734,16 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root gather values from all places to the root.
      * @return If at the root place, return an array storing gathered values to. At
      *         other places, return null.
+     *
      */
     public long[] gather1(long val, Place root) {
         final long[] v = new long[] { val };
         final long[] recv = new long[size];
-        comm.Gather(v, 0, 1, MPI.LONG, recv, 0, 1, MPI.LONG, rank(root));
+        try {
+            comm.gather(v, 1, MPI.LONG, recv, 1, MPI.LONG, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return (root.equals(here())) ? recv : null;
     }
 
@@ -635,11 +754,16 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root gather values from all places to the root.
      * @return If at the root place, return an array storing gathered values to. At
      *         other places, return null.
+     *
      */
     public short[] gather1(short val, Place root) {
         final short[] v = new short[] { val };
         final short[] recv = new short[size];
-        comm.Gather(v, 0, 1, MPI.SHORT, recv, 0, 1, MPI.SHORT, rank(root));
+        try {
+            comm.gather(v, 1, MPI.SHORT, recv, 1, MPI.SHORT, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return (root.equals(here())) ? recv : null;
     }
 
@@ -717,10 +841,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root combined value is returned only the root place.
      * @return at root place, the combined value. at other places, return val as it
      *         is.
+     *
      */
     public boolean reduce1(boolean val, Op op, Place root) {
         final boolean[] v = new boolean[] { val };
-        comm.Reduce(v, 0, v, 0, 1, MPI.BOOLEAN, op, rank(root));
+        try {
+            comm.reduce(v, 1, MPI.BOOLEAN, op, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -734,10 +863,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root combined value is returned only the root place.
      * @return at root place, the combined value. at other places, return val as it
      *         is.
+     *
      */
     public double reduce1(double val, Op op, Place root) {
         final double[] v = new double[] { val };
-        comm.Reduce(v, 0, v, 0, 1, MPI.DOUBLE, op, rank(root));
+        try {
+            comm.reduce(v, 1, MPI.DOUBLE, op, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -751,10 +885,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root combined value is returned only the root place.
      * @return at root place, the combined value. at other places, return val as it
      *         is.
+     *
      */
     public float reduce1(float val, Op op, Place root) {
         final float[] v = new float[] { val };
-        comm.Reduce(v, 0, v, 0, 1, MPI.FLOAT, op, rank(root));
+        try {
+            comm.reduce(v, 1, MPI.FLOAT, op, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -768,10 +907,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root combined value is returned only the root place.
      * @return at root place, the combined value. at other places, return val as it
      *         is.
+     *
      */
     public int reduce1(int val, Op op, Place root) {
         final int[] v = new int[] { val };
-        comm.Reduce(v, 0, v, 0, 1, MPI.INT, op, rank(root));
+        try {
+            comm.reduce(v, 1, MPI.INT, op, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -785,10 +929,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root combined value is returned only the root place.
      * @return at root place, the combined value. at other places, return val as it
      *         is.
+     *
      */
     public long reduce1(long val, Op op, Place root) {
         final long[] v = new long[] { val };
-        comm.Reduce(v, 0, v, 0, 1, MPI.LONG, op, rank(root));
+        try {
+            comm.reduce(v, 1, MPI.LONG, op, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -802,10 +951,15 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
      * @param root combined value is returned only the root place.
      * @return at root place, the combined value. at other places, return val as it
      *         is.
+     *
      */
     public short reduce1(short val, Op op, Place root) {
         final short[] v = new short[] { val };
-        comm.Reduce(v, 0, v, 0, 1, MPI.SHORT, op, rank(root));
+        try {
+            comm.reduce(v, 1, MPI.SHORT, op, rank(root));
+        } catch (final MPIException e) {
+            throw new RuntimeException(e);
+        }
         return v[0];
     }
 
@@ -840,7 +994,7 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
                     newPlaces.add(places.get(r));
                 }
             }
-            final Intracomm newComm = comm.Split(newColor, newRank); // MPIException
+            final Intracomm newComm = comm.split(newColor, newRank); // MPIException
             if (debugF) {
                 System.out.println("PlaceGroup split =" + newRank + ", place" + here() + "::" + here().id);
             }
@@ -854,13 +1008,13 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
                 final byte[] buf = out0.toByteArray();
                 final int[] buf0 = new int[1];
                 buf0[0] = buf.length;
-                newComm.Bcast(buf0, 0, 1, MPI.INT, 0);
-                newComm.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
+                newComm.bcast(buf0, 1, MPI.INT, 0); // Exchange the number of bytes to exchange
+                newComm.bcast(buf, buf0[0], MPI.BYTE, 0); // Exchange the bytes
             } else {
                 final int[] buf0 = new int[1];
-                newComm.Bcast(buf0, 0, 1, MPI.INT, 0);
+                newComm.bcast(buf0, 1, MPI.INT, 0);
                 final byte[] buf = new byte[buf0[0]];
-                newComm.Bcast(buf, 0, buf0[0], MPI.BYTE, 0);
+                newComm.bcast(buf, buf0[0], MPI.BYTE, 0);
                 final ObjectInput in = new ObjectInput(new ByteArrayInputStream(buf));
                 try {
                     id = (GlobalID) in.readObject();

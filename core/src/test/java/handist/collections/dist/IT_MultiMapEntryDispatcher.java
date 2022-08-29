@@ -30,7 +30,6 @@ import apgas.impl.DebugFinish;
 import handist.mpijunit.MpiConfig;
 import handist.mpijunit.MpiRunner;
 import handist.mpijunit.launcher.TestLauncher;
-import mpjbuf.IllegalArgumentException;
 
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 2, launcher = TestLauncher.class)
