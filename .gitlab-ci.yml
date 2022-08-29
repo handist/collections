@@ -34,28 +34,11 @@ junit_tests:
         - target/surefire-reports/TEST-*.xml
     expire_in: 1 week
 
-mpjnative_it_tests:
+openmpi_it_tests:
   stage: integration
   script:
     - source /home/gitlab-runner/.profile
-    - mvn $MAVEN_CLI_OPTS -Popenmpi verify -Dhostfile=${HOSTFILE}
-    - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
-  artifacts:
-    when: always
-    reports:
-      junit:
-        - target/failsafe-reports/TEST-*.xml
-    paths:
-      - target/failsafe-reports/TEST-*.xml
-      - target/site/*
-    expire_in: 1 week
-
-.mpijava_it_tests:
-  stage: integration
-  allow_failure: true
-  script:
-    - source /home/gitlab-runner/.profile
-    - mvn $MAVEN_CLI_OPTS -Pmpijava verify -Dhostfile=${HOSTFILE}
+    - mvn $MAVEN_CLI_OPTS verify -Dhostfile=${HOSTFILE}
     - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
   artifacts:
     when: always

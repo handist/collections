@@ -78,12 +78,12 @@ They will also be run when generating the Java ARchive with `mvn package`.
 
 The distributed tests are not enabled by default.
 In order to run them, you need the OpenMPI library compiled with the Java bindings installed on your system.
-To run the tests, use command `mvn verify -Popenmpi`.
+To run the tests, use command `mvn verify`.
 
 ### Generating Project report / Javadoc / Code Coverage report
 
 Use command `mvn site` to generate the standard Maven project report and the Javadoc. 
-If you successfully ran `mvn verify -Popenmpi` prior to running command `mvn site`, the code coverage report (which includes the distributed tests) will also be generated.
+If you successfully ran `mvn verify` prior to running command `mvn site`, the code coverage report (which includes the distributed tests) will also be generated.
 After the command has run, you can browse the generated HTML pages in `target/site`, `core/target/site` etc.
 
 ## Program execution

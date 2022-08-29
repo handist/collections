@@ -431,12 +431,6 @@ class GlbComputer extends PlaceLocalObject {
     private final Map<GlbOperation, OperationBlocker> blockers;
 
     /**
-     * Lock used to guarantee proper handling of lifeline tokens when new operations
-     * are started on the host
-     */
-    private transient final ReadWriteLock newOperationRWlock;
-
-    /**
      * Atomic array used to signal to workers that they need to place some work back
      * into the {@link #reserve}. Each worker is identified with a unique index.
      * They use this identifier to access this array which is initialized with an
@@ -600,7 +594,6 @@ class GlbComputer extends PlaceLocalObject {
         finishes = new ConcurrentHashMap<>();
         currentBatch = new ConcurrentHashMap<>();
         blockers = new HashMap<>();
-        newOperationRWlock = new ReentrantReadWriteLock();
 
         // Initialize the data structures used to keep track of the lifelines
         lifelineThieves = new ConcurrentLinkedQueue<>();
@@ -743,12 +736,6 @@ class GlbComputer extends PlaceLocalObject {
 
         // Increment the batch counter for this collection
         currentBatch.compute(col, (k, v) -> v == null ? 0 : v + 1);
-
-        // RW lock to make sure all workers making ongoing lifeline answers
-        // complete
-        // FIXME April 19th 2022 we may not need that check anymore?
-        newOperationRWlock.writeLock().lock();
-        newOperationRWlock.writeLock().unlock();
 
         // Prepare the data structure for tracking the state of the outgoing lifelines
         // if it was not already created.
@@ -980,24 +967,17 @@ class GlbComputer extends PlaceLocalObject {
 
                     // STEP 5: Answer lifeline thieves if there are any and this host is capable of
                     // doing so
-                    if (newOperationRWlock.readLock().tryLock()) {
-                        try {
-                            final LifelineToken steal = lifelineThieves.poll();
-                            if (steal != null && steal.batchId >= currentBatch.get(steal.collection)) {
-                                // Check if the target collection has some assignments left for the target
-                                // collection
+                    final LifelineToken steal = lifelineThieves.poll();
+                    if (steal != null && steal.batchId >= currentBatch.get(steal.collection)) {
+                        // Check if the target collection has some assignments left for the target
+                        // collection
 
-                                GlbTask g;
-                                if ((g = reserve.allTasks.get(steal.collection)) != null && g.answerLifeline(steal)) {
-                                    logger.put(LOGKEY_WORKER, LOG_LIFELINE_ANSWERED, Long.toString(System.nanoTime()));
-                                } else {
-                                    logger.put(LOGKEY_WORKER, LOG_LIFELINE_NOT_ANSWERED,
-                                            Long.toString(System.nanoTime()));
-                                    lifelineThieves.add(steal);
-                                }
-                            }
-                        } finally {
-                            newOperationRWlock.readLock().unlock();
+                        GlbTask g;
+                        if ((g = reserve.allTasks.get(steal.collection)) != null && g.answerLifeline(steal)) {
+                            logger.put(LOGKEY_WORKER, LOG_LIFELINE_ANSWERED, Long.toString(System.nanoTime()));
+                        } else {
+                            logger.put(LOGKEY_WORKER, LOG_LIFELINE_NOT_ANSWERED, Long.toString(System.nanoTime()));
+                            lifelineThieves.add(steal);
                         }
                     }
                 }
