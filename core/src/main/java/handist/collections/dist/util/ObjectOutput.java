@@ -72,6 +72,11 @@ public class ObjectOutput {
         count++;
     }
 
+    public void writeDouble(double val) {
+        output.writeDouble(val);
+        count++;
+    }
+
     public void writeInt(int val) {
         output.writeInt(val);
         count++;

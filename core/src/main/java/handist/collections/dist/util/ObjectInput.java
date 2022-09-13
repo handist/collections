@@ -53,6 +53,10 @@ public class ObjectInput {
         return input.readByte();
     }
 
+    public double readDouble() {
+        return input.readDouble();
+    }
+
     public int readInt() {
         return input.readInt();
     }
