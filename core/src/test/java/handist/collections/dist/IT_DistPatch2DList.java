@@ -27,7 +27,7 @@ import handist.mpijunit.launcher.TestLauncher;
 
 @RunWith(MpiRunner.class)
 @MpiConfig(ranks = 4, launcher = TestLauncher.class)
-public class IT_DistPatch2List implements Serializable {
+public class IT_DistPatch2DList implements Serializable {
 
     /** the number of elements each patch has */
     private static final int numData = 5;
