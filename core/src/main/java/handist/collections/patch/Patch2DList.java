@@ -9,6 +9,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -96,19 +97,43 @@ public class Patch2DList<T extends Positionable<Position2D>> implements Serializ
     public Collection<Patch2D<T>> findNeighbors(Patch2D<T> center, int distance, Edge edge) {
         final Collection<Patch2D<T>> result = new ArrayList<>();
         final Index2D cId = getIndex(center);
+        findNeighborsImpl(cId, distance, edge, (x, y) -> {
+            final Patch2D<T> p = getPatch(x, y);
+            if (p != null && !result.contains(p)) {
+                result.add(p);
+            }
+        });
+        return result;
+    }
 
+    private void findNeighborsImpl(Index2D cId, int distance, Edge edge, BiConsumer<Integer, Integer> action) {
         for (int yDiff = -distance; yDiff <= distance; yDiff++) {
             final int y = wrappedY(cId.y + yDiff, edge);
-
             for (int xDiff = -distance; xDiff <= distance; xDiff++) {
                 final int x = wrappedX(cId.x + xDiff, edge);
-                final Patch2D<T> p = getPatch(x, y);
-                if (p != null && !result.contains(p)) {
-                    result.add(p);
-                }
+                action.accept(x, y);
             }
-
         }
+    }
+
+    /**
+     * Returns the list of neighbor indexes even the patch for index is not
+     * contained.
+     *
+     * @param cId
+     * @param distance
+     * @param edge
+     * @return
+     */
+    public Collection<Index2D> findNeighborsIndex(Patch2D<T> center, int distance, Edge edge) {
+        final Collection<Index2D> result = new ArrayList<>();
+        final Index2D cId = getIndex(center);
+        findNeighborsImpl(cId, distance, edge, (x, y) -> {
+            final Index2D i = new Index2D(x, y);
+            if (!result.contains(i)) {
+                result.add(i);
+            }
+        });
         return result;
     }
 
@@ -177,6 +202,14 @@ public class Patch2DList<T extends Positionable<Position2D>> implements Serializ
     }
 
     /**
+     * @param index
+     * @return
+     */
+    public Patch2D<T> getPatch(int index) {
+        return list.get(index);
+    }
+
+    /**
      * @param xIndex
      * @param yIndex
      * @return
@@ -186,6 +219,18 @@ public class Patch2DList<T extends Positionable<Position2D>> implements Serializ
             return null;
         }
         return list.get(yIndex * xSplit + xIndex);
+    }
+
+    /**
+     *
+     * @param position
+     * @return the patch includes the given point, or null if there are no including
+     *         patch.
+     */
+    public Patch2D<T> getPatch(Position2D position) {
+        final Position2D size = gridSize();
+        final int index = (int) (position.y / size.y) * xSplit + (int) (position.x / size.x);
+        return list.get(index);
     }
 
     /**
@@ -201,18 +246,6 @@ public class Patch2DList<T extends Positionable<Position2D>> implements Serializ
             return null;
         }
         return (patch.getRange().leftBottom.equals(range.leftBottom)) ? patch : null;
-    }
-
-    /**
-     *
-     * @param position
-     * @return the patch includes the given point, or null if there are no including
-     *         patch.
-     */
-    public Patch2D<T> getPatch(Position2D position) {
-        final Position2D size = gridSize();
-        final int index = (int) (position.y / size.y) * xSplit + (int) (position.x / size.x);
-        return list.get(index);
     }
 
     /**
@@ -353,6 +386,10 @@ public class Patch2DList<T extends Positionable<Position2D>> implements Serializ
     public Patch2DList<T> subList(Range2D range) {
         // TODO
         return null;
+    }
+
+    public Collection<Patch2D<T>> toList() {
+        return list.values();
     }
 
     /**

@@ -17,12 +17,12 @@ import handist.collections.dist.util.LazyObjectReference;
 import handist.collections.function.DeSerializer;
 import handist.collections.function.SerializableConsumer;
 import handist.collections.function.Serializer;
+import handist.collections.patch.Index2D;
 import handist.collections.patch.Patch2D;
 import handist.collections.patch.Patch2DList;
+import handist.collections.patch.Position2D;
 import handist.collections.patch.Positionable;
 import handist.collections.patch.Range2D;
-import handist.collections.patch.Position2D;
-import handist.collections.patch.Index2D;
 
 public class DistPatch2DList<T extends Positionable<Position2D>> extends Patch2DList<T>
         implements DistributedCollection<T, DistPatch2DList<T>>, ElementLocationManageable<Index2D> {
@@ -65,7 +65,7 @@ public class DistPatch2DList<T extends Positionable<Position2D>> extends Patch2D
     /**
      * Constructor for writeReplace. Create the empty list.
      */
-    private DistPatch2DList(Range2D range, int xSplit, int ySplit, TeamedPlaceGroup pg, GlobalID id) {
+    protected DistPatch2DList(Range2D range, int xSplit, int ySplit, TeamedPlaceGroup pg, GlobalID id) {
         super(range, xSplit, ySplit);
         placeGroup = pg;
         globalId = id;
@@ -117,16 +117,16 @@ public class DistPatch2DList<T extends Positionable<Position2D>> extends Patch2D
      * @param index
      * @return
      */
-    public Place locationOf(Position2D position) {
-        return pdist.dist.get(getIndex(position));
+    public Place locationOf(Index2D patchIndex) {
+        return pdist.dist.get(patchIndex);
     }
 
     /**
      * @param index
      * @return
      */
-    public Place locationOf(Index2D patchIndex) {
-        return pdist.dist.get(patchIndex);
+    public Place locationOf(Position2D position) {
+        return pdist.dist.get(getIndex(position));
     }
 
     @Override
@@ -140,7 +140,6 @@ public class DistPatch2DList<T extends Positionable<Position2D>> extends Patch2D
      */
     @Override
     public void migrate() throws Exception {
-        // TODO so long code... split to some functions
         // init list for migrate elements
         final Map<Place, List<T>> toMigrate = new HashMap<>(placeGroup.size());
         placeGroup.places.forEach((place) -> {
@@ -148,49 +147,52 @@ public class DistPatch2DList<T extends Positionable<Position2D>> extends Patch2D
         });
         // remove migrate elements
         forEachPatch((patch) -> {
-            final Iterator<T> iter = patch.iterator();
-            while (iter.hasNext()) {
-                final T t = iter.next();
-                if (patch.getRange().contains(t.position())) {
-                    continue;
-                }
-                final Place dest = locationOf(t.position());
-                toMigrate.get(dest).add(t);
-                iter.remove();
-            }
+            migrate_Remove(patch, toMigrate);
         });
         // put to the local patches or send to the other places.
         final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
-        final DistPatch2DList<T> toBranch = this;
-
         toMigrate.forEach((place, list) -> {
-            // put local
             if (place.equals(here())) {
-                list.forEach((t) -> {
-                    put(t);
-                });
-            }
-            // send to the other places
-            else {
-                final Serializer ser = ((s) -> {
-                    s.writeObject(list);
-                });
-                @SuppressWarnings("unchecked")
-                final DeSerializer des = ((ds) -> {
-                    final List<T> recv = (List<T>) ds.readObject();
-                    recv.forEach((t) -> {
-                        toBranch.put(t);
-                    });
-                });
-                mm.request(place, ser, des);
+                migrate_ToLocal(list);
+            } else {
+                migrate_ToRemote(list, place, mm);
             }
         });
-
         mm.sync();
     }
 
-    public void migrateAndForEach(SerializableConsumer<T> func) {
+    protected void migrate_Remove(Patch2D<T> patch, Map<Place, List<T>> toMigrate) {
+        final Iterator<T> iter = patch.iterator();
+        while (iter.hasNext()) {
+            final T t = iter.next();
+            if (patch.getRange().contains(t.position())) {
+                continue;
+            }
+            final Place dest = locationOf(t.position());
+            toMigrate.get(dest).add(t);
+            iter.remove();
+        }
+    }
 
+    protected void migrate_ToLocal(List<T> data) {
+        data.forEach((t) -> {
+            put(t);
+        });
+    }
+
+    protected void migrate_ToRemote(List<T> data, Place dest, CollectiveMoveManager mm) {
+        final DistPatch2DList<T> toBranch = this;
+        final Serializer ser = ((s) -> {
+            s.writeObject(data);
+        });
+        @SuppressWarnings("unchecked")
+        final DeSerializer des = ((ds) -> {
+            final List<T> recv = (List<T>) ds.readObject();
+            recv.forEach((t) -> {
+                toBranch.put(t);
+            });
+        });
+        mm.request(dest, ser, des);
     }
 
     /**
