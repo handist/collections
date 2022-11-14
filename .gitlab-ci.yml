@@ -29,9 +29,9 @@ junit_tests:
     when: always
     reports:
       junit:
-        - target/surefire-reports/TEST-*.xml
+        - core/target/surefire-reports/TEST-*.xml
     paths:
-        - target/surefire-reports/TEST-*.xml
+        - core/target/surefire-reports/TEST-*.xml
     expire_in: 1 week
 
 openmpi_it_tests:
@@ -39,15 +39,15 @@ openmpi_it_tests:
   script:
     - source /home/gitlab-runner/.profile
     - mvn $MAVEN_CLI_OPTS verify -Dhostfile=${HOSTFILE}
-    - cat target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
+    - cat core/target/site/jacoco/index.html | grep -o Total[^%]*% | sed "s/<.*>//" | sed "s/Total/Total Coverage /"
   artifacts:
     when: always
     reports:
       junit:
-        - target/failsafe-reports/TEST-*.xml
+        - core/target/failsafe-reports/TEST-*.xml
     paths:
-      - target/failsafe-reports/TEST-*.xml
-      - target/site/*
+      - core/target/failsafe-reports/TEST-*.xml
+      - core/target/site/*
     expire_in: 1 week
 
 javadoc:
