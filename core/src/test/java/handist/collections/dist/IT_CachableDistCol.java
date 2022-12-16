@@ -170,21 +170,6 @@ public class IT_CachableDistCol implements Serializable {
         }
     }
 
-    // @Ignore
-    // @Test(timeout = 10000)
-    // TODO
-    public void testAllReduceWithPrimitiveStream() throws Throwable {
-        testForShare(caChunks);
-        try {
-            placeGroup.broadcastFlat(() -> {
-
-            });
-        } catch (final MultipleException me) {
-            me.printStackTrace();
-            throw me.getSuppressed()[0];
-        }
-    }
-
     @Test(timeout = 10000)
     public void testBCast() throws Throwable {
         testForShare(caChunks);
@@ -287,27 +272,27 @@ public class IT_CachableDistCol implements Serializable {
             placeGroup.broadcastFlat(() -> {
                 final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
                 switch (here().id) {
-                case 0:	
+                case 0:
                     ca.shareRangeAtSync(subRange1, new Place(1), mm);
                     break;
-                case 1:	
+                case 1:
                     ca.shareRangeAtSync(subRange1, new Place(0), mm);
                     ca.shareRangeAtSync(subRange2, new Place(0), mm);
                     ca.shareRangeAtSync(subRange2, new Place(2), mm);
                     break;
-                case 2:	
+                case 2:
                     ca.shareRangeAtSync(subRange2, new Place(0), mm);
                     ca.shareRangeAtSync(subRange2, new Place(1), mm);
                     ca.shareRangeAtSync(subRange3, new Place(0), mm);
                     ca.shareRangeAtSync(subRange3, new Place(1), mm);
                     ca.shareRangeAtSync(subRange3, new Place(3), mm);
                     break;
-                case 3:	
+                case 3:
                     ca.shareRangeAtSync(subRange3, new Place(0), mm);
                     ca.shareRangeAtSync(subRange3, new Place(1), mm);
-                    ca.shareRangeAtSync(subRange3, new Place(2) ,mm);
+                    ca.shareRangeAtSync(subRange3, new Place(2), mm);
                     break;
-		}
+                }
                 mm.sync();
             });
         } catch (final MultipleException me) {
@@ -374,7 +359,7 @@ public class IT_CachableDistCol implements Serializable {
     public void testShare_ForException() throws Throwable {
         testForShare(caChunks);
         placeGroup.broadcastFlat(() -> {
-           try {
+            try {
                 final CollectiveMoveManager mm = new CollectiveMoveManager(placeGroup);
                 final Place dest = new Place((here().id + 3) % placeGroup.size());
                 caChunks.shareRangeAtSync(allRange, dest, mm);

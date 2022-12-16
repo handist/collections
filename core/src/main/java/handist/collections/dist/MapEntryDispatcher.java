@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -31,15 +32,15 @@ import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 
 /**
- * {@link DistMap} has this class in order to dispatch entris to places defined
+ * {@link DistMap} has this class in order to dispatch entries to places defined
  * by {@link Distribution}. Relocate entries between places by calling
- * {@link MapEntryDispatcher.TeamOperations#dispatch}. Dhe dispatched entries
- * are added to original {@link DistMap}.
+ * {@link MapEntryDispatcher.TeamOperations#dispatch}. The dispatched entries
+ * are added to the original {@link DistMap}.
  *
  * Please be careful that reference relationships like multiple references to
  * one object are not maintained.
  *
- * @author yoshikikawanishi
+ * @author Yoshiki Kawanishi
  *
  * @param <K> : The key type of map entry
  * @param <V> : The value type of map entry
@@ -63,10 +64,10 @@ public class MapEntryDispatcher<K, V> implements KryoSerializable, Serializable 
             final int[] rcvOffset = new int[placeGroup.size()];
             final int[] rcvSize = new int[placeGroup.size()];
             final ByteArrayOutputStream out = new ByteArrayOutputStream();
-            handle.executeSummerizeOutput(out, sendOffset, sendSize);
-            final byte[] buf = CollectiveRelocator.exchangeBytesWithinGroup(placeGroup, out.toByteArray(), sendOffset,
-                    sendSize, rcvOffset, rcvSize);
-            handle.executeDeserialize(buf, rcvOffset, rcvSize);
+            handle.executeSerialization(out, sendOffset, sendSize);
+            final ByteBuffer buf = CollectiveRelocator.exchangeBytesWithinGroup(placeGroup, out.toByteArray(),
+                    sendOffset, sendSize, rcvOffset, rcvSize);
+            handle.executeDeserialization(buf, rcvOffset, rcvSize);
             clear();
         }
     }
@@ -110,16 +111,18 @@ public class MapEntryDispatcher<K, V> implements KryoSerializable, Serializable 
     }
 
     @SuppressWarnings("unchecked")
-    protected void executeDeserialize(byte[] buf, int[] offsets, int[] sizes) throws Exception {
-        int current = 0;
-        for (final Place p : placeGroup.places()) {
-            final int size = sizes[current];
-            final int offset = offsets[current];
-            current++;
+    protected void executeDeserialization(ByteBuffer buf, int[] offsets, int[] sizes) throws Exception {
+        for (int rank = 0; rank < placeGroup.size(); rank++) {
+            final Place p = placeGroup.get(rank);
+            final int size = sizes[rank];
             if (p.equals(here()) || size == 0) {
                 continue;
             }
-            final ObjectInput ds = new ObjectInput(new ByteArrayInputStream(buf, offset, size), false);
+
+            final byte[] arrayFromPlace = new byte[size];
+            buf.get(arrayFromPlace);
+
+            final ObjectInput ds = new ObjectInput(new ByteArrayInputStream(arrayFromPlace), false);
             final int nThreads = ds.readInt();
             for (int i = 0; i < nThreads; i++) {
                 final int count = ds.readInt();
@@ -134,13 +137,14 @@ public class MapEntryDispatcher<K, V> implements KryoSerializable, Serializable 
         }
     }
 
-    private void executeSummerizeOutput(ByteArrayOutputStream out, int[] offsets, int[] sizes) throws IOException {
+    protected void executeSerialization(ByteArrayOutputStream out, int[] offsets, int[] sizes) throws IOException {
         for (int i = 0; i < placeGroup.size(); i++) {
             final Place place = placeGroup.get(i);
+            offsets[i] = out.size();
             if (place.equals(here())) {
                 continue;
             }
-            offsets[i] = out.size();
+
             Output output = new Output(out);
             output.writeInt(outputMap.get(place).size());
             output.close();

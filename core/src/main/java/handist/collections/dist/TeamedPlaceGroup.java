@@ -32,7 +32,6 @@ import apgas.util.SerializableWithReplace;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import mpi.Comm;
-import mpi.Datatype;
 import mpi.Intracomm;
 import mpi.MPI;
 import mpi.MPIException;
@@ -480,23 +479,6 @@ public class TeamedPlaceGroup implements SerializableWithReplace {
             throw new RuntimeException(e);
         }
         return v[0];
-    }
-
-    public void Alltoallv(Object byteArray, int[] sendSize, int[] sendOffset, Datatype stype, Object recvbuf,
-            int[] rcvSize, int[] rcvOffset, Datatype rtype) {
-//        if (false) {
-        try {
-            comm.allToAllv(byteArray, sendSize, sendOffset, stype, recvbuf, rcvSize, rcvOffset, rtype);
-        } catch (final MPIException e) {
-            throw new RuntimeException(e);
-        }
-//        }
-//        else {
-//        for (int rank = 0; rank < rcvSize.length; rank++) {
-//            comm.gatherv(byteArray, soffset + sendOffset[rank], sendSize[rank], stype, recvbuf, roffset, rcvSize,
-//                    rcvOffset, rtype, rank);
-//        }
-//        }
     }
 
     public void barrier() {

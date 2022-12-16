@@ -82,5 +82,5 @@ mvn dependency:get -Dartifact=com.github.handist:mpi-junit:v1.2.3 -DremoteReposi
 # Check if the dependencies that are not available on Maven Central are already
 # installed in the local Maven repository. If not, clone and install them.
 checkArtifact com.github.handist mpi-junit v1.2.3 https://github.com/handist/mpi-junit.git
-checkArtifact com.github.handist apgas v2.0.0 https://github.com/handist/apgas.git
+checkArtifact com.github.handist apgas v2.0.1 https://github.com/handist/apgas.git
 

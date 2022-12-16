@@ -15,6 +15,7 @@ import static apgas.Constructs.*;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -78,12 +79,20 @@ public final class CollectiveMoveManager implements MoveManager {
         final ByteArrayOutputStream out = new ByteArrayOutputStream();
         executeSerialization(out, sendOffset, sendSize);
 
+//        final Place here = here();
+//        final int myRank = placeGroup.rank(here);
+//        System.out.print(here + "-rank" + myRank + ":");
+//        for (final int s : sendSize) {
+//            System.out.print(s + " ");
+//        }
+//        System.out.println();
+
         // Prepare the arrays for receiving the information
         final int[] rcvOffset = new int[placeGroup.size()];
         final int[] rcvSize = new int[placeGroup.size()];
 
-        // Make the MPI calls
-        final byte[] buf = CollectiveRelocator.exchangeBytesWithinGroup(placeGroup, out.toByteArray(), sendOffset,
+        // Make the MPI call
+        final ByteBuffer buf = CollectiveRelocator.exchangeBytesWithinGroup(placeGroup, out.toByteArray(), sendOffset,
                 sendSize, rcvOffset, rcvSize);
 
         // Deserialize the objects received from the various hosts
@@ -103,17 +112,18 @@ public final class CollectiveMoveManager implements MoveManager {
     }
 
     @SuppressWarnings("unchecked")
-    private void executeDeserialization(byte[] buf, int[] rcvOffset, int[] rcvSize) throws Exception {
-        int current = 0;
-        for (final Place p : placeGroup.places()) {
-            final int size = rcvSize[current];
-            final int offset = rcvOffset[current];
-            current++;
+    private void executeDeserialization(ByteBuffer buf, int[] rcvOffset, int[] rcvSize) throws Exception {
+        for (int i = 0; i < placeGroup.size(); i++) {
+            final Place p = placeGroup.get(i);
             if (p.equals(here())) {
                 continue;
             }
 
-            final ByteArrayInputStream in = new ByteArrayInputStream(buf, offset, size);
+            final int size = rcvSize[i];
+            final byte[] arrayFromPlace = new byte[size];
+            buf.get(arrayFromPlace);
+
+            final ByteArrayInputStream in = new ByteArrayInputStream(arrayFromPlace);
             final ObjectInput ds = new ObjectInput(in, references);
             final List<DeSerializer> deserializerList = (List<DeSerializer>) ds.readObject();
             for (final DeSerializer deserialize : deserializerList) {
@@ -145,10 +155,11 @@ public final class CollectiveMoveManager implements MoveManager {
     private void executeSerialization(ByteArrayOutputStream out, int[] offsets, int[] sizes) throws IOException {
         for (int i = 0; i < placeGroup.size(); i++) {
             final Place place = placeGroup.get(i);
+            offsets[i] = out.size();
             if (place.equals(here())) {
                 continue;
             }
-            offsets[i] = out.size();
+
             // TODO should reopen ByteArray...
             if (DEBUG) {
                 System.err.println("execSeri: " + here() + "->" + place + ":start:" + out.size());

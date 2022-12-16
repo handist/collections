@@ -16,6 +16,7 @@ import static apgas.ExtendedConstructs.*;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import apgas.Place;
@@ -24,6 +25,7 @@ import apgas.impl.Finish;
 import handist.collections.dist.MoveManager;
 import handist.collections.dist.OneSidedMoveManager;
 import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.dist.util.BufferFactory;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
@@ -108,8 +110,11 @@ class CustomOneSidedMoveManager extends OneSidedMoveManager {
 
         asyncArbitraryFinish(destination, () -> {
             // Receive the array of bytes
-            TeamedPlaceGroup.getWorld().comm.recv(new byte[nbOfBytes], nbOfBytes, MPI.BYTE, myRank, tag);
-            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);
+            final ByteBuffer buffer = BufferFactory.getByteBuffer(nbOfBytes); // MPI.newByteBuffer(nbOfBytes);
+            TeamedPlaceGroup.getWorld().comm.recv(buffer, nbOfBytes, MPI.BYTE, myRank, tag);
+            final byte[] bytesReceived = new byte[nbOfBytes];
+            buffer.get(bytesReceived);
+            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesReceived);
             final ObjectInput oInput = new ObjectInput(inStream);
 
             // The first object to come out of the byte array is a list of deserializers
@@ -122,6 +127,7 @@ class CustomOneSidedMoveManager extends OneSidedMoveManager {
             }
             oInput.close();
 
+            BufferFactory.returnByteBuffer(buffer);
             // Reception is over, launch the job that was given as parameter
             j.run();
         }, finishs);

@@ -13,11 +13,13 @@ package handist.collections.dist;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.List;
 
 import apgas.Constructs;
 import apgas.Place;
+import handist.collections.dist.util.BufferFactory;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
@@ -61,23 +63,16 @@ public class CollectiveRelocator {
             }
             final byte[] buf = out0.toByteArray();
             final int size = buf.length;
-            final int[] tmpCounts = new int[1];
-            tmpCounts[0] = size;
-            final int[] recvCounts = new int[numPlaces];
-            final int[] recvDispls = new int[numPlaces];
-            try {
-                pg.comm.allGather(tmpCounts, 1, MPI.INT, recvCounts, 1, MPI.INT);
-            } catch (final MPIException e) {
-                e.printStackTrace();
-                throw new Error("[CollectiveRelocator] MPIException");
-            }
 
+            // Prepare the reception buffer / index reception
+            final int[] recvCounts = pg.allGather1(size);
+            final int[] recvDispls = new int[numPlaces];
             int total = 0;
             for (int i = 0; i < recvCounts.length; i++) {
                 recvDispls[i] = total;
                 total += recvCounts[i];
             }
-            final byte[] rbuf = new byte[total];
+            final ByteBuffer rbuf = BufferFactory.getByteBuffer(total); // MPI.newByteBuffer(total);
             try {
                 pg.comm.allGatherv(buf, size, MPI.BYTE, rbuf, recvCounts, recvDispls, MPI.BYTE);
             } catch (final MPIException e) {
@@ -85,15 +80,18 @@ public class CollectiveRelocator {
                 throw new Error("[CollectiveRelocator] MPIException");
             }
 
-            for (int i = 0; i < recvCounts.length; i++) {
-                if (Constructs.here().equals(pg.get(i))) {
+            for (int i = 0; i < pg.size(); i++) {
+                final Place provenance = pg.get(i);
+                final byte[] bytesFromProcess = new byte[recvCounts[i]];
+                rbuf.get(bytesFromProcess);
+                if (Constructs.here().equals(provenance)) {
                     continue;
                 }
-                final ByteArrayInputStream in0 = new ByteArrayInputStream(rbuf, recvDispls[i], recvCounts[i]);
+                final ByteArrayInputStream in0 = new ByteArrayInputStream(bytesFromProcess);
                 final ObjectInput in = new ObjectInput(in0);
                 try {
                     for (final DeSerializerUsingPlace deser : desers) {
-                        deser.accept(in, pg.get(i));
+                        deser.accept(in, provenance);
                     }
                 } catch (final Exception e) {
                     e.printStackTrace();
@@ -102,6 +100,7 @@ public class CollectiveRelocator {
                     in.close();
                 }
             }
+            BufferFactory.returnByteBuffer(rbuf);
         }
 
         Allgather request(Serializer ser, DeSerializerUsingPlace deser) {
@@ -123,7 +122,7 @@ public class CollectiveRelocator {
         }
 
         void execute() {
-            final int[] tmpBuf = new int[1];
+            int size;
             if (Constructs.here().equals(root)) {
                 final ByteArrayOutputStream out0 = new ByteArrayOutputStream();
                 final ObjectOutput out = new ObjectOutput(out0);
@@ -137,30 +136,33 @@ public class CollectiveRelocator {
                 } finally {
                     out.close();
                 }
-                tmpBuf[0] = out0.size();
-                try {
-                    pg.comm.bcast(tmpBuf, 1, MPI.INT, pg.rank(root));
-                } catch (final MPIException e) {
-                    throw new RuntimeException(e);
-                }
+
+                // Inform other processes of the number of incoming bytes
+                size = out0.size();
+                pg.bCast1(size, root);
+
+                // Broadcast the bytes
                 try {
                     pg.comm.bcast(out0.toByteArray(), out0.size(), MPI.BYTE, pg.rank(root));
                 } catch (final MPIException e) {
                     throw new RuntimeException(e);
                 }
             } else {
+                // Get the number of bytes to receive
+                size = pg.bCast1(0, root);
+
+                // Prepare a buffer of the appropriate size
+                final ByteBuffer buf = BufferFactory.getByteBuffer(size); // MPI.newByteBuffer(size);
                 try {
-                    pg.comm.bcast(tmpBuf, 1, MPI.INT, pg.rank(root));
+                    pg.comm.bcast(buf, size, MPI.BYTE, pg.rank(root));
                 } catch (final MPIException e) {
                     throw new RuntimeException(e);
                 }
-                final byte[] buf = new byte[tmpBuf[0]];
-                try {
-                    pg.comm.bcast(buf, buf.length, MPI.BYTE, pg.rank(root));
-                } catch (final MPIException e) {
-                    throw new RuntimeException(e);
-                }
-                final ObjectInput in = new ObjectInput(new ByteArrayInputStream(buf));
+
+                // Deserialize the received bytes
+                final byte[] byteArray = new byte[size];
+                buf.get(byteArray);
+                final ObjectInput in = new ObjectInput(new ByteArrayInputStream(byteArray));
                 try {
                     for (final DeSerializer des : desers) {
                         des.accept(in);
@@ -171,6 +173,7 @@ public class CollectiveRelocator {
                 } finally {
                     in.close();
                 }
+                BufferFactory.returnByteBuffer(buf);
             }
         }
 
@@ -194,61 +197,75 @@ public class CollectiveRelocator {
 
         void execute() {
             final int numPlaces = pg.size();
-            final ByteArrayOutputStream out0 = new ByteArrayOutputStream();
-            final ObjectOutput out = new ObjectOutput(out0);
-            try {
-                for (final Serializer ser : sers) {
-                    ser.accept(out);
-                }
-            } catch (final IOException exp) {
-                throw new Error("This should not occur!.");
-            } finally {
-                out.close();
-            }
-            final byte[] buf = out0.toByteArray();
-            final int size = buf.length;
-            final int[] tmpCounts = new int[1];
-            tmpCounts[0] = size;
-            final int[] recvCounts = new int[numPlaces];
-            final int[] recvDispls = new int[numPlaces];
-            try {
-                pg.comm.gather(tmpCounts, 1, MPI.INT, recvCounts, 1, MPI.INT, pg.rank(root));
-            } catch (final MPIException e) {
-                e.printStackTrace();
-                throw new Error("[CollectiveRelocator] MPIException");
-            }
 
-            int total = 0;
-            for (int i = 0; i < recvCounts.length; i++) {
-                recvDispls[i] = total;
-                total += recvCounts[i];
-            }
-            final byte[] rbuf = Constructs.here().equals(root) ? new byte[total] : null;
-            try {
-                pg.comm.gatherv(buf, size, MPI.BYTE, rbuf, recvCounts, recvDispls, MPI.BYTE, pg.rank(root));
-            } catch (final MPIException e) {
-                e.printStackTrace();
-                throw new Error("[CollectiveRelocator] MPIException");
-            }
+            // Preparing the sub-index array to set the index at which bytes are received
+            int[] recvDispls = null;
 
-            if (!Constructs.here().equals(root)) {
-                return;
-            }
-            for (int i = 0; i < recvCounts.length; i++) {
-                if (Constructs.here().equals(pg.get(i))) {
-                    continue;
+            if (Constructs.here().equals(root)) {
+                final int[] recvCounts = pg.gather1(0, root);
+                recvDispls = new int[numPlaces];
+                int total = 0;
+                for (int i = 0; i < recvCounts.length; i++) {
+                    recvDispls[i] = total;
+                    total += recvCounts[i];
                 }
-                final ByteArrayInputStream in0 = new ByteArrayInputStream(rbuf, recvDispls[i], recvCounts[i]);
-                final ObjectInput in = new ObjectInput(in0);
+                // Receive bytes
+                final ByteBuffer rbuf = BufferFactory.getByteBuffer(total); // MPI.newByteBuffer(total);
                 try {
-                    for (final DeSerializerUsingPlace deser : desers) {
-                        deser.accept(in, pg.get(i));
+                    pg.comm.gatherv(rbuf, recvCounts, recvDispls, MPI.BYTE, pg.rank(root));
+                } catch (final MPIException e1) {
+                    e1.printStackTrace();
+                    throw new Error("[CollectiveRelocator] DeSerialize error raised.");
+                }
+
+                // If on root, proceed to deserialize the received bytes
+                for (int i = 0; i < recvCounts.length; i++) {
+                    final Place sender = pg.get(i);
+                    if (sender.equals(root)) {
+                        continue;
                     }
-                } catch (final Exception e) {
+                    // Initialize array for bytes received
+                    final byte[] bytesFromPlace = new byte[recvCounts[i]];
+                    // Obtain the bytes from the buffer
+                    rbuf.get(bytesFromPlace);
+
+                    // Re-create all the object from the received bytes
+                    final ByteArrayInputStream in0 = new ByteArrayInputStream(bytesFromPlace);
+                    final ObjectInput in = new ObjectInput(in0);
+                    try {
+                        for (final DeSerializerUsingPlace deser : desers) {
+                            deser.accept(in, sender);
+                        }
+                    } catch (final Exception e) {
+                        e.printStackTrace();
+                        throw new Error("[CollectiveRelocator] DeSerialize error raised.");
+                    } finally {
+                        in.close();
+                    }
+                }
+                BufferFactory.returnByteBuffer(rbuf);
+            } else {
+                final ByteArrayOutputStream out0 = new ByteArrayOutputStream();
+                final ObjectOutput out = new ObjectOutput(out0);
+                try {
+                    for (final Serializer ser : sers) {
+                        ser.accept(out);
+                    }
+                } catch (final IOException exp) {
+                    throw new Error("This should not occur!.");
+                } finally {
+                    out.close();
+                }
+                final byte[] buf = out0.toByteArray();
+
+                // Exchanging the number of bytes to receive
+                final int size = buf.length;
+                pg.gather1(size, root);
+                try {
+                    pg.comm.gatherv(buf, size, MPI.BYTE, pg.rank(root));
+                } catch (final MPIException e) {
                     e.printStackTrace();
                     throw new Error("[CollectiveRelocator] DeSerialize error raised.");
-                } finally {
-                    in.close();
                 }
             }
         }
@@ -289,7 +306,7 @@ public class CollectiveRelocator {
      * @return an array containing the bytes received from every place
      * @throws MPIException
      */
-    static byte[] exchangeBytesWithinGroup(TeamedPlaceGroup placeGroup, byte[] byteArray, int[] sendOffset,
+    static ByteBuffer exchangeBytesWithinGroup(TeamedPlaceGroup placeGroup, byte[] byteArray, int[] sendOffset,
             int[] sendSize, int[] rcvOffset, int[] rcvSize) throws MPIException {
         placeGroup.comm.allToAll(sendSize, 1, MPI.INT, rcvSize, 1, MPI.INT);
         if (DEBUG) {
@@ -308,11 +325,12 @@ public class CollectiveRelocator {
         }
 
         // Initialize a reception array of the adequate size
-        final byte[] recvbuf = new byte[current];
+        final ByteBuffer recvbuf = BufferFactory.getByteBuffer(current);// MPI.newByteBuffer(current);
 
         // Do the transfer
-        placeGroup.Alltoallv(byteArray, sendSize, sendOffset, MPI.BYTE, recvbuf, rcvSize, rcvOffset, MPI.BYTE);
+        placeGroup.comm.allToAllv(byteArray, sendSize, sendOffset, MPI.BYTE, recvbuf, rcvSize, rcvOffset, MPI.BYTE);
 
+        BufferFactory.returnByteBuffer(recvbuf);
         // Return the initialized receiver array which now contains the received bytes.
         return recvbuf;
     }

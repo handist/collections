@@ -15,10 +15,12 @@ import static apgas.Constructs.*;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
 import apgas.Place;
+import handist.collections.dist.util.BufferFactory;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import handist.collections.function.DeSerializer;
@@ -100,8 +102,11 @@ public class OneSidedMoveManager implements MoveManager {
 
         asyncAt(destination, () -> {
             // Receive the array of bytes
-            TeamedPlaceGroup.world.comm.recv(new byte[nbOfBytes], nbOfBytes, MPI.BYTE, myRank, tag);
-            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);
+            final ByteBuffer buffer = BufferFactory.getByteBuffer(nbOfBytes); // MPI.newByteBuffer(nbOfBytes);
+            TeamedPlaceGroup.world.comm.recv(buffer, nbOfBytes, MPI.BYTE, myRank, tag);
+            final byte[] bytesReceived = new byte[nbOfBytes];
+            buffer.get(bytesReceived);
+            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesReceived);
             final ObjectInput oInput = new ObjectInput(inStream);
 
             // The first object to come out of the byte array is a list of deserializers
@@ -113,6 +118,7 @@ public class OneSidedMoveManager implements MoveManager {
                 deserializer.accept(oInput);
             }
             oInput.close();
+            BufferFactory.returnByteBuffer(buffer);
         });
 
         async(() -> TeamedPlaceGroup.world.comm.send(bytesToSend, nbOfBytes, MPI.BYTE, destinationRank, tag));
@@ -170,8 +176,11 @@ public class OneSidedMoveManager implements MoveManager {
 
         at(destination, () -> {
             // Receive the array of bytes
-            TeamedPlaceGroup.world.comm.recv(new byte[nbOfBytes], nbOfBytes, MPI.BYTE, myRank, tag);
-            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesToSend);
+            final ByteBuffer buffer = BufferFactory.getByteBuffer(nbOfBytes); // MPI.newByteBuffer(nbOfBytes);
+            TeamedPlaceGroup.world.comm.recv(buffer, nbOfBytes, MPI.BYTE, myRank, tag);
+            final byte[] bytesReceived = new byte[nbOfBytes];
+            buffer.get(bytesReceived);
+            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesReceived);
             final ObjectInput oInput = new ObjectInput(inStream);
 
             // The first object to come out of the byte array is a list of deserializers
@@ -182,6 +191,7 @@ public class OneSidedMoveManager implements MoveManager {
             for (final DeSerializer deserializer : ds) {
                 deserializer.accept(oInput);
             }
+            BufferFactory.returnByteBuffer(buffer);
             oInput.close();
         });
 

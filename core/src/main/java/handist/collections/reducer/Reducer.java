@@ -13,10 +13,13 @@ package handist.collections.reducer;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.util.concurrent.Semaphore;
 
 import apgas.Place;
 import apgas.util.GlobalID;
 import handist.collections.dist.TeamedPlaceGroup;
+import handist.collections.dist.util.BufferFactory;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import mpi.MPI;
@@ -59,6 +62,11 @@ public abstract class Reducer<R extends Reducer<R, T>, T> implements Serializabl
 
     /** Serial Version UID */
     private static final long serialVersionUID = 956660189595987110L;
+
+    transient Semaphore semaphore = new Semaphore(0);
+    transient int contribCounter = 0;
+    transient Reducer<R, T> resultTeamedReduction = null;
+    GlobalID reducerId = null;
 
     /**
      * Performs the global reduction of this instance. This method needs to be
@@ -120,7 +128,7 @@ public abstract class Reducer<R extends Reducer<R, T>, T> implements Serializabl
                     rcvOffset[i] = totalBytes; // Set the receiver offsets
                     totalBytes += rcvSize[i]; // Count the total number of bytes which this place is going to receive
                 }
-                final byte[] receiverbuffer = new byte[totalBytes];
+                final ByteBuffer receiverbuffer = BufferFactory.getByteBuffer(totalBytes); // MPI.newByteBuffer(totalBytes);
 
                 // Receive the bytes from the other hosts
                 placeGroup.comm.gatherv(localBuffer, nbBytesToSend, MPI.BYTE, receiverbuffer, rcvSize, rcvOffset,
@@ -130,13 +138,15 @@ public abstract class Reducer<R extends Reducer<R, T>, T> implements Serializabl
                 final Reducer<R, T>[] reducers = new Reducer[placeGroup.size()];
 
                 for (int i = 0; i < placeGroup.size(); i++) {
-                    final ByteArrayInputStream inStream = new ByteArrayInputStream(receiverbuffer, rcvOffset[i],
-                            rcvSize[i]);
+                    final byte[] receivedBytes = new byte[rcvSize[i]];
+                    receiverbuffer.get(receivedBytes);
+                    final ByteArrayInputStream inStream = new ByteArrayInputStream(receivedBytes);
                     final ObjectInput inObject = new ObjectInput(inStream);
 
                     reducers[i] = (Reducer<R, T>) inObject.readObject();
                     inObject.close();
                 }
+                BufferFactory.returnByteBuffer(receiverbuffer);
 
                 // 4. Apply the merge method so that everything is computed
                 for (int i = 1; i < placeGroup.size(); i++) {
@@ -186,23 +196,28 @@ public abstract class Reducer<R extends Reducer<R, T>, T> implements Serializabl
     public abstract void reduce(T input);
 
     /**
-     * This
+     * This method performs a teamed reduction in which a binaryreduction tree is
+     * manually implemented, followed by a broadcast of the resulting object to all
+     * members of the communicator.
      *
-     * @param placeGroup into which this instance is participating
+     * @param placeGroup group within which the reduction is performed
      */
     @SuppressWarnings({ "deprecation", "unchecked" })
     public R teamReduction(TeamedPlaceGroup placeGroup) {
         if (placeGroup == null) {
-            throw new IllegalStateException("This Reducer is not allowed to perform any global reduction");
+            throw new IllegalStateException("This Reducer is not allowed to perform any teamed reduction");
         }
+
+        final int myRank = placeGroup.rank();
+        final int groupSize = placeGroup.size();
+        final Place root = placeGroup.get(0);
 
         // With OpenMPI Java bindings, the Object datatype disappeared.
         // As a result, we need to:
         // 1. Serialize our object
-        // 2. Make an allgather with the obtained bytes
+        // 2. Allgather the bytes of each process's reducer instance
         // 3. Deserialize the objects
         // 4. Apply the merge function on the reducer instances coming from each host to
-        // compute the result
 
         // 1. Serialization
         final ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -223,7 +238,7 @@ public abstract class Reducer<R extends Reducer<R, T>, T> implements Serializabl
             rcvOffset[i] = totalBytes; // Set the receiver offsets
             totalBytes += rcvSize[i]; // Count the total number of bytes which this place is going to receive
         }
-        final byte[] receiverbuffer = new byte[totalBytes];
+        final ByteBuffer receiverbuffer = BufferFactory.getByteBuffer(totalBytes); // MPI.newByteBuffer(totalBytes);
 
         // Transfer all the bytes to all the hosts
         try {
@@ -237,18 +252,21 @@ public abstract class Reducer<R extends Reducer<R, T>, T> implements Serializabl
         final Reducer<R, T>[] reducers = new Reducer[placeGroup.size()];
 
         for (int i = 0; i < placeGroup.size(); i++) {
-            final ByteArrayInputStream inStream = new ByteArrayInputStream(receiverbuffer, rcvOffset[i], rcvSize[i]);
+            final byte[] bytesFromProcess = new byte[rcvSize[i]];
+            receiverbuffer.get(bytesFromProcess);
+            final ByteArrayInputStream inStream = new ByteArrayInputStream(bytesFromProcess);
             final ObjectInput inObject = new ObjectInput(inStream);
 
             reducers[i] = (Reducer<R, T>) inObject.readObject();
             inObject.close();
         }
-
+        BufferFactory.returnByteBuffer(receiverbuffer);
         // 4. Apply the merge method so that everything is computed
         for (int i = 1; i < placeGroup.size(); i++) {
             reducers[0].merge((R) reducers[i]);
         }
 
         return (R) reducers[0];
+
     }
 }
