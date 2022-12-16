@@ -13,6 +13,7 @@ package handist.collections.dist;
 import static apgas.Constructs.*;
 
 import java.io.ByteArrayInputStream;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Map;
 
@@ -51,16 +52,18 @@ public class MultiMapEntryDispatcher<K, V> extends MapEntryDispatcher<K, Collect
 
     @Override
     @SuppressWarnings("unchecked")
-    protected void executeDeserialize(byte[] buf, int[] offsets, int[] sizes) throws Exception {
-        int current = 0;
-        for (final Place p : placeGroup.places()) {
-            final int size = sizes[current];
-            final int offset = offsets[current];
-            current++;
+    protected void executeDeserialization(ByteBuffer buf, int[] offsets, int[] sizes) throws Exception {
+        for (int rank = 0; rank < placeGroup.size(); rank++) {
+            final Place p = placeGroup.get(rank);
+            final int size = sizes[rank];
             if (p.equals(here()) || size == 0) {
                 continue;
             }
-            final ObjectInput ds = new ObjectInput(new ByteArrayInputStream(buf, offset, size), false);
+
+            final byte[] arrayFromPlace = new byte[size];
+            buf.get(arrayFromPlace);
+
+            final ObjectInput ds = new ObjectInput(new ByteArrayInputStream(arrayFromPlace), false);
             final int nThreads = ds.readInt();
             for (int i = 0; i < nThreads; i++) {
                 final int count = ds.readInt();

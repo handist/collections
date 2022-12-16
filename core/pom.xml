@@ -34,7 +34,7 @@
 		<dependency>
 			<groupId>com.github.handist</groupId>
 			<artifactId>apgas</artifactId>
-			<version>v2.0.0</version>
+			<version>v2.0.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.github.handist</groupId>

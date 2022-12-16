@@ -65,8 +65,6 @@ public class TeamOperations<T, C extends DistributedCollection<T, C>> {
         final TeamedPlaceGroup pg = handle.placeGroup();
         result[0] = handle.longSize();
         try {
-            // THIS WORKS FOR MPJ-NATIVE implementation
-            // There appears to be a bug in the mpiJava implementation
             pg.comm.allGather(result, 1, MPI.LONG, result, 1, MPI.LONG);
         } catch (final MPIException e) {
             e.printStackTrace();

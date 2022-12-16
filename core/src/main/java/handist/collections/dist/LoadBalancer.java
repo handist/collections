@@ -15,6 +15,7 @@ import static apgas.Constructs.*;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -24,6 +25,7 @@ import java.util.Random;
 import java.util.function.BiFunction;
 
 import apgas.Place;
+import handist.collections.dist.util.BufferFactory;
 import handist.collections.dist.util.ObjectInput;
 import handist.collections.dist.util.ObjectOutput;
 import mpi.MPI;
@@ -251,14 +253,18 @@ abstract class LoadBalancer {
                 rdispls[i] = rused;
                 rused += rcounts[i];
             }
-            final byte[] recvbuf = new byte[rused];
-            pg.Alltoallv(sendbuf, scounts, sdispls, MPI.BYTE, recvbuf, rcounts, rdispls, MPI.BYTE);
+//            final byte[] recvbuf = new byte[rused];
+            final ByteBuffer recvbuf = BufferFactory.getByteBuffer(rused); // MPI.newByteBuffer(rused);
+
+            pg.comm.allToAllv(sendbuf, scounts, sdispls, MPI.BYTE, recvbuf, rcounts, rdispls, MPI.BYTE);
 
             for (int i = 0; i < np; i++) {
+                final byte[] bytes = new byte[rcounts[i]];
+                recvbuf.get(bytes);
                 if (rcounts[i] == 0) {
                     continue;
                 }
-                final ByteArrayInputStream in = new ByteArrayInputStream(recvbuf, rdispls[i], rcounts[i]);
+                final ByteArrayInputStream in = new ByteArrayInputStream(bytes);
                 final ObjectInput ds = new ObjectInput(in);
                 final int count = ds.readInt();
                 assert (getCount.apply(i, myRole) == count);
@@ -267,6 +273,7 @@ abstract class LoadBalancer {
                 }
                 ds.close();
             }
+            BufferFactory.returnByteBuffer(recvbuf);
         } catch (final Exception e) {
             e.printStackTrace(System.err);
             throw new Error("Exception during LoadBalance Relocation.");

@@ -17,7 +17,6 @@ import java.util.SortedMap;
 import apgas.Place;
 import apgas.SerializableJob;
 import apgas.util.GlobalID;
-import mpi.Datatype;
 
 /**
  * SinglePlaceGroup is a place group consisting of a single place.
@@ -37,11 +36,11 @@ public class SinglePlaceGroup extends TeamedPlaceGroup {
         super();
     }
 
-    @Override
-    public void Alltoallv(Object byteArray, int[] sendSize, int[] sendOffset, Datatype stype, Object recvbuf,
-            int[] rcvSize, int[] rcvOffset, Datatype rtype) {
-        /* do nothing */
-    }
+//    @Override
+//    public void Alltoallv(Object byteArray, int[] sendSize, int[] sendOffset, Datatype stype, Object recvbuf,
+//            int[] rcvSize, int[] rcvOffset, Datatype rtype) {
+//        /* do nothing */
+//    }
 
     @Override
     public void barrier() {

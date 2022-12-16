@@ -28,7 +28,6 @@ import apgas.SerializableJob;
 import apgas.impl.Finish;
 import handist.collections.dist.DistLog;
 import handist.collections.dist.DistributedCollection;
-import handist.collections.dist.TeamedPlaceGroup;
 import handist.collections.glb.GlbOperation.OperationCompletionManagedBlocker;
 import handist.collections.glb.GlbOperation.State;
 
@@ -54,7 +53,7 @@ public class GlobalLoadBalancer {
     public static final String LOGKEY_WORKER = "glb_worker";
 
     /**
-     * Message used to record the number of workers initalized on a host
+     * Message used to record the number of workers initialized on a host
      */
     public static final String LOG_INITIALIZED_WORKERS = "WorkerInitialized";
 
@@ -85,7 +84,7 @@ public class GlobalLoadBalancer {
     public static final String LOG_WORKER_RESUMED = "Worker resumed";
 
     /**
-     * Message used to record that a started yielding so that other activites may
+     * Message used to record that a started yielding so that other activities may
      * run on the host
      */
     public static final String LOG_WORKER_YIELDING = "Worker yielding";
@@ -126,19 +125,6 @@ public class GlobalLoadBalancer {
     }
 
     /**
-     * Triggers the erasure of all tracking information on every host.
-     * <p>
-     * Experimental. Can only be called safely if there are no ongoing GLB
-     * computation.
-     */
-    public static void reset() {
-        TeamedPlaceGroup.getWorld().broadcastFlat(() -> {
-            final GlbComputer computer = GlbComputer.getComputer();
-            computer.reserve.reset();
-        });
-    }
-
-    /**
      * Helper method used to launch the computations staged into the global load
      * balancer. Is non-blocking and allows progress within the
      * {@link #underGLB(SerializableJob)} method to continue after this method is
@@ -155,21 +141,6 @@ public class GlobalLoadBalancer {
      */
     public static void start() {
         glb.startComputation();
-//        synchronized (glb) { // Synchronize on the GlobalLoadBalancer singleton
-//
-//            while (!glb.operationsStaged.isEmpty()) {
-//                final GlbOperation<?, ?, ?, ?, ?, ?> op = glb.operationsStaged.poll();
-//                boolean needsToBeLaunched;
-//                synchronized (op) {
-//                    op.state = GlbOperation.State.RUNNING;
-//                    needsToBeLaunched = !op.hasDependencies();
-//                }
-//
-//                if (needsToBeLaunched) {
-//                    async(() -> op.compute());
-//                }
-//            }
-//        }
     }
 
     /**

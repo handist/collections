@@ -332,7 +332,7 @@ public class IT_DistCol2 implements Serializable {
      * information. This test specifically uses a rotation between 4 places to make
      * sure that no confusion is made between ranks and places.
      */
-    @Test
+    @Test(timeout = 2000)
     public void testDistributionSubscribed2() {
         world.broadcastFlat(() -> {
             final LongRangeDistribution lrd = new LongRangeDistribution();
@@ -364,9 +364,9 @@ public class IT_DistCol2 implements Serializable {
             distCol.updateDist();
 
             // Debug print
-            for (final LongRange lr : distCol.ranges()) {
-                System.out.println(here() + ":rank" + world.rank() + " contains " + lr);
-            }
+//            for (final LongRange lr : distCol.ranges()) {
+//                System.out.println(here() + ":rank" + world.rank() + " contains " + lr);
+//            }
 
             // Check contents of the lrd
             assertEquals(world.get(1), lrd.location(range0To100));
@@ -408,9 +408,9 @@ public class IT_DistCol2 implements Serializable {
             distCol.updateDist();
 
             // Debug print
-            for (final LongRange lr : distCol.ranges()) {
-                System.out.println(here() + ":rank" + world.rank() + " contains " + lr);
-            }
+//            for (final LongRange lr : distCol.ranges()) {
+//                System.out.println(here() + ":rank" + world.rank() + " contains " + lr);
+//            }
 
             // Check contents of the lrd
             assertEquals(place(1), lrd.location(range0To100));

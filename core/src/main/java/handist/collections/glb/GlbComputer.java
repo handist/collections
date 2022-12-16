@@ -338,8 +338,6 @@ class GlbComputer extends PlaceLocalObject {
         /**
          * Discards all tracking information kept until that point. Can only be called
          * safely if there are no ongoing GLB computation.
-         *
-         * @see GlobalLoadBalancer#reset()
          */
         public void reset() {
             allTasks.clear();
